@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="tr" data-theme="auto">
+<html lang="tr" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -11,25 +11,23 @@
 <body>
 <section id="login" class="hide">
   <form class="box" id="loginForm">
-    <h1>HSE Verim Modülü</h1>
-    <p class="muted">Devam etmek için giriş yapın.</p>
+    <div class="stripe" style="border-radius:4px;overflow:hidden;margin-bottom:18px"><i></i><i></i><i></i><i></i></div>
+    <div class="brand" style="margin-bottom:6px"><div class="logo"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8.2-7 10-4-1.8-7-5.5-7-10V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg></div>
+      <div><h1 style="font-size:20px">HSE Verim Modülü</h1><span class="muted" style="font-size:12px">Performans Takip</span></div></div>
     <label>E-posta</label><input type="email" id="em" autocomplete="username" required>
     <label>Şifre</label><input type="password" id="pw" autocomplete="current-password" minlength="6" required>
     <div class="err" id="loginErr"></div>
     <div class="row"><button type="submit">Giriş yap</button>
       <button type="button" class="sec" id="btnReset">Şifremi unuttum</button></div>
-    <p class="muted" style="font-size:12px;margin-bottom:0">Hesap yönetici tarafından oluşturulur.</p>
   </form>
 </section>
 <div id="app" class="hide">
-  <nav id="nav"></nav>
-  <main>
-    <div class="top">
-      <select id="selFactory" aria-label="Fabrika"></select>
-      <select id="selYear" aria-label="Yıl"></select>
-    </div>
-    <div id="view"></div>
-  </main>
+  <div id="mbar"><b style="font-family:Sora,sans-serif">HSE Verim Modülü</b><button id="menuBtn" aria-label="Menü">☰ Menü</button></div>
+  <aside id="side"><div class="stripe"><i></i><i></i><i></i><i></i></div><div class="in" id="nav"></div></aside>
+  <div class="pg">
+    <div class="ctx"><select id="selFactory" aria-label="Fabrika"></select><select id="selYear" aria-label="Yıl"></select></div>
+    <div id="view" style="display:flex;flex-direction:column;gap:22px"></div>
+  </div>
 </div>
 <div id="toast"></div>
 <script type="module" src="js/app.js"></script>

@@ -1,17 +1,28 @@
 import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js";
 import * as S from "./store.js";
-import { katsayi, ztfRamp, RISK, TOL } from "./scoring.js";
+import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow } from "./scoring.js";
 
 const VERSION = "1.0.0";
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const st = { factories: [], years: [], fid: null, year: null, page: "genel" };
 
-const PAGES = [
-  ["genel", "Genel Bakış"], ["kurulum", "Kurulum"], ["ayarlar", "Ayarlar"],
-  ["denetim", "İSG Denetim", 1], ["kaza", "İş Kazası", 1], ["konusma", "Eğitim Konuşması", 1],
-  ["isbasi", "İşbaşı Eğitim", 1], ["rapor", "Rapor", 1], ["verim", "Verim Tablosu", 1]
+const ic = d => `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+const GROUPS = [
+  ["ANA MENÜ", [
+    ["genel", "Genel Bakış", '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>'],
+    ["kurulum", "Kurulum ve Kayıtlar", '<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>'],
+    ["ayarlar", "Ayarlar", '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/>']]],
+  ["AYLIK VERİ GİRİŞİ", [
+    ["denetim", "İSG Denetim Listesi", '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9z"/><path d="M9 13l2 2 4-4"/>', 1],
+    ["kaza", "İş Kazası", '<path d="M12 3l9 16H3L12 3z"/><path d="M12 10v4M12 17h0"/>', 1],
+    ["konusma", "Eğitim Konuşması", '<path d="M3 8l9-4 9 4-9 4-9-4z"/><path d="M7 10.5V15c0 1.5 2.2 3 5 3s5-1.5 5-3v-4.5"/>', 1],
+    ["isbasi", "İşbaşı Eğitim", '<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 11l2 2 4-4"/>', 1]]],
+  ["RAPOR", [
+    ["rapor", "Raporlar ve Dışa Aktar", '<path d="M6 3h8l4 4v14H6z"/><path d="M9 17v-3M12 17v-5M15 17v-2"/>', 1],
+    ["verim", "Verim Tablosu", '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M9 5v14"/>', 1]]]
 ];
+const PAGES = GROUPS.flatMap(g => g[1]);
 
 function toast(m) { const t = $("toast"); t.textContent = m; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 2200); }
 const errMsg = e => ({
@@ -65,17 +76,20 @@ $("selYear").addEventListener("change", e => { st.year = e.target.value; S.pref.
 
 // ---------- Yönlendirme ----------
 window.addEventListener("hashchange", () => auth.currentUser && go(location.hash.slice(1)));
-function go(p) { st.page = PAGES.find(x => x[0] === p && !x[2]) ? p : "genel"; render(); }
+$("menuBtn").onclick = () => $("side").classList.toggle("open");
+function go(p) { st.page = PAGES.find(x => x[0] === p && !x[3]) ? p : "genel"; $("side").classList.remove("open"); render(); }
 function drawNav() {
-  $("nav").innerHTML = `<div class="brand">HSE Verim Modülü</div>` + PAGES.map(([k, n, soon]) =>
-    `<a href="#${k}" class="${st.page === k ? "on" : ""} ${soon ? "off" : ""}">${n}${soon ? " · yakında" : ""}</a>`).join("");
+  $("nav").innerHTML = `<div class="brand"><div class="logo"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8.2-7 10-4-1.8-7-5.5-7-10V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg></div><div><b>HSE Verim Modülü</b><small>Performans Takip</small></div></div>`
+    + GROUPS.map(([t, items]) => `<div class="grp"><div class="t">${t}</div>` + items.map(([k, n, d, soon]) =>
+      `<a href="#${k}" class="${st.page === k ? "on" : ""} ${soon ? "soon" : ""}">${ic(d)}${n}${soon ? ' <small style="margin-left:auto;font-size:10px">yakında</small>' : ""}</a>`).join("") + `</div>`).join("")
+    + `<div class="goal"><b>Hedef: Sıfır Zarar</b><span>Güvenli çalış. Ölç. Geliştir.</span><div class="dots"><i style="background:#17A06F"></i><i style="background:#2A82C4"></i><i style="background:#F5B700"></i><i style="background:#D6382E"></i></div></div>`;
 }
 async function render() {
   drawNav();
   const v = $("view");
   if (st.page === "ayarlar") return pageAyarlar(v);
   if (!st.fid || !st.year) {
-    v.innerHTML = `<div class="card"><h2>Başlayalım</h2><p class="muted">Önce bir fabrika ve yıl oluşturun.</p><a href="#ayarlar"><button>Ayarlar'a git</button></a></div>`;
+    v.innerHTML = `<div class="cd"><h2>Başlayalım</h2><p class="sub">Önce Ayarlar'dan bir fabrika ve yıl oluşturun.</p><div><a href="#ayarlar"><button>Ayarlar'a git</button></a></div></div>`;
     return;
   }
   if (st.page === "kurulum") return pageKurulum(v);
@@ -84,69 +98,144 @@ async function render() {
 
 // ---------- Genel Bakış ----------
 async function pageGenel(v) {
-  const deps = await S.listDepartments(st.fid, st.year);
+  const setup = await S.getSetup(st.fid, st.year);
   const fname = st.factories.find(f => f.id === st.fid)?.name;
-  v.innerHTML = `<div class="card"><h2>${esc(fname)} · ${st.year}</h2>
-    <p class="muted">${deps.length} bölüm kayıtlı. Aylık veri girişi ve verim hesapları sonraki adımlarda eklenecek.</p></div>
-    <div class="card scroll"><table><tr><th>Bölüm</th><th>Çalışan</th><th>Risk</th><th>Bölüm katsayısı</th><th>ZTF (ramp)</th></tr>
-    ${deps.map(d => `<tr><td>${esc(d.name)}</td><td>${d.emp}</td><td>${d.risk}</td><td>${katsayi(d)}</td><td>%${Math.round(ztfRamp(d) * 100)}</td></tr>`).join("")
-      || `<tr><td colspan="5" class="muted">Kurulum sayfasından bölüm ekleyin.</td></tr>`}</table></div>`;
+  const p = setup?.params || DEFAULT_PARAMS;
+  v.innerHTML = `<div><h1 class="ttl">Genel Bakış</h1><div class="sub">${esc(fname)} · ${st.year}</div></div>` + (!setup
+    ? `<div class="cd"><h2>Kurulum bekleniyor</h2><p class="sub">Bu yıl için henüz bölüm kaydı yok.</p><div><a href="#kurulum"><button>Kurulum ve Kayıtlar'a git</button></a></div></div>`
+    : `<div class="cd"><h2>Bölümler</h2><p class="sub">Aylık veri girişi ve verim grafikleri sonraki adımlarda eklenecek.</p>
+      <div class="tbl"><table class="t"><tr><th>Bölüm</th><th>Çalışan</th><th>Risk</th><th>ZTF (ramp)</th><th>Bölüm katsayısı</th></tr>
+      ${setup.rows.map(r => `<tr><td>${esc(r.name)}</td><td>${esc(r.n)}</td><td>${r.risk}</td><td>${c2(ztfRamp(r, p))}</td><td>${c2(katsayi(r))}</td></tr>`).join("")}</table></div></div>`);
 }
 
-// ---------- Kurulum: bölüm kaydı ----------
+// ---------- Kurulum ve Kayıtlar ----------
+const HELP = {
+  ad: ["Bölüm adı", "Bölümün tüm sayfalarda, grafiklerde ve raporlarda görünen adı.", []],
+  calisan: ["Çalışan sayısı", "Bölümün ortalama çalışan sayısı. Sayı, bölüm katsayısına aşağıdaki gibi etki eder.",
+    [["0-5", "katsayı 0,05"], ["6-10", "katsayı 0,10"], ["11-15", "katsayı 0,15"], ["16-20", "katsayı 0,20"], ["21-25", "katsayı 0,25"], ["26+", "katsayı 0,30"]]],
+  risk: ["Risk skoru (5×5)", "Bölümün 5×5 risk matrisine göre skor aralığı. Seçilen aralık risk seviyesini ve bölüm katsayısına etkisini belirler.",
+    [["0-3", "Çok Düşük · 0,05"], ["4-6", "Düşük · 0,10"], ["8-12", "Orta · 0,15"], ["15-16", "Yüksek · 0,20"], ["20-25", "Çok Yüksek · 0,25"]]],
+  tc: ["Turnover / Kalıcılık (TC)", "Personelin bölümde kalıcılık sürecini ifade eder. Tahmin etmeyin; gerçek kayda göre seçin. 1 değerine yakınlık kalıcı kadroyu, 0'a yakınlık yüksek devri gösterir.",
+    [["1,0", "personel 3+ ay kalıcı"], ["0,6", "1-3 ay içinde ayrıldı"], ["0,2", "ilk 1 ayda ayrıldı"]]],
+  ramp: ["Hızlı artış (Ramp)", "Çalışma sezonuna göre bölüm içindeki çalışan sayısı artış hızını ifade eder. Seçilen düzey, ZTF değerine tolerans olarak eklenir.",
+    [["Düşük", "tolerans 0"], ["Orta", "tolerans +0,05"], ["Yüksek", "tolerans +0,10"]]],
+  ztf: ["ZTF · Eğitim zamanlama", "İşe başlama eğitimlerinin planlanan günde verilmesini ifade eder. Eğitim geciktikçe her gün için eğitim performansında kayıp oluşur.",
+    [["1,0", "1-5 iş günü"], ["0,8", "6. gün"], ["0,6", "7. gün"], ["0,4", "8. gün"], ["0,2", "9. gün"], ["0", "10+ gün veya eğitim verilmedi"]]],
+  ztfr: ["ZTF (ramp toleranslı) · hesaplanan", "ZTF değerine ramp toleransı eklenerek bulunur, en fazla 1,0 olur. Elle girilmez.", [["Formül", "min(1; ZTF + ramp toleransı)"]]],
+  kat: ["Bölüm katsayısı · hesaplanan", "Çalışan sayısı ve risk skoruna göre bulunur. İSG denetim cezası bu katsayıyla çarpılır. Elle girilmez.", [["Formül", "1 + (çalışan katsayısı − 0,05) + (risk katsayısı − 0,05)"]]]
+};
+const HEADS = [["ad", "Bölüm adı"], ["calisan", "Çalışan sayısı"], ["risk", "Risk skoru (5×5)"], ["tc", "Turnover (TC)"], ["ramp", "Ramp düzeyi"], ["ztf", "ZTF"], ["ztfr", "ZTF (ramp toleranslı)"], ["kat", "Bölüm katsayısı"]];
+const OPT = {
+  risk: [["0-3", "0-3"], ["4-6", "4-6"], ["8-12", "8-12"], ["15-16", "15-16"], ["20-25", "20-25"]],
+  tc: [["1,0", "1,0 · 3+ ay"], ["0,6", "0,6 · 1-3 ay"], ["0,2", "0,2 · ilk ay"]],
+  ramp: [["Düşük", "Düşük"], ["Orta", "Orta"], ["Yüksek", "Yüksek"]],
+  ztf: [["1,0", "1,0 · 1-5 gün"], ["0,8", "0,8 · 6. gün"], ["0,6", "0,6 · 7. gün"], ["0,4", "0,4 · 8. gün"], ["0,2", "0,2 · 9. gün"], ["0", "0 · 10+ gün"]]
+};
+const K = { key: "", rows: [], params: null, help: null, dirty: false };
+const sel = (cls, opts, val, label) => `<select class="${cls}" aria-label="${label}">${opts.map(([v, t]) => `<option value="${v}" ${v === val ? "selected" : ""}>${t}</option>`).join("")}</select>`;
+
 async function pageKurulum(v) {
-  const deps = await S.listDepartments(st.fid, st.year);
-  const opt = (o, sel) => Object.keys(o).map(k => `<option ${k === sel ? "selected" : ""}>${k}</option>`).join("");
-  const row = d => `<tr data-id="${d.id || ""}">
-    <td><input class="f-name" value="${esc(d.name)}" placeholder="Bölüm adı"></td>
-    <td><input class="f-emp" type="number" min="0" value="${d.emp ?? 0}" style="width:80px"></td>
-    <td><select class="f-risk">${opt(RISK, d.risk || "0-3")}</select></td>
-    <td><input class="f-ztf" type="number" min="0" max="100" value="${d.ztf ?? 0}" style="width:80px"></td>
-    <td><select class="f-tol">${opt(TOL, d.tol || "Düşük")}</select></td>
-    <td><input class="f-tc" type="number" min="0" max="100" value="${d.tc ?? 0}" style="width:80px"></td>
-    <td class="row"><button class="sm b-save">Kaydet</button>${d.id ? `<button class="sm danger b-del">Sil</button>` : ""}</td></tr>`;
-  v.innerHTML = `<div class="card"><h2>Bölüm Kaydı · ${st.year}</h2>
-    <p class="muted">Yüzde alanları 0–100 arası girilir. Bölüm katsayısı çalışan sayısı ve risk sınıfından hesaplanır.</p>
-    <div class="scroll"><table><tr><th>Bölüm</th><th>Çalışan</th><th>Risk</th><th>ZTF %</th><th>Ramp toleransı</th><th>TC %</th><th></th></tr>
-    ${deps.map(row).join("")}${row({})}</table></div>
-    <p><button class="sec" id="copyPrev">Önceki yıldan bölümleri kopyala</button></p></div>`;
-  v.querySelectorAll("tr[data-id]").forEach(tr => {
-    const get = () => ({ id: tr.dataset.id || undefined, name: tr.querySelector(".f-name").value.trim(),
-      emp: +tr.querySelector(".f-emp").value || 0, risk: tr.querySelector(".f-risk").value,
-      ztf: +tr.querySelector(".f-ztf").value || 0, tol: tr.querySelector(".f-tol").value, tc: +tr.querySelector(".f-tc").value || 0 });
-    tr.querySelector(".b-save").onclick = async () => {
-      const d = get(); if (!d.name) return toast("Bölüm adı gerekli");
-      try { await S.saveDepartment(st.fid, st.year, d); toast("Kaydedildi"); render(); } catch (e) { toast(e.message); }
-    };
-    const del = tr.querySelector(".b-del");
-    if (del) del.onclick = async () => { if (confirm("Bu bölüm silinsin mi?")) { await S.removeDepartment(st.fid, st.year, tr.dataset.id); render(); } };
+  const key = st.fid + "/" + st.year;
+  if (K.key !== key) {
+    const s = await S.getSetup(st.fid, st.year);
+    K.key = key; K.help = null; K.dirty = false;
+    K.rows = s?.rows?.length ? s.rows : [newRow(1)];
+    K.params = JSON.parse(JSON.stringify({ ...DEFAULT_PARAMS, ...(s?.params || {}) }));
+  }
+  drawKurulum(v);
+}
+function drawKurulum(v) {
+  const p = K.params, cur = K.help ? HELP[K.help] : null;
+  const pr = (label, path, aria, extra = "") => `<div class="pr"><span>${extra}${label}</span><input class="pi" data-p="${path}" aria-label="${aria}" value="${esc(path.split(".").reduce((o, k) => o[k], p))}"></div>`;
+  v.innerHTML = `
+  <div><h1 class="ttl">Kurulum ve Kayıtlar</h1>
+    <div class="sub">Bölümleri ve parametreleri bir kez girin. Kaydettiğinizde tablolar, hesaplamalar, grafikler ve aylık giriş sayfaları otomatik hazırlanır.</div></div>
+  <div class="steps">
+    <div><span class="n" style="background:#0B6E4F;color:#fff">1</span><span><b>Bölüm Kaydı</b><span class="muted" style="font-size:12px">Şu an burada</span></span></div>
+    <div><span class="n" style="background:var(--calc);color:var(--calct)">2</span><span><b>Parametreler</b><span class="muted" style="font-size:12px">Ağırlık ve eşikler</span></span></div>
+    <div><span class="n" style="background:#F5B700;color:#2B2000">3</span><span><b>Kaydet ve Aktifleştir</b><span class="muted" style="font-size:12px">Sistemi başlat</span></span></div>
+  </div>
+  <div class="cd">
+    <div class="row sp"><div><h2>1 · Bölüm Kaydı</h2>
+      <div class="muted" style="font-size:13px;margin-top:4px">En fazla 12 bölüm tanımlanabilir. Sütun başlıklarına tıklayarak anlamını ve değerlerin ne ifade ettiğini görün.</div></div>
+      <button class="sec" id="addRow" ${K.rows.length >= 12 ? "disabled" : ""}>+ Bölüm ekle</button></div>
+    <div class="helpbox"><div class="h">${ic('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h0"/>')}<span>${cur ? cur[0] : "Sütun açıklamaları"}</span></div>
+      <div style="line-height:1.6">${cur ? cur[1] : "Bir sütun başlığına tıklayın; anlamı ve alabileceği değerler burada görünür."}</div>
+      ${cur && cur[2].length ? `<div class="v">${cur[2].map(([k, t]) => `<div><b>${k}</b> ${t}</div>`).join("")}</div>` : ""}</div>
+    <div class="tbl"><div class="tin">
+      <div class="g"><span class="hd" style="align-self:end">Sıra</span>
+        ${HEADS.map(([k, t]) => `<button class="hb ${K.help === k ? "on" : ""}" data-h="${k}"><span>${t}</span>${ic('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h0"/>').replace('width="20" height="20"', 'width="14" height="14"')}</button>`).join("")}<span></span></div>
+      ${K.rows.map((r, i) => `<div class="g" data-i="${i}">
+        <span style="font-weight:700;color:var(--muted)">${i + 1}</span>
+        <input class="inp" data-k="name" aria-label="Bölüm adı" value="${esc(r.name)}">
+        <input class="inp" data-k="n" inputmode="numeric" aria-label="Çalışan sayısı" value="${esc(r.n)}">
+        ${sel("inp", OPT.risk, r.risk, "Risk skoru").replace("<select", '<select data-k="risk"')}
+        ${sel("inp", OPT.tc, r.tc, "Turnover, kalıcılık katsayısı (TC)").replace("<select", '<select data-k="tc"')}
+        ${sel("inp", OPT.ramp, r.ramp, "Hızlı artış, ramp düzeyi").replace("<select", '<select data-k="ramp"')}
+        ${sel("inp", OPT.ztf, r.ztf, "ZTF, eğitim zamanlama katsayısı").replace("<select", '<select data-k="ztf"')}
+        <span class="calc">${c2(ztfRamp(r, p))}</span><span class="calc">${c2(katsayi(r))}</span>
+        <button class="xb" data-del="${i}" aria-label="Bölümü sil" ${K.rows.length < 2 ? "disabled" : ""}>×</button></div>`).join("")}
+      <div class="muted" style="font-size:12px">Gri kutular hesaplanan değerlerdir, elle değiştirilemez.</div></div></div>
+  </div>
+  <div class="two">
+    <div class="cd"><h2>2 · Parametreler</h2><div class="params">
+      <div class="col"><span class="hd">MODÜL AĞIRLIKLARI (%)</span>${pr("İş Kazası", "w.kaza", "İş Kazası ağırlığı")}${pr("Eğitim Konuşması", "w.konusma", "Eğitim Konuşması ağırlığı")}${pr("İşbaşı Eğitim", "w.isbasi", "İşbaşı Eğitim ağırlığı")}${pr("İSG Denetim", "w.isg", "İSG Denetim ağırlığı")}</div>
+      <div class="col"><span class="hd">DURUM EŞİKLERİ (≥)</span>${pr("Mükemmel", "esik.m", "Mükemmel eşiği", '<i class="sw" style="background:#17A06F"></i>')}${pr("İyi", "esik.i", "İyi eşiği", '<i class="sw" style="background:#2A82C4"></i>')}${pr("Orta", "esik.o", "Orta eşiği", '<i class="sw" style="background:#F5B700"></i>')}</div>
+      <div class="col"><span class="hd">EĞİTİM</span>${pr("Hedef süre (dk/kişi/ay)", "egitim.hedef", "Hedef süre")}${pr("ZTF şiddeti (kZTF)", "egitim.kztf", "ZTF şiddeti")}${pr("TC şiddeti (kTC)", "egitim.ktc", "TC şiddeti")}<div class="muted" style="font-size:12px">1 = tam etki, 0 = etkisiz.</div></div>
+      <div class="col"><span class="hd">RAMP TOLERANSI (ZTF'YE EKLENİR)</span>${pr("Düşük", "ramp.dusuk", "Düşük ramp toleransı")}${pr("Orta", "ramp.orta", "Orta ramp toleransı")}${pr("Yüksek", "ramp.yuksek", "Yüksek ramp toleransı")}</div>
+      <div class="col"><span class="hd">İSG DENETİMİ</span>${pr("Azami sıklık puanı", "isg.azami", "Azami sıklık puanı")}${pr("Ramak kala: ayda 1", "isg.r1", "Ayda 1 bonusu")}${pr("Ramak kala: 2 haftada 1", "isg.r2", "2 haftada 1 bonusu")}${pr("Ramak kala: haftalık", "isg.r3", "Haftalık bonusu")}</div>
+    </div></div>
+    <div class="save"><h2>3 · Kaydet ve Aktifleştir</h2>
+      <ul>${["Bölüm tabloları oluşturulur", "Verim hesaplamaları bağlanır", "Genel Bakış grafikleri hazırlanır", "Aylık veri giriş sayfaları açılır"].map(t => `<li>${ic('<path d="M4 12l5 5L20 6"/>').replace('stroke="currentColor"', 'stroke="#5BD6A4"')}<span>${t}</span></li>`).join("")}</ul>
+      <div id="kerr" class="warn hide"></div>
+      <button class="go" id="saveK">Kaydet ve Sistemi Aktifleştir</button>
+      <small>Sonradan bölüm eklendiğinde veya silindiğinde tablolar ve grafikler yeniden hesaplanır.</small></div>
+  </div>`;
+  v.querySelectorAll("[data-h]").forEach(b => b.onclick = () => { K.help = K.help === b.dataset.h ? null : b.dataset.h; drawKurulum(v); });
+  v.querySelectorAll(".g[data-i]").forEach(g => g.querySelectorAll("[data-k]").forEach(el => el.onchange = () => {
+    K.rows[+g.dataset.i][el.dataset.k] = el.value; drawKurulum(v);
+  }));
+  v.querySelectorAll("[data-del]").forEach(b => b.onclick = () => { K.rows.splice(+b.dataset.del, 1); drawKurulum(v); });
+  $("addRow").onclick = () => { K.rows.push(newRow(K.rows.length + 1)); drawKurulum(v); };
+  v.querySelectorAll(".pi").forEach(el => el.onchange = () => {
+    const ks = el.dataset.p.split("."); ks.slice(0, -1).reduce((o, k) => o[k], K.params)[ks.at(-1)] = el.value.trim(); drawKurulum(v);
   });
-  $("copyPrev").onclick = async () => {
-    const prev = st.years.filter(y => y < st.year).pop();
-    if (!prev) return toast("Önceki yıl yok");
-    if (deps.length && !confirm("Mevcut bölümlere ek olarak kopyalanacak. Devam?")) return;
-    for (const d of await S.listDepartments(st.fid, prev)) { const { id, ...c } = d; await S.saveDepartment(st.fid, st.year, c); }
-    toast("Kopyalandı"); render();
+  $("saveK").onclick = async () => {
+    const errs = validateK();
+    const box = $("kerr"); box.classList.toggle("hide", !errs.length); box.innerHTML = errs.join("<br>");
+    if (errs.length) return;
+    try { await S.saveSetup(st.fid, st.year, { rows: K.rows, params: K.params }); toast("Kurulum kaydedildi"); }
+    catch (e) { toast("Kaydedilemedi: " + e.message); }
   };
+}
+function validateK() {
+  const e = [], p = K.params, names = K.rows.map(r => r.name.trim().toLowerCase());
+  if (K.rows.some(r => !r.name.trim())) e.push("Her bölümün adı olmalı.");
+  if (new Set(names).size !== names.length) e.push("Bölüm adları birbirinden farklı olmalı.");
+  if (K.rows.some(r => !(parseInt(r.n, 10) >= 0))) e.push("Çalışan sayısı sayı olmalı.");
+  const sum = Object.values(p.w).reduce((a, x) => a + num(x), 0);
+  if (Math.round(sum) !== 100) e.push(`Modül ağırlıkları toplamı 100 olmalı (şu an ${sum}).`);
+  if (!(num(p.esik.m) > num(p.esik.i) && num(p.esik.i) > num(p.esik.o))) e.push("Eşikler Mükemmel > İyi > Orta sırasında olmalı.");
+  return e;
 }
 
 // ---------- Ayarlar ----------
 function pageAyarlar(v) {
-  const theme = S.pref.get("theme") || "auto";
-  v.innerHTML = `
-  <div class="card"><h2>Hesap</h2><p>${esc(auth.currentUser.email)}</p>
-    <p class="muted">Sürüm <span class="chip">${VERSION}</span></p>
-    <button class="danger" id="out">Çıkış yap</button>
-    <p class="muted" style="font-size:13px">Bu cihazdaki oturum kapanır; veriler bulutta kalır.</p></div>
-  <div class="card"><h2>Tema</h2><select id="theme" style="max-width:220px">
-    ${[["auto", "Otomatik"], ["light", "Açık"], ["dark", "Koyu"]].map(([k, n]) => `<option value="${k}" ${k === theme ? "selected" : ""}>${n}</option>`).join("")}</select></div>
-  <div class="card"><h2>Fabrikalar</h2>
-    <table>${st.factories.map(f => `<tr><td>${esc(f.name)}</td><td class="row">
-      <button class="sm sec" data-ren="${f.id}">Yeniden adlandır</button><button class="sm danger" data-del="${f.id}">Sil</button></td></tr>`).join("")}</table>
-    <div class="row" style="margin-top:12px"><input id="nf" placeholder="Yeni fabrika adı" style="max-width:260px"><button id="addF">Fabrika ekle</button></div></div>
-  <div class="card"><h2>Yıllar</h2>
-    <p class="muted">${st.fid ? "Seçili fabrika: " + esc(st.factories.find(f => f.id === st.fid)?.name) : "Önce fabrika ekleyin."}</p>
-    <p>${st.years.map(y => `<span class="chip">${y}</span> `).join("") || "—"}</p>
+  const theme = S.pref.get("theme") || "light";
+  v.innerHTML = `<div><h1 class="ttl">Ayarlar</h1><div class="sub">Hesap, tema, fabrikalar ve yıllar.</div></div>
+  <div class="cd"><h2>Hesap</h2><div>${esc(auth.currentUser.email)}</div>
+    <div class="muted">Sürüm <span class="chip">${VERSION}</span></div>
+    <div><button class="danger" id="out">Çıkış yap</button></div>
+    <div class="muted" style="font-size:13px">Bu cihazdaki oturum kapanır; veriler bulutta kalır.</div></div>
+  <div class="cd"><h2>Tema</h2><div><select id="theme" style="max-width:220px">
+    ${[["light", "Açık"], ["dark", "Koyu"], ["auto", "Cihaza göre"]].map(([k, n]) => `<option value="${k}" ${k === theme ? "selected" : ""}>${n}</option>`).join("")}</select></div></div>
+  <div class="cd"><h2>Fabrikalar</h2>
+    <table class="t">${st.factories.map(f => `<tr><td>${esc(f.name)}</td><td><div class="row" style="justify-content:flex-end">
+      <button class="sm sec" data-ren="${f.id}">Yeniden adlandır</button><button class="sm danger" data-del="${f.id}">Sil</button></div></td></tr>`).join("")}</table>
+    <div class="row"><input id="nf" placeholder="Yeni fabrika adı" style="max-width:260px"><button id="addF">Fabrika ekle</button></div></div>
+  <div class="cd"><h2>Yıllar</h2>
+    <div class="muted">${st.fid ? "Seçili fabrika: " + esc(st.factories.find(f => f.id === st.fid)?.name) : "Önce fabrika ekleyin."}</div>
+    <div>${st.years.map(y => `<span class="chip">${y}</span> `).join("") || "—"}</div>
     <div class="row"><input id="ny" type="number" min="2020" max="2100" placeholder="Örn. 2026" style="max-width:140px"><button id="addY" ${st.fid ? "" : "disabled"}>Yıl ekle</button></div></div>`;
   $("out").onclick = () => signOut(auth);
   $("theme").onchange = e => { S.pref.set("theme", e.target.value); applyTheme(); };
@@ -165,5 +254,5 @@ function pageAyarlar(v) {
     await S.addYear(st.fid, y); S.pref.set("year", y); await loadYears(); toast("Yıl eklendi"); render();
   };
 }
-function applyTheme() { document.documentElement.dataset.theme = S.pref.get("theme") || "auto"; }
+function applyTheme() { document.documentElement.dataset.theme = S.pref.get("theme") || "light"; }
 applyTheme();

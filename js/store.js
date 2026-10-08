@@ -1,5 +1,5 @@
 // Veri katmanı: users/{uid}/factories/{fid}/years/{yıl}/departments/{did}
-import { auth, db, collection, doc, getDocs, setDoc, addDoc, deleteDoc, updateDoc, query, orderBy, serverTimestamp } from "./firebase.js";
+import { auth, db, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, updateDoc, query, orderBy, serverTimestamp } from "./firebase.js";
 
 const uid = () => auth.currentUser.uid;
 const base = () => `users/${uid()}`;
@@ -23,17 +23,10 @@ export async function addYear(fid, year) {
   await setDoc(doc(db, `${base()}/factories/${fid}/years/${year}`), { year: Number(year), createdAt: serverTimestamp() });
 }
 
-const depPath = (fid, y) => `${base()}/factories/${fid}/years/${y}/departments`;
-export async function listDepartments(fid, y) {
-  const s = await getDocs(query(collection(db, depPath(fid, y)), orderBy("name")));
-  return s.docs.map(d => ({ id: d.id, ...d.data() }));
-}
-export async function saveDepartment(fid, y, dep) {
-  const { id, ...data } = dep;
-  if (id) await setDoc(doc(db, `${depPath(fid, y)}/${id}`), data, { merge: true });
-  else await addDoc(collection(db, depPath(fid, y)), data);
-}
-export async function removeDepartment(fid, y, id) { await deleteDoc(doc(db, `${depPath(fid, y)}/${id}`)); }
+// Kurulum (bölümler + parametreler) tek belgede: .../years/{yıl}/setup/main
+const setupRef = (fid, y) => doc(db, `${base()}/factories/${fid}/years/${y}/setup/main`);
+export async function getSetup(fid, y) { const d = await getDoc(setupRef(fid, y)); return d.exists() ? d.data() : null; }
+export async function saveSetup(fid, y, data) { await setDoc(setupRef(fid, y), { ...data, updatedAt: serverTimestamp() }); }
 
 // Seçili fabrika/yıl bu cihazda hatırlanır
 export const pref = {
