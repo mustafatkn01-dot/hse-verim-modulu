@@ -1,5 +1,5 @@
 // Ortak PDF yardımcıları: kâğıt boyutu (A4/A3) + sayfa düzeni (dikey/yatay) penceresi
-import { esc } from "./ui.js?v=20261010b";
+import { esc } from "./ui.js?v=20261010c";
 
 export function askFormat({ title = "PDF indir", text = "", defOrient = "portrait", hint = "" } = {}) {
   return new Promise(res => {
@@ -84,7 +84,7 @@ export async function saveReportPdf(v, { size, orient, name }) {
   document.body.appendChild(box);
   try {
     const top0 = box.getBoundingClientRect().top;
-    const breaks = [...box.children].map(c => c.getBoundingClientRect().top - top0).filter(t => t > 0);
+    const breaks = [...box.children, ...box.querySelectorAll("[data-brk]")].map(c => c.getBoundingClientRect().top - top0).filter(t => t > 0);
     await savePdf(box, { size, orient, name, margin: M * 0.75 * (size === "A3" ? 1.4142 : 1), scale: size === "A3" ? 3 : 2.5, breaks });
   } finally { box.remove(); }
 }

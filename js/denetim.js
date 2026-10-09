@@ -1,8 +1,8 @@
 // İSG Denetim Listesi sayfası
-import * as S from "./store.js?v=20261010b";
-import { esc, ic, toast, noteEditor } from "./ui.js?v=20261010b";
-import { CATS } from "./isgcats.js?v=20261010b";
-import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261010b";
+import * as S from "./store.js?v=20261010c";
+import { esc, ic, toast, noteEditor, compressImage, showPhoto } from "./ui.js?v=20261010c";
+import { CATS } from "./isgcats.js?v=20261010c";
+import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261010c";
 
 const COLL = "isg";
 const D = { key: "", setup: null, doc: null, dept: null, month: null, open: { 0: true }, ro: false, timer: null, saved: true, msg: "" };
@@ -19,7 +19,7 @@ function defaultMonth(year) { const n = new Date(); return +year === n.getFullYe
 function defaultDate(year, month) { const n = new Date(); return (+year === n.getFullYear() && month === n.getMonth() + 1) ? iso(n) : `${year}-${pad(month)}-01`; }
 const blank = (year, month, auditor) => ({ sessions: [], draft: { marks: {}, notes: {}, ydNotes: {}, date: defaultDate(year, month) }, freq: {}, bonus: 0, auditor: auditor || "" });
 
-const emptyDraft = (date, on) => ({ marks: {}, notes: {}, ydNotes: {}, date, on, edit: null });
+const emptyDraft = (date, on) => ({ marks: {}, notes: {}, ydNotes: {}, photos: {}, date, on, edit: null });
 // Denetim durumu: açık (devam eden) denetim varsa form onu düzenler; hepsi tamamlandıysa yeni denetim yalnızca kullanıcı isteyince başlar
 function settle(doc, year, month) {
   const ss = doc.sessions, dr = doc.draft;
@@ -38,7 +38,7 @@ function settle(doc, year, month) {
       });
       if (last.yd && last.yd[ci]) ydNotes[ci] = last.yd[ci];
     });
-    doc.draft = { marks, notes, ydNotes, date: last.date, on: true, edit: last.no };
+    doc.draft = { marks, notes, ydNotes, photos: JSON.parse(JSON.stringify(last.photos || {})), date: last.date, on: true, edit: last.no };
   } else if (!dr.on && !last) { doc.draft = emptyDraft(defaultDate(year, month), true); }
 }
 
@@ -113,7 +113,9 @@ function draw() {
           <div class="hd">AÇIKLAMA · Hangi makine veya alanda, ne gibi bir uygunsuzluk var?</div>
           ${notes.map((t, k) => `<div class="row" style="flex-wrap:nowrap;align-items:flex-start"><span style="flex:0 0 28px;padding-top:10px;font-weight:800;color:#8E1B16">${k + 1}.</span>
             <button class="nb" data-note="${id}|${k}" aria-label="Açıklamayı yaz veya düzenle"><span class="nt" style="color:${t.trim() ? "var(--text)" : "#8A6A66"}">${esc(t.trim() ? t : "Dokunun ve yazın: hangi makine veya alanda, ne gibi uygunsuzluk var?")}</span>${ic('<path d="M4 20h4L19 9l-4-4L4 16v4z"/>', 18)}</button>
-            <button class="nx" data-nrm="${id}|${k}" aria-label="Açıklamayı sil">×</button></div>`).join("")}
+            <button class="nx" data-nrm="${id}|${k}" aria-label="Açıklamayı sil">×</button></div>
+          <div class="phs">${(doc.draft.photos?.[id + "|" + k] || []).map(p => `<span class="pth"><img src="${p.t}" data-pv="${p.id}" alt="Fotoğraf"><button class="px" data-prm="${id}|${k}|${p.id}" aria-label="Fotoğrafı sil">×</button></span>`).join("")}
+            ${D.ro ? "" : `<label class="pbtn">${ic('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>', 18)}<span>Fotoğraf çek</span><input type="file" accept="image/*" capture="environment" data-ph="${id}|${k}" hidden></label><label class="pbtn">${ic('<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.5"/><path d="M21 16l-5-5-8 9"/>', 18)}<span>Galeriden ekle</span><input type="file" accept="image/*" multiple data-ph="${id}|${k}" hidden></label>`}</div>`).join("")}
           <button class="sec" style="align-self:flex-start;height:38px;color:#8E1B16;border-color:#B3261E" data-nadd="${id}">+ Benzer uygunsuzluk ekle</button></div>` : ""}</div>`;
     }).join("");
     const ydBox = info.allYD ? `<div class="ydbox"><span class="hd">BU KATEGORİDE TÜM MADDELER Y.D. · KISA GEREKÇE</span>
@@ -194,7 +196,29 @@ function bind(v, c) {
     again();
   });
   on("[data-nadd]", el => { (d.notes[el.dataset.nadd] ||= [""]).push(""); again(); });
-  on("[data-nrm]", el => { const [id, k] = el.dataset.nrm.split("|"); const a = d.notes[id] || [""]; if (a.length <= 1) d.notes[id] = [""]; else a.splice(+k, 1); again(); });
+  on("[data-nrm]", el => {
+    const [id, k] = el.dataset.nrm.split("|"), kk = +k; const a = d.notes[id] || [""]; d.photos ||= {};
+    (d.photos[id + "|" + kk] || []).forEach(p => S.deletePhoto(st.fid, st.year, p.id).catch(() => {}));
+    if (a.length <= 1) { d.notes[id] = [""]; delete d.photos[id + "|0"]; }
+    else { a.splice(kk, 1); for (let j = kk; j <= a.length; j++) { const nx = d.photos[id + "|" + (j + 1)]; if (nx) d.photos[id + "|" + j] = nx; else delete d.photos[id + "|" + j]; } }
+    again();
+  });
+  v.querySelectorAll("input[data-ph]").forEach(inp => inp.onchange = async () => {
+    const key = inp.dataset.ph, files = [...inp.files]; inp.value = ""; if (!files.length) return;
+    D.msg = "Fotoğraf hazırlanıyor…"; setSv(); let n = 0;
+    for (const f of files) {
+      try {
+        const { full, thumb } = await compressImage(f), pid = "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+        await S.savePhoto(st.fid, st.year, pid, full); ((d.photos ||= {})[key] ||= []).push({ id: pid, t: thumb }); n++;
+      } catch (e) { toast("Fotoğraf eklenemedi: " + (e.message || e)); }
+    }
+    D.msg = ""; if (n) toast(n + " fotoğraf eklendi"); again();
+  });
+  on("[data-prm]", el => {
+    const [id, k, pid] = el.dataset.prm.split("|"), key = id + "|" + k;
+    d.photos[key] = (d.photos[key] || []).filter(p => p.id !== pid); S.deletePhoto(st.fid, st.year, pid).catch(() => {}); again();
+  });
+  on("[data-pv]", async el => { showPhoto(el.getAttribute("src")); const full = await S.getPhoto(st.fid, st.year, el.dataset.pv).catch(() => null); if (full) { document.querySelector(".mod img")?.setAttribute("src", full); } });
   on("[data-note]", async el => {
     const [id, k] = el.dataset.note.split("|"), m = /^c(\d+)i(\d+)$/.exec(id), cat = CATS[+m[1]];
     const r = await noteEditor({ title: `Açıklama ${cat.name} · ${+k + 1}.`, item: cat.items[+m[2]], text: (d.notes[id] || [""])[+k] || "" });
@@ -208,9 +232,9 @@ function bind(v, c) {
   const nw = document.getElementById("newSess");
   if (nw) nw.onclick = () => { doc.draft = emptyDraft(defaultDate(st.year, D.month), true); persist(true); draw(); };
   on("[data-delsess]", async el => {
-    const { confirmBox } = await import("./ui.js?v=20261010b");
+    const { confirmBox } = await import("./ui.js?v=20261010c");
     if (!(await confirmBox("Son denetim silinsin mi?", "Kayıtlı denetim silinir; skor ve sıklıklar yeniden hesaplanır.", "Evet, sil", true))) return;
-    const gone = doc.sessions.pop(); if (doc.draft.edit === gone.no) doc.draft = emptyDraft(defaultDate(st.year, D.month), false);
+    const gone = doc.sessions.pop(); Object.values(gone.photos || {}).flat().forEach(p => S.deletePhoto(st.fid, st.year, p.id).catch(() => {})); if (doc.draft.edit === gone.no) doc.draft = emptyDraft(defaultDate(st.year, D.month), false);
     if (!doc.sessions.length) doc.draft = emptyDraft(defaultDate(st.year, D.month), true); else if (doc.draft.on) { /* devam eden taslak korunur */ }
     settle(doc, st.year, D.month); await persist(true); draw();
   });
@@ -223,7 +247,12 @@ function bind(v, c) {
       info.items.forEach(it => { if (it.isX) fails[it.id] = (d.notes[it.id] || []).map(t => t.trim()).filter(Boolean); });
       if (info.allYD) yd[ci] = (d.ydNotes?.[ci] || "").trim();
     });
-    const rec = { date: d.date, fails, app, yd, marks: { ...d.marks } };
+    const photos = {};
+    CATS.forEach((cat, ci) => c.catInfo[ci].items.forEach(it => {
+      if (!it.isX) return; let fi = 0;
+      (d.notes[it.id] || []).forEach((t, k) => { if (!t.trim()) return; const ps = d.photos?.[it.id + "|" + k]; if (ps?.length) photos[it.id + "|" + fi] = ps.map(p => ({ ...p })); fi++; });
+    }));
+    const rec = { date: d.date, fails, app, yd, marks: { ...d.marks }, photos };
     let no;
     if (d.edit != null) { const ix = doc.sessions.findIndex(x => x.no === d.edit); no = d.edit; doc.sessions[ix] = { ...doc.sessions[ix], ...rec }; }
     else { no = doc.sessions.length + 1; doc.sessions.push({ no, ...rec, closed: false }); d.edit = no; }

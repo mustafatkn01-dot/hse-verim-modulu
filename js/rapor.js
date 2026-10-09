@@ -1,9 +1,9 @@
 // Aylık HSE Raporu · kayıtlı verilerden otomatik grafik + açıklama
-import * as S from "./store.js?v=20261010b";
-import { esc } from "./ui.js?v=20261010b";
-import { askFormat, printCurrent, saveReportPdf } from "./pdf.js?v=20261010b";
-import { CATS } from "./isgcats.js?v=20261010b";
-import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261010b";
+import * as S from "./store.js?v=20261010c";
+import { esc } from "./ui.js?v=20261010c";
+import { askFormat, printCurrent, saveReportPdf } from "./pdf.js?v=20261010c";
+import { CATS } from "./isgcats.js?v=20261010c";
+import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261010c";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -14,7 +14,7 @@ const CCOL = ["#2A82C4", "#17A06F", "#D6382E", "#F5B700", "#2A82C4", "#8A6FD1", 
 const pad = n => String(n).padStart(2, "0");
 const f1 = n => n.toFixed(1).replace(".", ",");
 const fin = x => (typeof x === "number" && isFinite(x) ? x : null);
-const R = { month: null, per: "m", key: "" };
+const R = { month: null, per: "m", key: "", pics: false, ph: {} };
 const PER = { m: "Aylık", q: "3 Aylık (Ç1)", h: "6 Aylık (Ç2)", n: "9 Aylık (Ç3)", y: "Yıllık" };
 const PN = { q: "1. çeyrek · Ocak-Mart", h: "2. çeyrek · Ocak-Haziran (kümülatif)", n: "3. çeyrek · Ocak-Eylül (kümülatif)", y: "Ocak-Aralık" };
 const LAST = { q: 3, h: 6, n: 9, y: 12 };
@@ -47,6 +47,20 @@ const notesBox = list => `<div style="border-top:1px solid var(--line);padding-t
   ${list.length ? list.map((t, i) => `<div style="display:flex;gap:10px;line-height:1.55"><span style="flex:0 0 22px;font-weight:800;color:#0B6E4F">${i + 1}.</span><span>${t}</span></div>`).join("") : `<div class="muted">Bu dönem için açıklama girilmemiş.</div>`}</div>`;
 const card = (title, sub, body) => `<div class="cd" style="gap:18px"><div class="row sp" style="align-items:baseline"><h2>${title}</h2><div class="muted" style="font-size:13px">${sub}</div></div>${body}</div>`;
 
+const imgH = p => `<img data-pid="${p.id}" src="${R.ph[p.id] || p.t}" alt="Fotoğraf" style="width:189px;height:189px;object-fit:cover;border-radius:8px;border:1px solid #C3D1CC;background:#EEF2F0">`;
+function g6Body(a, mpre) {
+  const tail = `<b style="white-space:nowrap">${esc(a.dept)}</b> <span class="muted" style="white-space:nowrap">· sıklık ${a.f}</span>`;
+  if (!R.pics || !a.notes.some(n => n.pics.length)) return `${mpre(a.mi)}${esc(a.notes.length ? a.notes.map(n => n.t).join("; ") : a.text)} ${tail}`;
+  return `<span style="display:flex;flex-direction:column;gap:8px">${a.notes.map((n, i) => `<span data-brk style="display:flex;flex-direction:column;gap:6px"><span>${i ? "" : mpre(a.mi)}${esc(n.t)}${i === a.notes.length - 1 ? " " + tail : ""}</span>${n.pics.length ? `<span style="display:flex;flex-wrap:wrap;gap:10px">${n.pics.map(imgH).join("")}</span>` : ""}</span>`).join("")}</span>`;
+}
+// Resimlerin tam boyutlu hâlini yükle (küçük resimle başlar)
+async function hydrate(v, st) {
+  const imgs = [...v.querySelectorAll("img[data-pid]")];
+  await Promise.all(imgs.map(async im => {
+    const id = im.dataset.pid; if (!R.ph[id]) { try { R.ph[id] = await S.getPhoto(st.fid, st.year, id); } catch { } }
+    if (R.ph[id]) { im.src = R.ph[id]; try { await im.decode(); } catch { } }
+  }));
+}
 function draw(v, st, setup, data) {
   const p = setup.params || DEFAULT_PARAMS, rows = setup.rows, y = st.year, fname = st.factories.find(f => f.id === st.fid)?.name || "";
   const multi = R.per !== "m", ms = multi ? Array.from({ length: LAST[R.per] }, (_, i) => i + 1) : [R.month], m = R.month;
@@ -121,10 +135,12 @@ function draw(v, st, setup, data) {
   const modCard = (k, i, title, sub, notes) => modHas[i] ? card(title, sub, modBars(k) + notesBox(notes)) : card(title, sub, `<div class="muted">${plabel} için ${TITLE[i]} verisi girilmemiş.</div>`);
 
   // Grafik 6 · İSG bulguları
-  const catRows = CATS.map((c, ci) => ({ c, ci, items: [] }));
+  const catRows = CATS.map((c, ci) => ({ c, ci, items: [] })), phIds = new Set();
   isgList.forEach(({ mi, r, d, c }) => c.catInfo.forEach((info, ci) => info.items.forEach((it, ii) => {
     if (it.cnt > 0) {
-      const notes = [...new Set(d.sessions.flatMap(s => s.fails[it.id] || []))];
+      const nm = new Map();
+      d.sessions.forEach(s => (s.fails[it.id] || []).forEach((t, j) => { const e = nm.get(t) || { t, pics: [] }; ((s.photos || {})[it.id + "|" + j] || []).forEach(p => { if (!e.pics.some(x => x.id === p.id)) { e.pics.push(p); phIds.add(p.id); } }); nm.set(t, e); }));
+      const notes = [...nm.values()];
       catRows[ci].items.push({ dept: r.name, mi, text: CATS[ci].items[ii], notes, f: it.cnt });
     }
   })));
@@ -133,8 +149,8 @@ function draw(v, st, setup, data) {
     `<div class="col1" style="gap:10px">${catRows.map(x => `<div style="display:flex;align-items:center;gap:12px"><span style="width:min(190px,34%);flex:0 0 min(190px,34%);font-weight:600;font-size:13.5px">${esc(x.c.name)}</span>
       <div style="flex:1;min-width:40px;height:14px;border-radius:999px;background:#E4ECE9;overflow:hidden"><div style="height:100%;border-radius:999px;width:${Math.round(x.items.length / mx * 100)}%;background:${CCOL[x.ci % 8]}"></div></div><span style="width:28px;text-align:right;font-weight:700">${x.items.length}</span></div>`).join("")}</div>
     <div style="border-top:1px solid var(--line);padding-top:16px;display:flex;flex-direction:column;gap:16px"><div style="font-weight:800;font-size:13px;letter-spacing:.8px;color:var(--muted)">AÇIKLAMA</div>
-    ${catRows.filter(x => x.items.length).map(x => `<div class="col1" style="gap:6px"><div style="display:flex;align-items:center;gap:10px"><span style="width:10px;height:10px;border-radius:3px;background:${CCOL[x.ci % 8]}"></span><span style="font-weight:800">${esc(x.c.name)}</span></div>
-      ${x.items.map((a, k) => `<div style="display:flex;gap:10px;line-height:1.55;padding-left:20px"><span style="flex:0 0 22px;font-weight:800;color:#145F96">${k + 1}.</span><span>${mpre(a.mi)}${esc(a.notes.length ? a.notes.join("; ") : a.text)} <b style="white-space:nowrap">${esc(a.dept)}</b> <span class="muted" style="white-space:nowrap">· sıklık ${a.f}</span></span></div>`).join("")}</div>`).join("") || `<div class="muted">Bu ay uygunsuz bulgu yok.</div>`}</div>`) : "";
+    ${catRows.filter(x => x.items.length).map(x => `<div class="col1" style="gap:6px"><div data-brk style="display:flex;align-items:center;gap:10px"><span style="width:10px;height:10px;border-radius:3px;background:${CCOL[x.ci % 8]}"></span><span style="font-weight:800">${esc(x.c.name)}</span></div>
+      ${x.items.map((a, k) => `<div data-brk style="display:flex;gap:10px;line-height:1.55;padding-left:20px"><span style="flex:0 0 22px;font-weight:800;color:#145F96">${k + 1}.</span><span>${g6Body(a, mpre)}</span></div>`).join("")}</div>`).join("") || `<div class="muted">Bu ay uygunsuz bulgu yok.</div>`}</div>`) : "";
 
   // Kapsam + ramak kala
   let scope = "";
@@ -164,6 +180,7 @@ function draw(v, st, setup, data) {
     <div class="sub">${esc(fname)} · ${plabel} · ${rows.length} bölüm · grafikler ve açıklamalar kayıtlı verilerden otomatik hazırlanır</div></div>
     <div class="row noprint" style="gap:12px"><select id="rPer" class="inp" style="width:auto;min-width:150px;font-weight:600">${Object.entries(PER).map(([k, n]) => `<option value="${k}" ${k === R.per ? "selected" : ""}>${n}</option>`).join("")}</select>
       ${multi ? "" : `<select id="rAy" class="inp" style="width:auto;min-width:150px;font-weight:600">${MONTHS.map((n, i) => `<option value="${i + 1}" ${i + 1 === m ? "selected" : ""}>${n} ${y}</option>`).join("")}</select>`}
+      ${phIds.size ? `<label class="row" style="gap:8px;flex-wrap:nowrap;font-weight:600;cursor:pointer"><input type="checkbox" id="rPic" ${R.pics ? "checked" : ""} style="width:20px;height:20px"> Resimleri ekle (${phIds.size})</label>` : ""}
       <button id="rPdf" style="height:44px;padding:0 20px;border-radius:12px;background:#0B6E4F;color:#fff;font-weight:700">PDF indir</button></div></div>
   ${partial ? `<div class="warn">Kısmi dönem: ${ms.length} aydan ${monthsWith.size} tanesi için veri var. Değerler mevcut aylar üzerinden hesaplandı.</div>` : ""}
   ${anyData ? "" : `<div class="warn">${plabel} için kayıtlı veri bulunamadı. Başka bir ay seçin veya aylık giriş sayfalarından veri kaydedin.</div>`}
@@ -176,7 +193,9 @@ function draw(v, st, setup, data) {
   ${anyData && modHas[3] ? card("İSG Denetim Verimi", `${plabel} · denetim sıklığı × kategori ağırlığı × bölüm katsayısı + ramak kala bonusu`, modBars("isg")) : ""}
   ${g6}${scope}
   <div class="muted" style="font-size:13px;line-height:1.6">Dönem raporlarında bölüm değerleri, verisi olan ayların ortalamasıdır (kümülatif: Ç1 Ocak-Mart, Ç2 Ocak-Haziran, Ç3 Ocak-Eylül). Açıklamalar, aylık giriş sayfalarında yazılan notlardan derlenir (İSG için "Uygunsuz" işaretli maddelerin notları). Metni değiştirmek için ilgili kaydı güncelleyin; rapor kendiliğinden yenilenir. PDF için tarayıcının yazdırma penceresinde "PDF olarak kaydet" seçin.</div>`;
+  const rp = document.getElementById("rPic"); if (rp) rp.onchange = e => { R.pics = e.target.checked; draw(v, st, setup, data); };
+  if (R.pics) hydrate(v, st);
   document.getElementById("rPer").onchange = e => { R.per = e.target.value; draw(v, st, setup, data); };
   const ay = document.getElementById("rAy"); if (ay) ay.onchange = e => { R.month = +e.target.value; draw(v, st, setup, data); };
-  document.getElementById("rPdf").onclick = async () => { const o = await askFormat({ title: "Raporu PDF indir", text: `${plabel} raporu. Birden fazla sayfa olabilir; kartlar sayfa sonlarında bölünmez.`, defOrient: "portrait", hint: "Çok bölümlü tesislerde yatay düzen grafik satırlarını genişletir." }); if (o) { try { await saveReportPdf(document.getElementById("view") || v, { ...o, name: `HSE-Rapor-${plabel.replace(/[^A-Za-z0-9]+/g, "-")}-${o.size}-${o.orient === "landscape" ? "yatay" : "dikey"}.pdf` }); } catch (e) { console.warn("PDF üretilemedi, yazdırmaya dönülüyor", e); printCurrent(o); } } };
+  document.getElementById("rPdf").onclick = async () => { const o = await askFormat({ title: "Raporu PDF indir", text: `${plabel} raporu. Birden fazla sayfa olabilir; kartlar sayfa sonlarında bölünmez.`, defOrient: "portrait", hint: "Çok bölümlü tesislerde yatay düzen grafik satırlarını genişletir." }); if (o) { try { if (R.pics) await hydrate(v, st); await saveReportPdf(document.getElementById("view") || v, { ...o, name: `HSE-Rapor-${plabel.replace(/[^A-Za-z0-9]+/g, "-")}-${o.size}-${o.orient === "landscape" ? "yatay" : "dikey"}.pdf` }); } catch (e) { console.warn("PDF üretilemedi, yazdırmaya dönülüyor", e); printCurrent(o); } } };
 }

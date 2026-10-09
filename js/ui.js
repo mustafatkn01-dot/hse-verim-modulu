@@ -59,3 +59,21 @@ export function noteEditor({ title, item, text, question = "Hangi makine veya al
     ta.focus();
   });
 }
+
+// Fotoğrafı küçült (tam: en çok 1200 px, küçük resim: 140 px), EXIF yönünü uygula
+export async function compressImage(file) {
+  let bmp;
+  try { bmp = await createImageBitmap(file, { imageOrientation: "from-image" }); }
+  catch { bmp = await new Promise((res, rej) => { const im = new Image(), u = URL.createObjectURL(file); im.onload = () => res(im); im.onerror = () => rej(new Error("Resim okunamadı")); im.src = u; }); }
+  const w0 = bmp.width || bmp.naturalWidth, h0 = bmp.height || bmp.naturalHeight;
+  const draw = (max, q) => { const r = Math.min(1, max / Math.max(w0, h0)), c = document.createElement("canvas"); c.width = Math.round(w0 * r); c.height = Math.round(h0 * r); c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height); return c.toDataURL("image/jpeg", q); };
+  let full = draw(1200, 0.72); if (full.length > 700000) full = draw(900, 0.6);
+  return { full, thumb: draw(140, 0.6) };
+}
+// Tam ekran fotoğraf görüntüleyici
+export function showPhoto(src) {
+  const m = document.createElement("div"); m.className = "mod";
+  m.innerHTML = `<div class="mbox" style="gap:12px;align-items:center;max-width:min(96vw,900px)"><img src="${src}" alt="Fotoğraf" style="max-width:100%;max-height:75vh;border-radius:10px"><button data-x>Kapat</button></div>`;
+  document.body.appendChild(m); const close = () => m.remove();
+  m.querySelector("[data-x]").onclick = close; m.addEventListener("mousedown", e => { if (e.target === m) close(); });
+}
