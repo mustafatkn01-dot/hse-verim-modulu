@@ -173,8 +173,13 @@ body,html{background:#fff!important}#app{display:block!important}.pg{padding:0!i
 .xbox,.okbar,.it.lt,.warn,.lightbox{--bg:#EDF2F0;--card:#fff;--line:#D5E0DC;--text:#10201C;--muted:#546964;--inl:#C3D1CC;--calc:#EEF3F1;--calct:#3E534E;--hbg:#F3F7F5;--hbd:#C9D8D3;--htx:#2A3F3A;--gd:#0B6E4F;color:var(--text)}
 
 .ygrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
-.ycard{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:16px 10px;border-radius:16px;border:1.5px solid var(--line);background:var(--calc);color:var(--calct);text-align:center;min-height:128px;font:inherit}
+.ycard{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:16px 10px;border-radius:16px;border:1.5px solid var(--line);background:var(--calc);color:var(--calct);text-align:center;font:inherit}
 .ycard.cur{background:var(--gd);color:#fff;border-color:var(--gd)}
 .ycard .yn{font:700 26px Sora,sans-serif}.ycard .ys{font-size:12.5px;font-weight:600;opacity:.9}
 .ycard .yb{padding:6px 14px;font-size:13px}
 .ycard.add{border-style:dashed;background:transparent;cursor:pointer;color:var(--gd)}
+
+.ygrid{grid-template-columns:repeat(auto-fill,minmax(98px,1fr));gap:8px}
+.ycard{min-height:0;padding:10px 6px;gap:3px;border-radius:14px}
+.ycard .yn{font-size:19px}.ycard .ys{font-size:11.5px}
+.ycard .yb{padding:4px 8px;font-size:12px;margin-top:2px}
