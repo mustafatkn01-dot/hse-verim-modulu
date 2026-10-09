@@ -1,20 +1,19 @@
 import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js";
 import * as S from "./store.js";
-import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow } from "./scoring.js";
+import * as Denetim from "./denetim.js";
+import { $, esc, ic, toast, modal, confirmBox, formBox } from "./ui.js";
+import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js";
 
 const VERSION = "1.0.0";
-const $ = id => document.getElementById(id);
-const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const st = { factories: [], years: [], fid: null, year: null, page: "genel", profile: {}, lastSync: new Date() };
 
-const ic = d => `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
 const GROUPS = [
   ["ANA MENÜ", [
     ["genel", "Genel Bakış", '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>'],
     ["kurulum", "Kurulum ve Kayıtlar", '<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>'],
     ["ayarlar", "Ayarlar", '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/>']]],
   ["AYLIK VERİ GİRİŞİ", [
-    ["denetim", "İSG Denetim Listesi", '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9z"/><path d="M9 13l2 2 4-4"/>', 1],
+    ["denetim", "İSG Denetim Listesi", '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9z"/><path d="M9 13l2 2 4-4"/>'],
     ["kaza", "İş Kazası", '<path d="M12 3l9 16H3L12 3z"/><path d="M12 10v4M12 17h0"/>', 1],
     ["konusma", "Eğitim Konuşması", '<path d="M3 8l9-4 9 4-9 4-9-4z"/><path d="M7 10.5V15c0 1.5 2.2 3 5 3s5-1.5 5-3v-4.5"/>', 1],
     ["isbasi", "İşbaşı Eğitim", '<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 11l2 2 4-4"/>', 1]]],
@@ -24,7 +23,6 @@ const GROUPS = [
 ];
 const PAGES = GROUPS.flatMap(g => g[1]);
 
-function toast(m) { const t = $("toast"); t.textContent = m; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 2200); }
 const errMsg = e => ({
   "auth/invalid-credential": "E-posta veya şifre hatalı.", "auth/invalid-email": "E-posta geçersiz.",
   "auth/too-many-requests": "Çok fazla deneme. Bir süre bekleyin.", "auth/network-request-failed": "Bağlantı hatası."
@@ -110,6 +108,7 @@ async function render() {
     return;
   }
   if (st.page === "kurulum") return pageKurulum(v);
+  if (st.page === "denetim") return Denetim.render(v, { st });
   return pageGenel(v);
 }
 
@@ -156,7 +155,7 @@ async function pageKurulum(v) {
   if (K.key !== key) {
     const s = await S.getSetup(st.fid, st.year);
     K.key = key; K.help = null; K.dirty = false;
-    K.rows = s?.rows?.length ? s.rows : [newRow(1)];
+    K.rows = (s?.rows?.length ? s.rows : [newRow(1)]).map(r => (r.id ? r : { ...r, id: rid() }));
     K.params = JSON.parse(JSON.stringify({ ...DEFAULT_PARAMS, ...(s?.params || {}) }));
   }
   drawKurulum(v);
@@ -246,22 +245,6 @@ const fmtDt = t => new Date(t).toLocaleString("tr-TR", { day: "2-digit", month: 
 const initials = n => (n || "").split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0].toUpperCase()).join("") || "?";
 const item = (inner, bg = "var(--card)", bd = "var(--line)") => `<div class="it" style="background:${bg};border-color:${bd}">${inner}</div>`;
 const THEMES = [["light", "Açık", "#0B2230", "#EDF2F0", "#fff"], ["dark", "Koyu", "#06121a", "#0d1a22", "#14262f"], ["auto", "Cihaza göre", "#0B2230", "#8aa39b", "#cfdcd7"]];
-
-function modal(html) {
-  return new Promise(res => {
-    const m = document.createElement("div"); m.className = "mod"; m.innerHTML = `<div class="mbox">${html}</div>`;
-    document.body.appendChild(m);
-    const close = v => { m.remove(); res(v); };
-    m.addEventListener("click", e => { if (e.target === m) close(null); });
-    m.querySelector("[data-no]").onclick = () => close(null);
-    m.querySelector("[data-yes]").onclick = () => close(Object.fromEntries([...m.querySelectorAll("input")].map(i => [i.name, i.value])) );
-    m.querySelector("input")?.focus();
-  });
-}
-async function confirmBox(title, text, yes, danger = false) {
-  return !!(await modal(`<h2>${esc(title)}</h2><p class="muted">${esc(text)}</p><div class="row" style="justify-content:flex-end"><button class="sec" data-no>İptal</button><button class="${danger ? "danger" : ""}" data-yes>${esc(yes)}</button></div>`));
-}
-const formBox = (title, fields) => modal(`<h2>${esc(title)}</h2>${fields.map(([n, l, v]) => `<div><label>${esc(l)}</label><input name="${n}" value="${esc(v)}"></div>`).join("")}<div class="row" style="justify-content:flex-end;margin-top:6px"><button class="sec" data-no>İptal</button><button data-yes>Kaydet</button></div>`);
 
 async function pageAyarlar(v) {
   const email = auth.currentUser.email, theme = S.pref.get("theme") || "light";

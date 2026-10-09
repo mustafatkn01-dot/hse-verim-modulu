@@ -17,6 +17,7 @@ export async function updateFactory(id, data) { await updateDoc(doc(db, `${base(
 // Fabrikayı tüm yıl ve kurulum verileriyle birlikte siler
 export async function deleteFactoryDeep(id) {
   for (const y of await listYears(id)) {
+    for (const coll of ["isg", "kaza", "konusma", "isbasi"]) for (const d of await listMonthDocs(id, y, coll)) await deleteDoc(monthRef(id, y, coll, d.id));
     await deleteDoc(setupRef(id, y)).catch(() => {});
     await deleteDoc(doc(db, `${base()}/factories/${id}/years/${y}`));
   }
@@ -37,6 +38,12 @@ export async function addYear(fid, year) {
 const setupRef = (fid, y) => doc(db, `${base()}/factories/${fid}/years/${y}/setup/main`);
 export async function getSetup(fid, y) { const d = await getDoc(setupRef(fid, y)); return d.exists() ? d.data() : null; }
 export async function saveSetup(fid, y, data) { await setDoc(setupRef(fid, y), { ...data, updatedAt: serverTimestamp() }); }
+
+// Aylık veri: .../years/{yıl}/{koleksiyon}/{belgeId}
+const monthRef = (fid, y, coll, id) => doc(db, `${base()}/factories/${fid}/years/${y}/${coll}/${id}`);
+export async function getMonthDoc(fid, y, coll, id) { const d = await getDoc(monthRef(fid, y, coll, id)); return d.exists() ? d.data() : null; }
+export async function saveMonthDoc(fid, y, coll, id, data) { await setDoc(monthRef(fid, y, coll, id), { ...data, updatedAt: serverTimestamp() }); }
+export async function listMonthDocs(fid, y, coll) { const s = await getDocs(collection(db, `${base()}/factories/${fid}/years/${y}/${coll}`)); return s.docs.map(d => ({ id: d.id, ...d.data() })); }
 
 // Seçili fabrika/yıl bu cihazda hatırlanır
 export const pref = {
