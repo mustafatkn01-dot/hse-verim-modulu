@@ -1,9 +1,9 @@
 // Aylık HSE Raporu · kayıtlı verilerden otomatik grafik + açıklama
-import * as S from "./store.js?v=20261010d";
-import { esc } from "./ui.js?v=20261010d";
-import { askFormat, printCurrent, saveReportPdf } from "./pdf.js?v=20261010d";
-import { CATS } from "./isgcats.js?v=20261010d";
-import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261010d";
+import * as S from "./store.js?v=20261010e";
+import { esc } from "./ui.js?v=20261010e";
+import { askFormat, printCurrent, saveReportPdf } from "./pdf.js?v=20261010e";
+import { CATS } from "./isgcats.js?v=20261010e";
+import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261010e";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -78,9 +78,11 @@ function draw(v, st, setup, data) {
       const a = fin(kz?.result?.per?.[r.id]?.verim); if (a !== null) mv.kaza[r.id].push(a);
       const b = fin(kn?.result?.per?.[r.id]?.pct); if (b !== null) mv.konusma[r.id].push(b);
       const x = ib?.result?.per?.[r.id]; if (x?.state === "ok" && fin(x.verim) !== null) mv.isbasi[r.id].push(x.verim);
-      const d = data.ig[`${mm}_${r.id}`], sc = fin(d?.result?.score);
+      const d = data.ig[`${mm}_${r.id}`];
+      const cc = d && d.sessions?.length ? calcIsg({ cats: CATS, sessions: d.sessions, draft: { marks: {}, notes: {}, ydNotes: {} }, freqOv: d.freq || {}, bonusIdx: d.bonus || 0, F: katsayi(r), p }) : null;
+      const sc = cc ? fin(+cc.score.toFixed(2)) : fin(d?.result?.score);
       if (sc !== null) { mv.isg[r.id].push(sc); monthsWith.add(mi); }
-      if (d && d.sessions?.length) isgList.push({ mi, r, d, c: calcIsg({ cats: CATS, sessions: d.sessions, draft: { marks: {}, notes: {}, ydNotes: {} }, freqOv: d.freq || {}, bonusIdx: d.bonus || 0, F: katsayi(r), p }) });
+      if (cc) isgList.push({ mi, r, d, c: cc });
     });
   });
   rows.forEach(r => { ["kaza", "konusma", "isbasi", "isg"].forEach(k => { val[k][r.id] = avgOf(mv[k][r.id]); }); });

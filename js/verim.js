@@ -1,9 +1,9 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261010d";
-import { esc } from "./ui.js?v=20261010d";
-import { bandOf, DEFAULT_PARAMS, num } from "./scoring.js?v=20261010d";
-import { askFormat, savePdf } from "./pdf.js?v=20261010d";
-import { CATS } from "./isgcats.js?v=20261010d";
+import * as S from "./store.js?v=20261010e";
+import { esc } from "./ui.js?v=20261010e";
+import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi } from "./scoring.js?v=20261010e";
+import { askFormat, savePdf } from "./pdf.js?v=20261010e";
+import { CATS } from "./isgcats.js?v=20261010e";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -25,7 +25,13 @@ export async function load(st, setup) {
   const num0 = x => (typeof x === "number" && isFinite(x) ? x : null);
   const put = (docs, k, pick) => docs.forEach(d => {
     const m = parseInt(String(d.id).slice(0, 2), 10) - 1; if (!(m >= 0 && m < 12) || !d.result) return;
-    if (k === 3) { const id = String(d.id).slice(3); if (out[id]) out[id][m][3] = num0(d.result.score); return; }
+    if (k === 3) {
+      const id = String(d.id).slice(3), row = rows.find(r => r.id === id); if (!out[id]) return;
+      // Skor, kayıtlı denetimlerden güncel ağırlıklarla yeniden hesaplanır (kategori ağırlığı değişirse eski kayıtlar da güncellenir)
+      let sc = num0(d.result.score);
+      if (d.sessions?.length && row) { try { sc = +calcIsg({ cats: CATS, sessions: d.sessions, draft: { marks: {}, notes: {}, ydNotes: {} }, freqOv: d.freq || {}, bonusIdx: d.bonus || 0, F: katsayi(row), p: setup.params || DEFAULT_PARAMS }).score.toFixed(2); } catch { } }
+      out[id][m][3] = sc; return;
+    }
     rows.forEach(r => { const x = d.result.per?.[r.id]; if (x) out[r.id][m][k] = num0(pick(x)); });
   });
   put(kz, 0, x => x.verim); put(kn, 1, x => x.pct); put(ib, 2, x => (x.state === "ok" ? x.verim : null)); put(ig, 3);
