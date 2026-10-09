@@ -1,15 +1,15 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261009q";
-import * as S from "./store.js?v=20261009q";
-import * as Prim from "./primary.js?v=20261009q";
-import * as Denetim from "./denetim.js?v=20261009q";
-import * as Kaza from "./kaza.js?v=20261009q";
-import * as Konusma from "./konusma.js?v=20261009q";
-import * as Genel from "./genel.js?v=20261009q";
-import * as Rapor from "./rapor.js?v=20261009q";
-import * as Verim from "./verim.js?v=20261009q";
-import * as Isbasi from "./isbasi.js?v=20261009q";
-import { $, esc, ic, toast, modal, confirmBox, formBox } from "./ui.js?v=20261009q";
-import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261009q";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261009r";
+import * as S from "./store.js?v=20261009r";
+import * as Prim from "./primary.js?v=20261009r";
+import * as Denetim from "./denetim.js?v=20261009r";
+import * as Kaza from "./kaza.js?v=20261009r";
+import * as Konusma from "./konusma.js?v=20261009r";
+import * as Genel from "./genel.js?v=20261009r";
+import * as Rapor from "./rapor.js?v=20261009r";
+import * as Verim from "./verim.js?v=20261009r";
+import * as Isbasi from "./isbasi.js?v=20261009r";
+import { $, esc, ic, toast, modal, confirmBox, formBox } from "./ui.js?v=20261009r";
+import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261009r";
 
 const VERSION = "1.0.0";
 const st = { factories: [], years: [], fid: null, year: null, page: "genel", profile: {}, lastSync: new Date() };
@@ -32,8 +32,9 @@ const PAGES = GROUPS.flatMap(g => g[1]);
 
 const errMsg = e => ({
   "auth/invalid-credential": "E-posta veya şifre hatalı.", "auth/invalid-email": "E-posta geçersiz.",
-  "auth/too-many-requests": "Çok fazla deneme. Bir süre bekleyin.", "auth/network-request-failed": "Bağlantı hatası."
-}[e.code] || e.message);
+  "auth/too-many-requests": "Çok fazla deneme yapıldı; Firebase bu cihazı geçici olarak engelledi. 15-60 dakika bekleyin veya şifre sıfırlama bağlantısı isteyin.", "auth/network-request-failed": "Bağlantı hatası.",
+  "auth/operation-not-allowed": "E-posta/Parola girişi Firebase'de kapalı. Konsol → Authentication → Sign-in method → E-posta/Parola anahtarını açın.", "auth/user-disabled": "Bu hesap Firebase'de devre dışı bırakılmış."
+}[e.code] || ((e.code ? `[${e.code}] ` : "") + e.message));
 
 // ---------- Giriş ----------
 $("loginForm").addEventListener("submit", async e => {
