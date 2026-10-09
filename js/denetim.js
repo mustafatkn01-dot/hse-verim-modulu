@@ -1,8 +1,8 @@
 // İSG Denetim Listesi sayfası
-import * as S from "./store.js?v=20261010a";
-import { esc, ic, toast, noteEditor } from "./ui.js?v=20261010a";
-import { CATS } from "./isgcats.js?v=20261010a";
-import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261010a";
+import * as S from "./store.js?v=20261010b";
+import { esc, ic, toast, noteEditor } from "./ui.js?v=20261010b";
+import { CATS } from "./isgcats.js?v=20261010b";
+import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261010b";
 
 const COLL = "isg";
 const D = { key: "", setup: null, doc: null, dept: null, month: null, open: { 0: true }, ro: false, timer: null, saved: true, msg: "" };
@@ -19,6 +19,29 @@ function defaultMonth(year) { const n = new Date(); return +year === n.getFullYe
 function defaultDate(year, month) { const n = new Date(); return (+year === n.getFullYear() && month === n.getMonth() + 1) ? iso(n) : `${year}-${pad(month)}-01`; }
 const blank = (year, month, auditor) => ({ sessions: [], draft: { marks: {}, notes: {}, ydNotes: {}, date: defaultDate(year, month) }, freq: {}, bonus: 0, auditor: auditor || "" });
 
+const emptyDraft = (date, on) => ({ marks: {}, notes: {}, ydNotes: {}, date, on, edit: null });
+// Denetim durumu: açık (devam eden) denetim varsa form onu düzenler; hepsi tamamlandıysa yeni denetim yalnızca kullanıcı isteyince başlar
+function settle(doc, year, month) {
+  const ss = doc.sessions, dr = doc.draft;
+  ss.forEach((x, i) => { if (x.closed === undefined && i < ss.length - 1) x.closed = true; });
+  if (dr.on === undefined) { const has = Object.keys(dr.marks || {}).length > 0; dr.on = has || !ss.length; if (has && ss.length) ss[ss.length - 1].closed = true; }
+  if (dr.edit != null && !ss.some(x => x.no === dr.edit)) dr.edit = null;
+  const last = ss[ss.length - 1];
+  if (!dr.on && last && !last.closed) {
+    const marks = { ...(last.marks || {}) }, notes = {}, ydNotes = {};
+    CATS.forEach((cat, ci) => {
+      cat.items.forEach((_, ii) => {
+        const id = `c${ci}i${ii}`;
+        if (last.fails && last.fails[id]) { marks[id] = "x"; notes[id] = last.fails[id].length ? last.fails[id].slice() : [""]; }
+        else if (!marks[id] && last.app && last.app[ci]) marks[id] = "u";
+        else if (!marks[id] && last.yd && ci in last.yd) marks[id] = "n";
+      });
+      if (last.yd && last.yd[ci]) ydNotes[ci] = last.yd[ci];
+    });
+    doc.draft = { marks, notes, ydNotes, date: last.date, on: true, edit: last.no };
+  } else if (!dr.on && !last) { doc.draft = emptyDraft(defaultDate(year, month), true); }
+}
+
 export async function render(v, ctx) {
   const { st } = ctx;
   const setup = await S.getSetup(st.fid, st.year);
@@ -31,6 +54,7 @@ export async function render(v, ctx) {
     clearTimeout(D.timer);
     const doc = await S.getMonthDoc(st.fid, st.year, COLL, `${pad(D.month)}_${D.dept}`);
     D.doc = doc ? { ...blank(st.year, D.month), ...doc, draft: { ...blank(st.year, D.month).draft, ...(doc.draft || {}) } } : blank(st.year, D.month, ctx.st.profile?.name);
+    settle(D.doc, st.year, D.month);
     D.key = key; D.saved = true; D.msg = "";
   }
   D.ro = String(st.year) !== String(st.active);
@@ -64,11 +88,14 @@ const TONE = { u: ["#0B6E4F", "#FFF"], x: ["#B3261E", "#FFF"], n: ["#4A5C57", "#
 function draw() {
   const { st } = D.ctx, v = D.v, doc = D.doc, setup = D.setup, p = setup.params || DEFAULT_PARAMS;
   const row = setup.rows.find(r => r.id === D.dept), F = katsayi(row);
-  const c = calcIsg({ cats: CATS, sessions: doc.sessions, draft: doc.draft, freqOv: doc.freq, bonusIdx: doc.bonus, F, p });
+  const on = doc.draft.on !== false, editNo = doc.draft.edit;
+  const calcSessions = doc.sessions.filter(x => x.no !== editNo);
+  const c = calcIsg({ cats: CATS, sessions: on ? calcSessions : doc.sessions, draft: on ? doc.draft : { marks: {}, notes: {}, ydNotes: {} }, freqOv: doc.freq, bonusIdx: doc.bonus, F, p });
   const band = bandOf(c.score, p), B = BAND[band];
-  const curNo = doc.sessions.length + 1, date = doc.draft.date;
+  const curNo = editNo ?? (doc.sessions.length + 1), date = doc.draft.date;
   const dateOk = date && +date.slice(0, 4) === +st.year && +date.slice(5, 7) === D.month;
   const canSave = c.canSave && dateOk && !D.ro;
+  const canPart = c.missing === 0 && c.ydMissing === 0 && c.curMarked && dateOk && !D.ro;
   const f1 = n => n.toFixed(1).replace(".", ",");
   const catHtml = CATS.map((cat, ci) => {
     const info = c.catInfo[ci], w = W[cat.w], open = !!D.open[ci];
@@ -115,9 +142,11 @@ function draw() {
     <div class="sf" style="flex:1 1 200px"><label class="hd" for="denetci">DENETÇİ</label><input id="denetci" class="inp" value="${esc(doc.auditor)}" placeholder="Ad Soyad" ${D.ro ? "disabled" : ""}></div></div>
   <div class="cd" style="padding:18px 20px;gap:14px"><div class="row sp"><b style="font:600 16px Sora,sans-serif">Bu Ayın Denetim Kayıtları</b>
     <span class="muted" style="font-size:12.5px">Aynı bulgu sonraki denetimlerde tekrarlanırsa sıklık otomatik artar: 1 denetim → 1 · 2-3 denetim → 2 · 4 ve üzeri → 3</span></div>
-    <div class="row" style="gap:12px">${doc.sessions.map(s => `<div class="sess">${ic('<path d="M4 12l5 5L20 6"/>').replace("currentColor", "#0B6E4F")}<div><b>${s.no}. Denetim</b><div class="muted" style="font-size:12.5px">${dmy(s.date)} · ${Object.keys(s.fails).length} uygunsuz · kaydedildi</div></div>
-      ${!D.ro && s.no === doc.sessions.length ? `<div class="row" style="gap:6px;margin-left:auto;flex-wrap:nowrap"><button class="sm" data-contsess="${s.no}" style="white-space:nowrap" title="Bu denetimi tekrar açıp işaretlemeye devam et">Devam et</button><button class="sm sec" data-delsess="${s.no}" style="white-space:nowrap" title="Bu denetimi sil">Geri al</button></div>` : ""}</div>`).join("")}
-      <div class="sess cur"><span class="sw" style="background:#0B6E4F;border-radius:50%;margin:0"></span><div><b>${curNo}. Denetim</b><div style="font-size:12.5px">${date ? dmy(date) : "—"} · ${c.curMarked ? c.curFails + " uygunsuz (taslak)" : "henüz işaretleme yok"} · devam ediyor</div></div></div></div></div>
+    <div class="row" style="gap:12px">${doc.sessions.map(s => { const isEd = on && s.no === editNo, lastS = s.no === doc.sessions.length;
+      const stt = isEd ? "açık · düzenleniyor" : s.closed ? "tamamlandı" : "kaydedildi";
+      return `<div class="sess ${isEd ? "cur" : ""}">${isEd ? '<span class="sw" style="background:#0B6E4F;border-radius:50%;margin:0"></span>' : ic('<path d="M4 12l5 5L20 6"/>').replace("currentColor", "#0B6E4F")}<div><b>${s.no}. Denetim</b><div class="muted" style="font-size:12.5px">${dmy(s.date)} · ${Object.keys(s.fails).length} uygunsuz · ${stt}</div></div>
+      ${!D.ro && lastS ? `<div class="row" style="gap:6px;margin-left:auto;flex-wrap:nowrap">${!on ? `<button class="sm" data-reopen="${s.no}" style="white-space:nowrap" title="Bu denetimi tekrar açıp işaretlemeye devam et">Yeniden aç</button>` : ""}<button class="sm sec" data-delsess="${s.no}" style="white-space:nowrap" title="Bu denetimi sil">Sil</button></div>` : ""}</div>`; }).join("")}
+      ${on && editNo == null ? `<div class="sess cur"><span class="sw" style="background:#0B6E4F;border-radius:50%;margin:0"></span><div><b>${curNo}. Denetim</b><div style="font-size:12.5px">${date ? dmy(date) : "—"} · ${c.curMarked ? c.curFails + " uygunsuz (taslak)" : "henüz işaretleme yok"} · yeni, kaydedilmedi</div></div></div>` : ""}</div></div>
   <div class="helpbox" style="flex-direction:row;gap:14px;align-items:flex-start">${ic('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h0"/>', 22)}<div style="line-height:1.6">Her maddeyi <b>Uygun</b>, <b>Uygunsuz</b> veya <b>Y.D.</b> (yok / değerlendirilmedi) olarak işaretleyin. Uygunsuz seçtiğinizde sıklık otomatik görünür ve açıklama yazmanız istenir: hangi makine veya alanda ne gibi bir uygunsuzluk var? Aynı bölümde benzer bir uygunsuzluk daha varsa yeni madde ekleyin. Açıklamalar raporda grafiklerin altında bölüm adıyla yayınlanır.</div></div>
   <fieldset class="fs" ${D.ro ? "disabled" : ""}><div class="two" style="align-items:flex-start">
     <div class="colw" style="flex:2 1 600px;gap:14px">${catHtml}</div>
@@ -136,9 +165,17 @@ function draw() {
         <div class="row">${["Yok", "Ayda 1", "2 Haftada 1", "Haftalık"].map((l, i) => `<button class="bn" data-bonus="${i}" style="${seg(doc.bonus === i, "#0B2230", "#FFF")}"><span>${l}</span><span style="font-size:12px;font-weight:600">+${c.bonusVals[i]} puan</span></button>`).join("")}</div></div>
       <div class="cd" style="padding:20px;gap:12px"><b style="font:600 16px Sora,sans-serif">${curNo}. Denetim · Kaydetmeden Önce</b>
         ${[["İşaretlenmeyen madde", c.unmarked], ["Açıklaması eksik uygunsuz madde", c.missing], ["Gerekçesi eksik Y.D. kategori", c.ydMissing], ["Tarih dönem dışında", dateOk ? 0 : 1]].map(([t, n]) => `<div class="row sp"><span>${t}</span><span class="pill" style="min-width:34px;text-align:center;background:${n === 0 ? "#D9F1E6" : "#FADAD7"};color:${n === 0 ? "#0B6E4F" : "#B3261E"}">${n}</span></div>`).join("")}
-        <button class="go2" id="saveSess" ${canSave ? "" : "disabled"}>${curNo}. Denetimi Kaydet</button>
-        <div class="muted" style="font-size:12.5px;line-height:1.5">Kaydedince skor ve sıklıklar bu ayın tüm denetimlerine göre güncellenir; yeni denetim için liste temizlenir.</div></div>
+        <button class="go2" id="saveSess" ${canPart ? "" : "disabled"}>${curNo}. Denetimi Kaydet</button>
+        <button class="sec" id="doneSess" style="height:44px;font-weight:700" ${canSave ? "" : "disabled"}>Kaydet ve Denetimi Tamamla</button>
+        <div class="muted" style="font-size:12.5px;line-height:1.5"><b>Kaydet:</b> işaretlediğiniz kadarını saklar, denetim açık kalır; sonra kaldığınız yerden devam edebilirsiniz (tüm maddelerin işaretlenmesi gerekmez). <b>Tamamla:</b> tüm maddeler işaretliyken denetimi kapatır. Yeni denetim ancak siz başlatınca açılır.</div></div>
     </div></div></fieldset>`;
+  if (!on) {
+    v.querySelector("fieldset.fs")?.remove(); v.querySelector(".helpbox")?.remove();
+    const last = doc.sessions[doc.sessions.length - 1];
+    v.insertAdjacentHTML("beforeend", `<div class="cd" style="gap:12px;padding:20px"><b style="font:600 16px Sora,sans-serif">Bu ay için tüm denetimler tamamlandı</b>
+      <div class="muted" style="line-height:1.55">${last ? `${last.no}. denetim ${dmy(last.date)} tarihinde tamamlandı. ` : ""}Bu bölümün aylık İSG skoru <b>${f1(c.score)}</b> (${band}). Saha turunda yeni bir eksiklik görürseniz “Yeniden aç” ile son denetime ekleyin; ayrı bir tekrar denetimi yapacaksanız aşağıdan başlatın.</div>
+      ${D.ro ? "" : `<div><button id="newSess">${doc.sessions.length + 1}. Denetimi Başlat</button></div>`}</div>`);
+  }
   bind(v, c);
 }
 
@@ -167,44 +204,34 @@ function bind(v, c) {
   on("[data-freq]", el => { const [ci, k] = el.dataset.freq.split("|"); doc.freq[ci] = +k; again(); });
   on("[data-freqreset]", el => { delete doc.freq[el.dataset.freqreset]; again(); });
   on("[data-bonus]", el => { doc.bonus = +el.dataset.bonus; again(); });
-  on("[data-contsess]", async el => {
-    const { confirmBox } = await import("./ui.js?v=20261010a");
-    const last = doc.sessions[doc.sessions.length - 1]; if (!last) return;
-    const dirty = Object.keys(doc.draft.marks || {}).length > 0;
-    if (!(await confirmBox(`${last.no}. denetime devam edilsin mi?`, dirty ? "Şu an açık olan ikinci denetimdeki işaretlemeler silinir; kayıtlı denetim tekrar düzenlenebilir hale gelir. Bitirince yeniden kaydedin." : "Kayıtlı denetim tekrar düzenlenebilir hale gelir; yeni eksiklikleri ekleyip yeniden kaydedin.", "Evet, devam et", false))) return;
-    const marks = { ...(last.marks || {}) }, notes = {}, ydNotes = {};
-    CATS.forEach((cat, ci) => {
-      cat.items.forEach((_, ii) => {
-        const id = `c${ci}i${ii}`;
-        if (last.fails && last.fails[id]) { marks[id] = "x"; notes[id] = last.fails[id].length ? last.fails[id].slice() : [""]; }
-        else if (!marks[id] && last.app && last.app[ci]) marks[id] = "u";
-        else if (!marks[id] && last.yd && ci in last.yd) marks[id] = "n";
-      });
-      if (last.yd && last.yd[ci]) ydNotes[ci] = last.yd[ci];
-    });
-    doc.sessions.pop();
-    doc.draft = { marks, notes, ydNotes, date: last.date };
-    await persist(true); draw(); toast(`${last.no}. denetim açıldı; eksiklikleri ekleyip tekrar kaydedin.`);
-  });
+  on("[data-reopen]", () => { const last = doc.sessions[doc.sessions.length - 1]; if (!last) return; last.closed = false; doc.draft.on = false; settle(doc, st.year, D.month); persist(true); draw(); toast(`${last.no}. denetim yeniden açıldı; eksiklikleri ekleyip kaydedin.`); });
+  const nw = document.getElementById("newSess");
+  if (nw) nw.onclick = () => { doc.draft = emptyDraft(defaultDate(st.year, D.month), true); persist(true); draw(); };
   on("[data-delsess]", async el => {
-    const { confirmBox } = await import("./ui.js?v=20261010a");
-    if (!(await confirmBox("Son denetim geri alınsın mı?", "Kaydedilen denetim silinir; skor ve sıklıklar yeniden hesaplanır.", "Evet, geri al", true))) return;
-    doc.sessions.pop(); await persist(true); draw();
+    const { confirmBox } = await import("./ui.js?v=20261010b");
+    if (!(await confirmBox("Son denetim silinsin mi?", "Kayıtlı denetim silinir; skor ve sıklıklar yeniden hesaplanır.", "Evet, sil", true))) return;
+    const gone = doc.sessions.pop(); if (doc.draft.edit === gone.no) doc.draft = emptyDraft(defaultDate(st.year, D.month), false);
+    if (!doc.sessions.length) doc.draft = emptyDraft(defaultDate(st.year, D.month), true); else if (doc.draft.on) { /* devam eden taslak korunur */ }
+    settle(doc, st.year, D.month); await persist(true); draw();
   });
-  const sv = document.getElementById("saveSess");
-  if (sv) sv.onclick = async () => {
-    if (!c.canSave) return;
+  const dOk = d.date && +d.date.slice(0, 4) === +st.year && +d.date.slice(5, 7) === D.month;
+  const doSave = async close => {
+    if (D.ro || !dOk || c.missing || c.ydMissing || !c.curMarked || (close && !c.canSave)) return;
     const fails = {}, app = {}, yd = {};
     CATS.forEach((cat, ci) => {
       const info = c.catInfo[ci]; app[ci] = info.items.some(it => it.mk === "u" || it.mk === "x");
       info.items.forEach(it => { if (it.isX) fails[it.id] = (d.notes[it.id] || []).map(t => t.trim()).filter(Boolean); });
       if (info.allYD) yd[ci] = (d.ydNotes?.[ci] || "").trim();
     });
-    const no = doc.sessions.length + 1;
-    doc.sessions.push({ no, date: d.date, fails, app, yd, marks: { ...d.marks } });
-    doc.draft = { marks: {}, notes: {}, ydNotes: {}, date: addDays(d.date, 7) };
+    const rec = { date: d.date, fails, app, yd, marks: { ...d.marks } };
+    let no;
+    if (d.edit != null) { const ix = doc.sessions.findIndex(x => x.no === d.edit); no = d.edit; doc.sessions[ix] = { ...doc.sessions[ix], ...rec }; }
+    else { no = doc.sessions.length + 1; doc.sessions.push({ no, ...rec, closed: false }); d.edit = no; }
+    if (close) { doc.sessions.find(x => x.no === no).closed = true; doc.draft = emptyDraft(defaultDate(st.year, D.month), false); }
     await persist(true); draw();
-    toast(`${no}. denetim kaydedildi. Sıklıklar ve skor, bu ayın tüm denetimlerine göre güncellendi.`);
+    toast(close ? `${no}. denetim tamamlandı. Yeni denetim için “Denetimi Başlat”a basın.` : `${no}. denetim kaydedildi; açık kaldı, kaldığınız yerden devam edebilirsiniz.`);
   };
+  const sv = document.getElementById("saveSess"); if (sv) sv.onclick = () => doSave(false);
+  const dn = document.getElementById("doneSess"); if (dn) dn.onclick = () => doSave(true);
 }
 const $ = id => document.getElementById(id);
