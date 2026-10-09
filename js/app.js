@@ -1,15 +1,15 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261009w";
-import * as S from "./store.js?v=20261009w";
-import * as Prim from "./primary.js?v=20261009w";
-import * as Denetim from "./denetim.js?v=20261009w";
-import * as Kaza from "./kaza.js?v=20261009w";
-import * as Konusma from "./konusma.js?v=20261009w";
-import * as Genel from "./genel.js?v=20261009w";
-import * as Rapor from "./rapor.js?v=20261009w";
-import * as Verim from "./verim.js?v=20261009w";
-import * as Isbasi from "./isbasi.js?v=20261009w";
-import { $, esc, ic, toast, modal, confirmBox, formBox } from "./ui.js?v=20261009w";
-import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261009w";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261009x";
+import * as S from "./store.js?v=20261009x";
+import * as Prim from "./primary.js?v=20261009x";
+import * as Denetim from "./denetim.js?v=20261009x";
+import * as Kaza from "./kaza.js?v=20261009x";
+import * as Konusma from "./konusma.js?v=20261009x";
+import * as Genel from "./genel.js?v=20261009x";
+import * as Rapor from "./rapor.js?v=20261009x";
+import * as Verim from "./verim.js?v=20261009x";
+import * as Isbasi from "./isbasi.js?v=20261009x";
+import { $, esc, ic, toast, modal, confirmBox, formBox } from "./ui.js?v=20261009x";
+import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261009x";
 
 const VERSION = "1.0.0";
 const st = { factories: [], years: [], fid: null, year: null, page: "genel", profile: {}, lastSync: new Date() };
@@ -90,7 +90,9 @@ async function loadContext() {
 async function loadYears() {
   st.years = st.fid ? await S.listYears(st.fid) : [];
   const saved = S.pref.get("year");
-  st.year = st.years.includes(saved) ? saved : st.years[st.years.length - 1] || null;
+  const fa = st.factories.find(f => f.id === st.fid)?.activeYear;
+  st.active = st.years.map(String).includes(String(fa)) ? String(fa) : st.years[st.years.length - 1] || null;
+  st.year = st.years.includes(saved) ? saved : st.active;
   drawSelectors();
 }
 function drawSelectors() {
@@ -238,9 +240,9 @@ function drawKurulum(v) {
   v.querySelectorAll(".pi").forEach(el => el.onchange = () => {
     const ks = el.dataset.p.split("."); ks.slice(0, -1).reduce((o, k) => o[k], K.params)[ks.at(-1)] = el.value.trim(); drawKurulum(v);
   });
-  if (st.year < st.years[st.years.length - 1]) {
+  if (String(st.year) !== String(st.active)) {
     v.querySelectorAll(".inp,.pi,.xb,#addRow,#saveK").forEach(e => e.disabled = true);
-    v.insertAdjacentHTML("afterbegin", `<div class="warn">${st.year} geçmiş bir yıldır, salt okunur. Değişiklik için güncel yılı seçin.</div>`);
+    v.insertAdjacentHTML("afterbegin", `<div class="warn">${st.year} arşiv yılıdır, salt okunur. Değişiklik için aktif yılı seçin veya Ayarlar → Yıllar’dan bu yılı aktif yapın.</div>`);
   }
   $("saveK").onclick = async () => {
     const errs = validateK();
@@ -325,9 +327,8 @@ async function pageAyarlar(v) {
         <div class="fg"><input id="nf" class="inp" placeholder="Fabrika adı" aria-label="Fabrika adı"><input id="nl" class="inp" placeholder="Konum (örn. Gebze)" aria-label="Konum"></div>
         <div><button id="addF">+ Fabrika ekle</button></div></div></div>
 
-    <div class="cd"><div><h2>Yıllar</h2><div class="muted" style="font-size:13px">Veriler yıl bazında saklanır. Geçmiş yıllar salt okunur kalır; yıl seçerek geriye dönük inceleyebilirsiniz. Yeni yıl başlatınca Genel Bakış sayfasının altında “Yıllar Arası Karşılaştırma” kartı iki yılı kıyaslar.</div></div>
-      <div class="row">${st.years.map(y => `<span class="yr ${y === maxYear ? "cur" : ""}">${y} · ${y === maxYear ? "Güncel" : "Geçmiş, salt okunur"}</span>`).join("") || '<span class="muted">Seçili fabrikada yıl yok.</span>'}</div>
-      <div class="row">${st.fid ? `<button class="sec" id="newY">${next || new Date().getFullYear()} yılını başlat</button>` : ""}</div>
+    <div class="cd"><div><h2>Yıllar</h2><div class="muted" style="font-size:13px">Veriler yıl bazında saklanır. Yalnızca aktif yıl düzenlenebilir; arşiv yıllarını üstteki yıl seçiciden inceleyebilir, gerekirse “Aktif yap” ile tekrar düzenlemeye açabilirsiniz. Yeni yıl başlatınca Genel Bakış sayfasının altında “Yıllar Arası Karşılaştırma” kartı iki yılı kıyaslar.</div></div>
+      <div class="ygrid">${st.years.map(y => { const a = String(y) === String(st.active); return `<div class="ycard ${a ? "cur" : ""}"><b class="yn">${y}</b><span class="ys">${a ? "Aktif · düzenlenebilir" : "Arşiv · salt okunur"}</span>${a ? `<span class="yb" style="visibility:hidden">.</span>` : `<button class="sec yb" data-actyear="${y}">Aktif yap</button>`}</div>`; }).join("")}${st.fid ? `<button class="ycard add" id="newY"><b class="yn">+</b><span class="ys">${next || new Date().getFullYear()} yılını başlat</span></button>` : '<span class="muted">Seçili fabrikada yıl yok.</span>'}</div>
       ${next ? '<div class="muted" style="font-size:12.5px">Yeni yıl başlatılınca bölümler ve parametreler önceki yıldan kopyalanır.</div>' : ""}</div>
 
     <div class="cd"><div><h2>Görünüm</h2><div class="muted" style="font-size:13px">Tema seçimi bu cihazda saklanır.</div></div>
@@ -386,12 +387,17 @@ async function pageAyarlar(v) {
     const n = $("nf").value.trim(); if (!n) return say("Fabrika adı yazın.");
     const id = await S.addFactory(n, $("nl").value.trim()); S.pref.set("fid", id); await loadContext(); say("Fabrika eklendi."); pageAyarlar(v);
   };
+  v.querySelectorAll("[data-actyear]").forEach(b => b.onclick = async () => {
+    const ay = b.dataset.actyear;
+    if (!confirm(`${ay} yılı aktif yapılsın mı? Şu an aktif olan yıl arşive geçer (salt okunur).`)) return;
+    await S.updateFactory(st.fid, { activeYear: ay }); S.pref.set("year", ay); await loadContext(); say(`${ay} yılı aktif yapıldı.`); pageAyarlar(v);
+  });
   const ny = $("newY");
   if (ny) ny.onclick = async () => {
     const y = next || String(new Date().getFullYear());
     await S.addYear(st.fid, y);
     if (maxYear) { const prev = await S.getSetup(st.fid, maxYear); if (prev) await S.saveSetup(st.fid, y, { rows: prev.rows, params: prev.params }); }
-    S.pref.set("year", y); await loadYears(); say(`${y} yılı başlatıldı.`); pageAyarlar(v);
+    await S.updateFactory(st.fid, { activeYear: y }); S.pref.set("year", y); await loadContext(); say(`${y} yılı başlatıldı ve aktif yapıldı.`); pageAyarlar(v);
   };
   $("doSync").onclick = async () => { await loadContext(); $("syncT").textContent = "Güncel · " + st.lastSync.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }); say("Veriler buluttan yenilendi."); };
 }

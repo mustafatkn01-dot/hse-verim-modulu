@@ -1,9 +1,9 @@
 // Genel Bakış · yıllık özet panosu (gerçek verilerden)
-import * as S from "./store.js?v=20261009w";
-import { esc } from "./ui.js?v=20261009w";
-import { CATS } from "./isgcats.js?v=20261009w";
-import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261009w";
-import { load } from "./verim.js?v=20261009w";
+import * as S from "./store.js?v=20261009x";
+import { esc } from "./ui.js?v=20261009x";
+import { CATS } from "./isgcats.js?v=20261009x";
+import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261009x";
+import { load } from "./verim.js?v=20261009x";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -36,7 +36,7 @@ export async function render(v, ctx) {
   const mods = MODN.map((n, k) => ({ n, v: avgOf(rows.map(r => modYear(r.id, k))) }));
   const trend = Array.from({ length: 12 }, (_, m) => avgOf(rows.map(r => total(r.id, m))));
   const lastM = trend.reduce((a, x, i) => (x !== null ? i : a), -1);
-  const ro = st.year < st.years[st.years.length - 1];
+  const ro = String(st.year) !== String(st.active);
   const ob = bb(overall), CIRC = 2 * Math.PI * 74;
 
   // İSG bulgu haritası: son denetim verisi olan ay

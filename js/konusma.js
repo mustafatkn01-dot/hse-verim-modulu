@@ -1,7 +1,7 @@
 // Eğitim Konuşması · Aylık Giriş
-import * as S from "./store.js?v=20261009w";
-import { esc, ic, toast, noteEditor } from "./ui.js?v=20261009w";
-import { katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261009w";
+import * as S from "./store.js?v=20261009x";
+import { esc, ic, toast, noteEditor } from "./ui.js?v=20261009x";
+import { katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261009x";
 
 const COLL = "konusma";
 const BAND = { Mükemmel: ["#17A06F", "#0B6E4F", "#D9F1E6"], İyi: ["#2A82C4", "#145F96", "#DCEAF7"], Orta: ["#E8A512", "#6B3F00", "#FBE9C6"], Kritik: ["#D6382E", "#B3261E", "#FADAD7"] };
@@ -29,7 +29,7 @@ export async function render(v, ctx) {
     const doc = await S.getMonthDoc(st.fid, st.year, COLL, pad(D.month));
     D.rows = doc?.rows || {}; D.exists = !!doc; D.key = key; D.saved = true; D.msg = "";
   }
-  D.ctx = ctx; D.v = v; D.setup = setup; D.ro = st.year < st.years[st.years.length - 1];
+  D.ctx = ctx; D.v = v; D.setup = setup; D.ro = String(st.year) !== String(st.active);
   draw();
 }
 const rowOf = id => (D.rows[id] ||= { min: "", note: "" });

@@ -1,8 +1,8 @@
 // İSG Denetim Listesi sayfası
-import * as S from "./store.js?v=20261009w";
-import { esc, ic, toast, noteEditor } from "./ui.js?v=20261009w";
-import { CATS } from "./isgcats.js?v=20261009w";
-import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261009w";
+import * as S from "./store.js?v=20261009x";
+import { esc, ic, toast, noteEditor } from "./ui.js?v=20261009x";
+import { CATS } from "./isgcats.js?v=20261009x";
+import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261009x";
 
 const COLL = "isg";
 const D = { key: "", setup: null, doc: null, dept: null, month: null, open: { 0: true }, ro: false, timer: null, saved: true, msg: "" };
@@ -33,7 +33,7 @@ export async function render(v, ctx) {
     D.doc = doc ? { ...blank(st.year, D.month), ...doc, draft: { ...blank(st.year, D.month).draft, ...(doc.draft || {}) } } : blank(st.year, D.month, ctx.st.profile?.name);
     D.key = key; D.saved = true; D.msg = "";
   }
-  D.ro = st.year < st.years[st.years.length - 1];
+  D.ro = String(st.year) !== String(st.active);
   D.ctx = ctx; D.v = v;
   draw();
 }
@@ -168,7 +168,7 @@ function bind(v, c) {
   on("[data-freqreset]", el => { delete doc.freq[el.dataset.freqreset]; again(); });
   on("[data-bonus]", el => { doc.bonus = +el.dataset.bonus; again(); });
   on("[data-delsess]", async el => {
-    const { confirmBox } = await import("./ui.js?v=20261009w");
+    const { confirmBox } = await import("./ui.js?v=20261009x");
     if (!(await confirmBox("Son denetim geri alınsın mı?", "Kaydedilen denetim silinir; skor ve sıklıklar yeniden hesaplanır.", "Evet, geri al", true))) return;
     doc.sessions.pop(); await persist(true); draw();
   });

@@ -1,7 +1,7 @@
 // İş Kazası · Aylık Giriş
-import * as S from "./store.js?v=20261009w";
-import { esc, ic, toast, noteEditor } from "./ui.js?v=20261009w";
-import { katsayi, bandOf, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261009w";
+import * as S from "./store.js?v=20261009x";
+import { esc, ic, toast, noteEditor } from "./ui.js?v=20261009x";
+import { katsayi, bandOf, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261009x";
 
 const COLL = "kaza";
 const T = [["Gün kayıpsız", 2], ["1-5 gün kayıplı", 5], ["5-20 gün kayıplı", 10], ["20+ gün kayıplı", 20], ["Uzuv kaybı", 50], ["Ölüm", 100]];
@@ -28,7 +28,7 @@ export async function render(v, ctx) {
     const doc = await S.getMonthDoc(st.fid, st.year, COLL, pad(D.month));
     D.rows = doc?.rows || {}; D.exists = !!doc; D.key = key; D.saved = true; D.msg = "";
   }
-  D.ctx = ctx; D.v = v; D.setup = setup; D.ro = st.year < st.years[st.years.length - 1];
+  D.ctx = ctx; D.v = v; D.setup = setup; D.ro = String(st.year) !== String(st.active);
   draw();
 }
 
