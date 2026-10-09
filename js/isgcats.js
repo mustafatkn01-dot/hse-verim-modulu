@@ -14,10 +14,12 @@ export const CATS = [
     "Sıcak iş, kapalı alan ve yüksekte çalışma için iş izni alınmış",
     "Yüksekte çalışmada korkuluk, yaşam hattı veya emniyet kemeri kullanılıyor",
     "Sıcak işte yangın önlemi (söndürücü, yangın battaniyesi) alınmış"] },
-  { name: "Elektrik Güvenliği", sub: "Kablo, pano, topraklama", w: 2, items: [
+  { name: "Elektrik Güvenliği", sub: "Kablo, pano, topraklama, yalıtım paspası", w: 2, items: [
     "Ekli veya yamalı kablo kullanılmıyor",
     "Pano kapakları kapalı, uyarı etiketleri yerinde",
-    "Topraklama ve kaçak akım koruması sağlıklı"] },
+    "Topraklama ve kaçak akım koruması sağlıklı",
+    "Pano ve elektrik ekipmanı önünde yalıtım paspası bulunuyor",
+    "Yalıtım paspasının fiziksel durumu uygun (yırtık, çatlak, delik, aşınma yok; paspas yoksa Y.D.)"] },
   { name: "Yaya Yolu ve Acil Durum Ekipman/Çıkış Erişimi", sub: "Yaya yolları, acil çıkışlar, yangın dolabı ve söndürücüler", w: 2, items: [
     "Yaya yolları malzemeden arındırılmış",
     "Acil çıkış kapıları ve çıkış yolları açık",
