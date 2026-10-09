@@ -1,11 +1,12 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261009d";
-import * as S from "./store.js?v=20261009d";
-import * as Denetim from "./denetim.js?v=20261009d";
-import * as Kaza from "./kaza.js?v=20261009d";
-import * as Konusma from "./konusma.js?v=20261009d";
-import * as Isbasi from "./isbasi.js?v=20261009d";
-import { $, esc, ic, toast, modal, confirmBox, formBox } from "./ui.js?v=20261009d";
-import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261009d";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261009e";
+import * as S from "./store.js?v=20261009e";
+import * as Denetim from "./denetim.js?v=20261009e";
+import * as Kaza from "./kaza.js?v=20261009e";
+import * as Konusma from "./konusma.js?v=20261009e";
+import * as Verim from "./verim.js?v=20261009e";
+import * as Isbasi from "./isbasi.js?v=20261009e";
+import { $, esc, ic, toast, modal, confirmBox, formBox } from "./ui.js?v=20261009e";
+import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261009e";
 
 const VERSION = "1.0.0";
 const st = { factories: [], years: [], fid: null, year: null, page: "genel", profile: {}, lastSync: new Date() };
@@ -22,7 +23,7 @@ const GROUPS = [
     ["isbasi", "İşbaşı Eğitim", '<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 11l2 2 4-4"/>']]],
   ["RAPOR", [
     ["rapor", "Raporlar ve Dışa Aktar", '<path d="M6 3h8l4 4v14H6z"/><path d="M9 17v-3M12 17v-5M15 17v-2"/>', 1],
-    ["verim", "Verim Tablosu", '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M9 5v14"/>', 1]]]
+    ["verim", "Verim Tablosu", '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M9 5v14"/>']]]
 ];
 const PAGES = GROUPS.flatMap(g => g[1]);
 
@@ -111,6 +112,7 @@ async function render() {
     return;
   }
   if (st.page === "kurulum") return pageKurulum(v);
+  if (st.page === "verim") return Verim.render(v, { st });
   if (st.page === "isbasi") return Isbasi.render(v, { st });
   if (st.page === "konusma") return Konusma.render(v, { st });
   if (st.page === "kaza") return Kaza.render(v, { st });
