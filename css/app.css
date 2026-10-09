@@ -168,3 +168,6 @@ table.t{width:100%;border-collapse:collapse}
 
 @media print{#side,#mbar,#ov,.noprint,.pg>.row:first-child select,.ctx{display:none!important}
 body,html{background:#fff!important}#app{display:block!important}.pg{padding:0!important}.cd{break-inside:avoid;box-shadow:none}}
+
+/* Açık zeminli kutular koyu temada da açık tema renklerini kullanır (okunabilirlik) */
+.xbox,.okbar,.it.lt,.warn,.lightbox{--bg:#EDF2F0;--card:#fff;--line:#D5E0DC;--text:#10201C;--muted:#546964;--inl:#C3D1CC;--calc:#EEF3F1;--calct:#3E534E;--hbg:#F3F7F5;--hbd:#C9D8D3;--htx:#2A3F3A;--gd:#0B6E4F;color:var(--text)}

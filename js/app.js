@@ -1,15 +1,15 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261009u";
-import * as S from "./store.js?v=20261009u";
-import * as Prim from "./primary.js?v=20261009u";
-import * as Denetim from "./denetim.js?v=20261009u";
-import * as Kaza from "./kaza.js?v=20261009u";
-import * as Konusma from "./konusma.js?v=20261009u";
-import * as Genel from "./genel.js?v=20261009u";
-import * as Rapor from "./rapor.js?v=20261009u";
-import * as Verim from "./verim.js?v=20261009u";
-import * as Isbasi from "./isbasi.js?v=20261009u";
-import { $, esc, ic, toast, modal, confirmBox, formBox } from "./ui.js?v=20261009u";
-import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261009u";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261009w";
+import * as S from "./store.js?v=20261009w";
+import * as Prim from "./primary.js?v=20261009w";
+import * as Denetim from "./denetim.js?v=20261009w";
+import * as Kaza from "./kaza.js?v=20261009w";
+import * as Konusma from "./konusma.js?v=20261009w";
+import * as Genel from "./genel.js?v=20261009w";
+import * as Rapor from "./rapor.js?v=20261009w";
+import * as Verim from "./verim.js?v=20261009w";
+import * as Isbasi from "./isbasi.js?v=20261009w";
+import { $, esc, ic, toast, modal, confirmBox, formBox } from "./ui.js?v=20261009w";
+import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261009w";
 
 const VERSION = "1.0.0";
 const st = { factories: [], years: [], fid: null, year: null, page: "genel", profile: {}, lastSync: new Date() };
@@ -265,7 +265,7 @@ function validateK() {
 const BUILD = "09.10.2026";
 const fmtDt = t => new Date(t).toLocaleString("tr-TR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 const initials = n => (n || "").split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0].toUpperCase()).join("") || "?";
-const item = (inner, bg = "var(--card)", bd = "var(--line)") => `<div class="it" style="background:${bg};border-color:${bd}">${inner}</div>`;
+const item = (inner, bg = "var(--card)", bd = "var(--line)") => `<div class="it${bg === "var(--card)" ? "" : " lt"}" style="background:${bg};border-color:${bd}">${inner}</div>`;
 const THEMES = [["light", "Açık", "#0B2230", "#EDF2F0", "#fff"], ["dark", "Koyu", "#06121a", "#0d1a22", "#14262f"], ["auto", "Cihaza göre", "#0B2230", "#8aa39b", "#cfdcd7"]];
 
 async function pageAyarlar(v) {
@@ -325,7 +325,7 @@ async function pageAyarlar(v) {
         <div class="fg"><input id="nf" class="inp" placeholder="Fabrika adı" aria-label="Fabrika adı"><input id="nl" class="inp" placeholder="Konum (örn. Gebze)" aria-label="Konum"></div>
         <div><button id="addF">+ Fabrika ekle</button></div></div></div>
 
-    <div class="cd"><div><h2>Yıllar</h2><div class="muted" style="font-size:13px">Veriler yıl bazında saklanır. Geçmiş yıllar salt okunur kalır; yıl seçerek geriye dönük inceleyebilirsiniz. Yıllar arası bölüm karşılaştırması için altyapı hazırdır.</div></div>
+    <div class="cd"><div><h2>Yıllar</h2><div class="muted" style="font-size:13px">Veriler yıl bazında saklanır. Geçmiş yıllar salt okunur kalır; yıl seçerek geriye dönük inceleyebilirsiniz. Yeni yıl başlatınca Genel Bakış sayfasının altında “Yıllar Arası Karşılaştırma” kartı iki yılı kıyaslar.</div></div>
       <div class="row">${st.years.map(y => `<span class="yr ${y === maxYear ? "cur" : ""}">${y} · ${y === maxYear ? "Güncel" : "Geçmiş, salt okunur"}</span>`).join("") || '<span class="muted">Seçili fabrikada yıl yok.</span>'}</div>
       <div class="row">${st.fid ? `<button class="sec" id="newY">${next || new Date().getFullYear()} yılını başlat</button>` : ""}</div>
       ${next ? '<div class="muted" style="font-size:12.5px">Yeni yıl başlatılınca bölümler ve parametreler önceki yıldan kopyalanır.</div>' : ""}</div>

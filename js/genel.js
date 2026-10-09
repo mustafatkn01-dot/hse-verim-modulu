@@ -1,9 +1,9 @@
 // Genel Bakış · yıllık özet panosu (gerçek verilerden)
-import * as S from "./store.js?v=20261009u";
-import { esc } from "./ui.js?v=20261009u";
-import { CATS } from "./isgcats.js?v=20261009u";
-import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261009u";
-import { load } from "./verim.js?v=20261009u";
+import * as S from "./store.js?v=20261009w";
+import { esc } from "./ui.js?v=20261009w";
+import { CATS } from "./isgcats.js?v=20261009w";
+import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261009w";
+import { load } from "./verim.js?v=20261009w";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -61,6 +61,7 @@ export async function render(v, ctx) {
 
   // Yıllar arası karşılaştırma: seçili yılda verisi olan aylar iki yılda da aynı alınır
   let cmpHtml = "";
+  const ph = t => `<div class="cd" style="gap:8px"><h2>Yıllar Arası Karşılaştırma</h2><div class="muted" style="font-size:13.5px;line-height:1.55">${t}</div></div>`;
   const others = st.years.filter(y => String(y) !== String(st.year));
   if (others.length) {
     const fk = st.fid + "/" + st.year; if (G.key !== fk) { G.key = fk; G.cmp = null; }
@@ -90,8 +91,8 @@ export async function render(v, ctx) {
           ${pairs.map(x => `<div style="display:flex;align-items:center;gap:10px"><span style="width:112px;flex:0 0 112px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.r.name)}</span>${two(x.a, x.b)}<span style="width:44px;text-align:right;font-size:12.5px;color:var(--muted)">${x.b === null ? "–" : f1(x.b)}</span><b style="width:44px;text-align:right">${x.a === null ? "–" : f1(x.a)}</b><span style="width:76px;flex:0 0 76px;text-align:center">${dl(x.a, x.b)}</span></div>`).join("")}</div>
         <div style="border-top:1px solid var(--line);padding-top:12px" class="col1"><span class="hd">MODÜLLER</span>${mod.map(m => `<div style="display:flex;align-items:center;gap:10px"><span style="width:140px;flex:0 0 140px;font-weight:600">${m.n}</span>${two(m.a, m.b)}<span style="width:44px;text-align:right;font-size:12.5px;color:var(--muted)">${m.b === null ? "–" : f1(m.b)}</span><b style="width:44px;text-align:right">${m.a === null ? "–" : f1(m.a)}</b><span style="width:76px;flex:0 0 76px;text-align:center">${dl(m.a, m.b)}</span></div>`).join("")}</div>
         ${both.length < pairs.length ? `<div class="muted" style="font-size:12.5px">Bazı bölümler iki yılda da bulunmadığı veya veri girilmediği için karşılaştırılamadı.</div>` : ""}<div class="muted" style="font-size:12.5px">Toplam verim, o yılda verisi girilen modüllerle hesaplanır; modül sayısı iki yılda farklıysa modül satırlarına bakın.</div></div>`;
-    }
-  }
+    } else cmpHtml = !M.length ? ph(`${st.year} yılında henüz veri girilmedi; veri girildikçe ${G.cmp} ile aynı aylar karşılaştırılır.`) : ph(`${G.cmp} yılı için kurulum (bölüm listesi) bulunamadı. Ayarlar → Yıllar bölümünden o yılı başlatın.`);
+  } else cmpHtml = ph("Karşılaştırma için en az iki yıl gerekir. Şu an yalnızca " + st.year + " yılı var. <b>Ayarlar → Yıllar → “" + (Number(st.year) + 1) + " yılını başlat”</b> ile yeni yıl açıldığında, her iki yılda veri girilen aynı aylar bölüm ve modül bazında burada kıyaslanır.");
   const label = s => (s === null ? "Veri yok" : bn(s));
   const rank = have.slice().sort((a, b) => b.v - a.v);
   v.innerHTML = `
