@@ -1,9 +1,10 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261009b";
-import * as S from "./store.js?v=20261009b";
-import * as Denetim from "./denetim.js?v=20261009b";
-import * as Kaza from "./kaza.js?v=20261009b";
-import { $, esc, ic, toast, modal, confirmBox, formBox } from "./ui.js?v=20261009b";
-import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261009b";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261009c";
+import * as S from "./store.js?v=20261009c";
+import * as Denetim from "./denetim.js?v=20261009c";
+import * as Kaza from "./kaza.js?v=20261009c";
+import * as Konusma from "./konusma.js?v=20261009c";
+import { $, esc, ic, toast, modal, confirmBox, formBox } from "./ui.js?v=20261009c";
+import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261009c";
 
 const VERSION = "1.0.0";
 const st = { factories: [], years: [], fid: null, year: null, page: "genel", profile: {}, lastSync: new Date() };
@@ -16,7 +17,7 @@ const GROUPS = [
   ["AYLIK VERİ GİRİŞİ", [
     ["denetim", "İSG Denetim Listesi", '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9z"/><path d="M9 13l2 2 4-4"/>'],
     ["kaza", "İş Kazası", '<path d="M12 3l9 16H3L12 3z"/><path d="M12 10v4M12 17h0"/>'],
-    ["konusma", "Eğitim Konuşması", '<path d="M3 8l9-4 9 4-9 4-9-4z"/><path d="M7 10.5V15c0 1.5 2.2 3 5 3s5-1.5 5-3v-4.5"/>', 1],
+    ["konusma", "Eğitim Konuşması", '<path d="M3 8l9-4 9 4-9 4-9-4z"/><path d="M7 10.5V15c0 1.5 2.2 3 5 3s5-1.5 5-3v-4.5"/>'],
     ["isbasi", "İşbaşı Eğitim", '<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 11l2 2 4-4"/>', 1]]],
   ["RAPOR", [
     ["rapor", "Raporlar ve Dışa Aktar", '<path d="M6 3h8l4 4v14H6z"/><path d="M9 17v-3M12 17v-5M15 17v-2"/>', 1],
@@ -109,6 +110,7 @@ async function render() {
     return;
   }
   if (st.page === "kurulum") return pageKurulum(v);
+  if (st.page === "konusma") return Konusma.render(v, { st });
   if (st.page === "kaza") return Kaza.render(v, { st });
   if (st.page === "denetim") return Denetim.render(v, { st });
   return pageGenel(v);
