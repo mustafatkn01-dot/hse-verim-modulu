@@ -5,7 +5,7 @@ import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow } from "./scori
 const VERSION = "1.0.0";
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const st = { factories: [], years: [], fid: null, year: null, page: "genel" };
+const st = { factories: [], years: [], fid: null, year: null, page: "genel", profile: {}, lastSync: new Date() };
 
 const ic = d => `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
 const GROUPS = [
@@ -43,15 +43,30 @@ $("btnReset").addEventListener("click", async () => {
   catch (er) { $("loginErr").textContent = errMsg(er); }
 });
 
+let unwatch = null, beat = null;
+async function doSignOut() {
+  try { unwatch?.(); clearInterval(beat); await S.endSession(); } catch {}
+  ["fid", "year", "device"].forEach(k => { try { localStorage.removeItem("hse_" + k); } catch {} });
+  K.key = ""; await signOut(auth);
+}
 onAuthStateChanged(auth, async user => {
   $("login").classList.toggle("hide", !!user);
   $("app").classList.toggle("hide", !user);
-  if (user) { await loadContext(); go(location.hash.slice(1) || "genel"); }
+  if (user) {
+    try { await S.touchSession(true); } catch {}
+    unwatch?.(); clearInterval(beat);
+    unwatch = S.watchSession(d => { if (d?.revoked) doSignOut(); });
+    beat = setInterval(() => S.touchSession().catch(() => {}), 5 * 60 * 1000);
+    S.getProfile().then(p => { st.profile = p; }).catch(() => {});
+    await loadContext(); go(location.hash.slice(1) || "genel");
+  }
 });
 
 // ---------- Bağlam: fabrika + yıl ----------
 async function loadContext() {
-  st.factories = await S.listFactories();
+  st.all = await S.listFactories();
+  st.factories = st.all.filter(f => !f.archived);
+  st.lastSync = new Date();
   if (!st.factories.length) { st.fid = null; st.years = []; st.year = null; return drawSelectors(); }
   const saved = S.pref.get("fid");
   st.fid = st.factories.find(f => f.id === saved)?.id || st.factories[0].id;
@@ -76,8 +91,10 @@ $("selYear").addEventListener("change", e => { st.year = e.target.value; S.pref.
 
 // ---------- Yönlendirme ----------
 window.addEventListener("hashchange", () => auth.currentUser && go(location.hash.slice(1)));
-$("menuBtn").onclick = () => $("side").classList.toggle("open");
-function go(p) { st.page = PAGES.find(x => x[0] === p && !x[3]) ? p : "genel"; $("side").classList.remove("open"); render(); }
+const toggleMenu = o => { $("side").classList.toggle("open", o); $("ov").classList.toggle("show", o ?? $("side").classList.contains("open")); };
+$("menuBtn").onclick = () => toggleMenu();
+$("ov").onclick = () => toggleMenu(false);
+function go(p) { st.page = PAGES.find(x => x[0] === p && !x[3]) ? p : "genel"; toggleMenu(false); render(); }
 function drawNav() {
   $("nav").innerHTML = `<div class="brand"><div class="logo"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8.2-7 10-4-1.8-7-5.5-7-10V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg></div><div><b>HSE Verim Modülü</b><small>Performans Takip</small></div></div>`
     + GROUPS.map(([t, items]) => `<div class="grp"><div class="t">${t}</div>` + items.map(([k, n, d, soon]) =>
@@ -200,6 +217,10 @@ function drawKurulum(v) {
   v.querySelectorAll(".pi").forEach(el => el.onchange = () => {
     const ks = el.dataset.p.split("."); ks.slice(0, -1).reduce((o, k) => o[k], K.params)[ks.at(-1)] = el.value.trim(); drawKurulum(v);
   });
+  if (st.year < st.years[st.years.length - 1]) {
+    v.querySelectorAll(".inp,.pi,.xb,#addRow,#saveK").forEach(e => e.disabled = true);
+    v.insertAdjacentHTML("afterbegin", `<div class="warn">${st.year} geçmiş bir yıldır, salt okunur. Değişiklik için güncel yılı seçin.</div>`);
+  }
   $("saveK").onclick = async () => {
     const errs = validateK();
     const box = $("kerr"); box.classList.toggle("hide", !errs.length); box.innerHTML = errs.join("<br>");
@@ -220,39 +241,108 @@ function validateK() {
 }
 
 // ---------- Ayarlar ----------
-function pageAyarlar(v) {
-  const theme = S.pref.get("theme") || "light";
-  v.innerHTML = `<div><h1 class="ttl">Ayarlar</h1><div class="sub">Hesap, tema, fabrikalar ve yıllar.</div></div>
-  <div class="cd"><h2>Hesap</h2><div>${esc(auth.currentUser.email)}</div>
-    <div class="muted">Sürüm <span class="chip">${VERSION}</span></div>
-    <div><button class="danger" id="out">Çıkış yap</button></div>
-    <div class="muted" style="font-size:13px">Bu cihazdaki oturum kapanır; veriler bulutta kalır.</div></div>
-  <div class="cd"><h2>Tema</h2><div><select id="theme" style="max-width:220px">
-    ${[["light", "Açık"], ["dark", "Koyu"], ["auto", "Cihaza göre"]].map(([k, n]) => `<option value="${k}" ${k === theme ? "selected" : ""}>${n}</option>`).join("")}</select></div></div>
-  <div class="cd"><h2>Fabrikalar</h2>
-    <table class="t">${st.factories.map(f => `<tr><td>${esc(f.name)}</td><td><div class="row" style="justify-content:flex-end">
-      <button class="sm sec" data-ren="${f.id}">Yeniden adlandır</button><button class="sm danger" data-del="${f.id}">Sil</button></div></td></tr>`).join("")}</table>
-    <div class="row"><input id="nf" placeholder="Yeni fabrika adı" style="max-width:260px"><button id="addF">Fabrika ekle</button></div></div>
-  <div class="cd"><h2>Yıllar</h2>
-    <div class="muted">${st.fid ? "Seçili fabrika: " + esc(st.factories.find(f => f.id === st.fid)?.name) : "Önce fabrika ekleyin."}</div>
-    <div>${st.years.map(y => `<span class="chip">${y}</span> `).join("") || "—"}</div>
-    <div class="row"><input id="ny" type="number" min="2020" max="2100" placeholder="Örn. 2026" style="max-width:140px"><button id="addY" ${st.fid ? "" : "disabled"}>Yıl ekle</button></div></div>`;
-  $("out").onclick = () => signOut(auth);
-  $("theme").onchange = e => { S.pref.set("theme", e.target.value); applyTheme(); };
+const BUILD = "09.10.2026";
+const fmtDt = t => new Date(t).toLocaleString("tr-TR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+const initials = n => (n || "").split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0].toUpperCase()).join("") || "?";
+const item = (inner, bg = "var(--card)", bd = "var(--line)") => `<div class="it" style="background:${bg};border-color:${bd}">${inner}</div>`;
+const THEMES = [["light", "Açık", "#0B2230", "#EDF2F0", "#fff"], ["dark", "Koyu", "#06121a", "#0d1a22", "#14262f"], ["auto", "Cihaza göre", "#0B2230", "#8aa39b", "#cfdcd7"]];
+
+async function pageAyarlar(v) {
+  const email = auth.currentUser.email, theme = S.pref.get("theme") || "light";
+  const [sessions, profile] = await Promise.all([S.listSessions().catch(() => []), S.getProfile().catch(() => ({}))]);
+  st.profile = profile;
+  const name = profile.name || "";
+  const maxYear = st.years[st.years.length - 1];
+  const next = maxYear ? String(+maxYear + 1) : null;
+  const counts = {};
+  await Promise.all(st.all.map(async f => {
+    try { const ys = await S.listYears(f.id); const s = ys.length ? await S.getSetup(f.id, ys[ys.length - 1]) : null; counts[f.id] = s?.rows?.length ?? 0; } catch { counts[f.id] = 0; }
+  }));
+  const me = S.deviceId();
+  const cur = st.factories.find(f => f.id === st.fid);
+  v.innerHTML = `
+  <div><h1 class="ttl">Ayarlar</h1><div class="sub">Hesap bilgileriniz, oturum açık cihazlarınız, fabrikalar, tema ve uygulama sürümü burada yönetilir.</div></div>
+  <div id="note" class="okbar hide"><span id="noteT"></span><button class="sec" id="noteX">Kapat</button></div>
+  <div class="two">
+  <div class="colw">
+    <div class="cd"><div><h2>Hesap</h2><div class="muted" style="font-size:13px">Giriş yaptığınız hesabın bilgileri. E-posta ile giriş yapılır, şifreniz hiçbir yerde gösterilmez.</div></div>
+      <div class="row" style="gap:16px;flex-wrap:nowrap"><div class="av">${esc(initials(name || email))}</div>
+        <div style="min-width:0"><b style="font-size:17px">${esc(name || "Adınızı girin")}</b><div class="muted" style="overflow-wrap:anywhere">${esc(email)}</div></div></div>
+      <div class="fg">
+        <div><label class="hd" for="adSoyad">AD SOYAD</label><input id="adSoyad" class="inp" value="${esc(name)}" placeholder="Ad Soyad"></div>
+        <div><span class="hd">E-POSTA</span><div class="inp ro">${esc(email)}</div></div>
+        <div><span class="hd">ROL</span><div class="inp ro">Yönetici</div></div>
+        <div><span class="hd">GİRİŞ YÖNTEMİ</span><div class="inp ro">E-posta ve şifre</div></div></div>
+      <div class="row"><button class="sec" id="saveName">Adı kaydet</button><button class="sec" id="resetPw">Şifre sıfırlama bağlantısı gönder</button></div></div>
+
+    <div class="cd"><div><h2>Oturumlar ve Cihazlar</h2><div class="muted" style="font-size:13px">Hesabınıza giriş yapılmış cihazlar. Tanımadığınız bir cihaz varsa oradan uzaktan çıkış yapabilirsiniz.</div></div>
+      <div class="col1">${sessions.map(d => item(`
+        ${ic('<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>').replace('width="20" height="20"', 'width="24" height="24"')}
+        <div class="grow"><b>${esc(d.name)}</b><div class="muted" style="font-size:12.5px">${esc(d.kind || "")} · Son etkinlik ${fmtDt(d.lastSeen)}</div></div>
+        ${d.id === me ? '<span class="tag">Bu cihaz</span>' : `<button class="sm rm" data-rev="${d.id}">Uzaktan çıkış yap</button>`}`,
+        d.id === me ? "#F1FAF6" : "var(--card)", d.id === me ? "#9ED6BD" : "var(--line)")).join("") || '<div class="muted">Oturum bilgisi bulunamadı.</div>'}</div>
+      <div class="muted" style="font-size:12.5px;line-height:1.6">Çıkış yapılan cihazda oturum kapatılır ve yerel önbellek temizlenir. Verileriniz bulutta güvende kalır, tekrar giriş yapınca geri gelir.</div></div>
+
+    <div class="cd" style="background:#FDF1EF;border-color:#F2C4BF;flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:space-between">
+      <div style="flex:1 1 240px"><h2 style="color:#6E1511">Çıkış Yap</h2><div style="color:#5A1A16">Bu cihazdaki oturumunuz güvenli şekilde kapatılır.</div></div>
+      <button class="big" style="background:#B3261E" id="askOut">Çıkış Yap</button></div>
+  </div>
+  <div class="colw">
+    <div class="cd"><div><h2>Fabrikalar</h2><div class="muted" style="font-size:13px">Birden fazla fabrikanın denetimini yapabilirsiniz. Her fabrikanın bölümleri, kayıtları ve raporları ayrı tutulur; fabrika seçerek geçiş yaparsınız.</div></div>
+      <div class="col1">${st.all.map(f => item(`
+        <div class="grow"><b>${esc(f.name)}${f.archived ? " · arşivde" : ""}</b><div class="muted" style="font-size:12.5px">${esc(f.loc || "Konum yok")} · ${counts[f.id] ?? 0} bölüm</div></div>
+        ${f.id === st.fid && !f.archived ? '<span class="tag">Aktif fabrika</span>' : (!f.archived ? `<button class="sm sec" data-act="${f.id}">Aktif yap</button>` : "")}
+        <button class="sm sec" data-ren="${f.id}">Adı değiştir</button>
+        <button class="sm sec" data-arc="${f.id}" data-v="${f.archived ? 0 : 1}">${f.archived ? "Arşivden çıkar" : "Arşivle"}</button>`,
+        f.id === st.fid && !f.archived ? "#F1FAF6" : "var(--card)")).join("") || '<div class="muted">Henüz fabrika yok.</div>'}</div>
+      <div class="col1" style="padding-top:14px;border-top:1px solid var(--line)"><span class="hd">YENİ FABRİKA EKLE</span>
+        <div class="fg"><input id="nf" class="inp" placeholder="Fabrika adı" aria-label="Fabrika adı"><input id="nl" class="inp" placeholder="Konum (örn. Gebze)" aria-label="Konum"></div>
+        <div><button id="addF">+ Fabrika ekle</button></div></div></div>
+
+    <div class="cd"><div><h2>Yıllar</h2><div class="muted" style="font-size:13px">Veriler yıl bazında saklanır. Geçmiş yıllar salt okunur kalır; yıl seçerek geriye dönük inceleyebilirsiniz. Yıllar arası bölüm karşılaştırması için altyapı hazırdır.</div></div>
+      <div class="row">${st.years.map(y => `<span class="yr ${y === maxYear ? "cur" : ""}">${y} · ${y === maxYear ? "Güncel" : "Geçmiş, salt okunur"}</span>`).join("") || '<span class="muted">Seçili fabrikada yıl yok.</span>'}</div>
+      <div class="row">${st.fid ? `<button class="sec" id="newY">${next || new Date().getFullYear()} yılını başlat</button>` : ""}</div>
+      ${next ? '<div class="muted" style="font-size:12.5px">Yeni yıl başlatılınca bölümler ve parametreler önceki yıldan kopyalanır.</div>' : ""}</div>
+
+    <div class="cd"><div><h2>Görünüm</h2><div class="muted" style="font-size:13px">Tema seçimi bu cihazda saklanır.</div></div>
+      <div class="th">${THEMES.map(([k, n, sd, bg, cd]) => `<button class="tb ${k === theme ? "on" : ""}" data-theme="${k}" aria-pressed="${k === theme}">
+        <div class="pv"><div style="flex:0 0 28%;background:${sd}"></div><div style="flex:1;background:${bg};display:flex;flex-direction:column;gap:5px;padding:7px"><div style="height:8px;border-radius:4px;background:${cd}"></div><div style="height:8px;width:60%;border-radius:4px;background:#17A06F"></div></div></div><b>${n}</b></button>`).join("")}</div></div>
+
+    <div class="cd"><h2>Uygulama ve Senkronizasyon</h2>
+      <div class="fg">
+        <div><span class="hd">SÜRÜM</span><div style="font-weight:800;font-size:18px">${VERSION}</div></div>
+        <div><span class="hd">DERLEME TARİHİ</span><div style="font-weight:700">${BUILD}</div></div>
+        <div><span class="hd">VERİ ALTYAPISI</span><div style="font-weight:700">Bulut depolama · cihazlar arası senkronizasyon</div></div>
+        <div><span class="hd">SENKRONİZASYON</span><div style="font-weight:700"><i class="sw" style="background:#17A06F;border-radius:50%"></i><span id="syncT">Güncel · ${st.lastSync.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}</span></div></div></div>
+      <div><button class="sec" id="doSync">Şimdi senkronize et</button></div></div>
+  </div></div>
+  <div id="modal" class="mod hide"><div class="mbox"><h2>Çıkış yapılsın mı?</h2>
+    <p class="muted">Bu cihazdaki oturum kapatılır ve yerel önbellek temizlenir. Verileriniz bulutta güvende kalır.</p>
+    <div class="row" style="justify-content:flex-end"><button class="sec" id="noOut">Vazgeç</button><button class="danger" id="yesOut">Evet, çıkış yap</button></div></div></div>`;
+  const say = t => { $("noteT").textContent = t; $("note").classList.remove("hide"); };
+  $("noteX").onclick = () => $("note").classList.add("hide");
+  $("saveName").onclick = async () => { await S.saveProfile({ name: $("adSoyad").value.trim() }); say("Adınız kaydedildi."); pageAyarlar(v); };
+  $("resetPw").onclick = async () => { try { await sendPasswordResetEmail(auth, email); say("Şifre sıfırlama bağlantısı e-postanıza gönderildi."); } catch (e) { say(errMsg(e)); } };
+  v.querySelectorAll("[data-rev]").forEach(b => b.onclick = async () => { if (confirm("Bu cihazdaki oturum uzaktan kapatılsın mı?")) { await S.revokeSession(b.dataset.rev); say("Cihazın oturumu kapatıldı."); pageAyarlar(v); } });
+  $("askOut").onclick = () => $("modal").classList.remove("hide");
+  $("noOut").onclick = () => $("modal").classList.add("hide");
+  $("yesOut").onclick = doSignOut;
+  v.querySelectorAll("[data-theme]").forEach(b => b.onclick = () => { S.pref.set("theme", b.dataset.theme); applyTheme(); pageAyarlar(v); });
+  v.querySelectorAll("[data-act]").forEach(b => b.onclick = async () => { st.fid = b.dataset.act; S.pref.set("fid", st.fid); await loadYears(); say("Aktif fabrika değiştirildi."); pageAyarlar(v); });
+  v.querySelectorAll("[data-ren]").forEach(b => b.onclick = async () => { const n = prompt("Yeni ad:"); if (n?.trim()) { await S.renameFactory(b.dataset.ren, n.trim()); await loadContext(); pageAyarlar(v); } });
+  v.querySelectorAll("[data-arc]").forEach(b => b.onclick = async () => { await S.setArchived(b.dataset.arc, b.dataset.v === "1"); await loadContext(); pageAyarlar(v); });
   $("addF").onclick = async () => {
-    const n = $("nf").value.trim(); if (!n) return;
-    const id = await S.addFactory(n); S.pref.set("fid", id); await loadContext(); toast("Fabrika eklendi"); render();
+    const n = $("nf").value.trim(); if (!n) return say("Fabrika adı yazın.");
+    const id = await S.addFactory(n, $("nl").value.trim()); S.pref.set("fid", id); await loadContext(); say("Fabrika eklendi."); pageAyarlar(v);
   };
-  v.querySelectorAll("[data-ren]").forEach(b => b.onclick = async () => {
-    const n = prompt("Yeni ad:"); if (n?.trim()) { await S.renameFactory(b.dataset.ren, n.trim()); await loadContext(); render(); }
-  });
-  v.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => {
-    if (confirm("Fabrika kaydı silinsin mi? (İçindeki veriler bulutta kalabilir, listeden kalkar.)")) { await S.removeFactory(b.dataset.del); await loadContext(); render(); }
-  });
-  $("addY").onclick = async () => {
-    const y = $("ny").value.trim(); if (!/^\d{4}$/.test(y)) return toast("4 haneli yıl girin");
-    await S.addYear(st.fid, y); S.pref.set("year", y); await loadYears(); toast("Yıl eklendi"); render();
+  const ny = $("newY");
+  if (ny) ny.onclick = async () => {
+    const y = next || String(new Date().getFullYear());
+    await S.addYear(st.fid, y);
+    if (maxYear) { const prev = await S.getSetup(st.fid, maxYear); if (prev) await S.saveSetup(st.fid, y, { rows: prev.rows, params: prev.params }); }
+    S.pref.set("year", y); await loadYears(); say(`${y} yılı başlatıldı.`); pageAyarlar(v);
   };
+  $("doSync").onclick = async () => { await loadContext(); $("syncT").textContent = "Güncel · " + st.lastSync.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }); say("Veriler buluttan yenilendi."); };
 }
 function applyTheme() { document.documentElement.dataset.theme = S.pref.get("theme") || "light"; }
 applyTheme();
