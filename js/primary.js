@@ -1,7 +1,7 @@
 // Ana (yetkili) cihaz değişimi: e-postaya doğrulama bağlantısı/kodu gönderilir, kod girilince ana cihaz değişir.
-import { auth, apiKey, authDomain, sendSignInLinkToEmail, EmailAuthProvider, reauthenticateWithCredential } from "./firebase.js?v=20261009r";
-import * as S from "./store.js?v=20261009r";
-import { esc } from "./ui.js?v=20261009r";
+import { auth, apiKey, authDomain, signInWithEmailLink, sendSignInLinkToEmail, EmailAuthProvider, reauthenticateWithCredential } from "./firebase.js?v=20261009s";
+import * as S from "./store.js?v=20261009s";
+import { esc } from "./ui.js?v=20261009s";
 
 const LAND = (() => { try { const q = new URLSearchParams(location.search); return q.get("mode") === "signIn" && q.get("oobCode") ? q.get("oobCode") : null; } catch { return null; } })();
 if (LAND) { try { history.replaceState(null, "", location.pathname + location.hash); } catch {} }
@@ -76,4 +76,17 @@ export function codeCard(code) {
   m.querySelector("[data-cp]").onclick = async e => { try { await navigator.clipboard.writeText(code); e.target.textContent = "Kopyalandı"; } catch { m.querySelector("textarea").select(); } };
 }
 
-if (LAND && !pend.get()) codeCard(LAND);
+// E-posta bağlantısıyla giriş (şifre unutulduğunda / çalışmadığında)
+const lm = { get: () => { try { return localStorage.getItem("hse_loginmail"); } catch { return null; } }, set: v => { try { v ? localStorage.setItem("hse_loginmail", v) : localStorage.removeItem("hse_loginmail"); } catch {} } };
+export async function sendLoginLink(email) {
+  auth.languageCode = "tr";
+  await sendSignInLinkToEmail(auth, email, { url: location.origin + location.pathname, handleCodeInApp: true });
+  lm.set(email);
+}
+export const loginErrText = errText;
+export async function finishLoginLink(show) {
+  const mail = lm.get(); if (!LAND || !mail) return false;
+  try { await signInWithEmailLink(auth, mail, linkOf(LAND)); lm.set(null); } catch (e) { lm.set(null); show?.(errText(e) + " Giriş bağlantısı yalnızca bir kez ve aynı tarayıcıda kullanılabilir; yeniden isteyin."); }
+  return true;
+}
+if (LAND && !pend.get() && !lm.get()) codeCard(LAND);

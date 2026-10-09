@@ -1,15 +1,15 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261009r";
-import * as S from "./store.js?v=20261009r";
-import * as Prim from "./primary.js?v=20261009r";
-import * as Denetim from "./denetim.js?v=20261009r";
-import * as Kaza from "./kaza.js?v=20261009r";
-import * as Konusma from "./konusma.js?v=20261009r";
-import * as Genel from "./genel.js?v=20261009r";
-import * as Rapor from "./rapor.js?v=20261009r";
-import * as Verim from "./verim.js?v=20261009r";
-import * as Isbasi from "./isbasi.js?v=20261009r";
-import { $, esc, ic, toast, modal, confirmBox, formBox } from "./ui.js?v=20261009r";
-import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261009r";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261009s";
+import * as S from "./store.js?v=20261009s";
+import * as Prim from "./primary.js?v=20261009s";
+import * as Denetim from "./denetim.js?v=20261009s";
+import * as Kaza from "./kaza.js?v=20261009s";
+import * as Konusma from "./konusma.js?v=20261009s";
+import * as Genel from "./genel.js?v=20261009s";
+import * as Rapor from "./rapor.js?v=20261009s";
+import * as Verim from "./verim.js?v=20261009s";
+import * as Isbasi from "./isbasi.js?v=20261009s";
+import { $, esc, ic, toast, modal, confirmBox, formBox } from "./ui.js?v=20261009s";
+import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261009s";
 
 const VERSION = "1.0.0";
 const st = { factories: [], years: [], fid: null, year: null, page: "genel", profile: {}, lastSync: new Date() };
@@ -42,6 +42,13 @@ $("loginForm").addEventListener("submit", async e => {
   try { await signInWithEmailAndPassword(auth, $("em").value.trim(), $("pw").value); }
   catch (er) { $("loginErr").textContent = errMsg(er); }
 });
+$("btnLink").addEventListener("click", async () => {
+  const em = $("em").value.trim();
+  if (!em) { $("loginErr").textContent = "Önce e-posta yazın."; return; }
+  try { await Prim.sendLoginLink(em); $("loginErr").textContent = "Giriş bağlantısı e-postanıza gönderildi. Bu tarayıcıda e-postadaki bağlantıya dokunun."; }
+  catch (er) { $("loginErr").textContent = Prim.loginErrText(er); }
+});
+Prim.finishLoginLink(t => { $("loginErr").textContent = t; });
 $("btnReset").addEventListener("click", async () => {
   const em = $("em").value.trim();
   if (!em) { $("loginErr").textContent = "Önce e-posta yazın."; return; }

@@ -1,8 +1,8 @@
 // İSG Denetim Listesi sayfası
-import * as S from "./store.js?v=20261009r";
-import { esc, ic, toast, noteEditor } from "./ui.js?v=20261009r";
-import { CATS } from "./isgcats.js?v=20261009r";
-import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261009r";
+import * as S from "./store.js?v=20261009s";
+import { esc, ic, toast, noteEditor } from "./ui.js?v=20261009s";
+import { CATS } from "./isgcats.js?v=20261009s";
+import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261009s";
 
 const COLL = "isg";
 const D = { key: "", setup: null, doc: null, dept: null, month: null, open: { 0: true }, ro: false, timer: null, saved: true, msg: "" };
@@ -168,7 +168,7 @@ function bind(v, c) {
   on("[data-freqreset]", el => { delete doc.freq[el.dataset.freqreset]; again(); });
   on("[data-bonus]", el => { doc.bonus = +el.dataset.bonus; again(); });
   on("[data-delsess]", async el => {
-    const { confirmBox } = await import("./ui.js?v=20261009r");
+    const { confirmBox } = await import("./ui.js?v=20261009s");
     if (!(await confirmBox("Son denetim geri alınsın mı?", "Kaydedilen denetim silinir; skor ve sıklıklar yeniden hesaplanır.", "Evet, geri al", true))) return;
     doc.sessions.pop(); await persist(true); draw();
   });
