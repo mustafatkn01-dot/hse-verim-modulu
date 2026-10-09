@@ -1,9 +1,9 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js";
-import * as S from "./store.js";
-import * as Denetim from "./denetim.js";
-import * as Kaza from "./kaza.js";
-import { $, esc, ic, toast, modal, confirmBox, formBox } from "./ui.js";
-import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261009a";
+import * as S from "./store.js?v=20261009a";
+import * as Denetim from "./denetim.js?v=20261009a";
+import * as Kaza from "./kaza.js?v=20261009a";
+import { $, esc, ic, toast, modal, confirmBox, formBox } from "./ui.js?v=20261009a";
+import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261009a";
 
 const VERSION = "1.0.0";
 const st = { factories: [], years: [], fid: null, year: null, page: "genel", profile: {}, lastSync: new Date() };
