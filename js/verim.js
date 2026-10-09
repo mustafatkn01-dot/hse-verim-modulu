@@ -1,8 +1,8 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261009m";
-import { esc } from "./ui.js?v=20261009m";
-import { bandOf, DEFAULT_PARAMS, num } from "./scoring.js?v=20261009m";
-import { CATS } from "./isgcats.js?v=20261009m";
+import * as S from "./store.js?v=20261009n";
+import { esc } from "./ui.js?v=20261009n";
+import { bandOf, DEFAULT_PARAMS, num } from "./scoring.js?v=20261009n";
+import { CATS } from "./isgcats.js?v=20261009n";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -209,8 +209,6 @@ function printSheet(info, { size, orient }) {
     <div style="position:relative;height:${ch}px"><div style="position:absolute;inset:0">${line(50, 50)}${line(75, 75)}${line(90, 90)}</div><div style="position:absolute;left:30px;right:0;top:0;bottom:0;display:flex;gap:${gap}px">${bars}</div></div>
     <div style="display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:#546964">${[["Mükemmel", `≥ ${num(info.esik.m)}`], ["İyi", `${num(info.esik.i)}-${num(info.esik.m) - 1}`], ["Orta", `${num(info.esik.o)}-${num(info.esik.i) - 1}`], ["Kritik", `< ${num(info.esik.o)}`]].map(([k, r]) => `<span style="display:flex;align-items:center;gap:6px"><span style="width:11px;height:11px;border-radius:3px;background:${BAND[k].fill}"></span>${k} ${r}</span>`).join("")}</div>
     <div style="border-top:1px solid #D5E0DC;padding-top:10px;display:flex;flex-direction:column;gap:5px"><div style="font-weight:800;font-size:12px;letter-spacing:.8px;color:#3E534E">AÇIKLAMA</div>
-      ${info.notes.length ? info.notes.map((t, i) => `<div style="display:flex;gap:8px;line-height:1.5"><span style="flex:0 0 20px;font-weight:800;color:#0B6E4F">${i + 1}.</span><span>${esc(t)}</span></div>`).join("") : `<div style="color:#546964">Bu dönem için veri bulunmuyor.</div>`}</div>
-    <div style="border-top:1px solid #D5E0DC;padding-top:10px;display:flex;flex-direction:column;gap:5px"><div style="font-weight:800;font-size:12px;letter-spacing:.8px;color:#3E534E">BÖLÜM AÇIKLAMALARI <span style="font-weight:600;letter-spacing:0;color:#546964">· denetim ve eğitim kayıtlarında yazılanlar</span></div>
       ${info.details.length ? info.details.map(g => `<div style="display:flex;flex-direction:column;gap:4px">${info.mk4 ? `<div style="font-weight:800;color:#145F96">${esc(g.mod)}</div>` : ""}${g.items.map((a, i) => `<div style="display:flex;gap:8px;line-height:1.45;font-size:12px"><span style="flex:0 0 20px;font-weight:800;color:#0B6E4F">${i + 1}.</span><span>${a.mon ? `<span style="color:#546964">${a.mon} · </span>` : ""}<b>${esc(a.dept)}</b> — ${esc(a.text)} <span style="color:#546964">· ${esc(a.extra)}</span></span></div>`).join("")}</div>`).join("") : `<div style="color:#546964">Bu dönem için girilmiş açıklama yok.</div>`}</div>
     <div style="color:#6A7E79;font-size:11px;border-top:1px solid #E4ECE9;padding-top:6px">Oluşturma tarihi: ${ds} · HSE Verim Modülü</div></div>`; };
   sh.innerHTML = build(ch, z);
