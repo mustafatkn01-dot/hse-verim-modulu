@@ -1,7 +1,7 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261009h";
-import { esc } from "./ui.js?v=20261009h";
-import { bandOf, DEFAULT_PARAMS, num } from "./scoring.js?v=20261009h";
+import * as S from "./store.js?v=20261009j";
+import { esc } from "./ui.js?v=20261009j";
+import { bandOf, DEFAULT_PARAMS, num } from "./scoring.js?v=20261009j";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -16,7 +16,7 @@ const pad = n => String(n).padStart(2, "0");
 const avg = (arr, idx) => { const v = idx.map(i => arr[i]).filter(x => x !== null && x !== undefined); return v.length ? v.reduce((a, c) => a + c, 0) / v.length : null; };
 const V = { p: "m", sel: null, metric: 4, key: "", data: null };
 
-async function load(st, setup) {
+export async function load(st, setup) {
   const rows = setup.rows, out = {};
   rows.forEach(r => { out[r.id] = Array.from({ length: 12 }, () => [null, null, null, null]); });
   const [kz, kn, ib, ig] = await Promise.all(["kaza", "konusma", "isbasi", "isg"].map(c => S.listMonthDocs(st.fid, st.year, c)));

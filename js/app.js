@@ -1,13 +1,14 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261009h";
-import * as S from "./store.js?v=20261009h";
-import * as Denetim from "./denetim.js?v=20261009h";
-import * as Kaza from "./kaza.js?v=20261009h";
-import * as Konusma from "./konusma.js?v=20261009h";
-import * as Rapor from "./rapor.js?v=20261009h";
-import * as Verim from "./verim.js?v=20261009h";
-import * as Isbasi from "./isbasi.js?v=20261009h";
-import { $, esc, ic, toast, modal, confirmBox, formBox } from "./ui.js?v=20261009h";
-import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261009h";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261009j";
+import * as S from "./store.js?v=20261009j";
+import * as Denetim from "./denetim.js?v=20261009j";
+import * as Kaza from "./kaza.js?v=20261009j";
+import * as Konusma from "./konusma.js?v=20261009j";
+import * as Genel from "./genel.js?v=20261009j";
+import * as Rapor from "./rapor.js?v=20261009j";
+import * as Verim from "./verim.js?v=20261009j";
+import * as Isbasi from "./isbasi.js?v=20261009j";
+import { $, esc, ic, toast, modal, confirmBox, formBox } from "./ui.js?v=20261009j";
+import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261009j";
 
 const VERSION = "1.0.0";
 const st = { factories: [], years: [], fid: null, year: null, page: "genel", profile: {}, lastSync: new Date() };
@@ -119,7 +120,7 @@ async function render() {
   if (st.page === "konusma") return Konusma.render(v, { st });
   if (st.page === "kaza") return Kaza.render(v, { st });
   if (st.page === "denetim") return Denetim.render(v, { st });
-  return pageGenel(v);
+  return Genel.render(v, { st });
 }
 
 // ---------- Genel Bakış ----------
