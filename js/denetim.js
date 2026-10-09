@@ -1,8 +1,8 @@
 // İSG Denetim Listesi sayfası
-import * as S from "./store.js?v=20261010c";
-import { esc, ic, toast, noteEditor, compressImage, showPhoto } from "./ui.js?v=20261010c";
-import { CATS } from "./isgcats.js?v=20261010c";
-import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261010c";
+import * as S from "./store.js?v=20261010d";
+import { esc, ic, toast, noteEditor, compressImage, showPhoto } from "./ui.js?v=20261010d";
+import { CATS } from "./isgcats.js?v=20261010d";
+import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261010d";
 
 const COLL = "isg";
 const D = { key: "", setup: null, doc: null, dept: null, month: null, open: { 0: true }, ro: false, timer: null, saved: true, msg: "" };
@@ -115,7 +115,7 @@ function draw() {
             <button class="nb" data-note="${id}|${k}" aria-label="Açıklamayı yaz veya düzenle"><span class="nt" style="color:${t.trim() ? "var(--text)" : "#8A6A66"}">${esc(t.trim() ? t : "Dokunun ve yazın: hangi makine veya alanda, ne gibi uygunsuzluk var?")}</span>${ic('<path d="M4 20h4L19 9l-4-4L4 16v4z"/>', 18)}</button>
             <button class="nx" data-nrm="${id}|${k}" aria-label="Açıklamayı sil">×</button></div>
           <div class="phs">${(doc.draft.photos?.[id + "|" + k] || []).map(p => `<span class="pth"><img src="${p.t}" data-pv="${p.id}" alt="Fotoğraf"><button class="px" data-prm="${id}|${k}|${p.id}" aria-label="Fotoğrafı sil">×</button></span>`).join("")}
-            ${D.ro ? "" : `<label class="pbtn">${ic('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>', 18)}<span>Fotoğraf çek</span><input type="file" accept="image/*" capture="environment" data-ph="${id}|${k}" hidden></label><label class="pbtn">${ic('<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.5"/><path d="M21 16l-5-5-8 9"/>', 18)}<span>Galeriden ekle</span><input type="file" accept="image/*" multiple data-ph="${id}|${k}" hidden></label>`}</div>`).join("")}
+            ${D.ro ? "" : `<label class="pbtn">${ic('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>', 20)}<i>Fotoğraf çek</i><input type="file" accept="image/*" capture="environment" data-ph="${id}|${k}" hidden></label><label class="pbtn">${ic('<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.5"/><path d="M21 16l-5-5-8 9"/>', 20)}<i>Resim ekle</i><input type="file" accept="image/*" multiple data-ph="${id}|${k}" hidden></label>`}</div>`).join("")}
           <button class="sec" style="align-self:flex-start;height:38px;color:#8E1B16;border-color:#B3261E" data-nadd="${id}">+ Benzer uygunsuzluk ekle</button></div>` : ""}</div>`;
     }).join("");
     const ydBox = info.allYD ? `<div class="ydbox"><span class="hd">BU KATEGORİDE TÜM MADDELER Y.D. · KISA GEREKÇE</span>
@@ -232,7 +232,7 @@ function bind(v, c) {
   const nw = document.getElementById("newSess");
   if (nw) nw.onclick = () => { doc.draft = emptyDraft(defaultDate(st.year, D.month), true); persist(true); draw(); };
   on("[data-delsess]", async el => {
-    const { confirmBox } = await import("./ui.js?v=20261010c");
+    const { confirmBox } = await import("./ui.js?v=20261010d");
     if (!(await confirmBox("Son denetim silinsin mi?", "Kayıtlı denetim silinir; skor ve sıklıklar yeniden hesaplanır.", "Evet, sil", true))) return;
     const gone = doc.sessions.pop(); Object.values(gone.photos || {}).flat().forEach(p => S.deletePhoto(st.fid, st.year, p.id).catch(() => {})); if (doc.draft.edit === gone.no) doc.draft = emptyDraft(defaultDate(st.year, D.month), false);
     if (!doc.sessions.length) doc.draft = emptyDraft(defaultDate(st.year, D.month), true); else if (doc.draft.on) { /* devam eden taslak korunur */ }

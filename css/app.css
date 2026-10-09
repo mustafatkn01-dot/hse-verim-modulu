@@ -189,3 +189,7 @@ body,html{background:#fff!important}#app{display:block!important}.pg{padding:0!i
 .pth img{width:60px;height:60px;object-fit:cover;border-radius:8px;border:1px solid #C3D1CC;cursor:pointer;display:block}
 .pth .px{position:absolute;top:-7px;right:-7px;width:22px;height:22px;min-width:0;padding:0;border-radius:50%;background:#B3261E;color:#fff;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center;border:2px solid #fff}
 .pbtn{display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 12px;border-radius:10px;border:1px solid #B3261E;color:#8E1B16;background:#fff;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap}
+
+.phs{flex-wrap:wrap;gap:8px}
+.pbtn{flex-direction:column;justify-content:center;gap:2px;height:60px;width:76px;min-width:0;padding:0 4px;border-radius:10px;font-weight:400}
+.pbtn i{font-size:11px;line-height:1.1;font-weight:500;font-style:italic}
