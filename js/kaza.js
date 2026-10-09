@@ -1,7 +1,7 @@
 // İş Kazası · Aylık Giriş
-import * as S from "./store.js?v=20261009c";
-import { esc, ic, toast, noteEditor } from "./ui.js?v=20261009c";
-import { katsayi, bandOf, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261009c";
+import * as S from "./store.js?v=20261009d";
+import { esc, ic, toast, noteEditor } from "./ui.js?v=20261009d";
+import { katsayi, bandOf, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261009d";
 
 const COLL = "kaza";
 const T = [["Gün kayıpsız", 2], ["1-5 gün kayıplı", 5], ["5-20 gün kayıplı", 10], ["20+ gün kayıplı", 20], ["Uzuv kaybı", 50], ["Ölüm", 100]];
