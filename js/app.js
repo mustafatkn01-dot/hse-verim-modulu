@@ -1,14 +1,15 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261009n";
-import * as S from "./store.js?v=20261009n";
-import * as Denetim from "./denetim.js?v=20261009n";
-import * as Kaza from "./kaza.js?v=20261009n";
-import * as Konusma from "./konusma.js?v=20261009n";
-import * as Genel from "./genel.js?v=20261009n";
-import * as Rapor from "./rapor.js?v=20261009n";
-import * as Verim from "./verim.js?v=20261009n";
-import * as Isbasi from "./isbasi.js?v=20261009n";
-import { $, esc, ic, toast, modal, confirmBox, formBox } from "./ui.js?v=20261009n";
-import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261009n";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261009p";
+import * as S from "./store.js?v=20261009p";
+import * as Prim from "./primary.js?v=20261009p";
+import * as Denetim from "./denetim.js?v=20261009p";
+import * as Kaza from "./kaza.js?v=20261009p";
+import * as Konusma from "./konusma.js?v=20261009p";
+import * as Genel from "./genel.js?v=20261009p";
+import * as Rapor from "./rapor.js?v=20261009p";
+import * as Verim from "./verim.js?v=20261009p";
+import * as Isbasi from "./isbasi.js?v=20261009p";
+import { $, esc, ic, toast, modal, confirmBox, formBox } from "./ui.js?v=20261009p";
+import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261009p";
 
 const VERSION = "1.0.0";
 const st = { factories: [], years: [], fid: null, year: null, page: "genel", profile: {}, lastSync: new Date() };
@@ -57,12 +58,13 @@ onAuthStateChanged(auth, async user => {
   $("login").classList.toggle("hide", !!user);
   $("app").classList.toggle("hide", !user);
   if (user) {
-    try { await S.touchSession(true); } catch {}
+    try { await S.touchSession(true); await S.ensurePrimary(); } catch {}
     unwatch?.(); clearInterval(beat);
     unwatch = S.watchSession(d => { if (d?.revoked) doSignOut(); });
     beat = setInterval(() => S.touchSession().catch(() => {}), 5 * 60 * 1000);
     S.getProfile().then(p => { st.profile = p; }).catch(() => {});
     await loadContext(); go(location.hash.slice(1) || "genel");
+    Prim.handleLanding(t => { toast(t); if (st.page === "ayarlar") render(); });
   }
 });
 
@@ -268,7 +270,7 @@ async function pageAyarlar(v) {
   await Promise.all(st.all.map(async f => {
     try { const ys = await S.listYears(f.id); const s = ys.length ? await S.getSetup(f.id, ys[ys.length - 1]) : null; counts[f.id] = s?.rows?.length ?? 0; } catch { counts[f.id] = 0; }
   }));
-  const me = S.deviceId();
+  const me = S.deviceId(), prime = await S.getPrimary().catch(() => null), iAmPrime = prime?.deviceId === me;
   const cur = st.factories.find(f => f.id === st.fid);
   v.innerHTML = `
   <div><h1 class="ttl">Ayarlar</h1><div class="sub">Hesap bilgileriniz, oturum açık cihazlarınız, fabrikalar, tema ve uygulama sürümü burada yönetilir.</div></div>
@@ -286,11 +288,13 @@ async function pageAyarlar(v) {
       <div class="row"><button class="sec" id="saveName">Adı kaydet</button><button class="sec" id="resetPw">Şifre sıfırlama bağlantısı gönder</button></div></div>
 
     <div class="cd"><div><h2>Oturumlar ve Cihazlar</h2><div class="muted" style="font-size:13px">Hesabınıza giriş yapılmış cihazlar. Tanımadığınız bir cihaz varsa oradan uzaktan çıkış yapabilirsiniz.</div></div>
-      <div class="col1">${sessions.map(d => item(`
+      <div class="col1">${sessions.map(d => { const prim = d.id === prime?.deviceId, mine = d.id === me; return item(`
         ${ic('<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>').replace('width="20" height="20"', 'width="24" height="24"')}
-        <div class="grow"><b>${esc(d.name)}</b><div class="muted" style="font-size:12.5px">${esc(d.kind || "")} · Son etkinlik ${fmtDt(d.lastSeen)}</div></div>
-        ${d.id === me ? '<span class="tag">Bu cihaz</span>' : `<button class="sm rm" data-rev="${d.id}">Uzaktan çıkış yap</button>`}`,
-        d.id === me ? "#F1FAF6" : "var(--card)", d.id === me ? "#9ED6BD" : "var(--line)")).join("") || '<div class="muted">Oturum bilgisi bulunamadı.</div>'}</div>
+        <div class="grow"><div class="row" style="gap:8px;flex-wrap:wrap"><b>${esc(d.name)}</b>${prim ? '<span class="tag" style="background:#0B2230;color:#fff">Ana cihaz</span>' : '<span class="tag" style="background:#EEF2F0;color:#4A5C57">Misafir</span>'}${mine ? '<span class="tag">Bu cihaz</span>' : ""}</div>
+          <div class="muted" style="font-size:12.5px">${esc(d.kind || "")} · Son etkinlik ${fmtDt(d.lastSeen)}</div></div>
+        <div class="row" style="gap:8px">${!prim ? `<button class="sm sec" data-prim="${d.id}" data-pname="${esc(d.name)}">Yetkili cihaz yap</button>` : ""}${!mine && iAmPrime ? `<button class="sm rm" data-rev="${d.id}">Uzaktan çıkış yap</button>` : ""}</div>`,
+        mine ? "#F1FAF6" : "var(--card)", mine ? "#9ED6BD" : "var(--line)"); }).join("") || '<div class="muted">Oturum bilgisi bulunamadı.</div>'}</div>
+      ${iAmPrime ? "" : '<div class="muted" style="font-size:12.5px;line-height:1.6">Bu cihaz misafir oturumdur. Diğer oturumları yalnızca ana cihaz kapatabilir. Bu cihazı ana cihaz yapmak için "Yetkili cihaz yap" düğmesini kullanın; e-postanıza kod gönderilir.</div>'}
       <div class="muted" style="font-size:12.5px;line-height:1.6">Çıkış yapılan cihazda oturum kapatılır ve yerel önbellek temizlenir. Verileriniz bulutta güvende kalır, tekrar giriş yapınca geri gelir.</div></div>
 
     <div class="cd" style="background:#FDF1EF;border-color:#F2C4BF;flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:space-between">
@@ -334,7 +338,8 @@ async function pageAyarlar(v) {
   $("noteX").onclick = () => $("note").classList.add("hide");
   $("saveName").onclick = async () => { await S.saveProfile({ name: $("adSoyad").value.trim() }); say("Adınız kaydedildi."); pageAyarlar(v); };
   $("resetPw").onclick = async () => { try { await sendPasswordResetEmail(auth, email); say("Şifre sıfırlama bağlantısı e-postanıza gönderildi."); } catch (e) { say(errMsg(e)); } };
-  v.querySelectorAll("[data-rev]").forEach(b => b.onclick = async () => { if (confirm("Bu cihazdaki oturum uzaktan kapatılsın mı?")) { await S.revokeSession(b.dataset.rev); say("Cihazın oturumu kapatıldı."); pageAyarlar(v); } });
+  v.querySelectorAll("[data-prim]").forEach(b => b.onclick = () => Prim.startTransfer({ id: b.dataset.prim, name: b.dataset.pname }, t => { toast(t); pageAyarlar(v); }));
+  v.querySelectorAll("[data-rev]").forEach(b => b.onclick = async () => { if (confirm("Bu cihazdaki oturum uzaktan kapatılsın mı?")) { try { await S.revokeSession(b.dataset.rev); say("Cihazın oturumu kapatıldı."); } catch (e) { say(e.message); } pageAyarlar(v); } });
   $("askOut").onclick = () => $("modal").classList.remove("hide");
   $("noOut").onclick = () => $("modal").classList.add("hide");
   $("yesOut").onclick = doSignOut;

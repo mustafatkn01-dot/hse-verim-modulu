@@ -1,5 +1,5 @@
 // Veri katmanı: users/{uid}/factories/{fid}/years/{yıl}/setup/main
-import { auth, db, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, updateDoc, query, orderBy, serverTimestamp, onSnapshot } from "./firebase.js?v=20261009n";
+import { auth, db, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, updateDoc, query, orderBy, serverTimestamp, onSnapshot } from "./firebase.js?v=20261009p";
 
 const uid = () => auth.currentUser.uid;
 const base = () => `users/${uid()}`;
@@ -86,5 +86,21 @@ export async function listSessions() {
   const s = await getDocs(collection(db, `${base()}/sessions`));
   return s.docs.map(d => ({ id: d.id, ...d.data() })).filter(x => !x.revoked).sort((a, b) => b.lastSeen - a.lastSeen);
 }
-export const revokeSession = id => setDoc(sessRef(id), { revoked: true }, { merge: true });
+// Ana (yetkili) cihaz: users/{uid}/meta/primary {deviceId, name, since}. Diğer oturumlar misafirdir.
+const primRef = () => doc(db, `${base()}/meta/primary`);
+export async function getPrimary() { const d = await getDoc(primRef()); return d.exists() ? d.data() : null; }
+export async function setPrimary(id, name) { await setDoc(primRef(), { deviceId: id, name: name || "", since: Date.now() }); }
+// Girişte: ana cihaz yoksa ya da ana cihazın oturumu kapanmışsa bu cihaz ana cihaz olur
+export async function ensurePrimary() {
+  const me = deviceId(), p = await getPrimary();
+  if (p?.deviceId === me) return true;
+  if (p?.deviceId) { const s = await getDoc(sessRef(p.deviceId)); if (s.exists() && !s.data().revoked) return false; }
+  await setPrimary(me, deviceInfo().name); return true;
+}
+export async function isPrimary() { const p = await getPrimary(); return p?.deviceId === deviceId(); }
+export async function revokeSession(id) {
+  if (!(await isPrimary())) throw new Error("Diğer oturumları yalnızca ana cihaz kapatabilir.");
+  const p = await getPrimary(); if (p?.deviceId === id) throw new Error("Ana cihazın oturumu kapatılamaz. Önce ana cihazı değiştirin.");
+  await setDoc(sessRef(id), { revoked: true }, { merge: true });
+}
 export const watchSession = cb => onSnapshot(sessRef(deviceId()), snap => cb(snap.data()));

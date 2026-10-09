@@ -1,7 +1,8 @@
 // Firebase başlatma (web config herkese açıktır; güvenlik Firestore kurallarındadır)
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
-  signOut, sendPasswordResetEmail, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+  signOut, sendPasswordResetEmail, setPersistence, browserLocalPersistence,
+  sendSignInLinkToEmail, EmailAuthProvider, reauthenticateWithCredential } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, updateDoc,
   query, orderBy, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
@@ -19,6 +20,7 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 setPersistence(auth, browserLocalPersistence).catch(() => {});
 
-export { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut,
+export const apiKey = firebaseConfig.apiKey, authDomain = firebaseConfig.authDomain;
+export { sendSignInLinkToEmail, EmailAuthProvider, reauthenticateWithCredential, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut,
   sendPasswordResetEmail, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, updateDoc,
   query, orderBy, serverTimestamp, onSnapshot };
