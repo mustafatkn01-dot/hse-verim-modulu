@@ -121,3 +121,5 @@ table.t{width:100%;border-collapse:collapse}
  #side.open{box-shadow:8px 0 30px rgba(0,0,0,.3)}
 }
 .cd p{margin:0}
+.trash{background:var(--card);color:#B3261E;border:1px solid #E3B3AE;width:34px;padding:0;display:flex;align-items:center;justify-content:center}
+.mbox label{margin-top:10px}

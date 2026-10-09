@@ -247,6 +247,22 @@ const initials = n => (n || "").split(/\s+/).filter(Boolean).slice(0, 2).map(x =
 const item = (inner, bg = "var(--card)", bd = "var(--line)") => `<div class="it" style="background:${bg};border-color:${bd}">${inner}</div>`;
 const THEMES = [["light", "Açık", "#0B2230", "#EDF2F0", "#fff"], ["dark", "Koyu", "#06121a", "#0d1a22", "#14262f"], ["auto", "Cihaza göre", "#0B2230", "#8aa39b", "#cfdcd7"]];
 
+function modal(html) {
+  return new Promise(res => {
+    const m = document.createElement("div"); m.className = "mod"; m.innerHTML = `<div class="mbox">${html}</div>`;
+    document.body.appendChild(m);
+    const close = v => { m.remove(); res(v); };
+    m.addEventListener("click", e => { if (e.target === m) close(null); });
+    m.querySelector("[data-no]").onclick = () => close(null);
+    m.querySelector("[data-yes]").onclick = () => close(Object.fromEntries([...m.querySelectorAll("input")].map(i => [i.name, i.value])) );
+    m.querySelector("input")?.focus();
+  });
+}
+async function confirmBox(title, text, yes, danger = false) {
+  return !!(await modal(`<h2>${esc(title)}</h2><p class="muted">${esc(text)}</p><div class="row" style="justify-content:flex-end"><button class="sec" data-no>İptal</button><button class="${danger ? "danger" : ""}" data-yes>${esc(yes)}</button></div>`));
+}
+const formBox = (title, fields) => modal(`<h2>${esc(title)}</h2>${fields.map(([n, l, v]) => `<div><label>${esc(l)}</label><input name="${n}" value="${esc(v)}"></div>`).join("")}<div class="row" style="justify-content:flex-end;margin-top:6px"><button class="sec" data-no>İptal</button><button data-yes>Kaydet</button></div>`);
+
 async function pageAyarlar(v) {
   const email = auth.currentUser.email, theme = S.pref.get("theme") || "light";
   const [sessions, profile] = await Promise.all([S.listSessions().catch(() => []), S.getProfile().catch(() => ({}))]);
@@ -292,8 +308,9 @@ async function pageAyarlar(v) {
       <div class="col1">${st.all.map(f => item(`
         <div class="grow"><b>${esc(f.name)}${f.archived ? " · arşivde" : ""}</b><div class="muted" style="font-size:12.5px">${esc(f.loc || "Konum yok")} · ${counts[f.id] ?? 0} bölüm</div></div>
         ${f.id === st.fid && !f.archived ? '<span class="tag">Aktif fabrika</span>' : (!f.archived ? `<button class="sm sec" data-act="${f.id}">Aktif yap</button>` : "")}
-        <button class="sm sec" data-ren="${f.id}">Adı değiştir</button>
-        <button class="sm sec" data-arc="${f.id}" data-v="${f.archived ? 0 : 1}">${f.archived ? "Arşivden çıkar" : "Arşivle"}</button>`,
+        <button class="sm sec" data-edit="${f.id}">Düzenle</button>
+        <button class="sm sec" data-arc="${f.id}" data-v="${f.archived ? 0 : 1}">${f.archived ? "Arşivden çıkar" : "Arşivle"}</button>
+        <button class="sm trash" data-rm="${f.id}" aria-label="Fabrikayı sil" title="Sil">${ic('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>').replace('width="20" height="20"', 'width="16" height="16"')}</button>`,
         f.id === st.fid && !f.archived ? "#F1FAF6" : "var(--card)")).join("") || '<div class="muted">Henüz fabrika yok.</div>'}</div>
       <div class="col1" style="padding-top:14px;border-top:1px solid var(--line)"><span class="hd">YENİ FABRİKA EKLE</span>
         <div class="fg"><input id="nf" class="inp" placeholder="Fabrika adı" aria-label="Fabrika adı"><input id="nl" class="inp" placeholder="Konum (örn. Gebze)" aria-label="Konum"></div>
@@ -329,8 +346,23 @@ async function pageAyarlar(v) {
   $("yesOut").onclick = doSignOut;
   v.querySelectorAll("[data-theme]").forEach(b => b.onclick = () => { S.pref.set("theme", b.dataset.theme); applyTheme(); pageAyarlar(v); });
   v.querySelectorAll("[data-act]").forEach(b => b.onclick = async () => { st.fid = b.dataset.act; S.pref.set("fid", st.fid); await loadYears(); say("Aktif fabrika değiştirildi."); pageAyarlar(v); });
-  v.querySelectorAll("[data-ren]").forEach(b => b.onclick = async () => { const n = prompt("Yeni ad:"); if (n?.trim()) { await S.renameFactory(b.dataset.ren, n.trim()); await loadContext(); pageAyarlar(v); } });
-  v.querySelectorAll("[data-arc]").forEach(b => b.onclick = async () => { await S.setArchived(b.dataset.arc, b.dataset.v === "1"); await loadContext(); pageAyarlar(v); });
+  v.querySelectorAll("[data-edit]").forEach(b => b.onclick = async () => {
+    const f = st.all.find(x => x.id === b.dataset.edit);
+    const r = await formBox("Fabrikayı düzenle", [["name", "Fabrika adı", f.name], ["loc", "Konum", f.loc || ""]]);
+    if (!r) return;
+    if (!r.name.trim()) return say("Fabrika adı boş olamaz.");
+    await S.updateFactory(f.id, { name: r.name.trim(), loc: r.loc.trim() }); await loadContext(); say("Fabrika güncellendi."); pageAyarlar(v);
+  });
+  v.querySelectorAll("[data-arc]").forEach(b => b.onclick = async () => {
+    const arch = b.dataset.v === "1", f = st.all.find(x => x.id === b.dataset.arc);
+    if (arch && !(await confirmBox("Arşive kaldırılsın mı?", `"${f.name}" arşive alınır ve fabrika seçiminden kalkar. Verileri silinmez, istediğiniz zaman arşivden çıkarabilirsiniz.`, "Evet, arşive kaldır"))) return;
+    await S.setArchived(f.id, arch); await loadContext(); say(arch ? "Fabrika arşive kaldırıldı." : "Fabrika arşivden çıkarıldı."); pageAyarlar(v);
+  });
+  v.querySelectorAll("[data-rm]").forEach(b => b.onclick = async () => {
+    const f = st.all.find(x => x.id === b.dataset.rm);
+    if (!(await confirmBox("Fabrika silinsin mi?", `"${f.name}" ve içindeki tüm yıl, bölüm ve kayıt bilgileri kalıcı olarak silinir. Bu işlem geri alınamaz.`, "Evet, sil", true))) return;
+    await S.deleteFactoryDeep(f.id); if (S.pref.get("fid") === f.id) S.pref.set("fid", ""); K.key = ""; await loadContext(); say("Fabrika ve bilgileri silindi."); pageAyarlar(v);
+  });
   $("addF").onclick = async () => {
     const n = $("nf").value.trim(); if (!n) return say("Fabrika adı yazın.");
     const id = await S.addFactory(n, $("nl").value.trim()); S.pref.set("fid", id); await loadContext(); say("Fabrika eklendi."); pageAyarlar(v);

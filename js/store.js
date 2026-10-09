@@ -13,6 +13,15 @@ export async function addFactory(name, loc = "") {
   return r.id;
 }
 export async function renameFactory(id, name) { await updateDoc(doc(db, `${base()}/factories/${id}`), { name }); }
+export async function updateFactory(id, data) { await updateDoc(doc(db, `${base()}/factories/${id}`), data); }
+// Fabrikayı tüm yıl ve kurulum verileriyle birlikte siler
+export async function deleteFactoryDeep(id) {
+  for (const y of await listYears(id)) {
+    await deleteDoc(setupRef(id, y)).catch(() => {});
+    await deleteDoc(doc(db, `${base()}/factories/${id}/years/${y}`));
+  }
+  await deleteDoc(doc(db, `${base()}/factories/${id}`));
+}
 export async function setArchived(id, archived) { await updateDoc(doc(db, `${base()}/factories/${id}`), { archived }); }
 export async function removeFactory(id) { await deleteDoc(doc(db, `${base()}/factories/${id}`)); }
 
