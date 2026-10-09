@@ -4,9 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>HSE Verim Modülü</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0B2230">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="HSE Verim">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&family=Sora:wght@600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=20261009s">
+<link rel="stylesheet" href="css/app.css?v=20261009u">
 </head>
 <body>
 <section id="login" class="hide">
@@ -16,6 +23,7 @@
       <div><h1 style="font-size:20px">HSE Verim Modülü</h1><span class="muted" style="font-size:12px">Performans Takip</span></div></div>
     <label>E-posta</label><input type="email" id="em" autocomplete="username" required>
     <label>Şifre</label><input type="password" id="pw" autocomplete="current-password" minlength="6" required>
+    <label style="display:flex;align-items:center;gap:8px;margin:8px 0 0;font-weight:600;cursor:pointer"><input type="checkbox" id="showPw" style="width:auto;height:auto"> Şifreyi göster</label>
     <div class="err" id="loginErr"></div>
     <div class="row"><button type="submit">Giriş yap</button>
       <button type="button" class="sec" id="btnReset">Şifremi unuttum</button><button type="button" class="sec" id="btnLink">E-posta bağlantısıyla giriş</button></div>
@@ -31,6 +39,6 @@
   </div>
 </div>
 <div id="toast"></div>
-<script type="module" src="js/app.js?v=20261009s"></script>
+<script type="module" src="js/app.js?v=20261009u"></script>
 </body>
 </html>

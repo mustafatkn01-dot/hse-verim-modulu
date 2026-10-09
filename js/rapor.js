@@ -1,8 +1,9 @@
 // Aylık HSE Raporu · kayıtlı verilerden otomatik grafik + açıklama
-import * as S from "./store.js?v=20261009s";
-import { esc } from "./ui.js?v=20261009s";
-import { CATS } from "./isgcats.js?v=20261009s";
-import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261009s";
+import * as S from "./store.js?v=20261009u";
+import { esc } from "./ui.js?v=20261009u";
+import { askFormat, printCurrent } from "./pdf.js?v=20261009u";
+import { CATS } from "./isgcats.js?v=20261009u";
+import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261009u";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -177,5 +178,5 @@ function draw(v, st, setup, data) {
   <div class="muted" style="font-size:13px;line-height:1.6">Dönem raporlarında bölüm değerleri, verisi olan ayların ortalamasıdır (kümülatif: Ç1 Ocak-Mart, Ç2 Ocak-Haziran, Ç3 Ocak-Eylül). Açıklamalar, aylık giriş sayfalarında yazılan notlardan derlenir (İSG için "Uygunsuz" işaretli maddelerin notları). Metni değiştirmek için ilgili kaydı güncelleyin; rapor kendiliğinden yenilenir. PDF için tarayıcının yazdırma penceresinde "PDF olarak kaydet" seçin.</div>`;
   document.getElementById("rPer").onchange = e => { R.per = e.target.value; draw(v, st, setup, data); };
   const ay = document.getElementById("rAy"); if (ay) ay.onchange = e => { R.month = +e.target.value; draw(v, st, setup, data); };
-  document.getElementById("rPdf").onclick = () => window.print();
+  document.getElementById("rPdf").onclick = async () => { const o = await askFormat({ title: "Raporu PDF indir", text: `${plabel} raporu. Birden fazla sayfa olabilir; kartlar sayfa sonlarında bölünmez.`, defOrient: "portrait", hint: "Çok bölümlü tesislerde yatay düzen grafik satırlarını genişletir." }); if (o) printCurrent(o); };
 }

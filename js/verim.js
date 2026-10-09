@@ -1,8 +1,9 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261009s";
-import { esc } from "./ui.js?v=20261009s";
-import { bandOf, DEFAULT_PARAMS, num } from "./scoring.js?v=20261009s";
-import { CATS } from "./isgcats.js?v=20261009s";
+import * as S from "./store.js?v=20261009u";
+import { esc } from "./ui.js?v=20261009u";
+import { bandOf, DEFAULT_PARAMS, num } from "./scoring.js?v=20261009u";
+import { askFormat } from "./pdf.js?v=20261009u";
+import { CATS } from "./isgcats.js?v=20261009u";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -74,7 +75,7 @@ function draw() {
   if (V.sel === null || V.sel >= PER[V.p].items.length) V.sel = defSel[V.p];
   const cur = PER[V.p].items[V.sel], have = cur.idx.filter(i => hasM[i]).length, partial = have > 0 && have < cur.idx.length;
   const mk = V.metric, val = (id, k) => avg(series(id, k), cur.idx);
-  const seg = on => (on ? "background:#0B2230;color:#fff;border-color:#0B2230" : "background:var(--card);color:var(--text);border-color:var(--inl)");
+  const seg = on => (on ? "background:var(--sel);color:#fff;border-color:var(--sel)" : "background:var(--card);color:var(--text);border-color:var(--inl)");
   const vals = rows.map(r => val(r.id, mk)), ok = vals.filter(x => x !== null);
   const av = ok.length ? ok.reduce((a, c) => a + c, 0) / ok.length : null, ab = band(av);
   const cell = x => (x === null ? { t: "–", bg: NONE.bg, c: NONE.c } : { t: f1(x), bg: band(x).bg, c: band(x).c });
@@ -100,8 +101,8 @@ function draw() {
 
   const heads = [], mr = rows.map(() => []);
   const addCol = (label, idx, flex, kind, pp, i) => {
-    const on = V.p === pp && V.sel === i, bg = on ? "#0B2230" : kind === "y" ? "#D9F1E6" : kind === "n" || kind === "h" ? "#DCEAF7" : kind === "q" ? "#EEF3F1" : "#F6FAF8";
-    heads.push(`<button data-go="${pp}:${i}" aria-pressed="${on}" style="flex:${flex};min-width:0;height:38px;border-radius:8px;border:1px solid ${on ? "#0B2230" : "#D5E0DC"};background:${bg};color:${on ? "#fff" : "#2A3F3A"};font:inherit;font-size:12px;font-weight:800;padding:0 2px">${label}</button>`);
+    const on = V.p === pp && V.sel === i, bg = on ? "var(--sel)" : kind === "y" ? "#D9F1E6" : kind === "n" || kind === "h" ? "#DCEAF7" : kind === "q" ? "#EEF3F1" : "#F6FAF8";
+    heads.push(`<button data-go="${pp}:${i}" aria-pressed="${on}" style="flex:${flex};min-width:0;height:38px;border-radius:8px;border:1px solid ${on ? "var(--sel)" : "#D5E0DC"};background:${bg};color:${on ? "#fff" : "#2A3F3A"};font:inherit;font-size:12px;font-weight:800;padding:0 2px">${label}</button>`);
     rows.forEach((r, b) => { const c = cell(avg(series(r.id, mk), idx)); mr[b].push(`<div style="flex:${flex};min-width:0;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;background:${c.bg};color:${c.c}">${c.t}</div>`); });
   };
   MS.forEach((n, i) => addCol(n, [i], 1, "m", "m", i));
@@ -133,16 +134,16 @@ function draw() {
     ${notes.length ? `<div style="border-top:1px solid var(--line);padding-top:16px;display:flex;flex-direction:column;gap:8px"><div style="font-weight:800;font-size:13px;letter-spacing:.8px;color:var(--muted)">AÇIKLAMA</div>${notes.map((t, i) => `<div style="display:flex;gap:10px;line-height:1.55"><span style="flex:0 0 22px;font-weight:800;color:#0B6E4F">${i + 1}.</span><span>${esc(t)}</span></div>`).join("")}</div>` : ""}
     <div data-detslot></div></div>
   <div class="cd" style="gap:14px">
-    <div class="row sp"><h2>Tablo · ${PER[V.p].name(V.sel)}</h2><div class="muted" style="font-size:13px">Modül verimleri ve toplam verim</div></div>
+    <div class="row sp"><h2>Tablo · ${PER[V.p].name(V.sel)}</h2><div class="row" style="gap:10px"><span class="muted" style="font-size:13px">Modül verimleri ve toplam verim</span><button class="sec sm" data-csv="t" style="height:36px;padding:0 14px;border-radius:10px;font-weight:700">Excel'e aktar</button></div></div>
     <div style="overflow-x:auto"><div style="min-width:700px;display:flex;flex-direction:column;gap:6px">
-      <div style="display:grid;grid-template-columns:${gc};gap:6px"><span class="hd">Bölüm</span>${MET.map((m, k) => `<span style="font-size:12px;font-weight:800;padding:6px 8px;border-radius:8px;text-align:center;background:${mk === k ? "#0B2230" : "#EEF3F1"};color:${mk === k ? "#fff" : "#3E534E"}">${m[1]}</span>`).join("")}<span class="hd" style="text-align:center">Durum</span></div>
+      <div style="display:grid;grid-template-columns:${gc};gap:6px"><span class="hd">Bölüm</span>${MET.map((m, k) => `<span style="font-size:12px;font-weight:800;padding:6px 8px;border-radius:8px;text-align:center;background:${mk === k ? "var(--sel)" : "#EEF3F1"};color:${mk === k ? "#fff" : "#3E534E"}">${m[1]}</span>`).join("")}<span class="hd" style="text-align:center">Durum</span></div>
       ${rows.map(r => { const tv = val(r.id, 4), sb = band(tv); return `<div style="display:grid;grid-template-columns:${gc};gap:6px;align-items:center"><span style="font-weight:700;overflow:hidden;text-overflow:ellipsis">${esc(r.name)}</span>
         ${[0, 1, 2, 3, 4].map(k => { const c = cell(val(r.id, k)); return `<span style="height:38px;display:flex;align-items:center;justify-content:center;border-radius:9px;font-weight:800;background:${c.bg};color:${c.c}">${c.t}</span>`; }).join("")}
         <span style="text-align:center;font-size:12px;font-weight:800;padding:6px 0;border-radius:999px;background:${sb.bg};color:${sb.c}">${bname(tv)}</span></div>`; }).join("")}
       <div style="display:grid;grid-template-columns:${gc};gap:6px;align-items:center;border-top:2px solid var(--line);padding-top:8px;margin-top:2px"><span style="font-weight:800">Tesis</span>
-        ${[0, 1, 2, 3, 4].map(k => { const a = rows.map(r => val(r.id, k)).filter(x => x !== null); return `<span style="height:38px;display:flex;align-items:center;justify-content:center;border-radius:9px;font-weight:800;background:#0B2230;color:#fff">${a.length ? f1(a.reduce((s, c) => s + c, 0) / a.length) : "–"}</span>`; }).join("")}<span></span></div></div></div></div>
+        ${[0, 1, 2, 3, 4].map(k => { const a = rows.map(r => val(r.id, k)).filter(x => x !== null); return `<span style="height:38px;display:flex;align-items:center;justify-content:center;border-radius:9px;font-weight:800;background:var(--sel);color:#fff">${a.length ? f1(a.reduce((s, c) => s + c, 0) / a.length) : "–"}</span>`; }).join("")}<span></span></div></div></div></div>
   <div class="cd" style="gap:14px">
-    <div class="row sp"><h2>Tüm Dönemler · ${MET[mk][0]}</h2><div class="muted" style="font-size:13px">Dönem başlığına tıklayarak yukarıdaki grafiği o döneme getirin.</div></div>
+    <div class="row sp"><h2>Tüm Dönemler · ${MET[mk][0]}</h2><div class="row" style="gap:10px"><span class="muted" style="font-size:13px">Dönem başlığına tıklayarak yukarıdaki grafiği o döneme getirin.</span><button class="sec sm" data-csv="m" style="height:36px;padding:0 14px;border-radius:10px;font-weight:700">Excel'e aktar</button></div></div>
     <div style="overflow-x:auto"><div style="min-width:1260px;display:flex;flex-direction:column;gap:6px">
       <div style="display:flex;gap:6px;align-items:flex-end"><div style="width:96px;flex:0 0 96px"></div>${heads.join("")}</div>
       ${rows.map((r, b) => `<div style="display:flex;gap:6px;align-items:center"><div style="width:96px;flex:0 0 96px;font-weight:700;overflow:hidden;text-overflow:ellipsis">${esc(r.name)}</div>${mr[b].join("")}</div>`).join("")}</div></div>
@@ -155,6 +156,12 @@ function draw() {
   const info = { details, mk4: mk === 4, fname: st.factories.find(f => f.id === st.fid)?.name || "", title: `${MET[mk][0]} · Bölüm Karşılaştırması`, plabel: PER[V.p].name(V.sel), av, abn: bname(av), ab, names: rows.map(r => r.name), vals, bandOf: x => (x === null ? NONE : band(x)), notes, partial: partial ? `Kısmi dönem: ${cur.idx.length} aydan ${have} tanesi için veri var. Değerler mevcut aylar üzerinden hesaplandı.` : "", esik: p.esik };
   V.v.querySelector("[data-detslot]").innerHTML = detHtml;
   V.v.querySelector("[data-pdf]").onclick = () => pdfDialog(info);
+  const fn = `${(info.fname || "tesis").replace(/[^\wğüşıöçĞÜŞİÖÇ-]+/g, "_")}_${y}`;
+  V.v.querySelector('[data-csv="t"]').onclick = () => downloadCsv(`${fn}_verim_tablosu_${cur.idx.length === 1 ? MS[cur.idx[0]] : PER[V.p].t.split(" ")[0]}.csv`, [[`${info.fname} · ${PER[V.p].name(V.sel)}`], ["Bölüm", ...MET.map(m => m[0]), "Durum"],
+    ...rows.map(r => [r.name, ...[0, 1, 2, 3, 4].map(k => val(r.id, k)), bname(val(r.id, 4))]),
+    ["Tesis", ...[0, 1, 2, 3, 4].map(k => avg(rows.map(r => val(r.id, k)).filter(x => x !== null), rng(0, Math.max(0, rows.filter(r => val(r.id, k) !== null).length - 1))))]]);
+  const PC = [...MS.map((n, i) => [n, [i]]), ["3 Ay (Ç1)", rng(0, 2)], ["6 Ay (Ç2)", rng(0, 5)], ["9 Ay (Ç3)", rng(0, 8)], ["Yıllık", rng(0, 11)]];
+  V.v.querySelector('[data-csv="m"]').onclick = () => downloadCsv(`${fn}_${MET[mk][0].replace(/\s+/g, "_")}_tum_donemler.csv`, [[`${info.fname} · ${MET[mk][0]} · ${y}`], ["Bölüm", ...PC.map(c => c[0])], ...rows.map(r => [r.name, ...PC.map(c => avg(series(r.id, mk), c[1]))])]);
   const rd = () => draw();
   V.v.querySelectorAll("[data-p]").forEach(b => b.onclick = () => { V.p = b.dataset.p; V.sel = null; rd(); });
   V.v.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { V.metric = +b.dataset.m; rd(); });
@@ -165,23 +172,7 @@ function draw() {
 // ---- Tek sayfalık grafik + açıklama PDF'i (A4/A3, dikey/yatay) ----
 function pdfDialog(info) {
   const n = info.names.length;
-  const o = { size: "A4", orient: n > 7 ? "landscape" : "portrait" };
-  const m = document.createElement("div"); m.className = "mod";
-  const seg = (k, items) => items.map(([v, t]) => `<button class="sec" data-k="${k}" data-v="${v}" style="flex:1;height:44px;border-radius:10px;font-weight:700">${t}</button>`).join("");
-  m.innerHTML = `<div class="mbox" role="dialog" aria-modal="true" style="gap:16px"><h2>PDF indir</h2>
-    <div class="muted" style="line-height:1.5">${esc(info.title)} · ${esc(info.plabel)}. Tek sayfalık grafik ve açıklamalar; yöneticinize göndermek için hazırlanır.</div>
-    <div class="col1" style="gap:8px"><span class="hd">KÂĞIT BOYUTU</span><div class="row" style="gap:8px;flex-wrap:nowrap">${seg("size", [["A4", "A4"], ["A3", "A3"]])}</div></div>
-    <div class="col1" style="gap:8px"><span class="hd">SAYFA DÜZENİ</span><div class="row" style="gap:8px;flex-wrap:nowrap">${seg("orient", [["portrait", "Dikey"], ["landscape", "Yatay"]])}</div>
-      <span class="muted" style="font-size:12.5px">${n > 7 ? `${n} bölüm olduğu için yatay düzen önerilir.` : "Az sayıda bölümde dikey düzen yeterlidir."}</span></div>
-    <div class="muted" style="font-size:12.5px;line-height:1.5">Açılan yazdırma penceresinde hedef olarak "PDF olarak kaydet" seçin. Ölçek "Varsayılan", kenar boşlukları "Varsayılan" kalsın.</div>
-    <div class="row" style="justify-content:flex-end"><button class="sec" data-no>İptal</button><button data-yes>PDF oluştur</button></div></div>`;
-  document.body.appendChild(m);
-  const paint = () => m.querySelectorAll("[data-k]").forEach(b => { const on = o[b.dataset.k] === b.dataset.v; b.style.background = on ? "#0B2230" : ""; b.style.color = on ? "#fff" : ""; b.setAttribute("aria-pressed", on); });
-  m.querySelectorAll("[data-k]").forEach(b => b.onclick = () => { o[b.dataset.k] = b.dataset.v; paint(); });
-  paint();
-  m.querySelector("[data-no]").onclick = () => m.remove();
-  m.addEventListener("mousedown", e => { if (e.target === m) m.remove(); });
-  m.querySelector("[data-yes]").onclick = () => { m.remove(); printSheet(info, o); };
+  askFormat({ title: "PDF indir", text: `${info.title} · ${info.plabel}. Tek sayfalık grafik ve açıklamalar; yöneticinize göndermek için hazırlanır.`, defOrient: n > 7 ? "landscape" : "portrait", hint: n > 7 ? `${n} bölüm olduğu için yatay düzen önerilir.` : "Az sayıda bölümde dikey düzen yeterlidir." }).then(o => o && printSheet(info, o));
 }
 
 function printSheet(info, { size, orient }) {
@@ -223,4 +214,11 @@ function printSheet(info, { size, orient }) {
   const clean = () => { sh.remove(); stl.remove(); window.removeEventListener("afterprint", clean); };
   window.addEventListener("afterprint", clean);
   setTimeout(() => window.print(), 150);
+}
+
+export function downloadCsv(name, rows) {
+  const cell = x => { const t = x === null || x === undefined ? "" : typeof x === "number" ? String(Math.round(x * 10) / 10).replace(".", ",") : String(x); return /[;"\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
+  const blob = new Blob(["\ufeff" + rows.map(r => r.map(cell).join(";")).join("\r\n")], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name.replace(/[ğĞüÜşŞıİöÖçÇ]/g, c => ({ ğ: "g", Ğ: "G", ü: "u", Ü: "U", ş: "s", Ş: "S", ı: "i", İ: "I", ö: "o", Ö: "O", ç: "c", Ç: "C" }[c])); document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
 }

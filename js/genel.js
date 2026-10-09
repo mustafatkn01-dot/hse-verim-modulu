@@ -1,9 +1,9 @@
 // Genel Bakış · yıllık özet panosu (gerçek verilerden)
-import * as S from "./store.js?v=20261009s";
-import { esc } from "./ui.js?v=20261009s";
-import { CATS } from "./isgcats.js?v=20261009s";
-import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261009s";
-import { load } from "./verim.js?v=20261009s";
+import * as S from "./store.js?v=20261009u";
+import { esc } from "./ui.js?v=20261009u";
+import { CATS } from "./isgcats.js?v=20261009u";
+import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261009u";
+import { load } from "./verim.js?v=20261009u";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -15,6 +15,7 @@ const SHORT = ["KKD", "Makine", "Bakım ve İzin", "Elektrik", "Yaya Yolu", "5S"
 const TONE = [{ bg: "#DDF1E7", c: "#0B6E4F" }, { bg: "#FBE9C6", c: "#6B3F00" }, { bg: "#F6C890", c: "#5C2A00" }, { bg: "#F2B0AA", c: "#7A130E" }];
 const f1 = n => n.toFixed(1).replace(".", ",");
 const pad = n => String(n).padStart(2, "0");
+const G = { cmp: null, key: "" };
 const avgOf = a => { const v = a.filter(x => x !== null && x !== undefined); return v.length ? v.reduce((s, c) => s + c, 0) / v.length : null; };
 
 export async function render(v, ctx) {
@@ -58,6 +59,39 @@ export async function render(v, ctx) {
   if (!acts.length && have.length) acts.push({ t: "Durum iyi", d: "Tüm bölümler ve modüller \"İyi\" veya üzerinde.", bg: "#D9F1E6", c: "#0B6E4F", c2: "#0B6E4F", ic: "M4 12l5 5L20 6" });
   if (!have.length) acts.push({ t: "Veri bekleniyor", d: "Aylık giriş sayfalarından veri kaydedildikçe burada özet ve aksiyonlar görünür.", bg: "#EEF2F0", c: "#2A3F3A", c2: "#2A3F3A", ic: "M12 8v4M12 16h0" });
 
+  // Yıllar arası karşılaştırma: seçili yılda verisi olan aylar iki yılda da aynı alınır
+  let cmpHtml = "";
+  const others = st.years.filter(y => String(y) !== String(st.year));
+  if (others.length) {
+    const fk = st.fid + "/" + st.year; if (G.key !== fk) { G.key = fk; G.cmp = null; }
+    const ix = st.years.map(String).indexOf(String(st.year));
+    if (!G.cmp || !others.map(String).includes(String(G.cmp))) G.cmp = String(ix > 0 ? st.years[ix - 1] : st.years[ix + 1]);
+    const setupB = await S.getSetup(st.fid, G.cmp), M = trend.map((x, i) => (x !== null ? i : -1)).filter(i => i >= 0);
+    if (setupB?.rows?.length && M.length) {
+      const dataB = await load({ fid: st.fid, year: G.cmp }, setupB), pB = setupB.params || DEFAULT_PARAMS;
+      const WB = [num(pB.w.kaza), num(pB.w.konusma), num(pB.w.isbasi), num(pB.w.isg)];
+      const totB = (id, m) => { let a = 0, d = 0; dataB[id][m].forEach((x, k) => { if (x !== null) { a += x * WB[k]; d += WB[k]; } }); return d ? a / d : null; };
+      const sideA = r => avgOf(M.map(m => total(r.id, m)));
+      const rb = r => setupB.rows.find(x => x.id === r.id) || setupB.rows.find(x => x.name.trim().toLowerCase() === r.name.trim().toLowerCase());
+      const pairs = rows.map(r => { const b = rb(r); return { r, a: sideA(r), b: b ? avgOf(M.map(m => totB(b.id, m))) : null }; });
+      const both = pairs.filter(x => x.a !== null && x.b !== null);
+      const tA = avgOf(pairs.map(x => x.a)), tB = avgOf(pairs.map(x => x.b));
+      const mod = MODN.map((n, k) => ({ n, a: avgOf(rows.map(r => avgOf(M.map(m => data[r.id][m][k])))), b: avgOf(rows.map(r => { const b = rb(r); return b ? avgOf(M.map(m => dataB[b.id][m][k])) : null; })) }));
+      const dl = (a, b) => { if (a === null || b === null) return `<span class="pill" style="background:#EEF2F0;color:#4A5C57;align-self:center">–</span>`; const d = a - b, up = d >= 0.05, dn = d <= -0.05; return `<span class="pill" style="align-self:center;background:${up ? "#D9F1E6" : dn ? "#FADAD7" : "#EEF2F0"};color:${up ? "#0B6E4F" : dn ? "#B3261E" : "#4A5C57"}">${up ? "▲" : dn ? "▼" : "="} ${f1(Math.abs(d))}</span>`; };
+      const two = (a, b) => `<div class="col1" style="flex:1;min-width:40px;gap:4px"><div style="height:9px;border-radius:999px;background:#E4ECE9;overflow:hidden"><div style="height:100%;width:${b === null ? 0 : Math.min(100, b)}%;background:#9DB5AE;border-radius:999px"></div></div><div style="height:9px;border-radius:999px;background:#E4ECE9;overflow:hidden"><div style="height:100%;width:${a === null ? 0 : Math.min(100, a)}%;background:${bb(a).fill};border-radius:999px"></div></div></div>`;
+      const mlabel = M.length === 12 ? "tüm yıl" : M.length === 1 ? MONTHS[M[0]] : `${MONTHS[M[0]]}–${MONTHS[M[M.length - 1]]}`;
+      cmpHtml = `<div class="cd" style="gap:16px"><div class="row sp" style="align-items:baseline"><div><h2>Yıllar Arası Karşılaştırma</h2><div class="muted" style="font-size:13px;margin-top:4px">${st.year} ile ${G.cmp} · her iki yılda aynı aylar (${mlabel}) karşılaştırılır</div></div>
+        <select id="cmpY" class="inp noprint" style="width:auto;min-width:110px;font-weight:700" aria-label="Karşılaştırılacak yıl">${others.map(y => `<option value="${y}" ${String(y) === G.cmp ? "selected" : ""}>${y} ile kıyasla</option>`).join("")}</select></div>
+        <div class="row" style="gap:16px;align-items:stretch">
+          <div class="col1" style="flex:1 1 90px;gap:2px"><span class="hd">${G.cmp}</span><b style="font:700 28px Sora,sans-serif">${tB === null ? "–" : f1(tB)}</b></div>
+          <div class="col1" style="flex:1 1 90px;gap:2px"><span class="hd">${st.year}</span><b style="font:700 28px Sora,sans-serif">${tA === null ? "–" : f1(tA)}</b></div>
+          <div class="col1" style="flex:1 1 90px;gap:6px"><span class="hd">DEĞİŞİM</span>${dl(tA, tB)}</div></div>
+        <div class="col1" style="gap:10px"><div class="row" style="gap:14px;font-size:12.5px;color:var(--muted)"><span class="row" style="gap:6px;flex-wrap:nowrap"><span style="width:12px;height:12px;border-radius:3px;background:#9DB5AE"></span>${G.cmp}</span><span class="row" style="gap:6px;flex-wrap:nowrap"><span style="width:12px;height:12px;border-radius:3px;background:#2A82C4"></span>${st.year} (durum rengi)</span></div>
+          ${pairs.map(x => `<div style="display:flex;align-items:center;gap:10px"><span style="width:112px;flex:0 0 112px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.r.name)}</span>${two(x.a, x.b)}<span style="width:44px;text-align:right;font-size:12.5px;color:var(--muted)">${x.b === null ? "–" : f1(x.b)}</span><b style="width:44px;text-align:right">${x.a === null ? "–" : f1(x.a)}</b><span style="width:76px;flex:0 0 76px;text-align:center">${dl(x.a, x.b)}</span></div>`).join("")}</div>
+        <div style="border-top:1px solid var(--line);padding-top:12px" class="col1"><span class="hd">MODÜLLER</span>${mod.map(m => `<div style="display:flex;align-items:center;gap:10px"><span style="width:140px;flex:0 0 140px;font-weight:600">${m.n}</span>${two(m.a, m.b)}<span style="width:44px;text-align:right;font-size:12.5px;color:var(--muted)">${m.b === null ? "–" : f1(m.b)}</span><b style="width:44px;text-align:right">${m.a === null ? "–" : f1(m.a)}</b><span style="width:76px;flex:0 0 76px;text-align:center">${dl(m.a, m.b)}</span></div>`).join("")}</div>
+        ${both.length < pairs.length ? `<div class="muted" style="font-size:12.5px">Bazı bölümler iki yılda da bulunmadığı veya veri girilmediği için karşılaştırılamadı.</div>` : ""}<div class="muted" style="font-size:12.5px">Toplam verim, o yılda verisi girilen modüllerle hesaplanır; modül sayısı iki yılda farklıysa modül satırlarına bakın.</div></div>`;
+    }
+  }
   const label = s => (s === null ? "Veri yok" : bn(s));
   const rank = have.slice().sort((a, b) => b.v - a.v);
   v.innerHTML = `
@@ -97,5 +131,6 @@ export async function render(v, ctx) {
         ${heat.map(h => `<div style="display:flex;gap:6px;align-items:center"><div style="width:96px;flex:0 0 96px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(h.r.name)}</div>${CATS.map((c, i) => { const f = h.f ? h.f[i] : null, t = f === null ? { bg: "#EEF2F0", c: "#6A7E79" } : TONE[Math.min(3, f)]; return `<div style="flex:1;min-width:0;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:800;background:${t.bg};color:${t.c}">${f === null ? "–" : f}</div>`; }).join("")}</div>`).join("")}</div></div>` : `<div class="muted">Henüz İSG denetim kaydı yok.</div>`}</div>
     <div class="cd" style="flex:1 1 300px;min-width:0"><h2>Öncelikli Aksiyonlar</h2><div class="col1" style="gap:12px">${acts.map(a => `<div style="display:flex;gap:12px;padding:14px;border-radius:14px;background:${a.bg}">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="${a.c}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 22px">${a.ic.split("|").map(d => `<path d="${d}"/>`).join("")}</svg>
-      <div class="col1" style="gap:3px"><div style="font-weight:800;color:${a.c}">${a.t}</div><div style="color:${a.c2};line-height:1.5">${a.d}</div></div></div>`).join("")}</div></div></div>`;
+      <div class="col1" style="gap:3px"><div style="font-weight:800;color:${a.c}">${a.t}</div><div style="color:${a.c2};line-height:1.5">${a.d}</div></div></div>`).join("")}</div></div></div>${cmpHtml}`;
+  const cy = document.getElementById("cmpY"); if (cy) cy.onchange = e => { G.cmp = e.target.value; render(v, ctx); };
 }

@@ -1,15 +1,15 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261009s";
-import * as S from "./store.js?v=20261009s";
-import * as Prim from "./primary.js?v=20261009s";
-import * as Denetim from "./denetim.js?v=20261009s";
-import * as Kaza from "./kaza.js?v=20261009s";
-import * as Konusma from "./konusma.js?v=20261009s";
-import * as Genel from "./genel.js?v=20261009s";
-import * as Rapor from "./rapor.js?v=20261009s";
-import * as Verim from "./verim.js?v=20261009s";
-import * as Isbasi from "./isbasi.js?v=20261009s";
-import { $, esc, ic, toast, modal, confirmBox, formBox } from "./ui.js?v=20261009s";
-import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261009s";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261009u";
+import * as S from "./store.js?v=20261009u";
+import * as Prim from "./primary.js?v=20261009u";
+import * as Denetim from "./denetim.js?v=20261009u";
+import * as Kaza from "./kaza.js?v=20261009u";
+import * as Konusma from "./konusma.js?v=20261009u";
+import * as Genel from "./genel.js?v=20261009u";
+import * as Rapor from "./rapor.js?v=20261009u";
+import * as Verim from "./verim.js?v=20261009u";
+import * as Isbasi from "./isbasi.js?v=20261009u";
+import { $, esc, ic, toast, modal, confirmBox, formBox } from "./ui.js?v=20261009u";
+import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261009u";
 
 const VERSION = "1.0.0";
 const st = { factories: [], years: [], fid: null, year: null, page: "genel", profile: {}, lastSync: new Date() };
@@ -42,6 +42,7 @@ $("loginForm").addEventListener("submit", async e => {
   try { await signInWithEmailAndPassword(auth, $("em").value.trim(), $("pw").value); }
   catch (er) { $("loginErr").textContent = errMsg(er); }
 });
+$("showPw").addEventListener("change", e => { $("pw").type = e.target.checked ? "text" : "password"; });
 $("btnLink").addEventListener("click", async () => {
   const em = $("em").value.trim();
   if (!em) { $("loginErr").textContent = "Önce e-posta yazın."; return; }
@@ -305,6 +306,8 @@ async function pageAyarlar(v) {
       ${iAmPrime ? "" : '<div class="muted" style="font-size:12.5px;line-height:1.6">Bu cihaz misafir oturumdur. Diğer oturumları yalnızca ana cihaz kapatabilir. Bu cihazı ana cihaz yapmak için "Yetkili cihaz yap" düğmesini kullanın; e-postanıza kod gönderilir.</div>'}
       <div class="muted" style="font-size:12.5px;line-height:1.6">Çıkış yapılan cihazda oturum kapatılır ve yerel önbellek temizlenir. Verileriniz bulutta güvende kalır, tekrar giriş yapınca geri gelir.</div></div>
 
+    <div class="cd"><div><h2>Yedekleme</h2><div class="muted" style="font-size:13px;line-height:1.5">Tüm fabrikalar, yıllar, kurulumlar ve aylık kayıtlar tek bir dosya olarak bilgisayarınıza indirilir. Verileriniz bulutta zaten saklanır; bu dosya ek güvence içindir.</div></div>
+      <div class="row"><button class="sec" id="backup">Tüm verileri indir (JSON)</button><span class="muted" id="backupT" style="font-size:12.5px"></span></div></div>
     <div class="cd" style="background:#FDF1EF;border-color:#F2C4BF;flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:space-between">
       <div style="flex:1 1 240px"><h2 style="color:#6E1511">Çıkış Yap</h2><div style="color:#5A1A16">Bu cihazdaki oturumunuz güvenli şekilde kapatılır.</div></div>
       <button class="big" style="background:#B3261E" id="askOut">Çıkış Yap</button></div>
@@ -348,6 +351,15 @@ async function pageAyarlar(v) {
   $("resetPw").onclick = async () => { try { await sendPasswordResetEmail(auth, email); say("Şifre sıfırlama bağlantısı e-postanıza gönderildi."); } catch (e) { say(errMsg(e)); } };
   v.querySelectorAll("[data-prim]").forEach(b => b.onclick = () => Prim.startTransfer({ id: b.dataset.prim, name: b.dataset.pname }, t => { toast(t); pageAyarlar(v); }));
   v.querySelectorAll("[data-rev]").forEach(b => b.onclick = async () => { if (confirm("Bu cihazdaki oturum uzaktan kapatılsın mı?")) { try { await S.revokeSession(b.dataset.rev); say("Cihazın oturumu kapatıldı."); } catch (e) { say(e.message); } pageAyarlar(v); } });
+  $("backup").onclick = async () => {
+    $("backup").disabled = true; $("backupT").textContent = "Hazırlanıyor…";
+    try {
+      const d = await S.exportAll(), blob = new Blob([JSON.stringify(d, null, 1)], { type: "application/json" }), el = document.createElement("a");
+      el.href = URL.createObjectURL(blob); el.download = `hse-verim-yedek-${new Date().toISOString().slice(0, 10)}.json`; document.body.appendChild(el); el.click();
+      setTimeout(() => { URL.revokeObjectURL(el.href); el.remove(); }, 500); $("backupT").textContent = `İndirildi · ${d.factories.length} fabrika`;
+    } catch (e) { $("backupT").textContent = "Yedek alınamadı: " + e.message; }
+    $("backup").disabled = false;
+  };
   $("askOut").onclick = () => $("modal").classList.remove("hide");
   $("noOut").onclick = () => $("modal").classList.add("hide");
   $("yesOut").onclick = doSignOut;

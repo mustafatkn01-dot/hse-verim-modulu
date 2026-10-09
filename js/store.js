@@ -1,5 +1,5 @@
 // Veri katmanı: users/{uid}/factories/{fid}/years/{yıl}/setup/main
-import { auth, db, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, updateDoc, query, orderBy, serverTimestamp, onSnapshot } from "./firebase.js?v=20261009s";
+import { auth, db, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, updateDoc, query, orderBy, serverTimestamp, onSnapshot } from "./firebase.js?v=20261009u";
 
 const uid = () => auth.currentUser.uid;
 const base = () => `users/${uid()}`;
@@ -104,3 +104,19 @@ export async function revokeSession(id) {
   await setDoc(sessRef(id), { revoked: true }, { merge: true });
 }
 export const watchSession = cb => onSnapshot(sessRef(deviceId()), snap => cb(snap.data()));
+
+// Yedek: tüm fabrikalar, yıllar, kurulumlar ve aylık kayıtlar tek JSON olarak
+export async function exportAll() {
+  const out = { app: "HSE Verim Modülü", format: 1, exportedAt: new Date().toISOString(), profile: await getProfile().catch(() => ({})), factories: [] };
+  const fs = await getDocs(collection(db, `${base()}/factories`));
+  for (const f of fs.docs) {
+    const fo = { id: f.id, ...f.data(), years: [] }, ys = await listYears(f.id);
+    for (const y of ys) {
+      const yo = { year: y, setup: await getSetup(f.id, y).catch(() => null) };
+      for (const c of ["isg", "kaza", "konusma", "isbasi"]) yo[c] = await listMonthDocs(f.id, y, c);
+      fo.years.push(yo);
+    }
+    out.factories.push(fo);
+  }
+  return out;
+}
