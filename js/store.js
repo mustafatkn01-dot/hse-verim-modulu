@@ -1,5 +1,5 @@
 // Veri katmanı: users/{uid}/factories/{fid}/years/{yıl}/setup/main
-import { auth, db, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, updateDoc, query, orderBy, serverTimestamp, onSnapshot } from "./firebase.js?v=20261009a";
+import { auth, db, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, updateDoc, query, orderBy, serverTimestamp, onSnapshot } from "./firebase.js?v=20261009b";
 
 const uid = () => auth.currentUser.uid;
 const base = () => `users/${uid()}`;
@@ -36,7 +36,18 @@ export async function addYear(fid, year) {
 
 // Kurulum (bölümler + parametreler) tek belgede: .../years/{yıl}/setup/main
 const setupRef = (fid, y) => doc(db, `${base()}/factories/${fid}/years/${y}/setup/main`);
-export async function getSetup(fid, y) { const d = await getDoc(setupRef(fid, y)); return d.exists() ? d.data() : null; }
+// Kimliği olmayan eski bölüm kayıtlarına kalıcı (deterministik) kimlik verir ve geri yazar
+const hash = t => { let h = 0; for (const c of t) h = (h * 31 + c.codePointAt(0)) >>> 0; return h.toString(36); };
+export async function getSetup(fid, y) {
+  const d = await getDoc(setupRef(fid, y));
+  if (!d.exists()) return null;
+  const data = d.data();
+  if (data.rows?.some(r => !r.id)) {
+    data.rows = data.rows.map((r, i) => (r.id ? r : { ...r, id: `d${i}_${hash(String(r.name || ""))}` }));
+    await setDoc(setupRef(fid, y), { ...data, updatedAt: serverTimestamp() }).catch(() => {});
+  }
+  return data;
+}
 export async function saveSetup(fid, y, data) { await setDoc(setupRef(fid, y), { ...data, updatedAt: serverTimestamp() }); }
 
 // Aylık veri: .../years/{yıl}/{koleksiyon}/{belgeId}
