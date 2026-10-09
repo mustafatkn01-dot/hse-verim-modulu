@@ -1,9 +1,9 @@
 // Aylık HSE Raporu · kayıtlı verilerden otomatik grafik + açıklama
-import * as S from "./store.js?v=20261009z";
-import { esc } from "./ui.js?v=20261009z";
-import { askFormat, printCurrent } from "./pdf.js?v=20261009z";
-import { CATS } from "./isgcats.js?v=20261009z";
-import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261009z";
+import * as S from "./store.js?v=20261010a";
+import { esc } from "./ui.js?v=20261010a";
+import { askFormat, printCurrent, saveReportPdf } from "./pdf.js?v=20261010a";
+import { CATS } from "./isgcats.js?v=20261010a";
+import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261010a";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -178,5 +178,5 @@ function draw(v, st, setup, data) {
   <div class="muted" style="font-size:13px;line-height:1.6">Dönem raporlarında bölüm değerleri, verisi olan ayların ortalamasıdır (kümülatif: Ç1 Ocak-Mart, Ç2 Ocak-Haziran, Ç3 Ocak-Eylül). Açıklamalar, aylık giriş sayfalarında yazılan notlardan derlenir (İSG için "Uygunsuz" işaretli maddelerin notları). Metni değiştirmek için ilgili kaydı güncelleyin; rapor kendiliğinden yenilenir. PDF için tarayıcının yazdırma penceresinde "PDF olarak kaydet" seçin.</div>`;
   document.getElementById("rPer").onchange = e => { R.per = e.target.value; draw(v, st, setup, data); };
   const ay = document.getElementById("rAy"); if (ay) ay.onchange = e => { R.month = +e.target.value; draw(v, st, setup, data); };
-  document.getElementById("rPdf").onclick = async () => { const o = await askFormat({ title: "Raporu PDF indir", text: `${plabel} raporu. Birden fazla sayfa olabilir; kartlar sayfa sonlarında bölünmez.`, defOrient: "portrait", hint: "Çok bölümlü tesislerde yatay düzen grafik satırlarını genişletir." }); if (o) printCurrent(o); };
+  document.getElementById("rPdf").onclick = async () => { const o = await askFormat({ title: "Raporu PDF indir", text: `${plabel} raporu. Birden fazla sayfa olabilir; kartlar sayfa sonlarında bölünmez.`, defOrient: "portrait", hint: "Çok bölümlü tesislerde yatay düzen grafik satırlarını genişletir." }); if (o) { try { await saveReportPdf(document.getElementById("view") || v, { ...o, name: `HSE-Rapor-${plabel.replace(/[^A-Za-z0-9]+/g, "-")}-${o.size}-${o.orient === "landscape" ? "yatay" : "dikey"}.pdf` }); } catch (e) { console.warn("PDF üretilemedi, yazdırmaya dönülüyor", e); printCurrent(o); } } };
 }

@@ -1,8 +1,8 @@
 // İSG Denetim Listesi sayfası
-import * as S from "./store.js?v=20261009z";
-import { esc, ic, toast, noteEditor } from "./ui.js?v=20261009z";
-import { CATS } from "./isgcats.js?v=20261009z";
-import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261009z";
+import * as S from "./store.js?v=20261010a";
+import { esc, ic, toast, noteEditor } from "./ui.js?v=20261010a";
+import { CATS } from "./isgcats.js?v=20261010a";
+import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261010a";
 
 const COLL = "isg";
 const D = { key: "", setup: null, doc: null, dept: null, month: null, open: { 0: true }, ro: false, timer: null, saved: true, msg: "" };
@@ -168,7 +168,7 @@ function bind(v, c) {
   on("[data-freqreset]", el => { delete doc.freq[el.dataset.freqreset]; again(); });
   on("[data-bonus]", el => { doc.bonus = +el.dataset.bonus; again(); });
   on("[data-contsess]", async el => {
-    const { confirmBox } = await import("./ui.js?v=20261009z");
+    const { confirmBox } = await import("./ui.js?v=20261010a");
     const last = doc.sessions[doc.sessions.length - 1]; if (!last) return;
     const dirty = Object.keys(doc.draft.marks || {}).length > 0;
     if (!(await confirmBox(`${last.no}. denetime devam edilsin mi?`, dirty ? "Şu an açık olan ikinci denetimdeki işaretlemeler silinir; kayıtlı denetim tekrar düzenlenebilir hale gelir. Bitirince yeniden kaydedin." : "Kayıtlı denetim tekrar düzenlenebilir hale gelir; yeni eksiklikleri ekleyip yeniden kaydedin.", "Evet, devam et", false))) return;
@@ -187,7 +187,7 @@ function bind(v, c) {
     await persist(true); draw(); toast(`${last.no}. denetim açıldı; eksiklikleri ekleyip tekrar kaydedin.`);
   });
   on("[data-delsess]", async el => {
-    const { confirmBox } = await import("./ui.js?v=20261009z");
+    const { confirmBox } = await import("./ui.js?v=20261010a");
     if (!(await confirmBox("Son denetim geri alınsın mı?", "Kaydedilen denetim silinir; skor ve sıklıklar yeniden hesaplanır.", "Evet, geri al", true))) return;
     doc.sessions.pop(); await persist(true); draw();
   });

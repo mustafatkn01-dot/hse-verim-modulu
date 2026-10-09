@@ -1,9 +1,9 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261009z";
-import { esc } from "./ui.js?v=20261009z";
-import { bandOf, DEFAULT_PARAMS, num } from "./scoring.js?v=20261009z";
-import { askFormat } from "./pdf.js?v=20261009z";
-import { CATS } from "./isgcats.js?v=20261009z";
+import * as S from "./store.js?v=20261010a";
+import { esc } from "./ui.js?v=20261010a";
+import { bandOf, DEFAULT_PARAMS, num } from "./scoring.js?v=20261010a";
+import { askFormat, savePdf } from "./pdf.js?v=20261010a";
+import { CATS } from "./isgcats.js?v=20261010a";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -175,7 +175,7 @@ function pdfDialog(info) {
   askFormat({ title: "PDF indir", text: `${info.title} · ${info.plabel}. Tek sayfalık grafik ve açıklamalar; yöneticinize göndermek için hazırlanır.`, defOrient: n > 7 ? "landscape" : "portrait", hint: n > 7 ? `${n} bölüm olduğu için yatay düzen önerilir.` : "Az sayıda bölümde dikey düzen yeterlidir." }).then(o => o && printSheet(info, o));
 }
 
-function printSheet(info, { size, orient }) {
+async function printSheet(info, { size, orient }) {
   // Tasarım A4 ölçüsünde (96 dpi) yapılır; A3 için √2 büyütülür.
   const land = orient === "landscape", W = land ? 1123 : 794, Hh = land ? 794 : 1123, M = 38, z = size === "A3" ? 1.4142 : 1;
   const cw = W - 2 * M, cpl = Math.floor(cw / 6.3);
@@ -210,8 +210,17 @@ function printSheet(info, { size, orient }) {
   const base = land ? 300 : 520, avail = Hh - 2 * M - 6; let c = base;
   sh.style.cssText = "display:block;position:fixed;left:-99999px;top:0;visibility:hidden";
   for (; c >= 140; c -= 15) { sh.innerHTML = build(c, 1); if (sh.firstElementChild.offsetHeight <= avail) break; }
-  sh.innerHTML = build(Math.max(140, c), z); sh.style.cssText = "";
   const clean = () => { sh.remove(); stl.remove(); window.removeEventListener("afterprint", clean); };
+  const fit = Math.max(140, c);
+  // Önce gerçek PDF dosyası üret (boyut/yön her cihazda korunur); olmazsa yazdırma penceresine dön
+  try {
+    sh.innerHTML = build(fit, 1);
+    sh.style.cssText = "display:block;position:fixed;left:-99999px;top:0;background:#fff";
+    const nm = `HSE-Verim-${(info.title + "-" + info.plabel).replace(/[^A-Za-z0-9]+/g, "-")}-${size}-${land ? "yatay" : "dikey"}.pdf`;
+    await savePdf(sh.firstElementChild, { size, orient, name: nm, margin: M * 0.75 * z, scale: size === "A3" ? 3 : 2.5, single: true });
+    clean(); return;
+  } catch (e) { console.warn("PDF üretilemedi, yazdırmaya dönülüyor", e); }
+  sh.innerHTML = build(fit, z); sh.style.cssText = "";
   window.addEventListener("afterprint", clean);
   setTimeout(() => window.print(), 150);
 }

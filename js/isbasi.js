@@ -1,7 +1,7 @@
 // İşbaşı Eğitim · Aylık Giriş
-import * as S from "./store.js?v=20261009z";
-import { esc, ic, toast, noteEditor } from "./ui.js?v=20261009z";
-import { katsayi, ztfRamp, bandOf, num, c2, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261009z";
+import * as S from "./store.js?v=20261010a";
+import { esc, ic, toast, noteEditor } from "./ui.js?v=20261010a";
+import { katsayi, ztfRamp, bandOf, num, c2, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261010a";
 
 const COLL = "isbasi";
 const BAND = { Mükemmel: ["#17A06F", "#0B6E4F", "#D9F1E6"], İyi: ["#2A82C4", "#145F96", "#DCEAF7"], Orta: ["#E8A512", "#6B3F00", "#FBE9C6"], Kritik: ["#D6382E", "#B3261E", "#FADAD7"] };
