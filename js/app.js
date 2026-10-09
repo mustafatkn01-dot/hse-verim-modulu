@@ -1,15 +1,15 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261009p";
-import * as S from "./store.js?v=20261009p";
-import * as Prim from "./primary.js?v=20261009p";
-import * as Denetim from "./denetim.js?v=20261009p";
-import * as Kaza from "./kaza.js?v=20261009p";
-import * as Konusma from "./konusma.js?v=20261009p";
-import * as Genel from "./genel.js?v=20261009p";
-import * as Rapor from "./rapor.js?v=20261009p";
-import * as Verim from "./verim.js?v=20261009p";
-import * as Isbasi from "./isbasi.js?v=20261009p";
-import { $, esc, ic, toast, modal, confirmBox, formBox } from "./ui.js?v=20261009p";
-import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261009p";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261009q";
+import * as S from "./store.js?v=20261009q";
+import * as Prim from "./primary.js?v=20261009q";
+import * as Denetim from "./denetim.js?v=20261009q";
+import * as Kaza from "./kaza.js?v=20261009q";
+import * as Konusma from "./konusma.js?v=20261009q";
+import * as Genel from "./genel.js?v=20261009q";
+import * as Rapor from "./rapor.js?v=20261009q";
+import * as Verim from "./verim.js?v=20261009q";
+import * as Isbasi from "./isbasi.js?v=20261009q";
+import { $, esc, ic, toast, modal, confirmBox, formBox } from "./ui.js?v=20261009q";
+import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261009q";
 
 const VERSION = "1.0.0";
 const st = { factories: [], years: [], fid: null, year: null, page: "genel", profile: {}, lastSync: new Date() };

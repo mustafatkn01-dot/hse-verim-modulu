@@ -1,7 +1,7 @@
 // Ana (yetkili) cihaz değişimi: e-postaya doğrulama bağlantısı/kodu gönderilir, kod girilince ana cihaz değişir.
-import { auth, apiKey, authDomain, sendSignInLinkToEmail, EmailAuthProvider, reauthenticateWithCredential } from "./firebase.js?v=20261009p";
-import * as S from "./store.js?v=20261009p";
-import { esc } from "./ui.js?v=20261009p";
+import { auth, apiKey, authDomain, sendSignInLinkToEmail, EmailAuthProvider, reauthenticateWithCredential } from "./firebase.js?v=20261009q";
+import * as S from "./store.js?v=20261009q";
+import { esc } from "./ui.js?v=20261009q";
 
 const LAND = (() => { try { const q = new URLSearchParams(location.search); return q.get("mode") === "signIn" && q.get("oobCode") ? q.get("oobCode") : null; } catch { return null; } })();
 if (LAND) { try { history.replaceState(null, "", location.pathname + location.hash); } catch {} }
@@ -31,17 +31,18 @@ function sheet(html) {
 export function startTransfer(target, done) {
   const email = auth.currentUser.email;
   const m = sheet(`<h2>Yetkili cihazı değiştir</h2>
-    <div class="muted" style="line-height:1.5"><b>${esc(target.name)}</b> ana (yetkili) cihaz olacak. Ana cihaz diğer oturumları kapatabilir; diğer tüm cihazlar misafir oturumdur. Doğrulama için <b>${esc(email)}</b> adresine kod gönderilir.</div>
-    <div id="s1" class="row" style="justify-content:flex-end"><button class="sec" data-no>Vazgeç</button><button id="send">Kod gönder</button></div>
-    <div id="s2" class="col1 hide" style="gap:10px"><div class="muted" style="line-height:1.5">E-postanızdaki iletide bağlantıya dokunun; açılan sayfada <b>doğrulama kodu</b> görünür. Kodu (veya bağlantının tamamını) aşağıya yapıştırın.</div>
-      <input id="code" class="inp" placeholder="Doğrulama kodu" autocomplete="one-time-code" style="font-family:monospace"><div id="err" style="color:#B3261E;font-size:13px;font-weight:600"></div>
-      <div class="row" style="justify-content:flex-end"><button class="sec" data-no>Vazgeç</button><button class="sec" id="resend">Kodu yeniden gönder</button><button id="ok">Tamam</button></div></div>
+    <div class="muted" style="line-height:1.5"><b>${esc(target.name)}</b> ana (yetkili) cihaz olacak. Ana cihaz diğer oturumları kapatabilir; diğer tüm cihazlar misafir oturumdur. Doğrulama için <b>${esc(email)}</b> adresine bir doğrulama bağlantısı gönderilir.</div>
+    <div id="s1" class="row" style="justify-content:flex-end"><button class="sec" data-no>Vazgeç</button><button id="send">Doğrulama e-postası gönder</button></div>
+    <div id="s2" class="col1 hide" style="gap:10px"><div class="muted" style="line-height:1.5">E-posta gönderildi. İletideki <b>"Sign in to hse-verim-modulu"</b> bağlantısına bu cihazın tarayıcısında dokunursanız değişiklik <b>otomatik</b> tamamlanır. Bağlantıyı başka bir cihazda açtıysanız orada görünen kodu (veya bağlantının tamamını) aşağıya yapıştırıp Tamam'a basın.</div>
+      <input id="code" class="inp" placeholder="Başka cihazda açtıysanız kodu yapıştırın" autocomplete="one-time-code" style="font-family:monospace"><div id="err" style="color:#B3261E;font-size:13px;font-weight:600"></div>
+      <div class="row" style="justify-content:flex-end"><button class="sec" data-no>Vazgeç</button><button class="sec" id="resend">E-postayı yeniden gönder</button><button id="ok">Tamam</button></div></div>
     <div id="err1" style="color:#B3261E;font-size:13px;font-weight:600"></div>`);
   const $ = s => m.querySelector(s), close = () => { pend.set(null); m.remove(); };
   m.querySelectorAll("[data-no]").forEach(b => b.onclick = close);
   const send = async () => {
     $("#err1").textContent = ""; $("#send").disabled = true;
     try {
+      auth.languageCode = "tr";
       await sendSignInLinkToEmail(auth, email, { url: location.origin + location.pathname, handleCodeInApp: true });
       pend.set({ id: target.id, name: target.name, at: Date.now() });
       $("#s1").classList.add("hide"); $("#s2").classList.remove("hide"); $("#code").focus(); $("#err1").textContent = "";
@@ -49,7 +50,7 @@ export function startTransfer(target, done) {
   };
   $("#send").onclick = send; $("#resend").onclick = send;
   $("#ok").onclick = async () => {
-    const c = parseCode($("#code").value); if (!c) { $("#err").textContent = "Kodu girin."; return; }
+    const c = parseCode($("#code").value); if (!c) { $("#err").textContent = "Kodu yapıştırın veya e-postadaki bağlantıyı bu cihazda açın."; return; }
     $("#ok").disabled = true; $("#err").textContent = "";
     try { await verify(c); await commit(target); m.remove(); done?.(`${target.name} artık ana cihaz.`); }
     catch (e) { $("#err").textContent = errText(e); $("#ok").disabled = false; }
