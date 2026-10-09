@@ -158,3 +158,8 @@ table.t{width:100%;border-collapse:collapse}
 .fs{border:0;padding:0;margin:0;min-width:0}
 .side{position:sticky;top:16px;align-self:flex-start}
 @media(max-width:760px){.side{position:static}.catb{padding:2px 12px 16px}}
+
+.kg{display:grid;grid-template-columns:70px 52px repeat(6,minmax(84px,1fr)) 56px 130px;gap:8px;align-items:center}
+.krow{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:14px;background:var(--hbg);border:1px solid var(--line)}
+.stp{display:flex;align-items:center;gap:4px}
+.stp .sm{width:26px;height:36px;padding:0;font-size:16px;color:var(--text);border-color:var(--inl)}

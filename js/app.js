@@ -1,6 +1,7 @@
 import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js";
 import * as S from "./store.js";
 import * as Denetim from "./denetim.js";
+import * as Kaza from "./kaza.js";
 import { $, esc, ic, toast, modal, confirmBox, formBox } from "./ui.js";
 import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js";
 
@@ -14,7 +15,7 @@ const GROUPS = [
     ["ayarlar", "Ayarlar", '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/>']]],
   ["AYLIK VERİ GİRİŞİ", [
     ["denetim", "İSG Denetim Listesi", '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9z"/><path d="M9 13l2 2 4-4"/>'],
-    ["kaza", "İş Kazası", '<path d="M12 3l9 16H3L12 3z"/><path d="M12 10v4M12 17h0"/>', 1],
+    ["kaza", "İş Kazası", '<path d="M12 3l9 16H3L12 3z"/><path d="M12 10v4M12 17h0"/>'],
     ["konusma", "Eğitim Konuşması", '<path d="M3 8l9-4 9 4-9 4-9-4z"/><path d="M7 10.5V15c0 1.5 2.2 3 5 3s5-1.5 5-3v-4.5"/>', 1],
     ["isbasi", "İşbaşı Eğitim", '<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 11l2 2 4-4"/>', 1]]],
   ["RAPOR", [
@@ -108,6 +109,7 @@ async function render() {
     return;
   }
   if (st.page === "kurulum") return pageKurulum(v);
+  if (st.page === "kaza") return Kaza.render(v, { st });
   if (st.page === "denetim") return Denetim.render(v, { st });
   return pageGenel(v);
 }
