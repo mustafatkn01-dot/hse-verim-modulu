@@ -1,12 +1,12 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261009e";
-import * as S from "./store.js?v=20261009e";
-import * as Denetim from "./denetim.js?v=20261009e";
-import * as Kaza from "./kaza.js?v=20261009e";
-import * as Konusma from "./konusma.js?v=20261009e";
-import * as Verim from "./verim.js?v=20261009e";
-import * as Isbasi from "./isbasi.js?v=20261009e";
-import { $, esc, ic, toast, modal, confirmBox, formBox } from "./ui.js?v=20261009e";
-import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261009e";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261009f";
+import * as S from "./store.js?v=20261009f";
+import * as Denetim from "./denetim.js?v=20261009f";
+import * as Kaza from "./kaza.js?v=20261009f";
+import * as Konusma from "./konusma.js?v=20261009f";
+import * as Verim from "./verim.js?v=20261009f";
+import * as Isbasi from "./isbasi.js?v=20261009f";
+import { $, esc, ic, toast, modal, confirmBox, formBox } from "./ui.js?v=20261009f";
+import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261009f";
 
 const VERSION = "1.0.0";
 const st = { factories: [], years: [], fid: null, year: null, page: "genel", profile: {}, lastSync: new Date() };

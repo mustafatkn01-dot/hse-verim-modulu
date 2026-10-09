@@ -1,7 +1,7 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261009e";
-import { esc } from "./ui.js?v=20261009e";
-import { bandOf, DEFAULT_PARAMS, num } from "./scoring.js?v=20261009e";
+import * as S from "./store.js?v=20261009f";
+import { esc } from "./ui.js?v=20261009f";
+import { bandOf, DEFAULT_PARAMS, num } from "./scoring.js?v=20261009f";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -53,11 +53,12 @@ function draw() {
   const lastM = hasM.lastIndexOf(true);
   const PER = {
     m: { t: "Aylık", items: MS.map((n, i) => ({ t: n, idx: [i] })), name: i => MS[i] + " " + y, title: "AY SEÇİN" },
-    q: { t: "3 Aylık", items: [0, 1, 2, 3].map(i => ({ t: ["1-3 Ay", "4-6 Ay", "7-9 Ay", "10-12 Ay"][i], idx: rng(i * 3, i * 3 + 2) })), name: i => ["Ocak-Mart", "Nisan-Haziran", "Temmuz-Eylül", "Ekim-Aralık"][i] + " " + y, title: "ÇEYREK SEÇİN" },
-    h: { t: "6 Aylık", items: [0, 1].map(i => ({ t: ["1-6 Ay", "7-12 Ay"][i], idx: rng(i * 6, i * 6 + 5) })), name: i => ["Ocak-Haziran", "Temmuz-Aralık"][i] + " " + y, title: "DÖNEM SEÇİN" },
+    q: { t: "3 Aylık (Ç1)", items: [{ t: "Ç1", idx: rng(0, 2) }], name: () => "1. çeyrek · Ocak-Mart " + y, title: "" },
+    h: { t: "6 Aylık (Ç2)", items: [{ t: "Ç2", idx: rng(0, 5) }], name: () => "2. çeyrek · Ocak-Haziran " + y + " (kümülatif)", title: "" },
+    n: { t: "9 Aylık (Ç3)", items: [{ t: "Ç3", idx: rng(0, 8) }], name: () => "3. çeyrek · Ocak-Eylül " + y + " (kümülatif)", title: "" },
     y: { t: "Yıllık", items: [{ t: String(y), idx: rng(0, 11) }], name: () => y + " yılı", title: "" }
   };
-  const defSel = { m: Math.max(0, lastM), q: Math.max(0, Math.floor(lastM / 3)), h: lastM > 5 ? 1 : 0, y: 0 };
+  const defSel = { m: Math.max(0, lastM), q: 0, h: 0, n: 0, y: 0 };
   if (V.sel === null || V.sel >= PER[V.p].items.length) V.sel = defSel[V.p];
   const cur = PER[V.p].items[V.sel], have = cur.idx.filter(i => hasM[i]).length, partial = have > 0 && have < cur.idx.length;
   const mk = V.metric, val = (id, k) => avg(series(id, k), cur.idx);
@@ -87,26 +88,27 @@ function draw() {
 
   const heads = [], mr = rows.map(() => []);
   const addCol = (label, idx, flex, kind, pp, i) => {
-    const on = V.p === pp && V.sel === i, bg = on ? "#0B2230" : kind === "y" ? "#D9F1E6" : kind === "h" ? "#DCEAF7" : kind === "q" ? "#EEF3F1" : "#F6FAF8";
+    const on = V.p === pp && V.sel === i, bg = on ? "#0B2230" : kind === "y" ? "#D9F1E6" : kind === "n" || kind === "h" ? "#DCEAF7" : kind === "q" ? "#EEF3F1" : "#F6FAF8";
     heads.push(`<button data-go="${pp}:${i}" aria-pressed="${on}" style="flex:${flex};min-width:0;height:38px;border-radius:8px;border:1px solid ${on ? "#0B2230" : "#D5E0DC"};background:${bg};color:${on ? "#fff" : "#2A3F3A"};font:inherit;font-size:12px;font-weight:800;padding:0 2px">${label}</button>`);
     rows.forEach((r, b) => { const c = cell(avg(series(r.id, mk), idx)); mr[b].push(`<div style="flex:${flex};min-width:0;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;background:${c.bg};color:${c.c}">${c.t}</div>`); });
   };
   MS.forEach((n, i) => addCol(n, [i], 1, "m", "m", i));
-  ["1-3", "4-6", "7-9", "10-12"].forEach((n, i) => addCol(n + " Ay", rng(i * 3, i * 3 + 2), 1.25, "q", "q", i));
-  ["1-6 Ay", "7-12 Ay"].forEach((n, i) => addCol(n, rng(i * 6, i * 6 + 5), 1.25, "h", "h", i));
-  addCol("Yıllık", rng(0, 11), 1.25, "y", "y", 0);
+  addCol("3 Ay (Ç1)", rng(0, 2), 1.4, "q", "q", 0);
+  addCol("6 Ay (Ç2)", rng(0, 5), 1.4, "h", "h", 0);
+  addCol("9 Ay (Ç3)", rng(0, 8), 1.4, "n", "n", 0);
+  addCol("Yıllık", rng(0, 11), 1.4, "y", "y", 0);
 
   const gc = "100px repeat(5,1fr) 110px";
   const line = (v0, lab) => `<div style="position:absolute;left:34px;right:0;bottom:${t0 + v0 * H}px;border-top:1px dashed #B5C5BF"></div><div style="position:absolute;left:0;bottom:${t0 + v0 * H - 7}px;font-size:11px;color:var(--muted)">${lab}</div>`;
   V.v.innerHTML = `
   <div class="col1" style="gap:6px"><h1 class="ttl">Verim Tablosu</h1>
-    <div class="sub">Aylık, 3 aylık, 6 aylık ve yıllık verimi sütun grafik ve tablo olarak görün. Dönemi ve göstergeyi seçin, grafik ile tablo birlikte güncellenir. Veriler aylık giriş sayfalarında kaydedilen sonuçlardan gelir.</div></div>
+    <div class="sub">Aylık, çeyreklik (3-6-9 aylık, kümülatif) ve yıllık verimi sütun grafik ve tablo olarak görün. Dönemi ve göstergeyi seçin, grafik ile tablo birlikte güncellenir. Veriler aylık giriş sayfalarında kaydedilen sonuçlardan gelir.</div></div>
   ${nonEmpty ? "" : `<div class="warn">${y} yılı için henüz kayıtlı veri yok. Aylık giriş sayfalarından veri kaydedildikçe tablo dolar.</div>`}
   <div class="cd" style="padding:18px 20px;gap:14px">
     <div class="row" style="gap:20px 28px;align-items:flex-start">
-      <div class="col1" style="gap:8px"><span class="hd">DÖNEM</span><div class="row" style="gap:8px">${["m", "q", "h", "y"].map(k => `<button data-p="${k}" aria-pressed="${V.p === k}" style="height:44px;padding:0 18px;border-radius:12px;border:1px solid;font-weight:700;${seg(V.p === k)}">${PER[k].t}</button>`).join("")}</div></div>
+      <div class="col1" style="gap:8px"><span class="hd">DÖNEM</span><div class="row" style="gap:8px">${["m", "q", "h", "n", "y"].map(k => `<button data-p="${k}" aria-pressed="${V.p === k}" style="height:44px;padding:0 18px;border-radius:12px;border:1px solid;font-weight:700;${seg(V.p === k)}">${PER[k].t}</button>`).join("")}</div></div>
       <div class="col1" style="gap:8px"><span class="hd">GÖSTERGE</span><div class="row" style="gap:8px">${MET.map((m, k) => `<button data-m="${k}" aria-pressed="${mk === k}" style="height:44px;padding:0 16px;border-radius:12px;border:1px solid;font-weight:700;${seg(mk === k)}">${m[0]}</button>`).join("")}</div></div></div>
-    ${V.p !== "y" ? `<div class="col1" style="gap:8px"><span class="hd">${PER[V.p].title}</span><div class="row" style="gap:8px">${PER[V.p].items.map((it, i) => `<button data-s="${i}" aria-pressed="${V.sel === i}" style="min-width:56px;height:40px;padding:0 14px;border-radius:10px;border:1px solid;font-weight:700;${seg(V.sel === i)};opacity:${V.p === "m" && !hasM[i] ? .45 : 1}">${it.t}</button>`).join("")}</div></div>` : ""}</div>
+    ${V.p === "m" ? `<div class="col1" style="gap:8px"><span class="hd">${PER[V.p].title}</span><div class="row" style="gap:8px">${PER[V.p].items.map((it, i) => `<button data-s="${i}" aria-pressed="${V.sel === i}" style="min-width:56px;height:40px;padding:0 14px;border-radius:10px;border:1px solid;font-weight:700;${seg(V.sel === i)};opacity:${V.p === "m" && !hasM[i] ? .45 : 1}">${it.t}</button>`).join("")}</div></div>` : ""}</div>
   <div class="cd">
     <div class="row sp"><div><h2>${MET[mk][0]} · Bölüm Karşılaştırması</h2><div class="muted" style="font-size:13px;margin-top:4px">${PER[V.p].name(V.sel)}</div></div>
       <div class="row" style="gap:10px;flex-wrap:nowrap"><span class="muted" style="font-size:13px">Tesis ortalaması</span><b style="font:700 22px Sora,sans-serif">${av === null ? "–" : f1(av)}</b><span class="pill" style="background:${ab.bg};color:${ab.c}">${bname(av)}</span></div></div>
