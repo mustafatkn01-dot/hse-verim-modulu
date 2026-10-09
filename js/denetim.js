@@ -1,8 +1,8 @@
 // İSG Denetim Listesi sayfası
-import * as S from "./store.js?v=20261009y";
-import { esc, ic, toast, noteEditor } from "./ui.js?v=20261009y";
-import { CATS } from "./isgcats.js?v=20261009y";
-import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261009y";
+import * as S from "./store.js?v=20261009z";
+import { esc, ic, toast, noteEditor } from "./ui.js?v=20261009z";
+import { CATS } from "./isgcats.js?v=20261009z";
+import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261009z";
 
 const COLL = "isg";
 const D = { key: "", setup: null, doc: null, dept: null, month: null, open: { 0: true }, ro: false, timer: null, saved: true, msg: "" };
@@ -116,7 +116,7 @@ function draw() {
   <div class="cd" style="padding:18px 20px;gap:14px"><div class="row sp"><b style="font:600 16px Sora,sans-serif">Bu Ayın Denetim Kayıtları</b>
     <span class="muted" style="font-size:12.5px">Aynı bulgu sonraki denetimlerde tekrarlanırsa sıklık otomatik artar: 1 denetim → 1 · 2-3 denetim → 2 · 4 ve üzeri → 3</span></div>
     <div class="row" style="gap:12px">${doc.sessions.map(s => `<div class="sess">${ic('<path d="M4 12l5 5L20 6"/>').replace("currentColor", "#0B6E4F")}<div><b>${s.no}. Denetim</b><div class="muted" style="font-size:12.5px">${dmy(s.date)} · ${Object.keys(s.fails).length} uygunsuz · kaydedildi</div></div>
-      ${!D.ro && s.no === doc.sessions.length ? `<button class="sm sec" data-delsess="${s.no}" title="Bu denetimi geri al">Geri al</button>` : ""}</div>`).join("")}
+      ${!D.ro && s.no === doc.sessions.length ? `<div class="row" style="gap:6px;margin-left:auto;flex-wrap:nowrap"><button class="sm" data-contsess="${s.no}" style="white-space:nowrap" title="Bu denetimi tekrar açıp işaretlemeye devam et">Devam et</button><button class="sm sec" data-delsess="${s.no}" style="white-space:nowrap" title="Bu denetimi sil">Geri al</button></div>` : ""}</div>`).join("")}
       <div class="sess cur"><span class="sw" style="background:#0B6E4F;border-radius:50%;margin:0"></span><div><b>${curNo}. Denetim</b><div style="font-size:12.5px">${date ? dmy(date) : "—"} · ${c.curMarked ? c.curFails + " uygunsuz (taslak)" : "henüz işaretleme yok"} · devam ediyor</div></div></div></div></div>
   <div class="helpbox" style="flex-direction:row;gap:14px;align-items:flex-start">${ic('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h0"/>', 22)}<div style="line-height:1.6">Her maddeyi <b>Uygun</b>, <b>Uygunsuz</b> veya <b>Y.D.</b> (yok / değerlendirilmedi) olarak işaretleyin. Uygunsuz seçtiğinizde sıklık otomatik görünür ve açıklama yazmanız istenir: hangi makine veya alanda ne gibi bir uygunsuzluk var? Aynı bölümde benzer bir uygunsuzluk daha varsa yeni madde ekleyin. Açıklamalar raporda grafiklerin altında bölüm adıyla yayınlanır.</div></div>
   <fieldset class="fs" ${D.ro ? "disabled" : ""}><div class="two" style="align-items:flex-start">
@@ -167,8 +167,27 @@ function bind(v, c) {
   on("[data-freq]", el => { const [ci, k] = el.dataset.freq.split("|"); doc.freq[ci] = +k; again(); });
   on("[data-freqreset]", el => { delete doc.freq[el.dataset.freqreset]; again(); });
   on("[data-bonus]", el => { doc.bonus = +el.dataset.bonus; again(); });
+  on("[data-contsess]", async el => {
+    const { confirmBox } = await import("./ui.js?v=20261009z");
+    const last = doc.sessions[doc.sessions.length - 1]; if (!last) return;
+    const dirty = Object.keys(doc.draft.marks || {}).length > 0;
+    if (!(await confirmBox(`${last.no}. denetime devam edilsin mi?`, dirty ? "Şu an açık olan ikinci denetimdeki işaretlemeler silinir; kayıtlı denetim tekrar düzenlenebilir hale gelir. Bitirince yeniden kaydedin." : "Kayıtlı denetim tekrar düzenlenebilir hale gelir; yeni eksiklikleri ekleyip yeniden kaydedin.", "Evet, devam et", false))) return;
+    const marks = { ...(last.marks || {}) }, notes = {}, ydNotes = {};
+    CATS.forEach((cat, ci) => {
+      cat.items.forEach((_, ii) => {
+        const id = `c${ci}i${ii}`;
+        if (last.fails && last.fails[id]) { marks[id] = "x"; notes[id] = last.fails[id].length ? last.fails[id].slice() : [""]; }
+        else if (!marks[id] && last.app && last.app[ci]) marks[id] = "u";
+        else if (!marks[id] && last.yd && ci in last.yd) marks[id] = "n";
+      });
+      if (last.yd && last.yd[ci]) ydNotes[ci] = last.yd[ci];
+    });
+    doc.sessions.pop();
+    doc.draft = { marks, notes, ydNotes, date: last.date };
+    await persist(true); draw(); toast(`${last.no}. denetim açıldı; eksiklikleri ekleyip tekrar kaydedin.`);
+  });
   on("[data-delsess]", async el => {
-    const { confirmBox } = await import("./ui.js?v=20261009y");
+    const { confirmBox } = await import("./ui.js?v=20261009z");
     if (!(await confirmBox("Son denetim geri alınsın mı?", "Kaydedilen denetim silinir; skor ve sıklıklar yeniden hesaplanır.", "Evet, geri al", true))) return;
     doc.sessions.pop(); await persist(true); draw();
   });
@@ -182,7 +201,7 @@ function bind(v, c) {
       if (info.allYD) yd[ci] = (d.ydNotes?.[ci] || "").trim();
     });
     const no = doc.sessions.length + 1;
-    doc.sessions.push({ no, date: d.date, fails, app, yd });
+    doc.sessions.push({ no, date: d.date, fails, app, yd, marks: { ...d.marks } });
     doc.draft = { marks: {}, notes: {}, ydNotes: {}, date: addDays(d.date, 7) };
     await persist(true); draw();
     toast(`${no}. denetim kaydedildi. Sıklıklar ve skor, bu ayın tüm denetimlerine göre güncellendi.`);
