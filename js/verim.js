@@ -1,7 +1,7 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261009j";
-import { esc } from "./ui.js?v=20261009j";
-import { bandOf, DEFAULT_PARAMS, num } from "./scoring.js?v=20261009j";
+import * as S from "./store.js?v=20261009k";
+import { esc } from "./ui.js?v=20261009k";
+import { bandOf, DEFAULT_PARAMS, num } from "./scoring.js?v=20261009k";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -111,7 +111,8 @@ function draw() {
     ${V.p === "m" ? `<div class="col1" style="gap:8px"><span class="hd">${PER[V.p].title}</span><div class="row" style="gap:8px">${PER[V.p].items.map((it, i) => `<button data-s="${i}" aria-pressed="${V.sel === i}" style="min-width:56px;height:40px;padding:0 14px;border-radius:10px;border:1px solid;font-weight:700;${seg(V.sel === i)};opacity:${V.p === "m" && !hasM[i] ? .45 : 1}">${it.t}</button>`).join("")}</div></div>` : ""}</div>
   <div class="cd">
     <div class="row sp"><div><h2>${MET[mk][0]} · Bölüm Karşılaştırması</h2><div class="muted" style="font-size:13px;margin-top:4px">${PER[V.p].name(V.sel)}</div></div>
-      <div class="row" style="gap:10px;flex-wrap:nowrap"><span class="muted" style="font-size:13px">Tesis ortalaması</span><b style="font:700 22px Sora,sans-serif">${av === null ? "–" : f1(av)}</b><span class="pill" style="background:${ab.bg};color:${ab.c}">${bname(av)}</span></div></div>
+      <div class="row" style="gap:10px;flex-wrap:nowrap"><span class="muted" style="font-size:13px">Tesis ortalaması</span><b style="font:700 22px Sora,sans-serif">${av === null ? "–" : f1(av)}</b><span class="pill" style="background:${ab.bg};color:${ab.c}">${bname(av)}</span>
+        <button data-pdf class="sec" style="height:40px;padding:0 16px;border-radius:10px;font-weight:700;white-space:nowrap">PDF indir</button></div></div>
     ${partial ? `<div class="warn">Kısmi dönem: ${cur.idx.length} aydan ${have} tanesi için veri var. Değerler mevcut aylar üzerinden hesaplandı.</div>` : ""}
     <div style="overflow-x:auto"><div style="min-width:${Math.max(260, rows.length * 70 + 40)}px;position:relative;height:330px">
       ${line(50, 50)}${line(75, 75)}${line(90, 90)}
@@ -133,9 +134,63 @@ function draw() {
       <div style="display:flex;gap:6px;align-items:flex-end"><div style="width:96px;flex:0 0 96px"></div>${heads.join("")}</div>
       ${rows.map((r, b) => `<div style="display:flex;gap:6px;align-items:center"><div style="width:96px;flex:0 0 96px;font-weight:700;overflow:hidden;text-overflow:ellipsis">${esc(r.name)}</div>${mr[b].join("")}</div>`).join("")}</div></div>
     <div class="muted" style="font-size:12.5px;line-height:1.6">Veri girilmeyen aylar "–" gösterir. Eksik aylı dönemler mevcut aylar üzerinden hesaplanır ve "kısmi" olarak işaretlenir. Bir bölümde değerlendirilen modül yoksa (örn. işe giriş yok) toplam verimde ağırlıklar kalan modüllere yeniden dağıtılır (ağırlıklar: İş Kazası ${W[0]}, Konuşma ${W[1]}, İşbaşı ${W[2]}, İSG ${W[3]}).</div></div>`;
+  const info = { fname: st.factories.find(f => f.id === st.fid)?.name || "", title: `${MET[mk][0]} · Bölüm Karşılaştırması`, plabel: PER[V.p].name(V.sel), av, abn: bname(av), ab, names: rows.map(r => r.name), vals, bandOf: x => (x === null ? NONE : band(x)), notes, partial: partial ? `Kısmi dönem: ${cur.idx.length} aydan ${have} tanesi için veri var. Değerler mevcut aylar üzerinden hesaplandı.` : "", esik: p.esik };
+  V.v.querySelector("[data-pdf]").onclick = () => pdfDialog(info);
   const rd = () => draw();
   V.v.querySelectorAll("[data-p]").forEach(b => b.onclick = () => { V.p = b.dataset.p; V.sel = null; rd(); });
   V.v.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { V.metric = +b.dataset.m; rd(); });
   V.v.querySelectorAll("[data-s]").forEach(b => b.onclick = () => { V.sel = +b.dataset.s; rd(); });
   V.v.querySelectorAll("[data-go]").forEach(b => b.onclick = () => { const [a, i] = b.dataset.go.split(":"); V.p = a; V.sel = +i; rd(); scrollTo({ top: 0, behavior: "smooth" }); });
+}
+
+// ---- Tek sayfalık grafik + açıklama PDF'i (A4/A3, dikey/yatay) ----
+function pdfDialog(info) {
+  const n = info.names.length;
+  const o = { size: "A4", orient: n > 7 ? "landscape" : "portrait" };
+  const m = document.createElement("div"); m.className = "mod";
+  const seg = (k, items) => items.map(([v, t]) => `<button class="sec" data-k="${k}" data-v="${v}" style="flex:1;height:44px;border-radius:10px;font-weight:700">${t}</button>`).join("");
+  m.innerHTML = `<div class="mbox" role="dialog" aria-modal="true" style="gap:16px"><h2>PDF indir</h2>
+    <div class="muted" style="line-height:1.5">${esc(info.title)} · ${esc(info.plabel)}. Tek sayfalık grafik ve açıklamalar; yöneticinize göndermek için hazırlanır.</div>
+    <div class="col1" style="gap:8px"><span class="hd">KÂĞIT BOYUTU</span><div class="row" style="gap:8px;flex-wrap:nowrap">${seg("size", [["A4", "A4"], ["A3", "A3"]])}</div></div>
+    <div class="col1" style="gap:8px"><span class="hd">SAYFA DÜZENİ</span><div class="row" style="gap:8px;flex-wrap:nowrap">${seg("orient", [["portrait", "Dikey"], ["landscape", "Yatay"]])}</div>
+      <span class="muted" style="font-size:12.5px">${n > 7 ? `${n} bölüm olduğu için yatay düzen önerilir.` : "Az sayıda bölümde dikey düzen yeterlidir."}</span></div>
+    <div class="muted" style="font-size:12.5px;line-height:1.5">Açılan yazdırma penceresinde hedef olarak "PDF olarak kaydet" seçin. Ölçek "Varsayılan", kenar boşlukları "Varsayılan" kalsın.</div>
+    <div class="row" style="justify-content:flex-end"><button class="sec" data-no>İptal</button><button data-yes>PDF oluştur</button></div></div>`;
+  document.body.appendChild(m);
+  const paint = () => m.querySelectorAll("[data-k]").forEach(b => { const on = o[b.dataset.k] === b.dataset.v; b.style.background = on ? "#0B2230" : ""; b.style.color = on ? "#fff" : ""; b.setAttribute("aria-pressed", on); });
+  m.querySelectorAll("[data-k]").forEach(b => b.onclick = () => { o[b.dataset.k] = b.dataset.v; paint(); });
+  paint();
+  m.querySelector("[data-no]").onclick = () => m.remove();
+  m.addEventListener("mousedown", e => { if (e.target === m) m.remove(); });
+  m.querySelector("[data-yes]").onclick = () => { m.remove(); printSheet(info, o); };
+}
+
+function printSheet(info, { size, orient }) {
+  // Tasarım A4 ölçüsünde (96 dpi) yapılır; A3 için √2 büyütülür.
+  const land = orient === "landscape", W = land ? 1123 : 794, Hh = land ? 794 : 1123, M = 38, z = size === "A3" ? 1.4142 : 1;
+  const cw = W - 2 * M, ch = land ? 300 : 520, s = (ch - 60) / 100;
+  const n = info.names.length, gap = n > 12 ? 6 : 10, fs = n > 12 ? 11 : 13;
+  const line = (v, l) => `<div style="position:absolute;left:30px;right:0;bottom:${30 + v * s}px;border-top:1px dashed #B5C5BF"></div><div style="position:absolute;left:0;bottom:${30 + v * s - 7}px;font-size:11px;color:#6A7E79">${l}</div>`;
+  const bars = info.names.map((nm, i) => { const x = info.vals[i], b = info.bandOf(x); return `<div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:${ch}px">
+    <div style="font-size:${fs + 1}px;font-weight:800;margin-bottom:4px">${x === null ? "–" : f1(x)}</div>
+    <div style="width:70%;max-width:56px;height:${x === null ? 3 : Math.max(3, Math.round(x * s))}px;background:${b.fill};border-radius:7px 7px 2px 2px"></div>
+    <div style="height:30px;line-height:30px;font-size:${fs - 0.5}px;font-weight:600;color:#3E534E;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis">${esc(nm)}</div></div>`; }).join("");
+  const now = new Date(), ds = `${String(now.getDate()).padStart(2, "0")}.${String(now.getMonth() + 1).padStart(2, "0")}.${now.getFullYear()}`;
+  const sh = document.createElement("div"); sh.id = "psheet";
+  sh.innerHTML = `<div style="width:${cw}px;zoom:${z};font-family:Manrope,system-ui,sans-serif;color:#10201C;display:flex;flex-direction:column;gap:14px;font-size:13px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #0B2230;padding-bottom:10px;gap:16px">
+      <div><div style="font:700 11px Manrope;letter-spacing:1px;color:#546964">HSE VERİM MODÜLÜ · ${esc(info.fname)}</div><div style="font:700 22px Sora,sans-serif;margin-top:4px">${esc(info.title)}</div><div style="color:#546964;margin-top:2px">${esc(info.plabel)}</div></div>
+      <div style="display:flex;align-items:center;gap:10px;white-space:nowrap"><span style="color:#546964">Tesis ortalaması</span><b style="font:700 26px Sora,sans-serif">${info.av === null ? "–" : f1(info.av)}</b><span style="font-size:12px;font-weight:800;padding:4px 12px;border-radius:999px;background:${info.ab.bg};color:${info.ab.c}">${esc(info.abn)}</span></div></div>
+    ${info.partial ? `<div style="padding:8px 12px;border-radius:8px;background:#FBE9C6;color:#5A3300;font-weight:600">${esc(info.partial)}</div>` : ""}
+    <div style="position:relative;height:${ch}px"><div style="position:absolute;inset:0">${line(50, 50)}${line(75, 75)}${line(90, 90)}</div><div style="position:absolute;left:30px;right:0;top:0;bottom:0;display:flex;gap:${gap}px">${bars}</div></div>
+    <div style="display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:#546964">${[["Mükemmel", `≥ ${num(info.esik.m)}`], ["İyi", `${num(info.esik.i)}-${num(info.esik.m) - 1}`], ["Orta", `${num(info.esik.o)}-${num(info.esik.i) - 1}`], ["Kritik", `< ${num(info.esik.o)}`]].map(([k, r]) => `<span style="display:flex;align-items:center;gap:6px"><span style="width:11px;height:11px;border-radius:3px;background:${BAND[k].fill}"></span>${k} ${r}</span>`).join("")}</div>
+    <div style="border-top:1px solid #D5E0DC;padding-top:10px;display:flex;flex-direction:column;gap:5px"><div style="font-weight:800;font-size:12px;letter-spacing:.8px;color:#3E534E">AÇIKLAMA</div>
+      ${info.notes.length ? info.notes.map((t, i) => `<div style="display:flex;gap:8px;line-height:1.5"><span style="flex:0 0 20px;font-weight:800;color:#0B6E4F">${i + 1}.</span><span>${esc(t)}</span></div>`).join("") : `<div style="color:#546964">Bu dönem için veri bulunmuyor.</div>`}</div>
+    <div style="color:#6A7E79;font-size:11px;border-top:1px solid #E4ECE9;padding-top:6px">Oluşturma tarihi: ${ds} · HSE Verim Modülü</div></div>`;
+  const stl = document.createElement("style"); stl.id = "pstyle";
+  stl.textContent = `#psheet{display:none}@media print{@page{size:${size} ${orient};margin:${M * 0.2646}mm}html,body{background:#fff!important;margin:0!important;padding:0!important}body>*:not(#psheet){display:none!important}#psheet{display:block!important;width:${cw * z}px;-webkit-print-color-adjust:exact;print-color-adjust:exact}}`;
+  document.head.appendChild(stl); document.body.appendChild(sh);
+  const clean = () => { sh.remove(); stl.remove(); window.removeEventListener("afterprint", clean); };
+  window.addEventListener("afterprint", clean);
+  setTimeout(() => window.print(), 150);
 }
