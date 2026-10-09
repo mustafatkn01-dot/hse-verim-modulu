@@ -165,3 +165,6 @@ table.t{width:100%;border-collapse:collapse}
 .stp .sm{width:26px;height:36px;padding:0;font-size:16px;color:var(--text);border-color:var(--inl)}
 .cg{display:grid;grid-template-columns:90px 70px 62px 90px 120px minmax(140px,1fr) 150px;gap:10px;align-items:center}
 .ig{display:grid;gap:10px;align-items:center}
+
+@media print{#side,#mbar,#ov,.noprint,.pg>.row:first-child select,.ctx{display:none!important}
+body,html{background:#fff!important}#app{display:block!important}.pg{padding:0!important}.cd{break-inside:avoid;box-shadow:none}}
