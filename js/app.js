@@ -1,16 +1,16 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261010y";
-import * as S from "./store.js?v=20261010y";
-import * as Prim from "./primary.js?v=20261010y";
-import * as Denetim from "./denetim.js?v=20261010y";
-import * as Kaza from "./kaza.js?v=20261010y";
-import * as Konusma from "./konusma.js?v=20261010y";
-import * as Genel from "./genel.js?v=20261010y";
-import * as Rapor from "./rapor.js?v=20261010y";
-import * as Verim from "./verim.js?v=20261010y";
-import * as Isbasi from "./isbasi.js?v=20261010y";
-import * as Guest from "./guest.js?v=20261010y";
-import { $, esc, ic, toast, modal, confirmBox, formBox, GUEST } from "./ui.js?v=20261010y";
-import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261010y";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261010z";
+import * as S from "./store.js?v=20261010z";
+import * as Prim from "./primary.js?v=20261010z";
+import * as Denetim from "./denetim.js?v=20261010z";
+import * as Kaza from "./kaza.js?v=20261010z";
+import * as Konusma from "./konusma.js?v=20261010z";
+import * as Genel from "./genel.js?v=20261010z";
+import * as Rapor from "./rapor.js?v=20261010z";
+import * as Verim from "./verim.js?v=20261010z";
+import * as Isbasi from "./isbasi.js?v=20261010z";
+import * as Guest from "./guest.js?v=20261010z";
+import { $, esc, ic, toast, modal, confirmBox, formBox, GUEST } from "./ui.js?v=20261010z";
+import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261010z";
 
 const VERSION = "1.0.0";
 const st = { factories: [], years: [], fid: null, year: null, page: "genel", profile: {}, lastSync: new Date() };
@@ -129,7 +129,7 @@ onAuthStateChanged(auth, async user => {
     unwatchInb = Guest.watchInbox(user.uid, list => {
       const r = list[list.length - 1], msg = `${r.byName} · ${r.deptName}: ${r.no}. denetim ${r.kind === "review" ? "tamamlanmasını istiyor" : "kaydedildi"}.`;
       toast(msg); Guest.notify("HSE Verim · Misafir denetimi", msg, `${location.pathname}?denetim=${[r.fid, r.year, r.month, r.dept].join(".")}`);
-      if (st.page === "genel") render();
+      if (st.page === "genel") render(); else if (st.page === "denetim") Denetim.reload();
     });
     if (LINK?.type === "audit") { Guest.clearLink(); openAudit(LINK); }
     if (LINK?.type === "approve") { Guest.clearLink(); Guest.approvalDialog(user.uid, LINK.gid, st.all, () => { if (st.page === "ayarlar") render(); }); }

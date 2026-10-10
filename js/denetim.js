@@ -1,9 +1,9 @@
 // İSG Denetim Listesi sayfası
-import * as Guest from "./guest.js?v=20261010y";
-import * as S from "./store.js?v=20261010y";
-import { esc, ic, toast, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261010y";
-import { CATS } from "./isgcats.js?v=20261010y";
-import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261010y";
+import * as Guest from "./guest.js?v=20261010z";
+import * as S from "./store.js?v=20261010z";
+import { esc, ic, toast, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261010z";
+import { CATS } from "./isgcats.js?v=20261010z";
+import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261010z";
 
 const COLL = "isg";
 const D = { key: "", setup: null, doc: null, dept: null, month: null, open: { 0: true }, ro: false, timer: null, saved: true, msg: "" };
@@ -43,6 +43,8 @@ function settle(doc, year, month) {
   } else if (!dr.on && !last) { doc.draft = emptyDraft(defaultDate(year, month), true); }
 }
 
+// Dışarıdan (canlı bildirim) yeniden yükleme: kullanıcı yazarken ezmez
+export function reload() { D.key = ""; if (D.v?.isConnected && D.ctx && D.saved) render(D.v, D.ctx); }
 export function focus(month, dept) { D.month = +month; D.dept = dept; D.key = ""; }
 
 export async function render(v, ctx) {
@@ -64,6 +66,15 @@ export async function render(v, ctx) {
       // Misafir: resmi denetime dokunmaz; kendi taslağı ayrı kayıtta tutulur
       D.gdoc = await S.getMonthDoc(st.fid, st.year, "isgg", `${gid}_${GUEST.uid}`).catch(() => null);
       D.gstatus = D.gdoc?.status || "draft"; D.gnote = D.gdoc?.note || "";
+      // Sahibin kararı (onay / geri gönder) sayfa yenilemeden anında yansır
+      D.unwatch?.(); let seen = D.gstatus;
+      D.unwatch = S.watchMonthDoc(st.fid, st.year, "isgg", `${gid}_${GUEST.uid}`, g => {
+        if (!g || g.status === seen) return; const prev = seen; seen = g.status;
+        if (prev === "review" && (g.status === "approved" || g.status === "returned")) {
+          toast(g.status === "approved" ? "Taslağınız onaylandı ve denetime eklendi." : "Taslağınız düzeltme için geri gönderildi.");
+          D.key = ""; if (D.v?.isConnected && D.v.querySelector("#bolum")) render(D.v, D.ctx);
+        }
+      });
       D.doc.draft = D.gdoc?.draft ? { ...emptyDraft(defaultDate(st.year, D.month), true), ...D.gdoc.draft, on: true, edit: null } : emptyDraft(defaultDate(st.year, D.month), true);
     } else {
       settle(D.doc, st.year, D.month);
@@ -296,7 +307,7 @@ function bind(v, c) {
   const nw = document.getElementById("newSess");
   if (nw) nw.onclick = () => { doc.draft = emptyDraft(defaultDate(st.year, D.month), true); persist(true); draw(); };
   on("[data-delsess]", async el => {
-    const { confirmBox } = await import("./ui.js?v=20261010y");
+    const { confirmBox } = await import("./ui.js?v=20261010z");
     if (!(await confirmBox("Son denetim silinsin mi?", "Kayıtlı denetim silinir; skor ve sıklıklar yeniden hesaplanır.", "Evet, sil", true))) return;
     const gone = doc.sessions.pop(); Object.values(gone.photos || {}).flat().forEach(p => S.deletePhoto(st.fid, st.year, p.id).catch(() => {})); if (doc.draft.edit === gone.no) doc.draft = emptyDraft(defaultDate(st.year, D.month), false);
     if (!doc.sessions.length) doc.draft = emptyDraft(defaultDate(st.year, D.month), true); else if (doc.draft.on) { /* devam eden taslak korunur */ }

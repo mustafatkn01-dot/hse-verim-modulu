@@ -1,9 +1,9 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261010y";
-import { esc } from "./ui.js?v=20261010y";
-import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi } from "./scoring.js?v=20261010y";
-import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261010y";
-import { CATS } from "./isgcats.js?v=20261010y";
+import * as S from "./store.js?v=20261010z";
+import { esc } from "./ui.js?v=20261010z";
+import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi } from "./scoring.js?v=20261010z";
+import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261010z";
+import { CATS } from "./isgcats.js?v=20261010z";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },

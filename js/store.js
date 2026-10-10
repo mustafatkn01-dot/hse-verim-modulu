@@ -1,5 +1,5 @@
 // Veri katmanı: users/{uid}/factories/{fid}/years/{yıl}/setup/main
-import { auth, db, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, updateDoc, query, orderBy, serverTimestamp, onSnapshot } from "./firebase.js?v=20261010y";
+import { auth, db, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, updateDoc, query, orderBy, serverTimestamp, onSnapshot } from "./firebase.js?v=20261010z";
 
 const uid = () => auth.currentUser.uid;
 // Veri sahibi: misafir kullanıcıda davet eden hesabın uid'si; kendi oturum/profil kayıtları ise her zaman kendi hesabında
@@ -63,6 +63,7 @@ export async function saveSetup(fid, y, data) { await setDoc(setupRef(fid, y), {
 const monthRef = (fid, y, coll, id) => doc(db, `${base()}/factories/${fid}/years/${y}/${coll}/${id}`);
 export async function getMonthDoc(fid, y, coll, id) { const d = await getDoc(monthRef(fid, y, coll, id)); return d.exists() ? d.data() : null; }
 export async function saveMonthDoc(fid, y, coll, id, data) { await setDoc(monthRef(fid, y, coll, id), { ...data, updatedAt: serverTimestamp() }); }
+export const watchMonthDoc = (fid, y, coll, id, cb) => onSnapshot(monthRef(fid, y, coll, id), s => cb(s.exists() ? s.data() : null), () => {});
 export async function listMonthDocs(fid, y, coll) { const s = await getDocs(collection(db, `${base()}/factories/${fid}/years/${y}/${coll}`)); return s.docs.map(d => ({ id: d.id, ...d.data() })); }
 
 // Seçili fabrika/yıl bu cihazda hatırlanır
