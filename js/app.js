@@ -1,15 +1,16 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261010k";
-import * as S from "./store.js?v=20261010k";
-import * as Prim from "./primary.js?v=20261010k";
-import * as Denetim from "./denetim.js?v=20261010k";
-import * as Kaza from "./kaza.js?v=20261010k";
-import * as Konusma from "./konusma.js?v=20261010k";
-import * as Genel from "./genel.js?v=20261010k";
-import * as Rapor from "./rapor.js?v=20261010k";
-import * as Verim from "./verim.js?v=20261010k";
-import * as Isbasi from "./isbasi.js?v=20261010k";
-import { $, esc, ic, toast, modal, confirmBox, formBox } from "./ui.js?v=20261010k";
-import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261010k";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261010l";
+import * as S from "./store.js?v=20261010l";
+import * as Prim from "./primary.js?v=20261010l";
+import * as Denetim from "./denetim.js?v=20261010l";
+import * as Kaza from "./kaza.js?v=20261010l";
+import * as Konusma from "./konusma.js?v=20261010l";
+import * as Genel from "./genel.js?v=20261010l";
+import * as Rapor from "./rapor.js?v=20261010l";
+import * as Verim from "./verim.js?v=20261010l";
+import * as Isbasi from "./isbasi.js?v=20261010l";
+import * as Guest from "./guest.js?v=20261010l";
+import { $, esc, ic, toast, modal, confirmBox, formBox, GUEST } from "./ui.js?v=20261010l";
+import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261010l";
 
 const VERSION = "1.0.0";
 const st = { factories: [], years: [], fid: null, year: null, page: "genel", profile: {}, lastSync: new Date() };
@@ -63,9 +64,49 @@ async function doSignOut() {
   ["fid", "year", "device"].forEach(k => { try { localStorage.removeItem("hse_" + k); } catch {} });
   K.key = ""; await signOut(auth);
 }
+const LINK = Guest.linkInfo();
+let unwatchG = null, guestTimer = null;
+function showOnly(which) { // "login" | "app" | "none"
+  $("login").classList.toggle("hide", which !== "login");
+  $("app").classList.toggle("hide", which !== "app");
+}
+async function guestOut(note) {
+  unwatchG?.(); clearInterval(guestTimer); Guest.storeOwner(null); st.role = null; GUEST.on = false; S.setOwner(null);
+  try { await signOut(auth); } catch {}
+  if (note) { try { sessionStorage.setItem("hse_gnote", note); } catch {} }
+  location.href = location.pathname;
+}
+async function startGuest(owner, user) {
+  const m = await Guest.getMember(owner, user.uid);
+  if (!Guest.isLive(m)) {
+    const rq = await Guest.pendingState(owner, user.uid);
+    showOnly("none");
+    if (rq?.status === "pending") return Guest.waiting({ owner, gid: user.uid, code: rq.code }, () => startGuest(owner, user));
+    return Guest.showExpired({ owner, code: LINK?.code || rq?.code, member: m }, () => startGuest(owner, user));
+  }
+  Guest.hideRequest(); Guest.storeOwner(owner);
+  S.setOwner(owner, m.factories || []);
+  GUEST.on = true; GUEST.name = m.name; st.role = "guest"; st.guest = { uid: user.uid, name: m.name, email: m.email, member: m };
+  showOnly("app"); document.body.classList.add("is-guest");
+  unwatchG?.(); clearInterval(guestTimer);
+  const check = mm => { if (!Guest.isLive(mm)) guestOut(mm ? "Erişim süreniz doldu." : "Erişiminiz yetkili kullanıcı tarafından kaldırıldı."); };
+  unwatchG = Guest.watchMember(owner, user.uid, mm => { if (!mm) return check(null); st.guest.member = mm; check(mm); });
+  guestTimer = setInterval(() => check(st.guest.member), 30000);
+  await loadContext(); go(location.hash.slice(1) || "genel");
+}
 onAuthStateChanged(auth, async user => {
-  $("login").classList.toggle("hide", !!user);
-  $("app").classList.toggle("hide", !user);
+  if (!user) {
+    unwatchG?.(); clearInterval(guestTimer);
+    if (LINK?.type === "guest") { showOnly("none"); Guest.showRequest({ owner: LINK.owner, code: LINK.code, note: (() => { try { const n = sessionStorage.getItem("hse_gnote"); sessionStorage.removeItem("hse_gnote"); return n || ""; } catch { return ""; } })() }, () => { const u = auth.currentUser; if (u) startGuest(LINK.owner, u); }); return; }
+    showOnly("login"); return;
+  }
+  if (user.isAnonymous) {
+    if (Guest.isSending()) return; // istek gönderilirken bekle
+    const owner = LINK?.type === "guest" ? LINK.owner : Guest.storedOwner();
+    if (!owner) { await signOut(auth); return; }
+    return startGuest(owner, user);
+  }
+  Guest.hideRequest(); showOnly("app"); document.body.classList.remove("is-guest"); st.role = "owner"; GUEST.on = false;
   if (user) {
     try { await S.touchSession(true); await S.ensurePrimary(); } catch {}
     unwatch?.(); clearInterval(beat);
@@ -74,6 +115,7 @@ onAuthStateChanged(auth, async user => {
     S.getProfile().then(p => { st.profile = p; }).catch(() => {});
     await loadContext(); go(location.hash.slice(1) || "genel");
     Prim.handleLanding(t => { toast(t); if (st.page === "ayarlar") render(); });
+    if (LINK?.type === "approve") { Guest.clearLink(); Guest.approvalDialog(user.uid, LINK.gid, st.all, () => { if (st.page === "ayarlar") render(); }); }
   }
 });
 
@@ -115,17 +157,17 @@ window.addEventListener("hashchange", () => auth.currentUser && go(location.hash
 const toggleMenu = o => { $("side").classList.toggle("open", o); $("ov").classList.toggle("show", o ?? $("side").classList.contains("open")); };
 $("menuBtn").onclick = () => toggleMenu();
 $("ov").onclick = () => toggleMenu(false);
-function go(p) { st.page = PAGES.find(x => x[0] === p && !x[3]) ? p : "genel"; toggleMenu(false); render(); }
+function go(p) { st.page = PAGES.find(x => x[0] === p && !x[3]) && !(st.role === "guest" && p === "kurulum") ? p : "genel"; toggleMenu(false); render(); }
 function drawNav() {
   $("nav").innerHTML = `<div class="brand"><div class="logo"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8.2-7 10-4-1.8-7-5.5-7-10V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg></div><div><b>HSE Verim Modülü</b><small>Performans Takip</small></div></div>`
-    + GROUPS.map(([t, items]) => `<div class="grp"><div class="t">${t}</div>` + items.map(([k, n, d, soon]) =>
+    + GROUPS.map(([t, items]) => `<div class="grp"><div class="t">${t}</div>` + items.filter(i => !(st.role === "guest" && i[0] === "kurulum")).map(([k, n, d, soon]) =>
       `<a href="#${k}" class="${st.page === k ? "on" : ""} ${soon ? "soon" : ""}">${ic(d)}${n}${soon ? ' <small style="margin-left:auto;font-size:10px">yakında</small>' : ""}</a>`).join("") + `</div>`).join("")
     + `<div class="goal"><b>Hedef: Sıfır Zarar</b><span>Güvenli çalış. Ölç. Geliştir.</span><div class="dots"><i style="background:#17A06F"></i><i style="background:#2A82C4"></i><i style="background:#F5B700"></i><i style="background:#D6382E"></i></div></div>`;
 }
 async function render() {
   drawNav();
   const v = $("view");
-  if (st.page === "ayarlar") return pageAyarlar(v);
+  if (st.page === "ayarlar") return st.role === "guest" ? pageGuestAyarlar(v) : pageAyarlar(v);
   if (!st.fid || !st.year) {
     v.innerHTML = `<div class="cd"><h2>Başlayalım</h2><p class="sub">Önce Ayarlar'dan bir fabrika ve yıl oluşturun.</p><div><a href="#ayarlar"><button>Ayarlar'a git</button></a></div></div>`;
     return;
@@ -289,6 +331,19 @@ function yearMenu(y, { active, archived }) {
   });
 }
 
+function pageGuestAyarlar(v) {
+  const g = st.guest, theme = S.pref.get("theme") || "light";
+  v.innerHTML = `<div><h1 class="ttl">Ayarlar</h1><div class="sub">Misafir erişimi</div></div>
+  <div class="cd"><div class="row" style="gap:16px;flex-wrap:nowrap"><div class="av">${esc(initials(g.name))}</div><div style="min-width:0"><b style="font-size:17px">${esc(g.name)}</b><div class="muted" style="overflow-wrap:anywhere">${esc(g.email)}</div></div></div>
+    <div class="fg"><div><span class="hd">ROL</span><div class="inp ro">Misafir</div></div><div><span class="hd">ERİŞİM</span><div class="inp ro">${esc(Guest.leftText(g.member))}</div></div>
+    <div><span class="hd">FABRİKALAR</span><div class="inp ro">${esc(st.all.map(f => f.name).join(", "))}</div></div></div>
+    <div class="muted" style="font-size:12.5px;line-height:1.6">Misafir olarak veri girişi yapabilir, İSG denetimini kaydedebilir, raporları görüp PDF alabilirsiniz. Denetimi tamamlama, silme, kurulum ve yıl/tarih ekleme yetkili kullanıcıdadır.</div></div>
+  <div class="cd"><h2>Görünüm</h2><div class="th">${THEMES.map(([k, n, sd, bg, cd]) => `<button class="tb ${k === theme ? "on" : ""}" data-theme="${k}" aria-pressed="${k === theme}"><div class="pv"><div style="flex:0 0 28%;background:${sd}"></div><div style="flex:1;background:${bg};display:flex;flex-direction:column;gap:5px;padding:7px"><div style="height:8px;border-radius:4px;background:${cd}"></div><div style="height:8px;width:60%;border-radius:4px;background:#17A06F"></div></div></div><b>${n}</b></button>`).join("")}</div></div>
+  <div class="cd" style="background:#FDF1EF;border-color:#F2C4BF;flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:space-between"><div style="flex:1 1 240px"><h2 style="color:#6E1511">Çıkış Yap</h2><div style="color:#5A1A16">Çıkış yaparsanız yeniden onay istemeniz gerekir.</div></div><button class="big" style="background:#B3261E" id="gOut">Çıkış Yap</button></div>`;
+  v.querySelectorAll("[data-theme]").forEach(b => b.onclick = () => { S.pref.set("theme", b.dataset.theme); applyTheme(); pageGuestAyarlar(v); });
+  $("gOut").onclick = () => { if (confirm("Çıkış yapılsın mı? Tekrar girmek için yeniden onay gerekir.")) guestOut(); };
+}
+
 async function pageAyarlar(v) {
   const email = auth.currentUser.email, theme = S.pref.get("theme") || "light";
   const [sessions, profile] = await Promise.all([S.listSessions().catch(() => []), S.getProfile().catch(() => ({}))]);
@@ -320,15 +375,16 @@ async function pageAyarlar(v) {
     <div class="cd"><div><h2>Oturumlar ve Cihazlar</h2><div class="muted" style="font-size:13px">Hesabınıza giriş yapılmış cihazlar. Tanımadığınız bir cihaz varsa oradan uzaktan çıkış yapabilirsiniz.</div></div>
       <div class="col1">${sessions.map(d => { const prim = d.id === prime?.deviceId, mine = d.id === me; return item(`
         ${ic('<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>').replace('width="20" height="20"', 'width="24" height="24"')}
-        <div class="grow"><div class="row" style="gap:8px;flex-wrap:wrap"><b>${esc(d.name)}</b>${prim ? '<span class="tag" style="background:#0B2230;color:#fff">Ana cihaz</span>' : '<span class="tag" style="background:#EEF2F0;color:#4A5C57">Misafir</span>'}${mine ? '<span class="tag">Bu cihaz</span>' : ""}</div>
+        <div class="grow"><div class="row" style="gap:8px;flex-wrap:wrap"><b>${esc(d.name)}</b>${prim ? '<span class="tag" style="background:#0B2230;color:#fff">Ana cihaz</span>' : '<span class="tag" style="background:#EEF2F0;color:#4A5C57">İkincil cihaz</span>'}${mine ? '<span class="tag">Bu cihaz</span>' : ""}</div>
           <div class="muted" style="font-size:12.5px">${esc(d.kind || "")} · Son etkinlik ${fmtDt(d.lastSeen)}</div></div>
         <div class="row" style="gap:8px">${!prim ? `<button class="sm sec" data-prim="${d.id}" data-pname="${esc(d.name)}">Yetkili cihaz yap</button>` : ""}${!mine && iAmPrime ? `<button class="sm rm" data-rev="${d.id}">Uzaktan çıkış yap</button>` : ""}</div>`,
         mine ? "#F1FAF6" : "var(--card)", mine ? "#9ED6BD" : "var(--line)"); }).join("") || '<div class="muted">Oturum bilgisi bulunamadı.</div>'}</div>
-      ${iAmPrime ? "" : '<div class="muted" style="font-size:12.5px;line-height:1.6">Bu cihaz misafir oturumdur. Diğer oturumları yalnızca ana cihaz kapatabilir. Bu cihazı ana cihaz yapmak için "Yetkili cihaz yap" düğmesini kullanın; e-postanıza kod gönderilir.</div>'}
+      ${iAmPrime ? "" : '<div class="muted" style="font-size:12.5px;line-height:1.6">Bu cihaz ikincil cihazdır. Diğer oturumları yalnızca ana cihaz kapatabilir. Bu cihazı ana cihaz yapmak için "Yetkili cihaz yap" düğmesini kullanın; e-postanıza kod gönderilir.</div>'}
       <div class="muted" style="font-size:12.5px;line-height:1.6">Çıkış yapılan cihazda oturum kapatılır ve yerel önbellek temizlenir. Verileriniz bulutta güvende kalır, tekrar giriş yapınca geri gelir.</div></div>
 
     <div class="cd"><div><h2>Yedekleme</h2><div class="muted" style="font-size:13px;line-height:1.5">Tüm fabrikalar, yıllar, kurulumlar ve aylık kayıtlar tek bir dosya olarak bilgisayarınıza indirilir. Verileriniz bulutta zaten saklanır; bu dosya ek güvence içindir.</div></div>
       <div class="row"><button class="sec" id="backup">Tüm verileri indir (JSON)</button><span class="muted" id="backupT" style="font-size:12.5px"></span></div></div>
+    <div class="cd" id="guestBox"></div>
     <div class="cd" style="background:#FDF1EF;border-color:#F2C4BF;flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:space-between">
       <div style="flex:1 1 240px"><h2 style="color:#6E1511">Çıkış Yap</h2><div style="color:#5A1A16">Bu cihazdaki oturumunuz güvenli şekilde kapatılır.</div></div>
       <button class="big" style="background:#B3261E" id="askOut">Çıkış Yap</button></div>
@@ -369,6 +425,7 @@ async function pageAyarlar(v) {
     <p class="muted">Bu cihazdaki oturum kapatılır ve yerel önbellek temizlenir. Verileriniz bulutta güvende kalır.</p>
     <div class="row" style="justify-content:flex-end"><button class="sec" id="noOut">Vazgeç</button><button class="danger" id="yesOut">Evet, çıkış yap</button></div></div></div>`;
   const say = t => { $("noteT").textContent = t; $("note").classList.remove("hide"); };
+  Guest.renderSettings($("guestBox"), { ownerUid: auth.currentUser.uid, factories: st.all }).catch(() => {});
   $("noteX").onclick = () => $("note").classList.add("hide");
   $("saveName").onclick = async () => { await S.saveProfile({ name: $("adSoyad").value.trim() }); say("Adınız kaydedildi."); pageAyarlar(v); };
   $("resetPw").onclick = async () => { try { await sendPasswordResetEmail(auth, email); say("Şifre sıfırlama bağlantısı e-postanıza gönderildi."); } catch (e) { say(errMsg(e)); } };

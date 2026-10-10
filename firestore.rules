@@ -1,10 +1,75 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Her kullanıcı yalnızca kendi verisine erişir
+
+    // Sahip: kendi verisinin tamamı
     match /users/{uid}/{document=**} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
+
+    // ---- Misafir erişimi (Anonim giriş + sahip onayı) ----
+    // Davet: yalnızca tek tek okunabilir (listelenemez)
+    match /users/{owner}/invites/{code} {
+      allow get: if request.auth != null;
+    }
+
+    // Onay isteği: misafir kendi isteğini oluşturur/okur; durumu yalnızca "pending"e çekebilir
+    match /users/{owner}/guestReqs/{gid} {
+      allow get: if request.auth != null && request.auth.uid == gid;
+      allow create: if request.auth != null && request.auth.uid == gid
+        && request.resource.data.keys().hasOnly(['gid', 'code', 'name', 'email', 'status', 'at'])
+        && request.resource.data.gid == gid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.name is string && request.resource.data.name.size() < 80
+        && request.resource.data.email is string && request.resource.data.email.size() < 120
+        && exists(/databases/$(database)/documents/users/$(owner)/invites/$(request.resource.data.code));
+      allow update: if request.auth != null && request.auth.uid == gid
+        && request.resource.data.keys().hasOnly(['gid', 'code', 'name', 'email', 'status', 'at'])
+        && request.resource.data.status == 'pending'
+        && request.resource.data.name is string && request.resource.data.name.size() < 80
+        && request.resource.data.email is string && request.resource.data.email.size() < 120
+        && exists(/databases/$(database)/documents/users/$(owner)/invites/$(request.resource.data.code));
+    }
+
+    // Onaylı üye kaydı: misafir yalnızca kendi kaydını okur
+    match /users/{owner}/members/{gid} {
+      allow get: if request.auth != null && request.auth.uid == gid;
+    }
+
+    // Fabrika bazlı okuma / veri girişi (süresi dolmamış ve o fabrikaya yetkili üye)
+    match /users/{owner}/factories/{fid} {
+      function live() {
+        return request.auth != null
+          && exists(/databases/$(database)/documents/users/$(owner)/members/$(request.auth.uid))
+          && (get(/databases/$(database)/documents/users/$(owner)/members/$(request.auth.uid)).data.expires == null
+              || get(/databases/$(database)/documents/users/$(owner)/members/$(request.auth.uid)).data.expires > request.time)
+          && fid in get(/databases/$(database)/documents/users/$(owner)/members/$(request.auth.uid)).data.factories;
+      }
+
+      allow get: if live();
+
+      match /years/{y} {
+        allow read: if live();
+
+        match /setup/{s} {
+          allow read: if live();
+        }
+
+        // Aylık veri koleksiyonları: okuma, ekleme, güncelleme (silme yok)
+        match /{coll}/{docId} {
+          allow read: if live() && coll in ['isg', 'kaza', 'konusma', 'isbasi', 'foto'];
+          allow create: if live() && coll in ['isg', 'kaza', 'konusma', 'isbasi', 'foto'];
+          // İSG: denetimin "tamamlandı" listesi misafir tarafından değiştirilemez
+          allow update: if live() && (
+            (coll in ['kaza', 'konusma', 'isbasi', 'foto'])
+            || (coll == 'isg' && (
+                  (!('closedNos' in resource.data) && !('closedNos' in request.resource.data))
+                  || ('closedNos' in resource.data && 'closedNos' in request.resource.data
+                      && request.resource.data.closedNos == resource.data.closedNos))));
+        }
+      }
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

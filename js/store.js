@@ -1,10 +1,19 @@
 // Veri katmanı: users/{uid}/factories/{fid}/years/{yıl}/setup/main
-import { auth, db, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, updateDoc, query, orderBy, serverTimestamp, onSnapshot } from "./firebase.js?v=20261010k";
+import { auth, db, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, updateDoc, query, orderBy, serverTimestamp, onSnapshot } from "./firebase.js?v=20261010l";
 
 const uid = () => auth.currentUser.uid;
-const base = () => `users/${uid()}`;
+// Veri sahibi: misafir kullanıcıda davet eden hesabın uid'si; kendi oturum/profil kayıtları ise her zaman kendi hesabında
+let OWN = null, GF = null;
+export const setOwner = (o, factories = null) => { OWN = o; GF = factories; };
+export const getOwner = () => OWN;
+const base = () => `users/${OWN || uid()}`;
+const mine = () => `users/${uid()}`;
 
 export async function listFactories() {
+  if (GF) { // misafir: yalnızca izin verilen fabrikalar (tek tek okunur)
+    const out = await Promise.all(GF.map(async id => { try { const d = await getDoc(doc(db, `${base()}/factories/${id}`)); return d.exists() ? { id, ...d.data() } : null; } catch { return null; } }));
+    return out.filter(Boolean).sort((a, b) => String(a.name).localeCompare(String(b.name), "tr"));
+  }
   const s = await getDocs(query(collection(db, `${base()}/factories`), orderBy("name")));
   return s.docs.map(d => ({ id: d.id, ...d.data() }));
 }
@@ -63,8 +72,8 @@ export const pref = {
 };
 
 // Profil
-export async function getProfile() { const d = await getDoc(doc(db, `${base()}/meta/profile`)); return d.exists() ? d.data() : {}; }
-export async function saveProfile(data) { await setDoc(doc(db, `${base()}/meta/profile`), data, { merge: true }); }
+export async function getProfile() { const d = await getDoc(doc(db, `${mine()}/meta/profile`)); return d.exists() ? d.data() : {}; }
+export async function saveProfile(data) { await setDoc(doc(db, `${mine()}/meta/profile`), data, { merge: true }); }
 
 // Oturumlar / cihazlar: users/{uid}/sessions/{deviceId}
 export function deviceId() {
@@ -79,15 +88,15 @@ export function deviceInfo() {
   const kind = /Mobi|Android|iPhone/.test(ua) ? "Telefon" : /iPad|Tablet/.test(ua) ? "Tablet" : "Bilgisayar";
   return { name: `${br} · ${os}`, kind };
 }
-const sessRef = id => doc(db, `${base()}/sessions/${id}`);
+const sessRef = id => doc(db, `${mine()}/sessions/${id}`);
 export const touchSession = (login = false) => setDoc(sessRef(deviceId()), { ...deviceInfo(), lastSeen: Date.now(), ...(login ? { revoked: false } : {}) }, { merge: true });
 export const endSession = () => deleteDoc(sessRef(deviceId()));
 export async function listSessions() {
-  const s = await getDocs(collection(db, `${base()}/sessions`));
+  const s = await getDocs(collection(db, `${mine()}/sessions`));
   return s.docs.map(d => ({ id: d.id, ...d.data() })).filter(x => !x.revoked).sort((a, b) => b.lastSeen - a.lastSeen);
 }
 // Ana (yetkili) cihaz: users/{uid}/meta/primary {deviceId, name, since}. Diğer oturumlar misafirdir.
-const primRef = () => doc(db, `${base()}/meta/primary`);
+const primRef = () => doc(db, `${mine()}/meta/primary`);
 export async function getPrimary() { const d = await getDoc(primRef()); return d.exists() ? d.data() : null; }
 export async function setPrimary(id, name) { await setDoc(primRef(), { deviceId: id, name: name || "", since: Date.now() }); }
 // Girişte: ana cihaz yoksa ya da ana cihazın oturumu kapanmışsa bu cihaz ana cihaz olur

@@ -1,7 +1,7 @@
 // Eğitim Konuşması · Aylık Giriş
-import * as S from "./store.js?v=20261010k";
-import { esc, ic, toast, noteEditor } from "./ui.js?v=20261010k";
-import { katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261010k";
+import * as S from "./store.js?v=20261010l";
+import { esc, ic, toast, noteEditor, guestLock, roText } from "./ui.js?v=20261010l";
+import { katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261010l";
 
 const COLL = "konusma";
 const BAND = { Mükemmel: ["#17A06F", "#0B6E4F", "#D9F1E6"], İyi: ["#2A82C4", "#145F96", "#DCEAF7"], Orta: ["#E8A512", "#6B3F00", "#FBE9C6"], Kritik: ["#D6382E", "#B3261E", "#FADAD7"] };
@@ -29,7 +29,7 @@ export async function render(v, ctx) {
     const doc = await S.getMonthDoc(st.fid, st.year, COLL, pad(D.month));
     D.rows = doc?.rows || {}; D.exists = !!doc; D.key = key; D.saved = true; D.msg = "";
   }
-  D.ctx = ctx; D.v = v; D.setup = setup; D.ro = String(st.year) !== String(st.active);
+  D.ctx = ctx; D.v = v; D.setup = setup; D.ro = String(st.year) !== String(st.active) || guestLock(st.year, D.month);
   draw();
 }
 const rowOf = id => (D.rows[id] ||= { min: "", note: "" });
@@ -73,7 +73,7 @@ function draw() {
     <div class="sub">Bölümde o ay yapılan eğitim konuşmalarının toplam süresini girin. Verim, hedef süreye oranla otomatik hesaplanır.</div>
     <div class="muted" style="font-size:12.5px" id="sv">${D.msg || (D.saved ? (D.exists ? "Kayıtlı" : "Bu ay henüz kaydedilmedi") : "Kaydediliyor…")}</div></div>
     <select id="ay" class="inp" style="width:auto;min-width:170px;font-weight:600">${MONTHS.map((m, i) => `<option value="${i + 1}" ${i + 1 === D.month ? "selected" : ""}>${m} ${st.year}</option>`).join("")}</select></div>
-  ${D.ro ? `<div class="warn">${st.year} geçmiş bir yıldır, salt okunur. Değişiklik için güncel yılı seçin.</div>` : ""}
+  ${D.ro ? `<div class="warn">${roText(st.year, D.month, st.active)}</div>` : ""}
   <div class="row" style="gap:16px;align-items:stretch">
     <div class="save" style="flex:1 1 220px;padding:20px;gap:8px"><span class="hd" style="color:#9DB5AE;letter-spacing:.8px">TESİS EĞİTİM KONUŞMASI VERİMİ</span>
       <div class="row" style="gap:12px"><b style="font:700 40px Sora,sans-serif;letter-spacing:-1px;color:#fff">${s.avg === null ? "–" : f1(s.avg)}</b><span class="pill" style="background:${sb ? sb[2] : "#EEF2F0"};color:${sb ? sb[1] : "#4A5C57"}">${s.avg === null ? "Veri yok" : bandOf(s.avg, p)}</span></div></div>

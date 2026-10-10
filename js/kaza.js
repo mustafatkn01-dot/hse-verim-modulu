@@ -1,7 +1,7 @@
 // İş Kazası · Aylık Giriş
-import * as S from "./store.js?v=20261010k";
-import { esc, ic, toast, noteEditor } from "./ui.js?v=20261010k";
-import { katsayi, bandOf, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261010k";
+import * as S from "./store.js?v=20261010l";
+import { esc, ic, toast, noteEditor, guestLock, roText } from "./ui.js?v=20261010l";
+import { katsayi, bandOf, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261010l";
 
 const COLL = "kaza";
 const T = [["Gün kayıpsız", 2], ["1-5 gün kayıplı", 5], ["5-20 gün kayıplı", 10], ["20+ gün kayıplı", 20], ["Uzuv kaybı", 50], ["Ölüm", 100]];
@@ -28,7 +28,7 @@ export async function render(v, ctx) {
     const doc = await S.getMonthDoc(st.fid, st.year, COLL, pad(D.month));
     D.rows = doc?.rows || {}; D.exists = !!doc; D.key = key; D.saved = true; D.msg = "";
   }
-  D.ctx = ctx; D.v = v; D.setup = setup; D.ro = String(st.year) !== String(st.active);
+  D.ctx = ctx; D.v = v; D.setup = setup; D.ro = String(st.year) !== String(st.active) || guestLock(st.year, D.month);
   draw();
 }
 
@@ -65,7 +65,7 @@ function draw() {
     <div class="sub">Her bölüm için o ay yaşanan kazaları türüne göre girin. Verim, kaza puanı ve bölüm katsayısına göre otomatik hesaplanır.</div>
     <div class="muted" style="font-size:12.5px" id="sv">${D.msg || (D.saved ? (D.exists ? "Kayıtlı" : "Bu ay henüz kaydedilmedi") : "Kaydediliyor…")}</div></div>
     <select id="ay" class="inp" style="width:auto;min-width:170px;font-weight:600">${MONTHS.map((m, i) => `<option value="${i + 1}" ${i + 1 === D.month ? "selected" : ""}>${m} ${st.year}</option>`).join("")}</select></div>
-  ${D.ro ? `<div class="warn">${st.year} geçmiş bir yıldır, salt okunur. Değişiklik için güncel yılı seçin.</div>` : ""}
+  ${D.ro ? `<div class="warn">${roText(st.year, D.month, st.active)}</div>` : ""}
   <div class="row" style="gap:16px;align-items:stretch">
     <div class="save" style="flex:1 1 220px;padding:20px;gap:8px"><span class="hd" style="color:#9DB5AE;letter-spacing:.8px">TESİS İŞ KAZASI VERİMİ</span>
       <div class="row" style="gap:12px"><b style="font:700 40px Sora,sans-serif;letter-spacing:-1px;color:#fff">${f1(s.tesis)}</b><span class="pill" style="background:${sb[1]};color:${sb[0]}">${bandOf(s.tesis, p)}</span></div></div>

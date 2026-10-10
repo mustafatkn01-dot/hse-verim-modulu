@@ -77,3 +77,14 @@ export function showPhoto(src) {
   document.body.appendChild(m); const close = () => m.remove();
   m.querySelector("[data-x]").onclick = close; m.addEventListener("mousedown", e => { if (e.target === m) close(); });
 }
+
+// Misafir kuralı: yalnızca bu ay ve önceki ay için veri girişi
+export const GUEST = { on: false, name: "" };
+export const guestLock = (year, month) => {
+  if (!GUEST.on) return false;
+  const n = new Date(), cur = n.getMonth() + 1, prev = cur === 1 ? 12 : cur - 1;
+  if (+year !== n.getFullYear()) return !(cur === 1 && +year === n.getFullYear() - 1 && +month === 12);
+  return !(+month === cur || +month === prev);
+};
+export const roText = (year, month, active) => GUEST.on && guestLock(year, month) && String(year) === String(active)
+  ? "Misafir olarak yalnızca bu ay ve önceki ay için veri girebilirsiniz." : `${year} geçmiş bir yıldır, salt okunur. Değişiklik için güncel yılı seçin.`;
