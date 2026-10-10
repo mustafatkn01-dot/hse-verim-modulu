@@ -1,9 +1,9 @@
 // Aylık HSE Raporu · kayıtlı verilerden otomatik grafik + açıklama
-import * as S from "./store.js?v=20261010i";
-import { esc } from "./ui.js?v=20261010i";
-import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261010i";
-import { CATS } from "./isgcats.js?v=20261010i";
-import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261010i";
+import * as S from "./store.js?v=20261010j";
+import { esc } from "./ui.js?v=20261010j";
+import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261010j";
+import { CATS } from "./isgcats.js?v=20261010j";
+import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261010j";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -129,11 +129,19 @@ function draw(v, st, setup, data) {
     if (kn?.result) { knAny = true; cnCnt += kn.result.counted || 0; cnHit += kn.result.hit || 0;
       rows.forEach(r => { const x = fin(kn.result.per?.[r.id]?.pct); if (x !== null && bn(x) !== "Mükemmel" && bn(x) !== "İyi") { const n = (kn.rows?.[r.id]?.note || "").trim(); nn.push(`${mpre(mi)}${n ? noteTxt(r, n) : `<i>Açıklama girilmemiş</i> <b>— ${esc(r.name)}</b>`} <span class="muted" style="white-space:nowrap">· verim ${f1(x)}</span>`); } }); }
     if (ib?.result) { ibAny = true; hired += ib.result.hired || 0; trained += ib.result.trained || 0; oos += ib.result.outOfScope || 0;
-      rows.forEach(r => { const x = ib.result.per?.[r.id]; if (x?.state === "ok" && x.verim < 99.995) { const n = (ib.rows?.[r.id]?.note || "").trim(); ni.push(`${mpre(mi)}${n ? noteTxt(r, n) : `<i>Açıklama girilmemiş</i> <b>— ${esc(r.name)}</b>`} <span class="muted" style="white-space:nowrap">· ${x.e ?? "?"}/${x.g ?? "?"} eğitim · verim ${f1(x.verim)}</span>`); } }); }
+      rows.forEach(r => {
+        const x = ib.result.per?.[r.id]; if (x?.state !== "ok") return;
+        const g = x.g ?? 0, e = x.e ?? 0, w = Math.max(0, g - e), low = x.verim < 99.995;
+        const sent = e === 0 ? `${g} işe girişin hiçbirine işbaşı eğitimi verilmedi, ${w} kişi işbaşı eğitim beklemektedir.`
+          : w === 0 ? `${g} işe girişin ${e} tanesine işbaşı eğitimi verildi.`
+          : `${g} işe girişin ${e} tanesine işbaşı eğitimi verildi, ${w} kişi işbaşı eğitim beklemektedir.`;
+        const n = (ib.rows?.[r.id]?.note || "").trim().replace(/[.\s]+$/, "");
+        ni.push(`${mpre(mi)}<b>${esc(r.name)}:</b> ${sent}${low ? ` ${n ? esc(n) + "." : "<i>Açıklama girilmemiş.</i>"} <span class="muted" style="white-space:nowrap">${e}/${g} eğitim - verim ${f1(x.verim)}</span>` : ""}`);
+      }); }
   });
   if (kAny) nk.unshift(`Toplam ${kT} kaza/olay kaydedildi${kT ? `, bunun ${kL} tanesi iş günü kayıplı` : ""}.`);
   if (knAny) nn.unshift(multi ? `Dönem içinde değerlendirilen bölüm-ay kayıtlarının ${cnCnt} tanesinin ${cnHit} tanesi hedef konuşma süresine ulaştı.` : `Değerlendirilen ${cnCnt} bölümün ${cnHit} tanesi hedef konuşma süresine ulaştı.`);
-  if (ibAny) ni.unshift(`${hired} işe girişin ${trained} tanesine işbaşı eğitimi verildi.${oos ? ` ${oos} bölüm-ay kaydında işe giriş olmadığı için değerlendirme dışı bırakıldı (toplam verime katılmaz).` : ""}`);
+  if (ibAny && oos) ni.push(`${oos} bölüm-ay kaydında işe giriş olmadığı için değerlendirme dışı bırakıldı (toplam verime katılmaz).`);
   const modCard = (k, i, title, sub, notes) => modHas[i] ? card(title, sub, modBars(k) + notesBox(notes)) : card(title, sub, `<div class="muted">${plabel} için ${TITLE[i]} verisi girilmemiş.</div>`);
 
   // Grafik 6 · İSG bulguları
