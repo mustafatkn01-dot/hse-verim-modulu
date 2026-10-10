@@ -1,18 +1,18 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261011g";
-import * as S from "./store.js?v=20261011g";
-import * as Prim from "./primary.js?v=20261011g";
-import * as Denetim from "./denetim.js?v=20261011g";
-import * as Kaza from "./kaza.js?v=20261011g";
-import * as Konusma from "./konusma.js?v=20261011g";
-import * as Genel from "./genel.js?v=20261011g";
-import * as Rapor from "./rapor.js?v=20261011g";
-import * as Verim from "./verim.js?v=20261011g";
-import * as Isbasi from "./isbasi.js?v=20261011g";
-import * as Guest from "./guest.js?v=20261011g";
-import { $, esc, ic, toast, modal, confirmBox, formBox, GUEST } from "./ui.js?v=20261011g";
-import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261011g";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261011h";
+import * as S from "./store.js?v=20261011h";
+import * as Prim from "./primary.js?v=20261011h";
+import * as Denetim from "./denetim.js?v=20261011h";
+import * as Kaza from "./kaza.js?v=20261011h";
+import * as Konusma from "./konusma.js?v=20261011h";
+import * as Genel from "./genel.js?v=20261011h";
+import * as Rapor from "./rapor.js?v=20261011h";
+import * as Verim from "./verim.js?v=20261011h";
+import * as Isbasi from "./isbasi.js?v=20261011h";
+import * as Guest from "./guest.js?v=20261011h";
+import { $, esc, ic, toast, modal, confirmBox, formBox, GUEST } from "./ui.js?v=20261011h";
+import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261011h";
 
-const VERSION = "1.0.0";
+const VERSION = "1.2.0";
 const st = { factories: [], years: [], fid: null, year: null, page: "genel", profile: {}, lastSync: new Date() };
 
 const GROUPS = [
@@ -337,7 +337,7 @@ function validateK() {
 }
 
 // ---------- Ayarlar ----------
-const BUILD = "09.10.2026";
+const BUILD = "10.10.2026";
 const fmtDt = t => new Date(t).toLocaleString("tr-TR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 const initials = n => (n || "").split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0].toUpperCase()).join("") || "?";
 const item = (inner, bg = "var(--card)", bd = "var(--line)") => `<div class="it${bg === "var(--card)" ? "" : " lt"}" style="background:${bg};border-color:${bd}">${inner}</div>`;
