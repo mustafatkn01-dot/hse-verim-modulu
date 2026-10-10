@@ -1,9 +1,9 @@
 // İSG Denetim Listesi sayfası
-import * as Guest from "./guest.js?v=20261011b";
-import * as S from "./store.js?v=20261011b";
-import { esc, ic, toast, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261011b";
-import { CATS } from "./isgcats.js?v=20261011b";
-import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261011b";
+import * as Guest from "./guest.js?v=20261011c";
+import * as S from "./store.js?v=20261011c";
+import { esc, ic, toast, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261011c";
+import { CATS } from "./isgcats.js?v=20261011c";
+import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261011c";
 
 const COLL = "isg";
 const D = { key: "", setup: null, doc: null, dept: null, month: null, open: { 0: true }, ro: false, timer: null, saved: true, msg: "" };
@@ -310,9 +310,14 @@ function bind(v, c) {
   const nw = document.getElementById("newSess");
   if (nw) nw.onclick = () => { doc.draft = emptyDraft(defaultDate(st.year, D.month), true); persist(true); draw(); };
   on("[data-delsess]", async el => {
-    const { confirmBox } = await import("./ui.js?v=20261011b");
+    const { confirmBox } = await import("./ui.js?v=20261011c");
     if (!(await confirmBox("Son denetim silinsin mi?", "Kayıtlı denetim silinir; skor ve sıklıklar yeniden hesaplanır.", "Evet, sil", true))) return;
-    const gone = doc.sessions.pop(); Object.values(gone.photos || {}).flat().forEach(p => S.deletePhoto(st.fid, st.year, p.id).catch(() => {})); if (doc.draft.edit === gone.no) doc.draft = emptyDraft(defaultDate(st.year, D.month), false);
+    const gone = doc.sessions.pop();
+    // Misafir taslağından gelen denetimse: misafire "silindi" bilgisi gider (taslağı düzeltip yeniden gönderebilir), fotoğrafları korunur
+    const gAp = (await S.listMonthDocs(st.fid, st.year, "isgg").catch(() => [])).filter(g => g.id.startsWith(`${pad(D.month)}_${D.dept}_`) && g.status === "approved" && g.no === gone.no);
+    for (const g of gAp) await S.saveMonthDoc(st.fid, st.year, "isgg", g.id, { guestUid: g.guestUid, guestName: g.guestName, dept: g.dept, month: g.month, status: "returned", draft: g.draft, at: Date.now(), note: "Onaylanan denetim yetkili kullanıcı tarafından silindi; gerekirse düzeltip yeniden gönderebilirsiniz." }).catch(() => {});
+    if (!gAp.length) Object.values(gone.photos || {}).flat().forEach(p => S.deletePhoto(st.fid, st.year, p.id).catch(() => {}));
+    if (doc.draft.edit === gone.no) doc.draft = emptyDraft(defaultDate(st.year, D.month), false);
     if (!doc.sessions.length) doc.draft = emptyDraft(defaultDate(st.year, D.month), true); else if (doc.draft.on) { /* devam eden taslak korunur */ }
     settle(doc, st.year, D.month); await persist(true); draw();
   });
