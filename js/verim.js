@@ -1,9 +1,9 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261011d";
-import { esc } from "./ui.js?v=20261011d";
-import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi } from "./scoring.js?v=20261011d";
-import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261011d";
-import { CATS } from "./isgcats.js?v=20261011d";
+import * as S from "./store.js?v=20261011e";
+import { esc } from "./ui.js?v=20261011e";
+import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi } from "./scoring.js?v=20261011e";
+import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261011e";
+import { CATS } from "./isgcats.js?v=20261011e";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -211,16 +211,17 @@ async function printSheet(info, { size, orient, pics = false, file = false }) {
       <div style="height:30px;line-height:30px;font-size:${fs - 0.5}px;font-weight:600;color:#3E534E;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis">${esc(nm)}</div></div>`; }).join("");
     return {
       head: `<div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #0B2230;padding-bottom:10px;gap:16px">
-      <div><div style="font:700 11px Manrope;letter-spacing:1px;color:#546964">HSE VERİM MODÜLÜ · ${esc(info.fname)}</div><div style="font:700 22px Sora,sans-serif;margin-top:4px">${esc(info.title)}</div><div style="color:#546964;margin-top:2px">${esc(info.plabel)}</div></div>
+      <div><div style="font:700 11px Manrope;letter-spacing:1px;color:#546964">${esc(info.fname)}</div><div style="font:700 22px Sora,sans-serif;margin-top:4px">${esc(info.title)}</div><div style="color:#546964;margin-top:2px;display:flex;gap:28px;white-space:nowrap"><span>${esc(info.plabel)}</span><span>Oluşturma tarihi: ${ds}</span></div></div>
       <div style="display:flex;align-items:center;gap:10px;white-space:nowrap"><span style="color:#546964">Tesis ortalaması</span><b style="font:700 26px Sora,sans-serif">${info.av === null ? "–" : f1(info.av)}</b><span style="font-size:12px;font-weight:800;padding:4px 12px;border-radius:999px;background:${info.ab.bg};color:${info.ab.c}">${esc(info.abn)}</span></div></div>`,
       first: `${info.partial ? `<div style="padding:8px 12px;border-radius:8px;background:#FBE9C6;color:#5A3300;font-weight:600">${esc(info.partial)}</div>` : ""}
     <div style="position:relative;height:${ch}px"><div style="position:absolute;inset:0">${line(50, 50)}${line(75, 75)}${line(90, 90)}</div><div style="position:absolute;left:30px;right:0;top:0;bottom:0;display:flex;gap:${gap}px">${bars}</div></div>
     <div style="display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:#546964">${[["Mükemmel", `≥ ${num(info.esik.m)}`], ["İyi", `${num(info.esik.i)}-${num(info.esik.m) - 1}`], ["Orta", `${num(info.esik.o)}-${num(info.esik.i) - 1}`], ["Kritik", `< ${num(info.esik.o)}`]].map(([k, r]) => `<span style="display:flex;align-items:center;gap:6px"><span style="width:11px;height:11px;border-radius:3px;background:${BAND[k].fill}"></span>${k} ${r}</span>`).join("")}</div>`,
-      foot: `<div style="color:#6A7E79;font-size:11px;border-top:1px solid #E4ECE9;padding-top:6px">Oluşturma tarihi: ${ds} · HSE Verim Modülü</div>` }; };
-  const wrap = (inner, z, extra = "") => `<div class="ppg" style="width:${cw}px;zoom:${z};${extra}${FONT}">${inner}</div>`;
+      foot: "" }; };
+  const wrap = (inner, z, extra = "", pg = "") => `<div class="ppg" style="width:${cw}px;zoom:${z};${extra}${FONT}">${inner}${pg ? `<div style="position:absolute;left:0;right:0;bottom:0;text-align:center;font-size:11px;color:#6A7E79">${pg}</div>` : ""}</div>`;
   // Tek sayfa düzeni
-  const build = (ch, z) => { const p = parts(ch); return wrap(p.head + p.first + descBox(items.length ? group(items) : NONE) + p.foot, z); };
-  const avail = Hh - 2 * M - 6;
+  const PGH = Hh - 2 * M - 6, avail = PGH - 24; // alttaki 24 px sayfa numarasına ayrılır
+  const FIX = `height:${PGH}px;overflow:hidden;box-sizing:border-box;position:relative;`;
+  const build = (ch, z, fin) => { const p = parts(ch); return wrap(p.head + p.first + descBox(items.length ? group(items) : NONE) + p.foot, z, fin ? FIX : "", fin ? "Sayfa 1/1" : ""); };
   // Çok sayfalı düzen: her sayfada üst bilgi; devam sayfalarında "AÇIKLAMA" başlığı, madde numaraları kesintisiz
   const paginate = async () => {
     const pc = land ? 260 : 420, p = parts(pc);
@@ -241,7 +242,7 @@ async function printSheet(info, { size, orient, pics = false, file = false }) {
     if (!fits(cur, !pages.length, true) && cur.length > 1) { const lastI = cur.pop(); pages.push(cur); cur = [lastI]; }
     pages.push(cur);
     return (z, fixed) => pages.map((idx, n) => { const list = idx.map(i => items[i]), first = n === 0, last = n === pages.length - 1;
-      return wrap(p.head + (first ? p.first : "") + (list.length ? descBox(group(list)) : first && !items.length ? descBox(NONE) : "") + (last ? p.foot : ""), z, `height:${avail}px;overflow:hidden;box-sizing:border-box;${fixed && !last ? "break-after:page;" : ""}`); }).join("");
+      return wrap(p.head + (first ? p.first : "") + (list.length ? descBox(group(list)) : first && !items.length ? descBox(NONE) : "") + (last ? p.foot : ""), z, FIX + (fixed && !last ? "break-after:page;" : ""), `Sayfa ${n + 1}/${pages.length}`); }).join("");
   };
   const stl = document.createElement("style"); stl.id = "pstyle";
   stl.textContent = `#psheet{display:none}@media print{@page{size:${size} ${orient};margin:${M * 0.2646}mm}html,body{background:#fff!important;margin:0!important;padding:0!important}body>*:not(#psheet){display:none!important}#psheet{display:block!important;width:${cw * z}px;-webkit-print-color-adjust:exact;print-color-adjust:exact}}`;
@@ -256,7 +257,7 @@ async function printSheet(info, { size, orient, pics = false, file = false }) {
   if (file) {
     // İstenirse yazdırmadan doğrudan PDF dosyası olarak indir
     try {
-      sh.innerHTML = single ? build(fit, 1) : pages(1, false);
+      sh.innerHTML = single ? build(fit, 1, true) : pages(1, false);
       sh.style.cssText = `display:block;position:fixed;left:-99999px;top:0;background:#fff;width:${cw}px`;
       const el = single ? sh.firstElementChild : sh, top0 = el.getBoundingClientRect().top;
       const breaks = (single ? [...el.querySelectorAll("[data-brk]")] : [...sh.children]).map(x => x.getBoundingClientRect().top - top0).filter(t => t > 0);
@@ -264,7 +265,7 @@ async function printSheet(info, { size, orient, pics = false, file = false }) {
       clean(); return;
     } catch (e) { console.warn("PDF üretilemedi, yazdırmaya dönülüyor", e); }
   }
-  sh.innerHTML = single ? build(fit, z) : pages(z, true); sh.style.cssText = "";
+  sh.innerHTML = single ? build(fit, z, true) : pages(z, true); sh.style.cssText = "";
   window.addEventListener("afterprint", clean);
   setTimeout(() => withTitle(ttl, () => window.print()), 150);
 }

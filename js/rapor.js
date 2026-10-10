@@ -1,9 +1,9 @@
 // Aylık HSE Raporu · kayıtlı verilerden otomatik grafik + açıklama
-import * as S from "./store.js?v=20261011d";
-import { esc } from "./ui.js?v=20261011d";
-import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261011d";
-import { CATS } from "./isgcats.js?v=20261011d";
-import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261011d";
+import * as S from "./store.js?v=20261011e";
+import { esc } from "./ui.js?v=20261011e";
+import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261011e";
+import { CATS } from "./isgcats.js?v=20261011e";
+import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261011e";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -215,7 +215,7 @@ function draw(v, st, setup, data) {
     if (!o) return;
     if (o.pics !== R.pics) { R.pics = o.pics; const cb = document.getElementById("rPic"); if (cb) cb.checked = o.pics; draw(v, st, setup, data); }
     if (R.pics) await hydrate(v, st);
-    const ttl = fileTitle(`${multi ? PER[R.per] : "Aylık"} HSE Raporu`, plabel, o.size), header = `HSE VERİM MODÜLÜ · ${fname} · ${multi ? PER[R.per] : "Aylık"} HSE Raporu · ${plabel}`;
+    const ttl = fileTitle(`${multi ? PER[R.per] : "Aylık"} HSE Raporu`, plabel, o.size), header = `${fname} · ${multi ? PER[R.per] : "Aylık"} HSE Raporu · ${plabel}`;
     if (o.file) { try { await saveReportPdf(document.getElementById("view") || v, { ...o, name: ttl + ".pdf", header }); return; } catch (e) { console.warn("PDF üretilemedi, yazdırmaya dönülüyor", e); } }
     printCurrent({ ...o, name: ttl, header });
   };

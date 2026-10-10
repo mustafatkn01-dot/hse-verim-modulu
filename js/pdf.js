@@ -1,5 +1,5 @@
 // Ortak PDF yardımcıları: kâğıt boyutu (A4/A3) + sayfa düzeni (dikey/yatay) penceresi
-import { esc } from "./ui.js?v=20261011d";
+import { esc } from "./ui.js?v=20261011e";
 
 export function askFormat({ title = "PDF indir", text = "", defOrient = "portrait", hint = "", pics = 0 } = {}) {
   return new Promise(res => {
@@ -32,7 +32,7 @@ export function askFormat({ title = "PDF indir", text = "", defOrient = "portrai
 export function printCurrent({ size, orient, name, header = "" }) {
   const stl = document.createElement("style");
   const hs = header.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-  stl.textContent = `@media print{@page{size:${size} ${orient};margin:${header ? "17mm" : "10mm"} 10mm 10mm;${header ? `@top-left{content:"${hs}";font:700 9.5px Manrope,system-ui,sans-serif;letter-spacing:.6px;color:#546964;vertical-align:bottom;padding-bottom:3mm;border-bottom:1.5px solid #0B2230}` : ""}}}`;
+  stl.textContent = `@media print{@page{size:${size} ${orient};margin:${header ? "17mm" : "10mm"} 10mm 14mm;@bottom-center{content:"Sayfa " counter(page) "/" counter(pages);font:600 9.5px Manrope,system-ui,sans-serif;color:#546964}${header ? `@top-left{content:"${hs}";font:700 9.5px Manrope,system-ui,sans-serif;letter-spacing:.6px;color:#546964;vertical-align:bottom;padding-bottom:3mm;border-bottom:1.5px solid #0B2230}` : ""}}}`;
   document.head.appendChild(stl);
   const clean = () => { stl.remove(); window.removeEventListener("afterprint", clean); };
   window.addEventListener("afterprint", clean);
@@ -52,7 +52,7 @@ export async function loadPdfLibs() {
 }
 const PT = { A4: [595.28, 841.89], A3: [841.89, 1190.55] };
 // el: sayfa genişliğinde (px) çizilmiş öğe; birden fazla sayfaya bölünebilir (tek=true ise tek sayfaya sığdırılır)
-export async function savePdf(el, { size, orient, name, margin = 28, scale, single = false, breaks = null, header = "" }) {
+export async function savePdf(el, { size, orient, name, margin = 28, scale, single = false, breaks = null, header = "", pageNo = false }) {
   await loadPdfLibs();
   if (document.fonts?.ready) await document.fonts.ready;
   const sc = scale || (size === "A3" ? 3 : 2.5);
@@ -83,6 +83,8 @@ export async function savePdf(el, { size, orient, name, margin = 28, scale, sing
       y = end; pg++;
     }
   }
+  if (pageNo) { const tot = doc.getNumberOfPages(), fc = document.createElement("canvas"), g = fc.getContext("2d"), hs = 4; fc.width = 120 * hs; fc.height = 14 * hs;
+    for (let i = 1; i <= tot; i++) { g.fillStyle = "#fff"; g.fillRect(0, 0, fc.width, fc.height); g.fillStyle = "#546964"; g.font = `600 ${8.5 * hs}px Manrope,system-ui,sans-serif`; g.textAlign = "center"; g.fillText(`Sayfa ${i}/${tot}`, fc.width / 2, 10 * hs); doc.setPage(i); doc.addImage(fc.toDataURL("image/png"), "PNG", (pw - 120) / 2, ph - margin + 4, 120, 14); } }
   doc.save(name);
 }
 
@@ -96,7 +98,7 @@ export async function saveReportPdf(v, { size, orient, name, header = "" }) {
   try {
     const top0 = box.getBoundingClientRect().top;
     const breaks = [...box.children, ...box.querySelectorAll("[data-brk]")].map(c => c.getBoundingClientRect().top - top0).filter(t => t > 0);
-    await savePdf(box, { size, orient, name, margin: M * 0.75 * (size === "A3" ? 1.4142 : 1), scale: size === "A3" ? 3 : 2.5, breaks, header });
+    await savePdf(box, { size, orient, name, margin: M * 0.75 * (size === "A3" ? 1.4142 : 1), scale: size === "A3" ? 3 : 2.5, breaks, header, pageNo: true });
   } finally { box.remove(); }
 }
 
