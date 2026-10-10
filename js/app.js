@@ -1,16 +1,16 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261010z";
-import * as S from "./store.js?v=20261010z";
-import * as Prim from "./primary.js?v=20261010z";
-import * as Denetim from "./denetim.js?v=20261010z";
-import * as Kaza from "./kaza.js?v=20261010z";
-import * as Konusma from "./konusma.js?v=20261010z";
-import * as Genel from "./genel.js?v=20261010z";
-import * as Rapor from "./rapor.js?v=20261010z";
-import * as Verim from "./verim.js?v=20261010z";
-import * as Isbasi from "./isbasi.js?v=20261010z";
-import * as Guest from "./guest.js?v=20261010z";
-import { $, esc, ic, toast, modal, confirmBox, formBox, GUEST } from "./ui.js?v=20261010z";
-import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261010z";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261011a";
+import * as S from "./store.js?v=20261011a";
+import * as Prim from "./primary.js?v=20261011a";
+import * as Denetim from "./denetim.js?v=20261011a";
+import * as Kaza from "./kaza.js?v=20261011a";
+import * as Konusma from "./konusma.js?v=20261011a";
+import * as Genel from "./genel.js?v=20261011a";
+import * as Rapor from "./rapor.js?v=20261011a";
+import * as Verim from "./verim.js?v=20261011a";
+import * as Isbasi from "./isbasi.js?v=20261011a";
+import * as Guest from "./guest.js?v=20261011a";
+import { $, esc, ic, toast, modal, confirmBox, formBox, GUEST } from "./ui.js?v=20261011a";
+import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261011a";
 
 const VERSION = "1.0.0";
 const st = { factories: [], years: [], fid: null, year: null, page: "genel", profile: {}, lastSync: new Date() };
@@ -205,7 +205,7 @@ async function openAudit(a) {
     if (st.years.map(String).includes(String(a.year))) { st.year = String(a.year); S.pref.set("year", st.year); }
     drawSelectors();
   }
-  Denetim.focus(a.month, a.dept);
+  Denetim.focus(a.month, a.dept, a.by || "*");
   if (location.hash === "#denetim") go("denetim"); else location.hash = "#denetim";
 }
 
