@@ -1,15 +1,15 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261010j";
-import * as S from "./store.js?v=20261010j";
-import * as Prim from "./primary.js?v=20261010j";
-import * as Denetim from "./denetim.js?v=20261010j";
-import * as Kaza from "./kaza.js?v=20261010j";
-import * as Konusma from "./konusma.js?v=20261010j";
-import * as Genel from "./genel.js?v=20261010j";
-import * as Rapor from "./rapor.js?v=20261010j";
-import * as Verim from "./verim.js?v=20261010j";
-import * as Isbasi from "./isbasi.js?v=20261010j";
-import { $, esc, ic, toast, modal, confirmBox, formBox } from "./ui.js?v=20261010j";
-import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261010j";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261010k";
+import * as S from "./store.js?v=20261010k";
+import * as Prim from "./primary.js?v=20261010k";
+import * as Denetim from "./denetim.js?v=20261010k";
+import * as Kaza from "./kaza.js?v=20261010k";
+import * as Konusma from "./konusma.js?v=20261010k";
+import * as Genel from "./genel.js?v=20261010k";
+import * as Rapor from "./rapor.js?v=20261010k";
+import * as Verim from "./verim.js?v=20261010k";
+import * as Isbasi from "./isbasi.js?v=20261010k";
+import { $, esc, ic, toast, modal, confirmBox, formBox } from "./ui.js?v=20261010k";
+import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261010k";
 
 const VERSION = "1.0.0";
 const st = { factories: [], years: [], fid: null, year: null, page: "genel", profile: {}, lastSync: new Date() };
@@ -88,7 +88,11 @@ async function loadContext() {
   await loadYears();
 }
 async function loadYears() {
-  st.years = st.fid ? await S.listYears(st.fid) : [];
+  // Yıl kuralları: bugünün yılından ilerisi geçerli değildir; arşivdeki yıllar seçicilerde görünmez
+  const cy = new Date().getFullYear();
+  st.yearsMeta = st.fid ? await S.listYearsMeta(st.fid) : [];
+  st.yearsAll = st.yearsMeta.map(m => m.id);
+  st.years = st.yearsMeta.filter(m => !m.archived && +m.id <= cy).map(m => m.id);
   const saved = S.pref.get("year");
   const fa = st.factories.find(f => f.id === st.fid)?.activeYear;
   st.active = st.years.map(String).includes(String(fa)) ? String(fa) : st.years[st.years.length - 1] || null;
@@ -270,13 +274,28 @@ const initials = n => (n || "").split(/\s+/).filter(Boolean).slice(0, 2).map(x =
 const item = (inner, bg = "var(--card)", bd = "var(--line)") => `<div class="it${bg === "var(--card)" ? "" : " lt"}" style="background:${bg};border-color:${bd}">${inner}</div>`;
 const THEMES = [["light", "Açık", "#0B2230", "#EDF2F0", "#fff"], ["dark", "Koyu", "#06121a", "#0d1a22", "#14262f"], ["auto", "Cihaza göre", "#0B2230", "#8aa39b", "#cfdcd7"]];
 
+// Yıl seçenekleri penceresi: Arşive taşı · Sil · İptal
+function yearMenu(y, { active, archived }) {
+  return new Promise(res => {
+    const m = document.createElement("div"); m.className = "mod";
+    const info = active ? `${y} şu an aktif yıl. Aktif yıl arşive taşınamaz veya silinemez; önce başka bir yılı aktif yapın.`
+      : `<b>Arşive taşı:</b> yıl seçicilerden ve karşılaştırmalardan kalkar, verileri korunur; istediğiniz zaman geri alabilirsiniz.<br><b>Sil:</b> ${y} yılının tüm kayıtları kalıcı olarak silinir, geri alınamaz.`;
+    m.innerHTML = `<div class="mbox" role="dialog" aria-modal="true" style="gap:14px"><h2>${y} yılı</h2><div class="muted" style="line-height:1.55">${info}</div>
+      <div class="row" style="justify-content:flex-end;gap:8px">${active ? "" : `<button class="sec" data-r="${archived ? "unarch" : "arch"}">${archived ? "Arşivden çıkar" : "Arşive taşı"}</button><button data-r="del" style="background:#B3261E;color:#fff">Sil</button>`}<button class="sec" data-r="">İptal</button></div></div>`;
+    document.body.appendChild(m);
+    const done = v => { m.remove(); res(v || null); };
+    m.querySelectorAll("[data-r]").forEach(b => b.onclick = () => done(b.dataset.r));
+    m.addEventListener("mousedown", e => { if (e.target === m) done(null); });
+  });
+}
+
 async function pageAyarlar(v) {
   const email = auth.currentUser.email, theme = S.pref.get("theme") || "light";
   const [sessions, profile] = await Promise.all([S.listSessions().catch(() => []), S.getProfile().catch(() => ({}))]);
   st.profile = profile;
   const name = profile.name || "";
-  const maxYear = st.years[st.years.length - 1];
-  const next = maxYear ? String(+maxYear + 1) : null;
+  const cy = new Date().getFullYear(), maxYear = st.yearsAll[st.yearsAll.length - 1];
+  const nextRaw = maxYear ? String(+maxYear + 1) : String(cy), canStart = +nextRaw <= cy, next = nextRaw;
   const counts = {};
   await Promise.all(st.all.map(async f => {
     try { const ys = await S.listYears(f.id); const s = ys.length ? await S.getSetup(f.id, ys[ys.length - 1]) : null; counts[f.id] = s?.rows?.length ?? 0; } catch { counts[f.id] = 0; }
@@ -328,9 +347,12 @@ async function pageAyarlar(v) {
         <div><button id="addF">+ Fabrika ekle</button></div></div></div>
 
     <div class="cd"><div><h2>Yıllar</h2><div class="muted" style="font-size:13px">Veriler yıl bazında saklanır. Yalnızca aktif yıl düzenlenebilir, arşiv yıllarını üstteki yıl seçiciden inceleyebilir, gerekirse “Aktif yap” ile tekrar düzenlemeye açabilirsiniz. Yeni yıl başlatınca Genel Bakış sayfasının altında “Yıllar Arası Karşılaştırma” kartı iki yılı kıyaslar.</div></div>
-      <div class="ygrid">${st.years.map(y => { const a = String(y) === String(st.active); return `<div class="ycard ${a ? "cur" : ""}" title="${a ? "Aktif yıl · düzenlenebilir" : "Arşiv yılı · salt okunur"}"><b class="yn">${y}</b><span class="ys">${a ? "Aktif" : "Arşiv"}</span>${a ? `<span class="yb" style="visibility:hidden">.</span>` : `<button class="sec yb" data-actyear="${y}">Aktif yap</button>`}</div>`; }).join("")}${st.fid ? `<button class="ycard add" id="newY"><b class="yn">+ ${next || new Date().getFullYear()}</b><span class="ys">Yıl başlat</span></button>` : '<span class="muted">Seçili fabrikada yıl yok.</span>'}</div>
-      ${next ? '<div class="muted" style="font-size:12.5px">Yeni yıl başlatılınca bölümler ve parametreler önceki yıldan kopyalanır.</div>' : ""}</div>
-
+      <div class="ygrid">${st.yearsMeta.map(m => { const y = m.id, a = String(y) === String(st.active), fut = +y > cy, ar = m.archived;
+        const stt = a ? "Aktif" : fut ? "Henüz başlamadı" : ar ? "Arşivde" : "Salt okunur";
+        const btn = a || fut ? `<span class="yb" style="visibility:hidden">.</span>` : ar ? `<button class="sec yb" data-unarch="${y}">Arşivden çıkar</button>` : `<button class="sec yb" data-actyear="${y}">Aktif yap</button>`;
+        return `<div class="ycard ${a ? "cur" : ""} ${ar || fut ? "dim" : ""}" title="${stt}"><button class="yx" data-yx="${y}" aria-label="${y} yılı için seçenekler">×</button><b class="yn">${y}</b><span class="ys">${stt}</span>${btn}</div>`; }).join("")}${st.fid && canStart ? `<button class="ycard add" id="newY"><b class="yn">+ ${next}</b><span class="ys">Yıl başlat</span></button>` : ""}${st.fid ? "" : '<span class="muted">Seçili fabrikada yıl yok.</span>'}</div>
+      ${st.fid && !canStart ? `<div class="muted" style="font-size:12.5px">${next} yılı, ${next} yılı başladığında (1 Ocak ${next}) başlatılabilir. Bugünün tarihi: ${new Date().toLocaleDateString("tr-TR")}.</div>` : ""}
+      ${canStart ? '<div class="muted" style="font-size:12.5px">Yeni yıl başlatılınca bölümler ve parametreler önceki yıldan kopyalanır.</div>' : ""}</div>
     <div class="cd"><div><h2>Görünüm</h2><div class="muted" style="font-size:13px">Tema seçimi bu cihazda saklanır.</div></div>
       <div class="th">${THEMES.map(([k, n, sd, bg, cd]) => `<button class="tb ${k === theme ? "on" : ""}" data-theme="${k}" aria-pressed="${k === theme}">
         <div class="pv"><div style="flex:0 0 28%;background:${sd}"></div><div style="flex:1;background:${bg};display:flex;flex-direction:column;gap:5px;padding:7px"><div style="height:8px;border-radius:4px;background:${cd}"></div><div style="height:8px;width:60%;border-radius:4px;background:#17A06F"></div></div></div><b>${n}</b></button>`).join("")}</div></div>
@@ -387,14 +409,28 @@ async function pageAyarlar(v) {
     const n = $("nf").value.trim(); if (!n) return say("Fabrika adı yazın.");
     const id = await S.addFactory(n, $("nl").value.trim()); S.pref.set("fid", id); await loadContext(); say("Fabrika eklendi."); pageAyarlar(v);
   };
+  v.querySelectorAll("[data-unarch]").forEach(b => b.onclick = async () => { await S.setYearArchived(st.fid, b.dataset.unarch, false); await loadContext(); say(`${b.dataset.unarch} yılı arşivden çıkarıldı.`); pageAyarlar(v); });
+  v.querySelectorAll("[data-yx]").forEach(b => b.onclick = async () => {
+    const y = b.dataset.yx, meta = st.yearsMeta.find(m => m.id === y), isAct = String(y) === String(st.active);
+    const r = await yearMenu(y, { active: isAct, archived: !!meta?.archived });
+    if (r === "arch") { await S.setYearArchived(st.fid, y, true); await loadContext(); say(`${y} yılı arşive taşındı.`); pageAyarlar(v); }
+    if (r === "unarch") { await S.setYearArchived(st.fid, y, false); await loadContext(); say(`${y} yılı arşivden çıkarıldı.`); pageAyarlar(v); }
+    if (r === "del") {
+      const n = await S.yearCounts(st.fid, y).catch(() => 0);
+      if (!(await confirmBox(`${y} yılı kalıcı olarak silinsin mi?`, `${y} yılına ait ${n} aylık kayıt, kurulum ve fotoğraflar silinir. Bu işlem geri alınamaz.`, "Evet, sil", true))) return;
+      await S.deleteYearDeep(st.fid, y); if (S.pref.get("year") === y) S.pref.set("year", ""); await loadContext(); say(`${y} yılı silindi.`); pageAyarlar(v);
+    }
+  });
   v.querySelectorAll("[data-actyear]").forEach(b => b.onclick = async () => {
     const ay = b.dataset.actyear;
+    if (+ay > cy) return say(`${ay} yılı henüz başlamadı; bugünün tarihi ${new Date().toLocaleDateString("tr-TR")}.`);
     if (!confirm(`${ay} yılı aktif yapılsın mı? Şu an aktif olan yıl arşive geçer (salt okunur).`)) return;
     await S.updateFactory(st.fid, { activeYear: ay }); S.pref.set("year", ay); await loadContext(); say(`${ay} yılı aktif yapıldı.`); pageAyarlar(v);
   });
   const ny = $("newY");
   if (ny) ny.onclick = async () => {
-    const y = next || String(new Date().getFullYear());
+    const y = next;
+    if (+y > cy) return say(`${y} yılı henüz başlamadı; ${y} yılı başladığında başlatılabilir.`);
     await S.addYear(st.fid, y);
     if (maxYear) { const prev = await S.getSetup(st.fid, maxYear); if (prev) await S.saveSetup(st.fid, y, { rows: prev.rows, params: prev.params }); }
     await S.updateFactory(st.fid, { activeYear: y }); S.pref.set("year", y); await loadContext(); say(`${y} yılı başlatıldı ve aktif yapıldı.`); pageAyarlar(v);

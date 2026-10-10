@@ -194,3 +194,8 @@ body,html{background:#fff!important}#app{display:block!important}.pg{padding:0!i
 .pbtn{flex-direction:column;justify-content:center;gap:2px;height:60px;width:76px;min-width:0;padding:0 4px;border-radius:10px;font-weight:400}
 .pbtn i{font-size:11px;line-height:1.1;font-weight:500;font-style:italic}
 @media print{[data-brk]{break-inside:avoid}}
+
+.ycard{position:relative}
+.ycard.dim{opacity:.72}
+.ycard .yx{position:absolute;top:4px;right:4px;width:24px;height:24px;min-width:0;padding:0;border-radius:50%;background:transparent;color:#B3261E;border:0;font-size:18px;line-height:1;font-weight:700;display:flex;align-items:center;justify-content:center}
+.ycard.cur .yx{color:#FFB4AB}

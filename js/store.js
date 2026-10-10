@@ -1,5 +1,5 @@
 // Veri katmanı: users/{uid}/factories/{fid}/years/{yıl}/setup/main
-import { auth, db, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, updateDoc, query, orderBy, serverTimestamp, onSnapshot } from "./firebase.js?v=20261010j";
+import { auth, db, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, updateDoc, query, orderBy, serverTimestamp, onSnapshot } from "./firebase.js?v=20261010k";
 
 const uid = () => auth.currentUser.uid;
 const base = () => `users/${uid()}`;
@@ -126,3 +126,18 @@ const fotoRef = (fid, y, id) => doc(db, `${base()}/factories/${fid}/years/${y}/f
 export const savePhoto = (fid, y, id, d) => setDoc(fotoRef(fid, y, id), { d, at: Date.now() });
 export async function getPhoto(fid, y, id) { const s = await getDoc(fotoRef(fid, y, id)); return s.exists() ? s.data().d : null; }
 export const deletePhoto = (fid, y, id) => deleteDoc(fotoRef(fid, y, id));
+
+// Yıl yönetimi: arşivleme ve kalıcı silme
+export async function listYearsMeta(fid) {
+  const s = await getDocs(collection(db, `${base()}/factories/${fid}/years`));
+  return s.docs.map(d => ({ id: d.id, archived: !!(d.data() || {}).archived })).sort((a, b) => (a.id < b.id ? -1 : 1));
+}
+export const setYearArchived = (fid, y, archived) => setDoc(doc(db, `${base()}/factories/${fid}/years/${y}`), { year: Number(y), archived }, { merge: true });
+export async function yearCounts(fid, y) {
+  let n = 0; for (const coll of ["isg", "kaza", "konusma", "isbasi"]) n += (await listMonthDocs(fid, y, coll)).length; return n;
+}
+export async function deleteYearDeep(fid, y) {
+  for (const coll of ["isg", "kaza", "konusma", "isbasi", "foto"]) for (const d of await listMonthDocs(fid, y, coll)) await deleteDoc(monthRef(fid, y, coll, d.id));
+  await deleteDoc(setupRef(fid, y)).catch(() => {});
+  await deleteDoc(doc(db, `${base()}/factories/${fid}/years/${y}`));
+}
