@@ -1,16 +1,16 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261011i";
-import * as S from "./store.js?v=20261011i";
-import * as Prim from "./primary.js?v=20261011i";
-import * as Denetim from "./denetim.js?v=20261011i";
-import * as Kaza from "./kaza.js?v=20261011i";
-import * as Konusma from "./konusma.js?v=20261011i";
-import * as Genel from "./genel.js?v=20261011i";
-import * as Rapor from "./rapor.js?v=20261011i";
-import * as Verim from "./verim.js?v=20261011i";
-import * as Isbasi from "./isbasi.js?v=20261011i";
-import * as Guest from "./guest.js?v=20261011i";
-import { $, esc, ic, toast, modal, confirmBox, formBox, GUEST } from "./ui.js?v=20261011i";
-import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261011i";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261011j";
+import * as S from "./store.js?v=20261011j";
+import * as Prim from "./primary.js?v=20261011j";
+import * as Denetim from "./denetim.js?v=20261011j";
+import * as Kaza from "./kaza.js?v=20261011j";
+import * as Konusma from "./konusma.js?v=20261011j";
+import * as Genel from "./genel.js?v=20261011j";
+import * as Rapor from "./rapor.js?v=20261011j";
+import * as Verim from "./verim.js?v=20261011j";
+import * as Isbasi from "./isbasi.js?v=20261011j";
+import * as Guest from "./guest.js?v=20261011j";
+import { $, esc, ic, toast, modal, confirmBox, formBox, GUEST } from "./ui.js?v=20261011j";
+import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261011j";
 
 const VERSION = "1.2.0";
 const st = { factories: [], years: [], fid: null, year: null, page: "genel", profile: {}, lastSync: new Date() };
@@ -376,7 +376,8 @@ async function pageAyarlar(v) {
   st.profile = profile;
   const name = profile.name || "";
   const cy = new Date().getFullYear(), maxYear = st.yearsAll[st.yearsAll.length - 1];
-  const nextRaw = maxYear ? String(+maxYear + 1) : String(cy), canStart = +nextRaw <= cy, next = nextRaw;
+  const started = st.yearsAll.filter(y => +y <= cy), futYear = st.yearsAll.find(y => +y > cy), lastStarted = started[started.length - 1];
+  const nextRaw = lastStarted ? String(+lastStarted + 1) : String(cy), canStart = !futYear && +nextRaw <= cy, next = nextRaw;
   const counts = {};
   await Promise.all(st.all.map(async f => {
     try { const ys = await S.listYears(f.id); const s = ys.length ? await S.getSetup(f.id, ys[ys.length - 1]) : null; counts[f.id] = s?.rows?.length ?? 0; } catch { counts[f.id] = 0; }
@@ -429,7 +430,7 @@ async function pageAyarlar(v) {
         const stt = a ? "Aktif" : fut ? "Henüz başlamadı" : ar ? "Arşivde" : "Salt okunur";
         const btn = a || fut ? `<span class="ys">${stt}</span>` : ar ? `<button class="sec yb" data-unarch="${y}">Arşivden çıkar</button>` : `<button class="sec yb" data-actyear="${y}">Aktif yap</button>`;
         return `<div class="ycard ${a ? "cur" : ""} ${ar || fut ? "dim" : ""}" title="${stt}"><button class="yx" data-yx="${y}" aria-label="${y} yılı için seçenekler">×</button><b class="yn">${y}</b>${btn}</div>`; }).join("")}${st.fid && canStart ? `<button class="ycard add" id="newY"><b class="yn">+ ${next}</b><span class="ys">Yıl başlat</span></button>` : ""}${st.fid ? "" : '<span class="muted">Seçili fabrikada yıl yok.</span>'}</div>
-      ${st.fid && !canStart ? `<div class="muted" style="font-size:12.5px">${next} yılı, ${next} yılı başladığında (1 Ocak ${next}) başlatılabilir. Bugünün tarihi: ${new Date().toLocaleDateString("tr-TR")}.</div>` : ""}
+      ${st.fid && !canStart ? `<div class="muted" style="font-size:12.5px;line-height:1.6">${futYear ? `${futYear} yılı henüz başlamadı; 1 Ocak ${futYear} tarihinde "Aktif yap" ile başlatılabilir.` : `Yeni yıl (${next}), mevcut yıl bitmeden eklenemez; 1 Ocak ${next} tarihinde başlatılabilir.`} Bugünün tarihi: ${new Date().toLocaleDateString("tr-TR")}.</div>` : ""}
       ${canStart ? '<div class="muted" style="font-size:12.5px">Yeni yıl başlatılınca bölümler ve parametreler önceki yıldan kopyalanır.</div>' : ""}</div>
     <div class="cd"><div><h2>Görünüm</h2><div class="muted" style="font-size:13px">Tema seçimi bu cihazda saklanır.</div></div>
       <div class="th">${THEMES.map(([k, n, sd, bg, cd]) => `<button class="tb ${k === theme ? "on" : ""}" data-theme="${k}" aria-pressed="${k === theme}">
@@ -509,7 +510,7 @@ async function pageAyarlar(v) {
   const ny = $("newY");
   if (ny) ny.onclick = async () => {
     const y = next;
-    if (+y > cy) return say(`${y} yılı henüz başlamadı; ${y} yılı başladığında başlatılabilir.`);
+    if (+y > cy) return say(`${y} yılı henüz başlamadı; 1 Ocak ${y} tarihinde başlatılabilir.`);
     await S.addYear(st.fid, y);
     if (maxYear) { const prev = await S.getSetup(st.fid, maxYear); if (prev) await S.saveSetup(st.fid, y, { rows: prev.rows, params: prev.params }); }
     await S.updateFactory(st.fid, { activeYear: y }); S.pref.set("year", y); await loadContext(); say(`${y} yılı başlatıldı ve aktif yapıldı.`); pageAyarlar(v);
