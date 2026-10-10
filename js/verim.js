@@ -1,9 +1,9 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261011c";
-import { esc } from "./ui.js?v=20261011c";
-import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi } from "./scoring.js?v=20261011c";
-import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261011c";
-import { CATS } from "./isgcats.js?v=20261011c";
+import * as S from "./store.js?v=20261011d";
+import { esc } from "./ui.js?v=20261011d";
+import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi } from "./scoring.js?v=20261011d";
+import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261011d";
+import { CATS } from "./isgcats.js?v=20261011d";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -189,7 +189,6 @@ async function printSheet(info, { size, orient, pics = false, file = false }) {
   const lines = it => Math.ceil((it.dept.length + it.text.length + it.extra.length + 12) / cpl);
   const dl = info.details.reduce((a, g) => a + (info.mk4 ? 1 : 0) + g.items.reduce((b, it) => b + lines(it), 0), 0) + (info.details.length ? 0 : 1);
   const fixed = 80 + 30 + (info.partial ? 40 : 0) + info.notes.reduce((a, t) => a + Math.ceil(t.length / cpl), 0) * 19 + 30 + 40 + 6 * 14;
-  const ch = land ? 300 : 520;
   const n = info.names.length, gap = n > 12 ? 6 : 10, fs = n > 12 ? 11 : 13;
   const now = new Date(), ds = `${String(now.getDate()).padStart(2, "0")}.${String(now.getMonth() + 1).padStart(2, "0")}.${now.getFullYear()}`;
   const usePics = pics && info.details.some(g => g.items.some(i => i.pics?.length)), PH = {};
@@ -197,44 +196,75 @@ async function printSheet(info, { size, orient, pics = false, file = false }) {
   const psz = file ? 302 : Math.round(302 / z); // 8 cm yükseklik
   const picsHtml = a => usePics && a.pics?.length ? `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">${a.pics.map(p => `<img src="${PH[p.id] || p.t}" alt="Fotoğraf" style="height:${psz}px;width:auto;max-width:100%;border-radius:6px;border:1px solid #C3D1CC">`).join("")}</div>` : "";
   const sh = document.createElement("div"); sh.id = "psheet";
-  const build = (ch, z) => { const s = (ch - 60) / 100;
+  const FONT = "font-family:Manrope,system-ui,sans-serif;color:#10201C;display:flex;flex-direction:column;gap:14px;font-size:13px";
+  const items = [];
+  info.details.forEach((g, gi) => g.items.forEach((a, i) => items.push({ gi, mod: g.mod, html: `<div data-brk style="display:flex;gap:8px;line-height:1.45;font-size:12px;break-inside:avoid"><span style="flex:0 0 20px;font-weight:800;color:#0B6E4F">${i + 1}.</span><span>${a.mon ? `<span style="color:#546964">${a.mon} · </span>` : ""}<b>${esc(a.dept)}</b> — ${esc(a.text)} <span style="color:#546964">· ${esc(a.extra)}</span>${picsHtml(a)}</span></div>` })));
+  const group = list => { let out = "", cur = -1; list.forEach(e => { if (e.gi !== cur) { if (cur !== -1) out += "</div>"; cur = e.gi; out += `<div style="display:flex;flex-direction:column;gap:4px">${info.mk4 ? `<div style="font-weight:800;color:#145F96">${esc(e.mod)}</div>` : ""}`; } out += e.html; }); return out + (cur !== -1 ? "</div>" : ""); };
+  const descBox = inner => `<div style="border-top:1px solid #D5E0DC;padding-top:10px;display:flex;flex-direction:column;gap:5px"><div style="font-weight:800;font-size:12px;letter-spacing:.8px;color:#3E534E">AÇIKLAMA</div>${inner}</div>`;
+  const NONE = `<div style="color:#546964">Bu dönem için girilmiş açıklama yok.</div>`;
+  // Parçalar: head (her sayfada tekrarlanır), partial/chart/legend (yalnız 1. sayfa), foot (son sayfa)
+  const parts = (ch, z) => { const s = (ch - 60) / 100;
     const line = (v, l) => `<div style="position:absolute;left:30px;right:0;bottom:${30 + v * s}px;border-top:1px dashed #B5C5BF"></div><div style="position:absolute;left:0;bottom:${30 + v * s - 7}px;font-size:11px;color:#6A7E79">${l}</div>`;
     const bars = info.names.map((nm, i) => { const x = info.vals[i], b = info.bandOf(x); return `<div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:${ch}px">
       <div style="font-size:${fs + 1}px;font-weight:800;margin-bottom:4px">${x === null ? "–" : f1(x)}</div>
       <div style="width:70%;max-width:56px;height:${x === null ? 3 : Math.max(3, Math.round(x * s))}px;background:${b.fill};border-radius:7px 7px 2px 2px"></div>
       <div style="height:30px;line-height:30px;font-size:${fs - 0.5}px;font-weight:600;color:#3E534E;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis">${esc(nm)}</div></div>`; }).join("");
-    return `<div style="width:${cw}px;zoom:${z};font-family:Manrope,system-ui,sans-serif;color:#10201C;display:flex;flex-direction:column;gap:14px;font-size:13px">
-    <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #0B2230;padding-bottom:10px;gap:16px">
+    return {
+      head: `<div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #0B2230;padding-bottom:10px;gap:16px">
       <div><div style="font:700 11px Manrope;letter-spacing:1px;color:#546964">HSE VERİM MODÜLÜ · ${esc(info.fname)}</div><div style="font:700 22px Sora,sans-serif;margin-top:4px">${esc(info.title)}</div><div style="color:#546964;margin-top:2px">${esc(info.plabel)}</div></div>
-      <div style="display:flex;align-items:center;gap:10px;white-space:nowrap"><span style="color:#546964">Tesis ortalaması</span><b style="font:700 26px Sora,sans-serif">${info.av === null ? "–" : f1(info.av)}</b><span style="font-size:12px;font-weight:800;padding:4px 12px;border-radius:999px;background:${info.ab.bg};color:${info.ab.c}">${esc(info.abn)}</span></div></div>
-    ${info.partial ? `<div style="padding:8px 12px;border-radius:8px;background:#FBE9C6;color:#5A3300;font-weight:600">${esc(info.partial)}</div>` : ""}
+      <div style="display:flex;align-items:center;gap:10px;white-space:nowrap"><span style="color:#546964">Tesis ortalaması</span><b style="font:700 26px Sora,sans-serif">${info.av === null ? "–" : f1(info.av)}</b><span style="font-size:12px;font-weight:800;padding:4px 12px;border-radius:999px;background:${info.ab.bg};color:${info.ab.c}">${esc(info.abn)}</span></div></div>`,
+      first: `${info.partial ? `<div style="padding:8px 12px;border-radius:8px;background:#FBE9C6;color:#5A3300;font-weight:600">${esc(info.partial)}</div>` : ""}
     <div style="position:relative;height:${ch}px"><div style="position:absolute;inset:0">${line(50, 50)}${line(75, 75)}${line(90, 90)}</div><div style="position:absolute;left:30px;right:0;top:0;bottom:0;display:flex;gap:${gap}px">${bars}</div></div>
-    <div style="display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:#546964">${[["Mükemmel", `≥ ${num(info.esik.m)}`], ["İyi", `${num(info.esik.i)}-${num(info.esik.m) - 1}`], ["Orta", `${num(info.esik.o)}-${num(info.esik.i) - 1}`], ["Kritik", `< ${num(info.esik.o)}`]].map(([k, r]) => `<span style="display:flex;align-items:center;gap:6px"><span style="width:11px;height:11px;border-radius:3px;background:${BAND[k].fill}"></span>${k} ${r}</span>`).join("")}</div>
-    <div style="border-top:1px solid #D5E0DC;padding-top:10px;display:flex;flex-direction:column;gap:5px"><div style="font-weight:800;font-size:12px;letter-spacing:.8px;color:#3E534E">AÇIKLAMA</div>
-      ${info.details.length ? info.details.map(g => `<div style="display:flex;flex-direction:column;gap:4px">${info.mk4 ? `<div style="font-weight:800;color:#145F96">${esc(g.mod)}</div>` : ""}${g.items.map((a, i) => `<div data-brk style="display:flex;gap:8px;line-height:1.45;font-size:12px;break-inside:avoid"><span style="flex:0 0 20px;font-weight:800;color:#0B6E4F">${i + 1}.</span><span>${a.mon ? `<span style="color:#546964">${a.mon} · </span>` : ""}<b>${esc(a.dept)}</b> — ${esc(a.text)} <span style="color:#546964">· ${esc(a.extra)}</span>${picsHtml(a)}</span></div>`).join("")}</div>`).join("") : `<div style="color:#546964">Bu dönem için girilmiş açıklama yok.</div>`}</div>
-    <div style="color:#6A7E79;font-size:11px;border-top:1px solid #E4ECE9;padding-top:6px">Oluşturma tarihi: ${ds} · HSE Verim Modülü</div></div>`; };
-  sh.innerHTML = build(ch, z);
+    <div style="display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:#546964">${[["Mükemmel", `≥ ${num(info.esik.m)}`], ["İyi", `${num(info.esik.i)}-${num(info.esik.m) - 1}`], ["Orta", `${num(info.esik.o)}-${num(info.esik.i) - 1}`], ["Kritik", `< ${num(info.esik.o)}`]].map(([k, r]) => `<span style="display:flex;align-items:center;gap:6px"><span style="width:11px;height:11px;border-radius:3px;background:${BAND[k].fill}"></span>${k} ${r}</span>`).join("")}</div>`,
+      foot: `<div style="color:#6A7E79;font-size:11px;border-top:1px solid #E4ECE9;padding-top:6px">Oluşturma tarihi: ${ds} · HSE Verim Modülü</div>` }; };
+  const wrap = (inner, z, extra = "") => `<div class="ppg" style="width:${cw}px;zoom:${z};${extra}${FONT}">${inner}</div>`;
+  // Tek sayfa düzeni
+  const build = (ch, z) => { const p = parts(ch); return wrap(p.head + p.first + descBox(items.length ? group(items) : NONE) + p.foot, z); };
+  const avail = Hh - 2 * M - 6;
+  // Çok sayfalı düzen: her sayfada üst bilgi; devam sayfalarında "AÇIKLAMA" başlığı, madde numaraları kesintisiz
+  const paginate = async () => {
+    const pc = land ? 260 : 420, p = parts(pc);
+    sh.style.cssText = `display:block;position:fixed;left:-99999px;top:0;visibility:hidden;width:${cw}px`;
+    sh.innerHTML = `<div style="${FONT.replace("display:flex;flex-direction:column;gap:14px;", "")};width:${cw}px">${items.map(e => e.html).join("")}</div>`;
+    await Promise.all([...sh.querySelectorAll("img")].map(im => im.complete ? 0 : new Promise(r => { im.onload = im.onerror = r; })));
+    const hs = [...sh.firstElementChild.children].map(c => c.offsetHeight);
+    const ph = items.map((e, i) => ({ gi: e.gi, mod: e.mod, html: `<div style="height:${hs[i]}px"></div>` }));
+    const fits = (idx, first, last) => { const list = idx.map(i => ph[i]);
+      sh.innerHTML = wrap(p.head + (first ? p.first : "") + (list.length ? descBox(group(list)) : first && !items.length ? descBox(NONE) : "") + (last ? p.foot : ""), 1);
+      return sh.firstElementChild.offsetHeight <= avail; };
+    const pages = []; let cur = [];
+    for (let i = 0; i < items.length; i++) {
+      if (fits([...cur, i], !pages.length, false)) cur.push(i);
+      else if (!cur.length && pages.length) cur.push(i);
+      else { pages.push(cur); cur = [i]; }
+    }
+    if (!fits(cur, !pages.length, true) && cur.length > 1) { const lastI = cur.pop(); pages.push(cur); cur = [lastI]; }
+    pages.push(cur);
+    return (z, fixed) => pages.map((idx, n) => { const list = idx.map(i => items[i]), first = n === 0, last = n === pages.length - 1;
+      return wrap(p.head + (first ? p.first : "") + (list.length ? descBox(group(list)) : first && !items.length ? descBox(NONE) : "") + (last ? p.foot : ""), z, `height:${avail}px;overflow:hidden;box-sizing:border-box;${fixed && !last ? "break-after:page;" : ""}`); }).join("");
+  };
   const stl = document.createElement("style"); stl.id = "pstyle";
   stl.textContent = `#psheet{display:none}@media print{@page{size:${size} ${orient};margin:${M * 0.2646}mm}html,body{background:#fff!important;margin:0!important;padding:0!important}body>*:not(#psheet){display:none!important}#psheet{display:block!important;width:${cw * z}px;-webkit-print-color-adjust:exact;print-color-adjust:exact}}`;
   document.head.appendChild(stl); document.body.appendChild(sh);
-  // Gerçek yüksekliği ölç, tek sayfaya sığana kadar grafiği küçült
-  const base = land ? 300 : 520, avail = Hh - 2 * M - 6; let c = base;
+  // Gerçek yüksekliği ölç, tek sayfaya sığana kadar grafiği küçült; sığmazsa çok sayfalı düzen
+  const base = land ? 300 : 520; let c = base, single = false;
   sh.style.cssText = "display:block;position:fixed;left:-99999px;top:0;visibility:hidden";
-  if (!usePics) for (; c >= 140; c -= 15) { sh.innerHTML = build(c, 1); if (sh.firstElementChild.offsetHeight <= avail) break; }
+  if (!usePics) for (; c >= 140; c -= 15) { sh.innerHTML = build(c, 1); if (sh.firstElementChild.offsetHeight <= avail) { single = true; break; } }
   const clean = () => { sh.remove(); stl.remove(); window.removeEventListener("afterprint", clean); };
-  const fit = Math.max(140, c), ttl = fileTitle(info.title, info.plabel, size);
+  const fit = single ? c : base, ttl = fileTitle(info.title, info.plabel, size);
+  const pages = single ? null : await paginate();
   if (file) {
     // İstenirse yazdırmadan doğrudan PDF dosyası olarak indir
     try {
-      sh.innerHTML = build(fit, 1);
-      sh.style.cssText = "display:block;position:fixed;left:-99999px;top:0;background:#fff";
-      const el = sh.firstElementChild, top0 = el.getBoundingClientRect().top;
-      const breaks = [...el.querySelectorAll("[data-brk]")].map(x => x.getBoundingClientRect().top - top0).filter(t => t > 0);
-      await savePdf(el, { size, orient, name: ttl + ".pdf", margin: M * 0.75 * z, scale: size === "A3" ? 3 : 2.5, single: !usePics, breaks });
+      sh.innerHTML = single ? build(fit, 1) : pages(1, false);
+      sh.style.cssText = `display:block;position:fixed;left:-99999px;top:0;background:#fff;width:${cw}px`;
+      const el = single ? sh.firstElementChild : sh, top0 = el.getBoundingClientRect().top;
+      const breaks = (single ? [...el.querySelectorAll("[data-brk]")] : [...sh.children]).map(x => x.getBoundingClientRect().top - top0).filter(t => t > 0);
+      await savePdf(el, { size, orient, name: ttl + ".pdf", margin: M * 0.75 * z, scale: size === "A3" ? 3 : 2.5, single, breaks });
       clean(); return;
     } catch (e) { console.warn("PDF üretilemedi, yazdırmaya dönülüyor", e); }
   }
-  sh.innerHTML = build(fit, z); sh.style.cssText = "";
+  sh.innerHTML = single ? build(fit, z) : pages(z, true); sh.style.cssText = "";
   window.addEventListener("afterprint", clean);
   setTimeout(() => withTitle(ttl, () => window.print()), 150);
 }

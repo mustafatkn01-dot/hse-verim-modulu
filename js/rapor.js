@@ -1,9 +1,9 @@
 // Aylık HSE Raporu · kayıtlı verilerden otomatik grafik + açıklama
-import * as S from "./store.js?v=20261011c";
-import { esc } from "./ui.js?v=20261011c";
-import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261011c";
-import { CATS } from "./isgcats.js?v=20261011c";
-import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261011c";
+import * as S from "./store.js?v=20261011d";
+import { esc } from "./ui.js?v=20261011d";
+import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261011d";
+import { CATS } from "./isgcats.js?v=20261011d";
+import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261011d";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -159,7 +159,7 @@ function draw(v, st, setup, data) {
     `<div class="col1" style="gap:10px">${catRows.map(x => `<div style="display:flex;align-items:center;gap:12px"><span style="width:min(190px,34%);flex:0 0 min(190px,34%);font-weight:600;font-size:13.5px">${esc(x.c.name)}</span>
       <div style="flex:1;min-width:40px;height:14px;border-radius:999px;background:#E4ECE9;overflow:hidden"><div style="height:100%;border-radius:999px;width:${Math.round(x.items.length / mx * 100)}%;background:${CCOL[x.ci % 8]}"></div></div><span style="width:28px;text-align:right;font-weight:700">${x.items.length}</span></div>`).join("")}</div>
     <div style="border-top:1px solid var(--line);padding-top:16px;display:flex;flex-direction:column;gap:16px"><div style="font-weight:800;font-size:13px;letter-spacing:.8px;color:var(--muted)">AÇIKLAMA</div>
-    ${catRows.filter(x => x.items.length).map(x => `<div class="col1" style="gap:6px"><div data-brk style="display:flex;align-items:center;gap:10px"><span style="width:10px;height:10px;border-radius:3px;background:${CCOL[x.ci % 8]}"></span><span style="font-weight:800">${esc(x.c.name)}</span></div>
+    ${catRows.filter(x => x.items.length).map(x => `<div class="col1" style="gap:6px"><div data-brk style="display:flex;align-items:center;gap:10px;break-after:avoid"><span style="width:10px;height:10px;border-radius:3px;background:${CCOL[x.ci % 8]}"></span><span style="font-weight:800">${esc(x.c.name)}</span></div>
       ${x.items.map((a, k) => `<div data-brk style="display:flex;gap:10px;line-height:1.55;padding-left:20px"><span style="flex:0 0 22px;font-weight:800;color:#145F96">${k + 1}.</span><span>${g6Body(a, mpre)}</span></div>`).join("")}</div>`).join("") || `<div class="muted">Bu ay uygunsuz bulgu yok.</div>`}</div>`) : "";
 
   // Kapsam + ramak kala
@@ -215,8 +215,8 @@ function draw(v, st, setup, data) {
     if (!o) return;
     if (o.pics !== R.pics) { R.pics = o.pics; const cb = document.getElementById("rPic"); if (cb) cb.checked = o.pics; draw(v, st, setup, data); }
     if (R.pics) await hydrate(v, st);
-    const ttl = fileTitle(`${multi ? PER[R.per] : "Aylık"} HSE Raporu`, plabel, o.size);
-    if (o.file) { try { await saveReportPdf(document.getElementById("view") || v, { ...o, name: ttl + ".pdf" }); return; } catch (e) { console.warn("PDF üretilemedi, yazdırmaya dönülüyor", e); } }
-    printCurrent({ ...o, name: ttl });
+    const ttl = fileTitle(`${multi ? PER[R.per] : "Aylık"} HSE Raporu`, plabel, o.size), header = `HSE VERİM MODÜLÜ · ${fname} · ${multi ? PER[R.per] : "Aylık"} HSE Raporu · ${plabel}`;
+    if (o.file) { try { await saveReportPdf(document.getElementById("view") || v, { ...o, name: ttl + ".pdf", header }); return; } catch (e) { console.warn("PDF üretilemedi, yazdırmaya dönülüyor", e); } }
+    printCurrent({ ...o, name: ttl, header });
   };
 }
