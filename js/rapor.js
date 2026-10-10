@@ -1,9 +1,9 @@
 // Aylık HSE Raporu · kayıtlı verilerden otomatik grafik + açıklama
-import * as S from "./store.js?v=20261010h";
-import { esc } from "./ui.js?v=20261010h";
-import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261010h";
-import { CATS } from "./isgcats.js?v=20261010h";
-import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261010h";
+import * as S from "./store.js?v=20261010i";
+import { esc } from "./ui.js?v=20261010i";
+import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261010i";
+import { CATS } from "./isgcats.js?v=20261010i";
+import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261010i";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -14,7 +14,7 @@ const CCOL = ["#2A82C4", "#17A06F", "#D6382E", "#F5B700", "#2A82C4", "#8A6FD1", 
 const pad = n => String(n).padStart(2, "0");
 const f1 = n => n.toFixed(1).replace(".", ",");
 const fin = x => (typeof x === "number" && isFinite(x) ? x : null);
-const R = { month: null, per: "m", key: "", pics: false, ph: {} };
+const R = { month: null, per: "m", key: "", pics: false, ph: {}, off: new Set() };
 const PER = { m: "Aylık", q: "3 Aylık (Ç1)", h: "6 Aylık (Ç2)", n: "9 Aylık (Ç3)", y: "Yıllık" };
 const PN = { q: "1. çeyrek · Ocak-Mart", h: "2. çeyrek · Ocak-Haziran (kümülatif)", n: "3. çeyrek · Ocak-Eylül (kümülatif)", y: "Ocak-Aralık" };
 const LAST = { q: 3, h: 6, n: 9, y: 12 };
@@ -186,15 +186,18 @@ function draw(v, st, setup, data) {
       <button id="rPdf" style="height:44px;padding:0 20px;border-radius:12px;background:#0B6E4F;color:#fff;font-weight:700">PDF indir</button></div></div>
   ${partial ? `<div class="warn">Kısmi dönem: ${ms.length} aydan ${monthsWith.size} tanesi için veri var. Değerler mevcut aylar üzerinden hesaplandı.</div>` : ""}
   ${anyData ? "" : `<div class="warn">${plabel} için kayıtlı veri bulunamadı. Başka bir ay seçin veya aylık giriş sayfalarından veri kaydedin.</div>`}
-  <div class="cd" style="flex-direction:row;flex-wrap:wrap;gap:12px;align-items:center;padding:14px 18px"><span style="font-weight:700">Rapora dahil:</span>${inc.map(t => `<span style="display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:#D9F1E6;color:#0B6E4F;font-weight:700;font-size:13px">&#10003; ${esc(t)}</span>`).join("")}</div>
-  ${card("Grafik 1 · Bölüm HSE Verimi (Genel)", `${plabel} · tesis ortalaması ${avg === null ? "–" : f1(avg)}`, first1 + (anyData ? notesBox(c1) : ""))}
-  ${anyData ? card("Grafik 2 · Modül Verimleri", `Ağırlıklı toplam ${wTot === null ? "–" : f1(wTot)} · ağırlıklar ${W.join(" / ")}`, `<div class="col1" style="gap:10px">${g2}</div>` + notesBox(c2)) : ""}
-  ${anyData ? modCard("kaza", 0, "Grafik 3 · İş Kazası Verimi", `${plabel} · kaza ceza puanı × bölüm katsayısı`, nk) : ""}
-  ${anyData ? modCard("konusma", 1, "Grafik 4 · Eğitim Konuşması Verimi", `${plabel} · gerçekleşen süre / (kişi × hedef süre × katsayı)`, nn) : ""}
-  ${anyData ? modCard("isbasi", 2, "Grafik 5 · İşbaşı Eğitim Verimi", `${plabel} · eğitim oranı × ZTF (gecikme) × TC (düzensizlik)`, ni) : ""}
-  ${anyData && modHas[3] ? card("İSG Denetim Verimi", `${plabel} · denetim sıklığı × kategori ağırlığı × bölüm katsayısı + ramak kala bonusu`, modBars("isg")) : ""}
-  ${g6}${scope}
+  <div class="cd" style="flex-direction:row;flex-wrap:wrap;gap:12px;align-items:center;padding:14px 18px"><span style="font-weight:700">Rapora dahil:</span>${inc.map(t => t === plabel ? `<span style="display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:#D9F1E6;color:#0B6E4F;font-weight:700;font-size:13px">&#10003; ${esc(t)}</span>`
+    : R.off.has(t) ? `<button class="incb noprint" data-inc="${esc(t)}" aria-pressed="false" title="Rapora eklemek için dokunun" style="display:flex;align-items:center;gap:8px;padding:6px 12px;height:auto;min-height:0;border-radius:999px;background:#fff;color:#10201C;border:1px solid #C3D1CC;font-weight:600;font-size:13px">${esc(t)}</button>`
+    : `<button class="incb" data-inc="${esc(t)}" aria-pressed="true" title="Rapordan çıkarmak için dokunun" style="display:flex;align-items:center;gap:8px;padding:6px 12px;height:auto;min-height:0;border-radius:999px;background:#D9F1E6;color:#0B6E4F;border:1px solid #D9F1E6;font-weight:700;font-size:13px">&#10003; ${esc(t)}</button>`).join("")}</div>
+  ${!R.off.has("Genel verim") ? card("Grafik 1 · Bölüm HSE Verimi (Genel)", `${plabel} · tesis ortalaması ${avg === null ? "–" : f1(avg)}`, first1 + (anyData ? notesBox(c1) : "")) : ""}
+  ${anyData && !R.off.has("Modül verimleri") ? card("Grafik 2 · Modül Verimleri", `Ağırlıklı toplam ${wTot === null ? "–" : f1(wTot)} · ağırlıklar ${W.join(" / ")}`, `<div class="col1" style="gap:10px">${g2}</div>` + notesBox(c2)) : ""}
+  ${anyData && !R.off.has(TITLE[0]) ? modCard("kaza", 0, "Grafik 3 · İş Kazası Verimi", `${plabel} · kaza ceza puanı × bölüm katsayısı`, nk) : ""}
+  ${anyData && !R.off.has(TITLE[1]) ? modCard("konusma", 1, "Grafik 4 · Eğitim Konuşması Verimi", `${plabel} · gerçekleşen süre / (kişi × hedef süre × katsayı)`, nn) : ""}
+  ${anyData && !R.off.has(TITLE[2]) ? modCard("isbasi", 2, "Grafik 5 · İşbaşı Eğitim Verimi", `${plabel} · eğitim oranı × ZTF (gecikme) × TC (düzensizlik)`, ni) : ""}
+  ${anyData && modHas[3] && !R.off.has(TITLE[3]) ? card("İSG Denetim Verimi", `${plabel} · denetim sıklığı × kategori ağırlığı × bölüm katsayısı + ramak kala bonusu`, modBars("isg")) : ""}
+  ${R.off.has("İSG bulgu dağılımı") ? "" : g6}${R.off.has(TITLE[3]) ? "" : scope}
   <div class="muted" style="font-size:13px;line-height:1.6">Dönem raporlarında bölüm değerleri, verisi olan ayların ortalamasıdır (kümülatif: Ç1 Ocak-Mart, Ç2 Ocak-Haziran, Ç3 Ocak-Eylül). Açıklamalar, aylık giriş sayfalarında yazılan notlardan derlenir (İSG için "Uygunsuz" işaretli maddelerin notları). Metni değiştirmek için ilgili kaydı güncelleyin; rapor kendiliğinden yenilenir. PDF için tarayıcının yazdırma penceresinde "PDF olarak kaydet" seçin.</div>`;
+  v.querySelectorAll("[data-inc]").forEach(b => b.onclick = () => { const k = b.dataset.inc; R.off.has(k) ? R.off.delete(k) : R.off.add(k); draw(v, st, setup, data); });
   const rp = document.getElementById("rPic"); if (rp) rp.onchange = e => { R.pics = e.target.checked; draw(v, st, setup, data); };
   if (R.pics) hydrate(v, st);
   document.getElementById("rPer").onchange = e => { R.per = e.target.value; draw(v, st, setup, data); };
