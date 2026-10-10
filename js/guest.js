@@ -3,8 +3,8 @@
 //   users/{sahip}/invites/{kod}        davet (e-posta ayarı kopyası)
 //   users/{sahip}/guestReqs/{misafirUid}  onay isteği {gid, code, name, email, status, at}
 //   users/{sahip}/members/{misafirUid}    onaylı üye {name, email, factories[], mode, expires|null}
-import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously } from "./firebase.js?v=20261010l";
-import { esc, toast } from "./ui.js?v=20261010l";
+import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously } from "./firebase.js?v=20261010m";
+import { esc, toast } from "./ui.js?v=20261010m";
 
 const Q = new URLSearchParams(location.search);
 export const linkInfo = () => {
@@ -68,7 +68,9 @@ export function showRequest({ owner, code, note = "" }, onApproved) {
       if (ex.exists()) await updateDoc(REQ(owner, gid), body); else await setDoc(REQ(owner, gid), body);
       try { localStorage.setItem("hse_gname", JSON.stringify({ n: name, e: email })); } catch {}
       storeOwner(owner);
-      const sent = await sendMail(inv.data().emailjs, { guest_name: name, guest_email: email, approve_link: `${location.origin}${location.pathname}?onay=${gid}` });
+      const link = `${location.origin}${location.pathname}?onay=${gid}`;
+      const [m1, m2] = await Promise.all([sendMail(inv.data().emailjs, { guest_name: name, guest_email: email, approve_link: link }), sendPush(inv.data().ntfy, { name, email, link })]);
+      const sent = m1 || m2;
       sending = false; waiting({ owner, code, gid, sent }, onApproved);
     } catch (e) { sending = false; document.getElementById("gSend").disabled = false; err(e.code === "auth/admin-restricted-operation" || e.code === "auth/operation-not-allowed" ? "Misafir girişi Firebase'de kapalı. Yetkili kullanıcı: Konsol → Authentication → Sign-in method → Anonim girişi etkinleştirin." : (e.message || String(e))); }
   };
@@ -83,11 +85,21 @@ async function sendMail(cfg, params) {
   } catch { return false; }
 }
 
+// Telefon bildirimi (ntfy.sh): sahip telefonuna anında push gönderir; uygulama kapalıyken de çalışır
+async function sendPush(topic, { name, email, link }) {
+  if (!topic) return false;
+  try {
+    const r = await fetch("https://ntfy.sh/", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ topic, title: "HSE Verim · Misafir onay isteği", message: `${name} (${email}) erişim istiyor. Onaylamak için dokunun.`, click: link, priority: 4, tags: ["bust_in_silhouette"] }) });
+    return r.ok;
+  } catch { return false; }
+}
+
 // Onay bekleme ekranı: istek durumunu canlı izler
 export function waiting({ owner, gid, code, sent }, onApproved) {
   const s = screen();
   s.innerHTML = boxHtml(`<h2 style="margin-bottom:6px">Onay bekleniyor</h2>
-    <div class="muted" style="line-height:1.55">İsteğiniz yetkili kullanıcıya iletildi${sent ? " (e-posta gönderildi)" : " (e-posta bildirimi kapalı; yetkili kullanıcı uygulamada isteğinizi görür)"}. Onaylandığında bu ekran kendiliğinden açılır. Bu sayfayı kapatabilirsiniz; aynı cihazdan tekrar açtığınızda kaldığınız yerden devam edersiniz.</div>
+    <div class="muted" style="line-height:1.55">İsteğiniz yetkili kullanıcıya iletildi${sent ? " (bildirim gönderildi)" : " (bildirim ayarı kapalı; yetkili kullanıcı uygulamada isteğinizi görür)"}. Onaylandığında bu ekran kendiliğinden açılır. Bu sayfayı kapatabilirsiniz; aynı cihazdan tekrar açtığınızda kaldığınız yerden devam edersiniz.</div>
     <div class="row" style="margin-top:14px"><button class="sec" id="gAgain">İsteği yenile</button></div>`);
   document.getElementById("gAgain").onclick = () => { off(); showRequest({ owner, code }, onApproved); };
   const off = onSnapshot(REQ(owner, gid), async snap => {
@@ -106,6 +118,24 @@ export async function pendingState(owner, gid) {
 export function showExpired({ owner, code, member }, onApproved) {
   const note = member ? (isLive(member) ? "" : "Erişim süreniz doldu. Devam etmek için yeniden onay isteyin.") : "";
   showRequest({ owner, code: code || "", note }, onApproved);
+}
+
+// ---------------- Sahip: uygulama açıkken canlı bildirim ----------------
+export async function notify(title, body, url) {
+  try {
+    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+    const reg = await navigator.serviceWorker?.getRegistration();
+    if (reg) await reg.showNotification(title, { body, icon: "icons/icon-192.png", badge: "icons/icon-192.png", tag: "hse-guest", renotify: true, data: { url } });
+  } catch {}
+}
+export function watchRequests(ownerUid, cb) {
+  let first = true;
+  return onSnapshot(collection(db, `users/${ownerUid}/guestReqs`), snap => {
+    const pend = snap.docs.map(d => d.data()).filter(d => d.status === "pending");
+    if (first) { first = false; if (pend.length) cb(pend, true); return; }
+    const add = snap.docChanges().filter(c => (c.type === "added" || c.type === "modified") && c.doc.data().status === "pending").map(c => c.doc.data());
+    if (add.length) cb(add, false);
+  }, () => {});
 }
 
 // ---------------- Sahip: onay penceresi ----------------
@@ -158,14 +188,17 @@ export async function renderSettings(box, { ownerUid, factories, onChange }) {
     <div class="col1" style="gap:8px"><span class="hd">MİSAFİRLER (${mems.length})</span>
       ${mems.map(m => { const live = isLive(m); return `<div class="it" style="gap:10px;flex-wrap:wrap"><div class="grow"><b>${esc(m.name)}</b> <span class="tag" style="${live ? "" : "background:#FADAD7;color:#8E1B16"}">${esc(leftText(m))}</span><div class="muted" style="font-size:12.5px">${esc(m.email)} · ${esc(fname(m.factories))}</div></div>
         <div class="row" style="gap:6px"><button class="sm sec" data-perm="${m.id}">Süresiz yap</button><button class="sm sec" data-h24="${m.id}">24 saat</button><button class="sm sec" data-fac="${m.id}">Fabrikalar</button><button class="sm sec" data-rm="${m.id}" style="color:#B3261E;border-color:#B3261E">Erişimi kaldır</button></div></div>`; }).join("") || '<span class="muted">Henüz onaylı misafir yok.</span>'}</div>
+    <details ${cfg.ntfy ? "" : "open"}><summary style="cursor:pointer;font-weight:700">Telefon bildirimi (önerilen, ücretsiz)</summary><div class="col1" style="gap:8px;margin-top:10px">
+      <div class="muted" style="font-size:12.5px;line-height:1.6">Misafir “Onay Gönder”e bastığında telefonunuza anında bildirim gelir; uygulama kapalı olsa bile. Bildirime dokununca onay ekranı açılır.<br><b>1.</b> Telefonunuza <b>ntfy</b> uygulamasını kurun (Play Store / App Store).<br><b>2.</b> Aşağıdan “Bildirim kodu oluştur”a basın.<br><b>3.</b> ntfy'de <b>+</b> ile aşağıdaki kodu abone olun (sunucu: ntfy.sh).<br><b>4.</b> “Test bildirimi gönder” ile deneyin.</div>
+      ${cfg.ntfy ? `<input class="inp" id="gTopic" readonly value="${esc(cfg.ntfy)}" onfocus="this.select()"><div class="row"><button class="sm" id="gTest">Test bildirimi gönder</button><button class="sm sec" id="gTopicCopy">Kodu kopyala</button><button class="sm sec" id="gTopicNew">Kodu yenile</button><button class="sm sec" id="gTopicOff">Kapat</button></div>` : `<div><button class="sm" id="gTopicNew">Bildirim kodu oluştur</button></div>`}</div></details>
     <details><summary style="cursor:pointer;font-weight:700">E-posta bildirimi (isteğe bağlı)</summary><div class="col1" style="gap:8px;margin-top:10px">
-      <div class="muted" style="font-size:12.5px;line-height:1.55">Misafir “Onay Gönder”e basınca size e-posta gelmesi için ücretsiz <b>EmailJS</b> hesabı açın (emailjs.com): bir e-posta servisi bağlayın ve bir şablon oluşturun. Şablonda <b>To Email</b> alanına kendi adresinizi yazın; metinde <code>{{guest_name}}</code>, <code>{{guest_email}}</code> ve <code>{{approve_link}}</code> değişkenlerini kullanın. Aşağıya Service ID, Template ID ve Public Key'i girin. Boş bırakırsanız istekler yalnızca bu sayfada görünür.</div>
+      <div class="muted" style="font-size:12.5px;line-height:1.55">Ücretsiz <b>EmailJS</b> hesabıyla e-posta da gönderilebilir. Service ID, Template ID ve Public Key'i girin. Şablonda <code>{{guest_name}}</code>, <code>{{guest_email}}</code> ve <code>{{approve_link}}</code> değişkenleri kullanılır. Boş bırakırsanız e-posta gitmez.</div>
       <input class="inp" id="gSvc" placeholder="Service ID" value="${esc(cfg.service || "")}"><input class="inp" id="gTpl" placeholder="Template ID" value="${esc(cfg.template || "")}"><input class="inp" id="gKey" placeholder="Public Key" value="${esc(cfg.key || "")}">
       <div><button class="sm" id="gCfg">Kaydet</button></div></div></details>`;
   const q = s => box.querySelector(s), refresh = () => { renderSettings(box, { ownerUid, factories, onChange }); onChange?.(); };
   const mk = async () => {
     for (const i of invs) await deleteDoc(doc(db, `users/${ownerUid}/invites/${i.id}`)).catch(() => {});
-    const c = cfgD?.exists() ? cfg : {}; await setDoc(doc(db, `users/${ownerUid}/invites/${rnd()}`), { createdAt: Date.now(), emailjs: c.service && c.template && c.key ? { service: c.service, template: c.template, key: c.key } : null });
+    const c = cfgD?.exists() ? cfg : {}; await setDoc(doc(db, `users/${ownerUid}/invites/${rnd()}`), { createdAt: Date.now(), ntfy: c.ntfy || null, emailjs: c.service && c.template && c.key ? { service: c.service, template: c.template, key: c.key } : null });
     refresh();
   };
   q("#gMake") && (q("#gMake").onclick = mk);
@@ -174,10 +207,19 @@ export async function renderSettings(box, { ownerUid, factories, onChange }) {
   q("#gShare") && (q("#gShare").onclick = async () => { if (navigator.share) { try { await navigator.share({ title: "HSE Verim Modülü · Misafir erişimi", text: "HSE Verim Modülü misafir erişim bağlantısı:", url: link }); } catch {} } else { try { await navigator.clipboard.writeText(link); toast("Bağlantı kopyalandı."); } catch {} } });
   q("#gCfg").onclick = async () => {
     const c = { service: q("#gSvc").value.trim(), template: q("#gTpl").value.trim(), key: q("#gKey").value.trim() };
-    await setDoc(doc(db, `users/${ownerUid}/meta/guestcfg`), c);
+    await setDoc(doc(db, `users/${ownerUid}/meta/guestcfg`), c, { merge: true });
     if (inv) await updateDoc(doc(db, `users/${ownerUid}/invites/${inv.id}`), { emailjs: c.service && c.template && c.key ? c : null });
     toast("E-posta ayarı kaydedildi.");
   };
+  const setTopic = async t => {
+    await setDoc(doc(db, `users/${ownerUid}/meta/guestcfg`), { ntfy: t }, { merge: true });
+    if (inv) await updateDoc(doc(db, `users/${ownerUid}/invites/${inv.id}`), { ntfy: t });
+    refresh();
+  };
+  q("#gTopicNew") && (q("#gTopicNew").onclick = () => { if (!cfg.ntfy || confirm("Yeni kod oluşturulunca ntfy'de yeniden abone olmanız gerekir. Devam edilsin mi?")) setTopic("hse-" + rnd() + rnd()); });
+  q("#gTopicOff") && (q("#gTopicOff").onclick = () => setTopic(null));
+  q("#gTopicCopy") && (q("#gTopicCopy").onclick = async () => { try { await navigator.clipboard.writeText(cfg.ntfy); toast("Kod kopyalandı."); } catch { q("#gTopic").select(); } });
+  q("#gTest") && (q("#gTest").onclick = async () => { const ok = await sendPush(cfg.ntfy, { name: "Test Kullanıcı", email: "test@ornek.com", link: location.origin + location.pathname }); toast(ok ? "Test bildirimi gönderildi; telefonunuza gelmesi gerekir." : "Gönderilemedi; internet bağlantısını kontrol edin."); });
   box.querySelectorAll("[data-rv]").forEach(b => b.onclick = () => approvalDialog(ownerUid, b.dataset.rv, factories, refresh));
   box.querySelectorAll("[data-perm]").forEach(b => b.onclick = async () => { await updateDoc(MEM(ownerUid, b.dataset.perm), { mode: "perm", expires: null }); toast("Erişim süresiz yapıldı."); refresh(); });
   box.querySelectorAll("[data-h24]").forEach(b => b.onclick = async () => { await updateDoc(MEM(ownerUid, b.dataset.h24), { mode: "24h", expires: new Date(Date.now() + 864e5) }); toast("Erişim 24 saat uzatıldı."); refresh(); });

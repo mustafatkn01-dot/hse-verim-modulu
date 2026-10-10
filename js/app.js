@@ -1,16 +1,16 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261010l";
-import * as S from "./store.js?v=20261010l";
-import * as Prim from "./primary.js?v=20261010l";
-import * as Denetim from "./denetim.js?v=20261010l";
-import * as Kaza from "./kaza.js?v=20261010l";
-import * as Konusma from "./konusma.js?v=20261010l";
-import * as Genel from "./genel.js?v=20261010l";
-import * as Rapor from "./rapor.js?v=20261010l";
-import * as Verim from "./verim.js?v=20261010l";
-import * as Isbasi from "./isbasi.js?v=20261010l";
-import * as Guest from "./guest.js?v=20261010l";
-import { $, esc, ic, toast, modal, confirmBox, formBox, GUEST } from "./ui.js?v=20261010l";
-import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261010l";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261010m";
+import * as S from "./store.js?v=20261010m";
+import * as Prim from "./primary.js?v=20261010m";
+import * as Denetim from "./denetim.js?v=20261010m";
+import * as Kaza from "./kaza.js?v=20261010m";
+import * as Konusma from "./konusma.js?v=20261010m";
+import * as Genel from "./genel.js?v=20261010m";
+import * as Rapor from "./rapor.js?v=20261010m";
+import * as Verim from "./verim.js?v=20261010m";
+import * as Isbasi from "./isbasi.js?v=20261010m";
+import * as Guest from "./guest.js?v=20261010m";
+import { $, esc, ic, toast, modal, confirmBox, formBox, GUEST } from "./ui.js?v=20261010m";
+import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261010m";
 
 const VERSION = "1.0.0";
 const st = { factories: [], years: [], fid: null, year: null, page: "genel", profile: {}, lastSync: new Date() };
@@ -65,7 +65,8 @@ async function doSignOut() {
   K.key = ""; await signOut(auth);
 }
 const LINK = Guest.linkInfo();
-let unwatchG = null, guestTimer = null;
+let unwatchG = null, guestTimer = null, unwatchReq = null;
+try { navigator.serviceWorker?.register("./sw.js"); } catch {}
 function showOnly(which) { // "login" | "app" | "none"
   $("login").classList.toggle("hide", which !== "login");
   $("app").classList.toggle("hide", which !== "app");
@@ -115,6 +116,14 @@ onAuthStateChanged(auth, async user => {
     S.getProfile().then(p => { st.profile = p; }).catch(() => {});
     await loadContext(); go(location.hash.slice(1) || "genel");
     Prim.handleLanding(t => { toast(t); if (st.page === "ayarlar") render(); });
+    unwatchReq?.();
+    unwatchReq = Guest.watchRequests(user.uid, (list, initial) => {
+      const r = list[list.length - 1], n = list.length;
+      const msg = initial ? `${n} misafir isteği onay bekliyor.` : `${r.name} misafir erişimi istiyor.`;
+      toast(msg); Guest.notify("HSE Verim · Misafir onay isteği", msg, `${location.pathname}?onay=${r.gid}`);
+      if (!initial && !document.querySelector(".mod")) Guest.approvalDialog(user.uid, r.gid, st.all, () => { if (st.page === "ayarlar") render(); });
+      else if (st.page === "ayarlar") render();
+    });
     if (LINK?.type === "approve") { Guest.clearLink(); Guest.approvalDialog(user.uid, LINK.gid, st.all, () => { if (st.page === "ayarlar") render(); }); }
   }
 });
