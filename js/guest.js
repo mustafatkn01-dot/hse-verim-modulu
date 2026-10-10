@@ -3,8 +3,8 @@
 //   users/{sahip}/invites/{kod}        davet (e-posta ayarı kopyası)
 //   users/{sahip}/guestReqs/{misafirUid}  onay isteği {gid, code, name, email, status, at}
 //   users/{sahip}/members/{misafirUid}    onaylı üye {name, email, factories[], mode, expires|null}
-import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously } from "./firebase.js?v=20261010r";
-import { esc, toast } from "./ui.js?v=20261010r";
+import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously } from "./firebase.js?v=20261010s";
+import { esc, toast } from "./ui.js?v=20261010s";
 
 const Q = new URLSearchParams(location.search);
 export const linkInfo = () => {
@@ -64,8 +64,7 @@ export function showRequest({ owner, code, note = "" }, onApproved) {
       const inv = await getDoc(doc(db, `users/${owner}/invites/${code}`));
       if (!inv.exists()) throw new Error("Davet bağlantısı geçersiz veya yenilenmiş. Yetkili kullanıcıdan yeni bağlantı isteyin.");
       const body = { gid, code, name, email, status: "pending", at: Date.now() };
-      const ex = await getDoc(REQ(owner, gid));
-      if (ex.exists()) await updateDoc(REQ(owner, gid), body); else await setDoc(REQ(owner, gid), body);
+      await setDoc(REQ(owner, gid), body); // tam değiştirme: eski karar alanları (decidedAt) temizlenir
       try { localStorage.setItem("hse_gname", JSON.stringify({ n: name, e: email })); } catch {}
       storeOwner(owner);
       const link = `${location.origin}${location.pathname}?onay=${gid}`;
