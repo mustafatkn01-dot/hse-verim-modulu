@@ -1,7 +1,7 @@
 // İş Kazası · Aylık Giriş
-import * as S from "./store.js?v=20261011a";
-import { esc, ic, toast, noteEditor, guestLock, roText } from "./ui.js?v=20261011a";
-import { katsayi, bandOf, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261011a";
+import * as S from "./store.js?v=20261011b";
+import { esc, ic, toast, noteEditor, guestLock, roText } from "./ui.js?v=20261011b";
+import { katsayi, bandOf, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261011b";
 
 const COLL = "kaza";
 const T = [["Gün kayıpsız", 2], ["1-5 gün kayıplı", 5], ["5-20 gün kayıplı", 10], ["20+ gün kayıplı", 20], ["Uzuv kaybı", 50], ["Ölüm", 100]];
@@ -92,7 +92,7 @@ function draw() {
   });
   v.querySelectorAll("[data-note]").forEach(b => b.onclick = async () => {
     const id = b.dataset.note, name = D.setup.rows.find(r => r.id === id).name;
-    const r = await noteEditor({ title: `Açıklama · ${name}`, item: "Kaza nerede, nasıl oldu?", text: rowOf(id).note, question: "Kaza nerede, nasıl oldu?" });
+    const r = await noteEditor({ title: `Açıklama · ${name}`, item: "Kaza nerede, nasıl oldu?", text: rowOf(id).note, question: "Kaza nerede, nasıl oldu?" , example: "Örn. Pres-2 operatörü parmağını sıkıştırdı; ilk yardım verildi, revire sevk edildi." });
     if (r === null) return; rowOf(id).note = r; re();
   });
   $("saveK").onclick = async () => {

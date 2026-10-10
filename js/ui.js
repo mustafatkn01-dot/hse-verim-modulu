@@ -21,7 +21,7 @@ export async function confirmBox(title, text, yes, danger = false) {
 export const formBox = (title, fields) => modal(`<h2>${esc(title)}</h2>${fields.map(([n, l, v]) => `<div><label>${esc(l)}</label><input name="${n}" value="${esc(v)}"></div>`).join("")}<div class="row" style="justify-content:flex-end;margin-top:6px"><button class="sec" data-no>İptal</button><button data-yes>Kaydet</button></div>`);
 
 // Büyük açıklama penceresi + sesle yazma (tr-TR). Kaydet → metni döner, vazgeç → null
-export function noteEditor({ title, item, text, question = "Hangi makine veya alanda, ne gibi bir uygunsuzluk var?" }) {
+export function noteEditor({ title, item, text, question = "Hangi makine veya alanda, ne gibi bir uygunsuzluk var?", example = "Örn. Pres-2 koruyucu kapağı açık bırakılmış; operatör müdahale ediyor." }) {
   return new Promise(res => {
     const m = document.createElement("div"); m.className = "mod";
     m.innerHTML = `<div class="mbox ed" role="dialog" aria-modal="true" aria-label="Açıklama düzenle">
@@ -29,7 +29,7 @@ export function noteEditor({ title, item, text, question = "Hangi makine veya al
         <div class="grow"><b style="font:600 16px Sora,sans-serif">${esc(title)}</b><div class="muted" style="font-size:12.5px">${esc(item)}</div></div>
         <button class="sec xq" data-x aria-label="Vazgeç">×</button></div>
       <div class="edb"><div class="hd">${esc(question)}</div>
-        <textarea id="edTxt" rows="8" placeholder="Örn. Pres-2 koruyucu kapağı açık bırakılmış; operatör müdahale ediyor.">${esc(text)}</textarea>
+        <textarea id="edTxt" rows="8" placeholder="${esc(example)}">${esc(text)}</textarea>
         <div class="row"><button class="sec vb" data-voice>${ic('<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>')}<span id="vTxt">Konuşarak yaz</span></button>
           <span class="muted" id="vNote" style="font-size:12.5px;flex:1 1 200px">Mikrofona dokunup Türkçe konuşun, metin otomatik yazılır.</span></div>
         <div class="muted" style="font-size:12.5px">Yeşil işaret açıklamayı kaydeder ve forma döner.</div></div></div>`;

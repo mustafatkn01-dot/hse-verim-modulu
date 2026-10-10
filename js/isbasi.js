@@ -1,7 +1,7 @@
 // İşbaşı Eğitim · Aylık Giriş
-import * as S from "./store.js?v=20261011a";
-import { esc, ic, toast, noteEditor, guestLock, roText } from "./ui.js?v=20261011a";
-import { katsayi, ztfRamp, bandOf, num, c2, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261011a";
+import * as S from "./store.js?v=20261011b";
+import { esc, ic, toast, noteEditor, guestLock, roText } from "./ui.js?v=20261011b";
+import { katsayi, ztfRamp, bandOf, num, c2, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261011b";
 
 const COLL = "isbasi";
 const BAND = { Mükemmel: ["#17A06F", "#0B6E4F", "#D9F1E6"], İyi: ["#2A82C4", "#145F96", "#DCEAF7"], Orta: ["#E8A512", "#6B3F00", "#FBE9C6"], Kritik: ["#D6382E", "#B3261E", "#FADAD7"] };
@@ -116,7 +116,7 @@ function draw() {
   v.querySelectorAll("[data-e]").forEach(el => el.onchange = () => { rowOf(el.dataset.e).e = el.value.trim(); re(); });
   v.querySelectorAll("[data-note]").forEach(b => b.onclick = async () => {
     const id = b.dataset.note, name = D.setup.rows.find(r => r.id === id).name;
-    const r = await noteEditor({ title: `Açıklama · ${name}`, item: "Verim neden düştü? (gecikme, yüksek sirkülasyon, eğitim verilememesi)", text: rowOf(id).note, question: "Verim neden düştü?" });
+    const r = await noteEditor({ title: `Açıklama · ${name}`, item: "Verim neden düştü? (gecikme, yüksek sirkülasyon, eğitim verilememesi)", text: rowOf(id).note, question: "Verim neden düştü?" , example: "Örn. Yüksek sirkülasyon nedeniyle yeni girişlere eğitim verilemedi; 3 kişi eğitim bekliyor." });
     if (r === null) return; rowOf(id).note = r; re();
   });
   $("saveK").onclick = async () => {

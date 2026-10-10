@@ -1,9 +1,9 @@
 // Aylık HSE Raporu · kayıtlı verilerden otomatik grafik + açıklama
-import * as S from "./store.js?v=20261011a";
-import { esc } from "./ui.js?v=20261011a";
-import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261011a";
-import { CATS } from "./isgcats.js?v=20261011a";
-import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261011a";
+import * as S from "./store.js?v=20261011b";
+import { esc } from "./ui.js?v=20261011b";
+import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261011b";
+import { CATS } from "./isgcats.js?v=20261011b";
+import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261011b";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
