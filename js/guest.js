@@ -3,8 +3,8 @@
 //   users/{sahip}/invites/{kod}        davet (e-posta ayarı kopyası)
 //   users/{sahip}/guestReqs/{misafirUid}  onay isteği {gid, code, name, email, status, at}
 //   users/{sahip}/members/{misafirUid}    onaylı üye {name, email, factories[], mode, expires|null}
-import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously } from "./firebase.js?v=20261011f";
-import { esc, toast } from "./ui.js?v=20261011f";
+import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously } from "./firebase.js?v=20261011g";
+import { esc, toast } from "./ui.js?v=20261011g";
 
 const Q = new URLSearchParams(location.search);
 export const linkInfo = () => {
@@ -193,8 +193,9 @@ export async function approvalDialog(ownerUid, gid, factories, done) {
   m.innerHTML = `<div class="mbox" role="dialog" aria-modal="true" style="gap:14px"><h2>Misafir erişim isteği</h2>
     <div style="line-height:1.6"><b style="font-size:17px">${esc(req.name)}</b><br><span class="muted">${esc(req.email)} · ${ago(req.at)}</span></div>
     ${done0 ? `<div class="warn">Bu istek zaten işlendi: ${req.status === "approved" ? "onaylandı" : "reddedildi"}. İsterseniz yeniden onay verebilirsiniz.</div>` : ""}
-    <div class="col1" style="gap:8px"><span class="hd">ERİŞİM VERİLECEK FABRİKALAR</span>
-      ${factories.map(f => `<label style="display:flex;align-items:center;gap:10px;font-weight:600;cursor:pointer"><input type="checkbox" data-f="${f.id}" checked style="width:20px;height:20px"> ${esc(f.name)}</label>`).join("") || '<span class="muted">Fabrika yok</span>'}</div>
+    <div class="col1" style="gap:8px"><span class="hd">ERİŞİM VERİLECEK FABRİKA</span>
+      ${factories.length > 1 ? `<select id="gFac" class="inp" style="font-weight:600">${factories.map(f => `<option value="${f.id}">${esc(f.name)}</option>`).join("")}</select>`
+        : factories.length ? `<div class="inp ro" style="font-weight:600">${esc(factories[0].name)}</div>` : '<span class="muted">Fabrika yok</span>'}</div>
     <div class="muted" style="font-size:12.5px;line-height:1.5">Misafir; veri girişi yapar, İSG denetimini yalnızca kaydeder (tamamlama, silme, kurulum ve ayarlar yetkisi yoktur), raporları görür ve PDF alabilir.</div>
     <div class="col1" style="gap:8px"><button data-ok="perm">Süresiz onay</button><button class="sec" data-ok="24h">24 saatlik onay</button><button class="sec" data-ok="no" style="color:#B3261E;border-color:#B3261E">İptal (reddet)</button></div></div>`;
   document.body.appendChild(m);
@@ -203,8 +204,8 @@ export async function approvalDialog(ownerUid, gid, factories, done) {
     try {
       if (mode === "no") { await updateDoc(REQ(ownerUid, gid), { status: "rejected", decidedAt: Date.now() }); toast("İstek reddedildi."); }
       else {
-        const fs = [...m.querySelectorAll("[data-f]:checked")].map(x => x.dataset.f);
-        if (!fs.length) { toast("En az bir fabrika seçin."); m.querySelectorAll("button").forEach(x => (x.disabled = false)); return; }
+        const sel = m.querySelector("#gFac"), fs = sel ? [sel.value] : factories.slice(0, 1).map(f => f.id);
+        if (!fs.length) { toast("Fabrika bulunamadı."); m.querySelectorAll("button").forEach(x => (x.disabled = false)); return; }
         const cg = await getDoc(doc(db, `users/${ownerUid}/meta/guestcfg`)).catch(() => null);
         await setDoc(MEM(ownerUid, gid), { ntfy: cg?.exists() ? cg.data().ntfy || null : null, name: req.name, email: req.email, factories: fs, mode, expires: mode === "24h" ? new Date(Date.now() + 864e5) : null, createdAt: Date.now() });
         await updateDoc(REQ(ownerUid, gid), { status: "approved", decidedAt: Date.now() });
@@ -279,7 +280,7 @@ export async function renderSettings(box, { ownerUid, factories, onChange }) {
     md.innerHTML = `<div class="mbox" style="gap:12px"><h2>${esc(m0.name)} · Fabrikalar</h2>${factories.map(f => `<label style="display:flex;align-items:center;gap:10px;font-weight:600"><input type="checkbox" data-f="${f.id}" ${(m0.factories || []).includes(f.id) ? "checked" : ""} style="width:20px;height:20px"> ${esc(f.name)}</label>`).join("")}
       <div class="row" style="justify-content:flex-end"><button class="sec" data-x>İptal</button><button data-s>Kaydet</button></div></div>`;
     document.body.appendChild(md); md.querySelector("[data-x]").onclick = () => md.remove();
-    md.querySelector("[data-s]").onclick = async () => { const fs = [...md.querySelectorAll("[data-f]:checked")].map(x => x.dataset.f); if (!fs.length) return toast("En az bir fabrika seçin."); await updateDoc(MEM(ownerUid, b.dataset.fac), { factories: fs }); md.remove(); toast("Fabrikalar güncellendi."); refresh(); };
+    md.querySelector("[data-s]").onclick = async () => { const fs = [...md.querySelectorAll("[data-f]:checked")].map(x => x.dataset.f); if (!fs.length) return toast("Fabrika bulunamadı."); await updateDoc(MEM(ownerUid, b.dataset.fac), { factories: fs }); md.remove(); toast("Fabrikalar güncellendi."); refresh(); };
   });
 }
 export const ownerUid = () => auth.currentUser?.uid;
