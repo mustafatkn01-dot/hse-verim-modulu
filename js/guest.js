@@ -3,8 +3,8 @@
 //   users/{sahip}/invites/{kod}        davet (e-posta ayarı kopyası)
 //   users/{sahip}/guestReqs/{misafirUid}  onay isteği {gid, code, name, email, status, at}
 //   users/{sahip}/members/{misafirUid}    onaylı üye {name, email, factories[], mode, expires|null}
-import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously } from "./firebase.js?v=20261010s";
-import { esc, toast } from "./ui.js?v=20261010s";
+import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously } from "./firebase.js?v=20261010t";
+import { esc, toast } from "./ui.js?v=20261010t";
 
 const Q = new URLSearchParams(location.search);
 export const linkInfo = () => {
@@ -69,8 +69,8 @@ export function showRequest({ owner, code, note = "" }, onApproved) {
       storeOwner(owner);
       const link = `${location.origin}${location.pathname}?onay=${gid}`;
       const [m1, m2] = await Promise.all([sendMail(inv.data().emailjs, { guest_name: name, guest_email: email, approve_link: link }), sendPush(inv.data().ntfy, { name, email, link })]);
-      const sent = m1 || m2;
-      sending = false; waiting({ owner, code, gid, sent }, onApproved);
+      const sent = m1 || m2, tried = !!(inv.data().ntfy || inv.data().emailjs);
+      sending = false; waiting({ owner, code, gid, sent, tried }, onApproved);
     } catch (e) { sending = false; document.getElementById("gSend").disabled = false; err(e.code === "auth/admin-restricted-operation" || e.code === "auth/operation-not-allowed" ? "Misafir girişi Firebase'de kapalı. Yetkili kullanıcı: Konsol → Authentication → Sign-in method → Anonim girişi etkinleştirin." : (e.message || String(e))); }
   };
 }
@@ -95,10 +95,10 @@ async function sendPush(topic, { name, email, link }) {
 }
 
 // Onay bekleme ekranı: istek durumunu canlı izler
-export function waiting({ owner, gid, code, sent }, onApproved) {
+export function waiting({ owner, gid, code, sent, tried }, onApproved) {
   const s = screen();
   s.innerHTML = boxHtml(`<h2 style="margin-bottom:6px">Onay bekleniyor</h2>
-    <div class="muted" style="line-height:1.55">İsteğiniz yetkili kullanıcıya iletildi${sent ? " (bildirim gönderildi)" : " (bildirim ayarı kapalı; yetkili kullanıcı uygulamada isteğinizi görür)"}. Onaylandığında bu ekran kendiliğinden açılır. Bu sayfayı kapatabilirsiniz; aynı cihazdan tekrar açtığınızda kaldığınız yerden devam edersiniz.</div>
+    <div class="muted" style="line-height:1.55">İsteğiniz yetkili kullanıcıya iletildi${sent ? " (bildirim gönderildi)" : (tried ? " (bildirim gönderilemedi; yetkili kullanıcı uygulamada isteğinizi görür)" : " (bildirim ayarı kapalı; yetkili kullanıcı uygulamada isteğinizi görür)")}. Onaylandığında bu ekran kendiliğinden açılır. Bu sayfayı kapatabilirsiniz; aynı cihazdan tekrar açtığınızda kaldığınız yerden devam edersiniz.</div>
     <div class="row" style="margin-top:14px"><button class="sec" id="gAgain">İsteği yenile</button></div>`);
   document.getElementById("gAgain").onclick = () => { off(); showRequest({ owner, code }, onApproved); };
   const off = onSnapshot(REQ(owner, gid), async snap => {
@@ -176,6 +176,8 @@ export async function renderSettings(box, { ownerUid, factories, onChange }) {
   const cfgD = await getDoc(doc(db, `users/${ownerUid}/meta/guestcfg`)).catch(() => null), cfg = cfgD?.exists() ? cfgD.data() : {};
   const reqs = await getDocs(collection(db, `users/${ownerUid}/guestReqs`)).then(s => s.docs.map(d => ({ id: d.id, ...d.data() }))).catch(() => []);
   const mems = await getDocs(collection(db, `users/${ownerUid}/members`)).then(s => s.docs.map(d => ({ id: d.id, ...d.data() }))).catch(() => []);
+  const inv0 = invs[0];
+  if (inv0 && (cfg.ntfy || null) !== (inv0.ntfy || null)) { await updateDoc(doc(db, `users/${ownerUid}/invites/${inv0.id}`), { ntfy: cfg.ntfy || null }).catch(() => {}); inv0.ntfy = cfg.ntfy || null; }
   const inv = invs[0], link = inv ? `${location.origin}${location.pathname}?misafir=${ownerUid}.${inv.id}` : "";
   const fname = ids => (ids || []).map(i => factories.find(f => f.id === i)?.name || "—").join(", ");
   const pend = reqs.filter(r => r.status === "pending").sort((a, b) => b.at - a.at);
