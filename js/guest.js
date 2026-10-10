@@ -3,13 +3,14 @@
 //   users/{sahip}/invites/{kod}        davet (e-posta ayarı kopyası)
 //   users/{sahip}/guestReqs/{misafirUid}  onay isteği {gid, code, name, email, status, at}
 //   users/{sahip}/members/{misafirUid}    onaylı üye {name, email, factories[], mode, expires|null}
-import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously } from "./firebase.js?v=20261010t";
-import { esc, toast } from "./ui.js?v=20261010t";
+import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously } from "./firebase.js?v=20261010u";
+import { esc, toast } from "./ui.js?v=20261010u";
 
 const Q = new URLSearchParams(location.search);
 export const linkInfo = () => {
   const m = Q.get("misafir"); if (m && m.includes(".")) { const [owner, code] = m.split("."); return { type: "guest", owner, code }; }
   const o = Q.get("onay"); if (o) return { type: "approve", gid: o };
+  const a = Q.get("denetim"); if (a && a.split(".").length === 4) { const [fid, year, month, dept] = a.split("."); return { type: "audit", fid, year, month, dept }; }
   return null;
 };
 export const clearLink = () => { try { history.replaceState(null, "", location.pathname + location.hash); } catch {} };
@@ -85,14 +86,14 @@ async function sendMail(cfg, params) {
 }
 
 // Telefon bildirimi (ntfy.sh): sahip telefonuna anında push gönderir; uygulama kapalıyken de çalışır
-async function sendPush(topic, { name, email, link }) {
+async function pushRaw(topic, { title, message, click, priority = 4, tags = ["bust_in_silhouette"] }) {
   if (!topic) return false;
   try {
-    const r = await fetch("https://ntfy.sh/", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ topic, title: "HSE Verim · Misafir onay isteği", message: `${name} (${email}) erişim istiyor. Onaylamak için dokunun.`, click: link, priority: 4, tags: ["bust_in_silhouette"] }) });
+    const r = await fetch("https://ntfy.sh/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ topic, title, message, click, priority, tags }) });
     return r.ok;
   } catch { return false; }
 }
+const sendPush = (topic, { name, email, link }) => pushRaw(topic, { title: "HSE Verim · Misafir onay isteği", message: `${name} (${email}) erişim istiyor. Onaylamak için dokunun.`, click: link });
 
 // Onay bekleme ekranı: istek durumunu canlı izler
 export function waiting({ owner, gid, code, sent, tried }, onApproved) {
@@ -117,6 +118,50 @@ export async function pendingState(owner, gid) {
 export function showExpired({ owner, code, member }, onApproved) {
   const note = member ? (isLive(member) ? "" : "Erişim süreniz doldu. Devam etmek için yeniden onay isteyin.") : "";
   showRequest({ owner, code: code || "", note }, onApproved);
+}
+
+// ---------------- Misafir → sahip: denetim gelen kutusu ----------------
+// users/{sahip}/inbox/{misafirUid}_{fabrika}_{yıl}_{ay}_{bölüm}  → aynı denetim için tek satır (tekrar kayıtlar satırı günceller)
+const GC = { owner: null, uid: null, name: "", ntfy: null };
+export const setGuestCtx = c => Object.assign(GC, c);
+export async function reportAudit(info, kind) {
+  if (!GC.owner || !GC.uid) return;
+  const key = [info.fid, info.year, info.month, info.dept].join("_");
+  try {
+    await setDoc(doc(db, `users/${GC.owner}/inbox/${GC.uid}_${key}`), { fid: info.fid, year: +info.year, month: +info.month, dept: info.dept, deptName: info.deptName || "", factoryName: info.factoryName || "", no: +info.no || 0, by: GC.uid, byName: GC.name, kind, status: "open", at: Date.now() });
+  } catch (e) { toast("Yetkiliye bildirilemedi: " + (e.message || e)); return; }
+  // Telefon bildirimi: "kaydetti" bildirimi aynı denetim için 10 dakikada bir; "tamamlanmasını istiyor" her zaman
+  const tk = "hse_gpush_" + key; let last = 0; try { last = +localStorage.getItem(tk) || 0; } catch {}
+  if (kind === "saved" && Date.now() - last < 600000) return;
+  try { localStorage.setItem(tk, String(Date.now())); } catch {}
+  const what = kind === "review" ? "tamamlanmasını istiyor" : "kaydetti";
+  pushRaw(GC.ntfy, { title: "HSE Verim · Misafir denetimi", message: `${GC.name} · ${info.deptName} · ${info.no}. denetimi ${what}.`, click: `${location.origin}${location.pathname}?denetim=${[info.fid, info.year, info.month, info.dept].join(".")}`, priority: kind === "review" ? 4 : 3, tags: ["clipboard"] });
+}
+export async function inboxClear(ownerUid, { fid, year, month, dept }) {
+  try {
+    const all = await getDocs(collection(db, `users/${ownerUid}/inbox`));
+    for (const d of all.docs) { const x = d.data(); if (x.fid === fid && +x.year === +year && +x.month === +month && x.dept === dept) await deleteDoc(doc(db, `users/${ownerUid}/inbox/${d.id}`)); }
+  } catch {}
+}
+export function watchInbox(ownerUid, cb) {
+  let first = true;
+  return onSnapshot(collection(db, `users/${ownerUid}/inbox`), snap => {
+    if (first) { first = false; return; }
+    const add = snap.docChanges().filter(c => (c.type === "added" || c.type === "modified") && c.doc.data().status === "open").map(c => c.doc.data());
+    if (add.length) cb(add);
+  }, () => {});
+}
+const MN = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
+export async function renderInbox(box, { ownerUid, onOpen }) {
+  const rows = await getDocs(collection(db, `users/${ownerUid}/inbox`)).then(s => s.docs.map(d => ({ id: d.id, ...d.data() }))).catch(() => []);
+  const open = rows.filter(r => r.status === "open").sort((a, b) => (a.kind === "review" ? -1 : 0) - (b.kind === "review" ? -1 : 0) || b.at - a.at);
+  if (!open.length) { box.innerHTML = ""; return; }
+  box.innerHTML = `<div class="cd" style="gap:12px"><div><h2>Misafir denetimleri · kontrol bekleyen (${open.length})</h2><div class="muted" style="font-size:13px">Misafirlerin kaydettiği veya tamamlanmasını istediği denetimler. Açıp kontrol edin; tamamladığınızda satır kendiliğinden kalkar.</div></div>
+    <div class="col1" style="gap:8px">${open.map(r => `<div class="it" style="gap:10px;flex-wrap:wrap"><div class="grow"><b>${esc(r.deptName)}</b> <span class="tag" style="${r.kind === "review" ? "background:#FBE9C6;color:#6B3F00" : ""}">${r.kind === "review" ? "Tamamlanması istendi" : "Kaydedildi"}</span>
+      <div class="muted" style="font-size:12.5px">${esc(r.factoryName)} · ${MN[r.month - 1]} ${r.year} · ${r.no}. denetim · ${esc(r.byName)} · ${ago(r.at)}</div></div>
+      <div class="row" style="gap:6px"><button class="sm" data-io="${r.id}">Aç</button><button class="sm sec" data-ix="${r.id}">Gördüm</button></div></div>`).join("")}</div></div>`;
+  box.querySelectorAll("[data-io]").forEach(b => b.onclick = () => onOpen(open.find(r => r.id === b.dataset.io)));
+  box.querySelectorAll("[data-ix]").forEach(b => b.onclick = async () => { await deleteDoc(doc(db, `users/${ownerUid}/inbox/${b.dataset.ix}`)).catch(() => {}); renderInbox(box, { ownerUid, onOpen }); });
 }
 
 // ---------------- Sahip: uygulama açıkken canlı bildirim ----------------
@@ -159,7 +204,8 @@ export async function approvalDialog(ownerUid, gid, factories, done) {
       else {
         const fs = [...m.querySelectorAll("[data-f]:checked")].map(x => x.dataset.f);
         if (!fs.length) { toast("En az bir fabrika seçin."); m.querySelectorAll("button").forEach(x => (x.disabled = false)); return; }
-        await setDoc(MEM(ownerUid, gid), { name: req.name, email: req.email, factories: fs, mode, expires: mode === "24h" ? new Date(Date.now() + 864e5) : null, createdAt: Date.now() });
+        const cg = await getDoc(doc(db, `users/${ownerUid}/meta/guestcfg`)).catch(() => null);
+        await setDoc(MEM(ownerUid, gid), { ntfy: cg?.exists() ? cg.data().ntfy || null : null, name: req.name, email: req.email, factories: fs, mode, expires: mode === "24h" ? new Date(Date.now() + 864e5) : null, createdAt: Date.now() });
         await updateDoc(REQ(ownerUid, gid), { status: "approved", decidedAt: Date.now() });
         toast(`${req.name} için ${mode === "24h" ? "24 saatlik" : "süresiz"} erişim onaylandı.`);
       }
@@ -176,6 +222,7 @@ export async function renderSettings(box, { ownerUid, factories, onChange }) {
   const cfgD = await getDoc(doc(db, `users/${ownerUid}/meta/guestcfg`)).catch(() => null), cfg = cfgD?.exists() ? cfgD.data() : {};
   const reqs = await getDocs(collection(db, `users/${ownerUid}/guestReqs`)).then(s => s.docs.map(d => ({ id: d.id, ...d.data() }))).catch(() => []);
   const mems = await getDocs(collection(db, `users/${ownerUid}/members`)).then(s => s.docs.map(d => ({ id: d.id, ...d.data() }))).catch(() => []);
+  for (const m of mems) if ((m.ntfy || null) !== (cfg.ntfy || null)) { await updateDoc(MEM(ownerUid, m.id), { ntfy: cfg.ntfy || null }).catch(() => {}); m.ntfy = cfg.ntfy || null; }
   const inv0 = invs[0];
   if (inv0 && (cfg.ntfy || null) !== (inv0.ntfy || null)) { await updateDoc(doc(db, `users/${ownerUid}/invites/${inv0.id}`), { ntfy: cfg.ntfy || null }).catch(() => {}); inv0.ntfy = cfg.ntfy || null; }
   const inv = invs[0], link = inv ? `${location.origin}${location.pathname}?misafir=${ownerUid}.${inv.id}` : "";
@@ -234,3 +281,4 @@ export async function renderSettings(box, { ownerUid, factories, onChange }) {
     md.querySelector("[data-s]").onclick = async () => { const fs = [...md.querySelectorAll("[data-f]:checked")].map(x => x.dataset.f); if (!fs.length) return toast("En az bir fabrika seçin."); await updateDoc(MEM(ownerUid, b.dataset.fac), { factories: fs }); md.remove(); toast("Fabrikalar güncellendi."); refresh(); };
   });
 }
+export const ownerUid = () => auth.currentUser?.uid;

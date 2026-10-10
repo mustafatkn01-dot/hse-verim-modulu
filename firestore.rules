@@ -36,6 +36,20 @@ service cloud.firestore {
       allow get: if request.auth != null && request.auth.uid == gid;
     }
 
+    // Denetim gelen kutusu: misafir yalnızca kendi satırını (id'si kendi uid'si ile başlar), yetkili olduğu fabrika için yazar
+    match /users/{owner}/inbox/{id} {
+      allow create, update: if request.auth != null
+        && id.matches(request.auth.uid + '_.*')
+        && request.resource.data.keys().hasOnly(['fid', 'year', 'month', 'dept', 'deptName', 'factoryName', 'no', 'by', 'byName', 'kind', 'status', 'at'])
+        && request.resource.data.by == request.auth.uid
+        && request.resource.data.status == 'open'
+        && request.resource.data.kind in ['saved', 'review']
+        && exists(/databases/$(database)/documents/users/$(owner)/members/$(request.auth.uid))
+        && (get(/databases/$(database)/documents/users/$(owner)/members/$(request.auth.uid)).data.expires == null
+            || get(/databases/$(database)/documents/users/$(owner)/members/$(request.auth.uid)).data.expires > request.time)
+        && request.resource.data.fid in get(/databases/$(database)/documents/users/$(owner)/members/$(request.auth.uid)).data.factories;
+    }
+
     // Fabrika bazlı okuma / veri girişi (süresi dolmamış ve o fabrikaya yetkili üye)
     match /users/{owner}/factories/{fid} {
       function live() {

@@ -1,16 +1,16 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261010t";
-import * as S from "./store.js?v=20261010t";
-import * as Prim from "./primary.js?v=20261010t";
-import * as Denetim from "./denetim.js?v=20261010t";
-import * as Kaza from "./kaza.js?v=20261010t";
-import * as Konusma from "./konusma.js?v=20261010t";
-import * as Genel from "./genel.js?v=20261010t";
-import * as Rapor from "./rapor.js?v=20261010t";
-import * as Verim from "./verim.js?v=20261010t";
-import * as Isbasi from "./isbasi.js?v=20261010t";
-import * as Guest from "./guest.js?v=20261010t";
-import { $, esc, ic, toast, modal, confirmBox, formBox, GUEST } from "./ui.js?v=20261010t";
-import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261010t";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261010u";
+import * as S from "./store.js?v=20261010u";
+import * as Prim from "./primary.js?v=20261010u";
+import * as Denetim from "./denetim.js?v=20261010u";
+import * as Kaza from "./kaza.js?v=20261010u";
+import * as Konusma from "./konusma.js?v=20261010u";
+import * as Genel from "./genel.js?v=20261010u";
+import * as Rapor from "./rapor.js?v=20261010u";
+import * as Verim from "./verim.js?v=20261010u";
+import * as Isbasi from "./isbasi.js?v=20261010u";
+import * as Guest from "./guest.js?v=20261010u";
+import { $, esc, ic, toast, modal, confirmBox, formBox, GUEST } from "./ui.js?v=20261010u";
+import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261010u";
 
 const VERSION = "1.0.0";
 const st = { factories: [], years: [], fid: null, year: null, page: "genel", profile: {}, lastSync: new Date() };
@@ -65,7 +65,7 @@ async function doSignOut() {
   K.key = ""; await signOut(auth);
 }
 const LINK = Guest.linkInfo();
-let unwatchG = null, guestTimer = null, unwatchReq = null;
+let unwatchG = null, guestTimer = null, unwatchReq = null, unwatchInb = null;
 try { navigator.serviceWorker?.register("./sw.js"); } catch {}
 function showOnly(which) { // "login" | "app" | "none"
   $("login").classList.toggle("hide", which !== "login");
@@ -87,11 +87,12 @@ async function startGuest(owner, user) {
   }
   Guest.hideRequest(); Guest.storeOwner(owner);
   S.setOwner(owner, m.factories || []);
+  Guest.setGuestCtx({ owner, uid: user.uid, name: m.name, ntfy: m.ntfy || null });
   GUEST.on = true; GUEST.name = m.name; st.role = "guest"; st.guest = { uid: user.uid, name: m.name, email: m.email, member: m };
   showOnly("app"); document.body.classList.add("is-guest");
   unwatchG?.(); clearInterval(guestTimer);
   const check = mm => { if (!Guest.isLive(mm)) guestOut(mm ? "Erişim süreniz doldu." : "Erişiminiz yetkili kullanıcı tarafından kaldırıldı."); };
-  unwatchG = Guest.watchMember(owner, user.uid, mm => { if (!mm) return check(null); st.guest.member = mm; check(mm); });
+  unwatchG = Guest.watchMember(owner, user.uid, mm => { if (!mm) return check(null); st.guest.member = mm; Guest.setGuestCtx({ ntfy: mm.ntfy || null }); check(mm); });
   guestTimer = setInterval(() => check(st.guest.member), 30000);
   await loadContext(); go(location.hash.slice(1) || "genel");
 }
@@ -124,6 +125,13 @@ onAuthStateChanged(auth, async user => {
       if (!initial && !document.querySelector(".mod")) Guest.approvalDialog(user.uid, r.gid, st.all, () => { if (st.page === "ayarlar") render(); });
       else if (st.page === "ayarlar") render();
     });
+    unwatchInb?.();
+    unwatchInb = Guest.watchInbox(user.uid, list => {
+      const r = list[list.length - 1], msg = `${r.byName} · ${r.deptName}: ${r.no}. denetim ${r.kind === "review" ? "tamamlanmasını istiyor" : "kaydedildi"}.`;
+      toast(msg); Guest.notify("HSE Verim · Misafir denetimi", msg, `${location.pathname}?denetim=${[r.fid, r.year, r.month, r.dept].join(".")}`);
+      if (st.page === "genel") render();
+    });
+    if (LINK?.type === "audit") { Guest.clearLink(); openAudit(LINK); }
     if (LINK?.type === "approve") { Guest.clearLink(); Guest.approvalDialog(user.uid, LINK.gid, st.all, () => { if (st.page === "ayarlar") render(); }); }
   }
 });
@@ -188,7 +196,17 @@ async function render() {
   if (st.page === "konusma") return Konusma.render(v, { st });
   if (st.page === "kaza") return Kaza.render(v, { st });
   if (st.page === "denetim") return Denetim.render(v, { st });
-  return Genel.render(v, { st });
+  await Genel.render(v, { st });
+  if (st.role === "owner") { const b = document.createElement("div"); b.id = "inboxBox"; v.prepend(b); Guest.renderInbox(b, { ownerUid: auth.currentUser.uid, onOpen: openAudit }); }
+}
+async function openAudit(a) {
+  if (st.factories.find(f => f.id === a.fid)) {
+    st.fid = a.fid; S.pref.set("fid", a.fid); await loadYears();
+    if (st.years.map(String).includes(String(a.year))) { st.year = String(a.year); S.pref.set("year", st.year); }
+    drawSelectors();
+  }
+  Denetim.focus(a.month, a.dept);
+  if (location.hash === "#denetim") go("denetim"); else location.hash = "#denetim";
 }
 
 // ---------- Genel Bakış ----------
