@@ -1,16 +1,16 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261010v";
-import * as S from "./store.js?v=20261010v";
-import * as Prim from "./primary.js?v=20261010v";
-import * as Denetim from "./denetim.js?v=20261010v";
-import * as Kaza from "./kaza.js?v=20261010v";
-import * as Konusma from "./konusma.js?v=20261010v";
-import * as Genel from "./genel.js?v=20261010v";
-import * as Rapor from "./rapor.js?v=20261010v";
-import * as Verim from "./verim.js?v=20261010v";
-import * as Isbasi from "./isbasi.js?v=20261010v";
-import * as Guest from "./guest.js?v=20261010v";
-import { $, esc, ic, toast, modal, confirmBox, formBox, GUEST } from "./ui.js?v=20261010v";
-import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261010v";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261010y";
+import * as S from "./store.js?v=20261010y";
+import * as Prim from "./primary.js?v=20261010y";
+import * as Denetim from "./denetim.js?v=20261010y";
+import * as Kaza from "./kaza.js?v=20261010y";
+import * as Konusma from "./konusma.js?v=20261010y";
+import * as Genel from "./genel.js?v=20261010y";
+import * as Rapor from "./rapor.js?v=20261010y";
+import * as Verim from "./verim.js?v=20261010y";
+import * as Isbasi from "./isbasi.js?v=20261010y";
+import * as Guest from "./guest.js?v=20261010y";
+import { $, esc, ic, toast, modal, confirmBox, formBox, GUEST } from "./ui.js?v=20261010y";
+import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261010y";
 
 const VERSION = "1.0.0";
 const st = { factories: [], years: [], fid: null, year: null, page: "genel", profile: {}, lastSync: new Date() };
@@ -88,7 +88,7 @@ async function startGuest(owner, user) {
   Guest.hideRequest(); Guest.storeOwner(owner);
   S.setOwner(owner, m.factories || []);
   Guest.setGuestCtx({ owner, uid: user.uid, name: m.name, ntfy: m.ntfy || null });
-  GUEST.on = true; GUEST.name = m.name; st.role = "guest"; st.guest = { uid: user.uid, name: m.name, email: m.email, member: m };
+  GUEST.on = true; GUEST.name = m.name; GUEST.uid = user.uid; st.role = "guest"; st.guest = { uid: user.uid, name: m.name, email: m.email, member: m };
   showOnly("app"); document.body.classList.add("is-guest");
   unwatchG?.(); clearInterval(guestTimer);
   const check = mm => { if (!Guest.isLive(mm)) guestOut(mm ? "Erişim süreniz doldu." : "Erişiminiz yetkili kullanıcı tarafından kaldırıldı."); };

@@ -69,17 +69,17 @@ service cloud.firestore {
           allow read: if live();
         }
 
-        // Aylık veri koleksiyonları: okuma, ekleme, güncelleme (silme yok)
+        // Aylık veri koleksiyonları (silme yok).
+        // İSG denetim kayıtlarını (isg) misafir yalnızca okur; kendi taslağını (isgg, id'si kendi uid'si ile biter) yazar.
         match /{coll}/{docId} {
-          allow read: if live() && coll in ['isg', 'kaza', 'konusma', 'isbasi', 'foto'];
-          allow create: if live() && coll in ['isg', 'kaza', 'konusma', 'isbasi', 'foto'];
-          // İSG: denetimin "tamamlandı" listesi misafir tarafından değiştirilemez
-          allow update: if live() && (
-            (coll in ['kaza', 'konusma', 'isbasi', 'foto'])
-            || (coll == 'isg' && (
-                  (!('closedNos' in resource.data) && !('closedNos' in request.resource.data))
-                  || ('closedNos' in resource.data && 'closedNos' in request.resource.data
-                      && request.resource.data.closedNos == resource.data.closedNos))));
+          allow read: if live() && (coll in ['isg', 'kaza', 'konusma', 'isbasi', 'foto']
+            || (coll == 'isgg' && docId.matches('.*_' + request.auth.uid)));
+          allow create, update: if live() && (
+            coll in ['kaza', 'konusma', 'isbasi', 'foto']
+            || (coll == 'isgg' && docId.matches('.*_' + request.auth.uid)
+                && request.resource.data.keys().hasOnly(['guestUid', 'guestName', 'dept', 'month', 'status', 'draft', 'at', 'updatedAt', 'note'])
+                && request.resource.data.guestUid == request.auth.uid
+                && request.resource.data.status in ['draft', 'saved', 'review', 'returned']));
         }
       }
     }

@@ -3,8 +3,8 @@
 //   users/{sahip}/invites/{kod}        davet (e-posta ayarı kopyası)
 //   users/{sahip}/guestReqs/{misafirUid}  onay isteği {gid, code, name, email, status, at}
 //   users/{sahip}/members/{misafirUid}    onaylı üye {name, email, factories[], mode, expires|null}
-import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously } from "./firebase.js?v=20261010v";
-import { esc, toast } from "./ui.js?v=20261010v";
+import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously } from "./firebase.js?v=20261010y";
+import { esc, toast } from "./ui.js?v=20261010y";
 
 const Q = new URLSearchParams(location.search);
 export const linkInfo = () => {
@@ -137,6 +137,7 @@ export async function reportAudit(info, kind) {
   const what = kind === "review" ? "tamamlanmasını istiyor" : "kaydetti";
   pushRaw(GC.ntfy, { title: "HSE Verim · Misafir denetimi", message: `${GC.name} · ${info.deptName} · ${info.no}. denetimi ${what}.`, click: `${location.origin}${location.pathname}?denetim=${[info.fid, info.year, info.month, info.dept].join(".")}`, priority: kind === "review" ? 4 : 3, tags: ["clipboard"] });
 }
+export const inboxDelete = id => deleteDoc(doc(db, `users/${auth.currentUser.uid}/inbox/${id}`)).catch(() => {});
 export async function inboxClear(ownerUid, { fid, year, month, dept }) {
   try {
     const all = await getDocs(collection(db, `users/${ownerUid}/inbox`));
@@ -156,7 +157,7 @@ export async function renderInbox(box, { ownerUid, onOpen }) {
   const rows = await getDocs(collection(db, `users/${ownerUid}/inbox`)).then(s => s.docs.map(d => ({ id: d.id, ...d.data() }))).catch(() => []);
   const open = rows.filter(r => r.status === "open").sort((a, b) => (a.kind === "review" ? -1 : 0) - (b.kind === "review" ? -1 : 0) || b.at - a.at);
   if (!open.length) { box.innerHTML = ""; return; }
-  box.innerHTML = `<div class="cd" style="gap:12px"><div><h2>Misafir denetimleri · kontrol bekleyen (${open.length})</h2><div class="muted" style="font-size:13px">Misafirlerin kaydettiği veya tamamlanmasını istediği denetimler. Açıp kontrol edin; tamamladığınızda satır kendiliğinden kalkar.</div></div>
+  box.innerHTML = `<div class="cd" style="gap:12px"><div><h2>Misafir denetimleri · kontrol bekleyen (${open.length})</h2><div class="muted" style="font-size:13px">Misafirlerin kaydettiği veya tamamlanmasını istediği denetimler. Açıp kontrol edin; onayladığınızda veya geri gönderdiğinizde satır kalkar.</div></div>
     <div class="col1" style="gap:8px">${open.map(r => `<div class="it" style="gap:10px;flex-wrap:wrap"><div class="grow"><b>${esc(r.deptName)}</b> <span class="tag" style="${r.kind === "review" ? "background:#FBE9C6;color:#6B3F00" : ""}">${r.kind === "review" ? "Tamamlanması istendi" : "Kaydedildi"}</span>
       <div class="muted" style="font-size:12.5px">${esc(r.factoryName)} · ${MN[r.month - 1]} ${r.year} · ${r.no}. denetim · ${esc(r.byName)} · ${ago(r.at)}</div></div>
       <div class="row" style="gap:6px"><button class="sm" data-io="${r.id}">Aç</button><button class="sm sec" data-ix="${r.id}">Gördüm</button></div></div>`).join("")}</div></div>`;

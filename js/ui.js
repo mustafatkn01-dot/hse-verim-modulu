@@ -79,7 +79,7 @@ export function showPhoto(src) {
 }
 
 // Misafir kuralı: yalnızca bu ay ve önceki ay için veri girişi
-export const GUEST = { on: false, name: "" };
+export const GUEST = { on: false, name: "", uid: "" };
 export const guestLock = (year, month) => {
   if (!GUEST.on) return false;
   const n = new Date(), cur = n.getMonth() + 1, prev = cur === 1 ? 12 : cur - 1;

@@ -1,9 +1,9 @@
 // İSG Denetim Listesi sayfası
-import * as Guest from "./guest.js?v=20261010v";
-import * as S from "./store.js?v=20261010v";
-import { esc, ic, toast, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261010v";
-import { CATS } from "./isgcats.js?v=20261010v";
-import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261010v";
+import * as Guest from "./guest.js?v=20261010y";
+import * as S from "./store.js?v=20261010y";
+import { esc, ic, toast, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261010y";
+import { CATS } from "./isgcats.js?v=20261010y";
+import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261010y";
 
 const COLL = "isg";
 const D = { key: "", setup: null, doc: null, dept: null, month: null, open: { 0: true }, ro: false, timer: null, saved: true, msg: "" };
@@ -58,10 +58,20 @@ export async function render(v, ctx) {
     const doc = await S.getMonthDoc(st.fid, st.year, COLL, `${pad(D.month)}_${D.dept}`);
     D.doc = doc ? { ...blank(st.year, D.month), ...doc, draft: { ...blank(st.year, D.month).draft, ...(doc.draft || {}) } } : blank(st.year, D.month, GUEST.on ? GUEST.name : ctx.st.profile?.name);
     D.hadClosed = !!(doc && doc.closedNos);
-    settle(D.doc, st.year, D.month);
+    D.gdoc = null; D.gdocs = []; D.gstatus = "draft"; D.gnote = "";
+    const gid = `${pad(D.month)}_${D.dept}`;
+    if (GUEST.on) {
+      // Misafir: resmi denetime dokunmaz; kendi taslağı ayrı kayıtta tutulur
+      D.gdoc = await S.getMonthDoc(st.fid, st.year, "isgg", `${gid}_${GUEST.uid}`).catch(() => null);
+      D.gstatus = D.gdoc?.status || "draft"; D.gnote = D.gdoc?.note || "";
+      D.doc.draft = D.gdoc?.draft ? { ...emptyDraft(defaultDate(st.year, D.month), true), ...D.gdoc.draft, on: true, edit: null } : emptyDraft(defaultDate(st.year, D.month), true);
+    } else {
+      settle(D.doc, st.year, D.month);
+      D.gdocs = (await S.listMonthDocs(st.fid, st.year, "isgg").catch(() => [])).filter(g => g.id.startsWith(gid + "_") && (g.status === "saved" || g.status === "review"));
+    }
     D.key = key; D.saved = true; D.msg = "";
   }
-  D.ro = String(st.year) !== String(st.active) || guestLock(st.year, D.month);
+  D.ro = String(st.year) !== String(st.active) || guestLock(st.year, D.month) || (GUEST.on && (D.gstatus === "review" || D.gstatus === "approved"));
   D.ctx = ctx; D.v = v;
   draw();
 }
@@ -72,6 +82,14 @@ function persist(now = false) {
   clearTimeout(D.timer);
   const run = async () => {
     const { st } = D.ctx, [f, y, m, d] = D.key.split("/");
+    if (GUEST.on) {
+      try {
+        const g = { guestUid: GUEST.uid, guestName: GUEST.name, dept: d, month: +m, status: D.gstatus, draft: D.doc.draft, at: Date.now() };
+        if (D.gnote) g.note = D.gnote;
+        await S.saveMonthDoc(f, y, "isgg", `${pad(+m)}_${d}_${GUEST.uid}`, g); D.saved = true;
+      } catch (e) { D.msg = "Kaydedilemedi: " + e.message; }
+      setSv(); return;
+    }
     const p = D.setup.params || DEFAULT_PARAMS, row = D.setup.rows.find(r => r.id === d);
     let result = null;
     if (D.doc.sessions.length) {
@@ -88,8 +106,43 @@ function persist(now = false) {
 }
 const setSv = () => { const e = document.getElementById("sv"); if (e) e.textContent = D.msg || (D.saved ? "Taslak kayıtlı" : "Kaydediliyor…"); };
 
+// Taslak → denetim kaydı (fails/app/yd/marks/photos)
+function makeRec(c, d) {
+  const fails = {}, app = {}, yd = {};
+  CATS.forEach((cat, ci) => {
+    const info = c.catInfo[ci]; app[ci] = info.items.some(it => it.mk === "u" || it.mk === "x");
+    info.items.forEach(it => { if (it.isX) fails[it.id] = (d.notes[it.id] || []).map(t => t.trim()).filter(Boolean); });
+    if (info.allYD) yd[ci] = (d.ydNotes?.[ci] || "").trim();
+  });
+  const photos = {};
+  CATS.forEach((cat, ci) => c.catInfo[ci].items.forEach(it => {
+    if (!it.isX) return; let fi = 0;
+    (d.notes[it.id] || []).forEach((t, k) => { if (!t.trim()) return; const ps = d.photos?.[it.id + "|" + k]; if (ps?.length) photos[it.id + "|" + fi] = ps.map(p => ({ ...p })); fi++; });
+  }));
+  return { date: d.date, fails, app, yd, marks: { ...d.marks }, photos };
+}
 const seg = (on, bg, c) => on ? `background:${bg};color:${c};border-color:${bg}` : "background:var(--card);color:var(--calct);border-color:var(--inl)";
 const TONE = { u: ["#0B6E4F", "#FFF"], x: ["#B3261E", "#FFF"], n: ["#4A5C57", "#FFF"] };
+
+// Sahip: bu bölüm-ayın misafir taslakları (kaydedilmiş / onay bekleyen)
+function gPanel(list) {
+  if (GUEST.on || !list?.length) return "";
+  const card = g => {
+    const dr = g.draft || {}, fx = [];
+    CATS.forEach((cat, ci) => cat.items.forEach((txt, ii) => {
+      const id = `c${ci}i${ii}`; if (dr.marks?.[id] !== "x") return;
+      const ns = (dr.notes?.[id] || []).map((t, k) => ({ t, ph: dr.photos?.[id + "|" + k] || [] })).filter(x => x.t.trim() || x.ph.length);
+      fx.push(`<div style="padding:8px 0;border-top:1px dashed var(--line)"><b style="font-size:13px">${esc(cat.name)}</b> <span class="muted" style="font-size:12.5px">· ${esc(txt)}</span>${ns.map(x => `<div style="font-size:13px;margin-top:3px">• ${esc(x.t) || "(açıklama yok)"}</div>${x.ph.length ? `<div class="phs">${x.ph.map(p => `<span class="pth"><img src="${p.t}" alt="Fotoğraf"></span>`).join("")}</div>` : ""}`).join("")}</div>`);
+    }));
+    const marked = Object.keys(dr.marks || {}).length;
+    return `<div class="sess cur" style="flex-direction:column;align-items:stretch;gap:8px"><div class="row sp"><div><b>${esc(g.guestName)}</b> <span class="tag" style="${g.status === "review" ? "background:#FBE9C6;color:#6B3F00" : ""}">${g.status === "review" ? "Tamamlanması istendi" : "Kaydedildi"}</span>
+      <div class="muted" style="font-size:12.5px">${dr.date ? dmy(dr.date) : "—"} · ${marked} madde işaretli · ${fx.length} uygunsuz</div></div>
+      <div class="row" style="gap:6px"><button class="sm" data-gok="${g.id}">Onayla ve denetime ekle</button><button class="sm sec" data-gret="${g.id}">Geri gönder</button></div></div>
+      ${fx.join("") || '<div class="muted" style="font-size:12.5px">Uygunsuz madde yok.</div>'}</div>`;
+  };
+  return `<div class="cd" style="padding:18px 20px;gap:12px"><div><b style="font:600 16px Sora,sans-serif">Misafir denetim taslakları (${list.length})</b>
+    <div class="muted" style="font-size:12.5px;line-height:1.5">Onaylarsanız taslak bu bölümün bu ayki denetimine sıradaki denetim olarak eklenir; skora ve raporlara dahil olur. Onaylanana kadar hiçbir hesaba katılmaz.</div></div>${list.map(card).join("")}</div>`;
+}
 
 function draw() {
   const { st } = D.ctx, v = D.v, doc = D.doc, setup = D.setup, p = setup.params || DEFAULT_PARAMS;
@@ -142,7 +195,11 @@ function draw() {
   v.innerHTML = `
   <div><div class="hd" style="letter-spacing:.8px">AYLIK VERİ GİRİŞİ</div><h1 class="ttl">İSG Denetim Listesi</h1>
     <div class="muted" style="font-size:12.5px" id="sv">${D.msg || (D.saved ? "Taslak kayıtlı" : "Kaydediliyor…")}</div></div>
-  ${D.ro ? `<div class="warn">${roText(st.year, D.month, st.active)}</div>` : ""}
+  ${D.ro && !(GUEST.on && (D.gstatus === "review" || D.gstatus === "approved")) ? `<div class="warn">${roText(st.year, D.month, st.active)}</div>` : ""}
+  ${GUEST.on && D.gstatus === "returned" ? `<div class="warn">Yetkili kullanıcı taslağı düzeltme için geri gönderdi${D.gnote ? ": " + esc(D.gnote) : "."} Düzeltip tekrar kaydedin.</div>` : ""}
+  ${GUEST.on && D.gstatus === "review" ? `<div class="okbar"><span>Taslağınız onay bekliyor. Yetkili kullanıcı onaylayınca denetime eklenir.</span></div>` : ""}
+  ${GUEST.on && D.gstatus === "approved" ? `<div class="okbar"><span>Taslağınız onaylandı ve denetime eklendi.</span>${guestLock(st.year, D.month) ? "" : '<button class="sec" id="newGDraft">Yeni taslak başlat</button>'}</div>` : ""}
+  ${gPanel(D.gdocs)}
   <div class="cd" style="flex-direction:row;flex-wrap:wrap;gap:16px;padding:18px 20px">
     <div class="sf" style="flex:1 1 180px"><label class="hd" for="bolum">BÖLÜM</label><select id="bolum" class="inp">${setup.rows.map(r => `<option value="${r.id}" ${r.id === D.dept ? "selected" : ""}>${esc(r.name)}</option>`).join("")}</select></div>
     <div class="sf" style="flex:1 1 150px"><label class="hd" for="ay">DÖNEM</label><select id="ay" class="inp">${MONTHS.map((m, i) => `<option value="${i + 1}" ${i + 1 === D.month ? "selected" : ""}>${m} ${st.year}</option>`).join("")}</select></div>
@@ -154,7 +211,7 @@ function draw() {
       const stt = isEd ? "açık · düzenleniyor" : s.closed ? "tamamlandı" : "kaydedildi";
       return `<div class="sess ${isEd ? "cur" : ""}">${isEd ? '<span class="sw" style="background:#0B6E4F;border-radius:50%;margin:0"></span>' : ic('<path d="M4 12l5 5L20 6"/>').replace("currentColor", "#0B6E4F")}<div><b>${s.no}. Denetim</b><div class="muted" style="font-size:12.5px">${dmy(s.date)} · ${Object.keys(s.fails).length} uygunsuz · ${stt}</div></div>
       ${!D.ro && lastS && !GUEST.on ? `<div class="row" style="gap:6px;margin-left:auto;flex-wrap:nowrap">${!on ? `<button class="sm" data-reopen="${s.no}" style="white-space:nowrap" title="Bu denetimi tekrar açıp işaretlemeye devam et">Yeniden aç</button>` : ""}<button class="sm sec" data-delsess="${s.no}" style="white-space:nowrap" title="Bu denetimi sil">Sil</button></div>` : ""}</div>`; }).join("")}
-      ${on && editNo == null ? `<div class="sess cur"><span class="sw" style="background:#0B6E4F;border-radius:50%;margin:0"></span><div><b>${curNo}. Denetim</b><div style="font-size:12.5px">${date ? dmy(date) : "—"} · ${c.curMarked ? c.curFails + " uygunsuz (taslak)" : "henüz işaretleme yok"} · yeni, kaydedilmedi</div></div></div>` : ""}</div></div>
+      ${on && editNo == null ? `<div class="sess cur"><span class="sw" style="background:#0B6E4F;border-radius:50%;margin:0"></span><div><b>${GUEST.on ? "Taslak denetiminiz" : curNo + ". Denetim"}</b><div style="font-size:12.5px">${date ? dmy(date) : "—"} · ${c.curMarked ? c.curFails + " uygunsuz (taslak)" : "henüz işaretleme yok"} · ${GUEST.on ? ({ saved: "kaydedildi", review: "onay bekliyor", approved: "onaylandı", returned: "geri gönderildi" }[D.gstatus] || "kaydedilmedi") : "yeni, kaydedilmedi"}</div></div></div>` : ""}</div></div>
   <div class="helpbox" style="flex-direction:row;gap:14px;align-items:flex-start">${ic('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h0"/>', 22)}<div style="line-height:1.6">Her maddeyi <b>Uygun</b>, <b>Uygunsuz</b> veya <b>Y.D.</b> (yok / değerlendirilmedi) olarak işaretleyin. Uygunsuz seçtiğinizde sıklık otomatik görünür ve açıklama yazmanız istenir: hangi makine veya alanda ne gibi bir uygunsuzluk var? Aynı bölümde benzer bir uygunsuzluk daha varsa yeni madde ekleyin. Açıklamalar raporda grafiklerin altında bölüm adıyla yayınlanır.</div></div>
   <fieldset class="fs" ${D.ro ? "disabled" : ""}><div class="two" style="align-items:flex-start">
     <div class="colw" style="flex:2 1 600px;gap:14px">${catHtml}</div>
@@ -173,7 +230,7 @@ function draw() {
         <div class="row">${["Yok", "Ayda 1", "2 Haftada 1", "Haftalık"].map((l, i) => `<button class="bn" data-bonus="${i}" style="${seg(doc.bonus === i, "#0B2230", "#FFF")}"><span>${l}</span><span style="font-size:12px;font-weight:600">+${c.bonusVals[i]} puan</span></button>`).join("")}</div></div>
       <div class="cd" style="padding:20px;gap:12px"><b style="font:600 16px Sora,sans-serif">${curNo}. Denetim · Kaydetmeden Önce</b>
         ${[["İşaretlenmeyen madde", c.unmarked], ["Açıklaması eksik uygunsuz madde", c.missing], ["Gerekçesi eksik Y.D. kategori", c.ydMissing], ["Tarih geçersiz (dönem dışı veya ileri tarih)", dateOk ? 0 : 1]].map(([t, n]) => `<div class="row sp"><span>${t}</span><span class="pill" style="min-width:34px;text-align:center;background:${n === 0 ? "#D9F1E6" : "#FADAD7"};color:${n === 0 ? "#0B6E4F" : "#B3261E"}">${n}</span></div>`).join("")}
-        <button class="go2" id="saveSess" ${canPart ? "" : "disabled"}>${curNo}. Denetimi Kaydet</button>
+        <button class="go2" id="saveSess" ${canPart ? "" : "disabled"}>${GUEST.on ? "Taslağı Kaydet" : curNo + ". Denetimi Kaydet"}</button>
         ${GUEST.on ? `<button class="sec" id="askDone" style="height:44px;font-weight:700" ${canSave ? "" : "disabled"}>Tamamlanmasını İste</button>` : ""}
         ${GUEST.on ? "" : `<button class="sec" id="doneSess" style="height:44px;font-weight:700" ${canSave ? "" : "disabled"}>Kaydet ve Denetimi Tamamla</button>`}
         <div class="muted" style="font-size:12.5px;line-height:1.5"><b>Kaydet:</b> işaretlediğiniz kadarını saklar, denetim açık kalır; sonra kaldığınız yerden devam edebilirsiniz (tüm maddelerin işaretlenmesi gerekmez). <b>Tamamla:</b> tüm maddeler işaretliyken denetimi kapatır. Yeni denetim ancak siz başlatınca açılır.</div></div>
@@ -239,40 +296,55 @@ function bind(v, c) {
   const nw = document.getElementById("newSess");
   if (nw) nw.onclick = () => { doc.draft = emptyDraft(defaultDate(st.year, D.month), true); persist(true); draw(); };
   on("[data-delsess]", async el => {
-    const { confirmBox } = await import("./ui.js?v=20261010v");
+    const { confirmBox } = await import("./ui.js?v=20261010y");
     if (!(await confirmBox("Son denetim silinsin mi?", "Kayıtlı denetim silinir; skor ve sıklıklar yeniden hesaplanır.", "Evet, sil", true))) return;
     const gone = doc.sessions.pop(); Object.values(gone.photos || {}).flat().forEach(p => S.deletePhoto(st.fid, st.year, p.id).catch(() => {})); if (doc.draft.edit === gone.no) doc.draft = emptyDraft(defaultDate(st.year, D.month), false);
     if (!doc.sessions.length) doc.draft = emptyDraft(defaultDate(st.year, D.month), true); else if (doc.draft.on) { /* devam eden taslak korunur */ }
     settle(doc, st.year, D.month); await persist(true); draw();
   });
   const dOk = d.date && +d.date.slice(0, 4) === +st.year && +d.date.slice(5, 7) === D.month && d.date <= iso(new Date());
-  const doSave = async (close, review) => {
+  const doSave = async close => {
     if (D.ro || !dOk || c.missing || c.ydMissing || !c.curMarked || (close && !c.canSave)) return;
-    const fails = {}, app = {}, yd = {};
-    CATS.forEach((cat, ci) => {
-      const info = c.catInfo[ci]; app[ci] = info.items.some(it => it.mk === "u" || it.mk === "x");
-      info.items.forEach(it => { if (it.isX) fails[it.id] = (d.notes[it.id] || []).map(t => t.trim()).filter(Boolean); });
-      if (info.allYD) yd[ci] = (d.ydNotes?.[ci] || "").trim();
-    });
-    const photos = {};
-    CATS.forEach((cat, ci) => c.catInfo[ci].items.forEach(it => {
-      if (!it.isX) return; let fi = 0;
-      (d.notes[it.id] || []).forEach((t, k) => { if (!t.trim()) return; const ps = d.photos?.[it.id + "|" + k]; if (ps?.length) photos[it.id + "|" + fi] = ps.map(p => ({ ...p })); fi++; });
-    }));
-    const rec = { date: d.date, fails, app, yd, marks: { ...d.marks }, photos };
-    if (GUEST.on) rec.by = GUEST.name;
+    const rec = makeRec(c, d);
     let no;
     if (d.edit != null) { const ix = doc.sessions.findIndex(x => x.no === d.edit); no = d.edit; doc.sessions[ix] = { ...doc.sessions[ix], ...rec }; }
     else { no = doc.sessions.length + 1; doc.sessions.push({ no, ...rec, closed: false }); d.edit = no; }
     if (close) { doc.sessions.find(x => x.no === no).closed = true; doc.draft = emptyDraft(defaultDate(st.year, D.month), false); }
     await persist(true); draw();
-    const rowN = D.setup.rows.find(r => r.id === D.dept)?.name || "";
-    if (GUEST.on) Guest.reportAudit({ fid: st.fid, year: st.year, month: D.month, dept: D.dept, deptName: rowN, factoryName: st.factories.find(f => f.id === st.fid)?.name || "", no }, review ? "review" : "saved");
-    else if (close) Guest.inboxClear(Guest.ownerUid(), { fid: st.fid, year: st.year, month: D.month, dept: D.dept });
-    toast(review ? `${no}. denetimin tamamlanması yetkili kullanıcıdan istendi.` : close ? `${no}. denetim tamamlandı. Yeni denetim için “Denetimi Başlat”a basın.` : `${no}. denetim kaydedildi; açık kaldı, kaldığınız yerden devam edebilirsiniz.`);
+    toast(close ? `${no}. denetim tamamlandı. Yeni denetim için “Denetimi Başlat”a basın.` : `${no}. denetim kaydedildi; açık kaldı, kaldığınız yerden devam edebilirsiniz.`);
   };
-  const sv = document.getElementById("saveSess"); if (sv) sv.onclick = () => doSave(false);
-  const ad = document.getElementById("askDone"); if (ad) ad.onclick = () => doSave(false, true);
+  const guestSave = async review => {
+    if (D.ro || !dOk || c.missing || c.ydMissing || !c.curMarked || (review && !c.canSave)) return;
+    D.gstatus = review ? "review" : "saved"; D.gnote = "";
+    await persist(true); if (review) D.ro = true; draw();
+    const rowN = D.setup.rows.find(r => r.id === D.dept)?.name || "";
+    Guest.reportAudit({ fid: st.fid, year: st.year, month: D.month, dept: D.dept, deptName: rowN, factoryName: st.factories.find(f => f.id === st.fid)?.name || "", no: doc.sessions.length + 1 }, review ? "review" : "saved");
+    toast(review ? "Taslağınız yetkili kullanıcıya onay için gönderildi." : "Taslağınız kaydedildi. Hazır olunca “Tamamlanmasını İste”ye basın.");
+  };
+  const sv = document.getElementById("saveSess"); if (sv) sv.onclick = () => GUEST.on ? guestSave(false) : doSave(false);
+  const ad = document.getElementById("askDone"); if (ad) ad.onclick = () => guestSave(true);
+  const ng = document.getElementById("newGDraft");
+  if (ng) ng.onclick = () => { D.gstatus = "draft"; D.gnote = ""; D.doc.draft = emptyDraft(defaultDate(st.year, D.month), true); D.ro = guestLock(st.year, D.month); persist(true); draw(); };
+  // Sahip: misafir taslağını onayla / geri gönder
+  const gDone = async (g, status, note) => {
+    const [mm] = g.id.split("_");
+    await S.saveMonthDoc(st.fid, st.year, "isgg", g.id, { guestUid: g.guestUid, guestName: g.guestName, dept: g.dept, month: g.month, status, draft: g.draft, at: Date.now(), ...(note ? { note } : {}), ...(status === "approved" ? { no: doc.sessions.length } : {}) });
+    await Guest.inboxDelete(`${g.guestUid}_${st.fid}_${st.year}_${+g.month}_${g.dept}`);
+  };
+  on("[data-gok]", async el => {
+    const g = D.gdocs.find(x => x.id === el.dataset.gok); if (!g) return;
+    const dr = { ...emptyDraft(g.draft.date, true), ...g.draft }, F2 = katsayi(D.setup.rows.find(r => r.id === D.dept)), p2 = D.setup.params || DEFAULT_PARAMS;
+    const cc = calcIsg({ cats: CATS, sessions: doc.sessions, draft: dr, freqOv: doc.freq, bonusIdx: doc.bonus, F: F2, p: p2 });
+    if (!cc.curMarked) { toast("Taslakta işaretlenmiş madde yok."); return; }
+    doc.sessions.push({ no: doc.sessions.length + 1, ...makeRec(cc, dr), closed: true });
+    await persist(true); await gDone(g, "approved");
+    toast(`${g.guestName} taslağı onaylandı ve ${doc.sessions.length}. denetim olarak eklendi.`); D.key = ""; render(D.v, D.ctx);
+  });
+  on("[data-gret]", async el => {
+    const g = D.gdocs.find(x => x.id === el.dataset.gret); if (!g) return;
+    const note = prompt("Misafire kısa not (isteğe bağlı):", ""); if (note === null) return;
+    await gDone(g, "returned", note.trim()); toast("Taslak düzeltme için geri gönderildi."); D.key = ""; render(D.v, D.ctx);
+  });
   const dn = document.getElementById("doneSess"); if (dn) dn.onclick = () => doSave(true);
 }
 const $ = id => document.getElementById(id);

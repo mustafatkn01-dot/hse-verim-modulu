@@ -1,5 +1,5 @@
 // Veri katmanı: users/{uid}/factories/{fid}/years/{yıl}/setup/main
-import { auth, db, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, updateDoc, query, orderBy, serverTimestamp, onSnapshot } from "./firebase.js?v=20261010v";
+import { auth, db, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, updateDoc, query, orderBy, serverTimestamp, onSnapshot } from "./firebase.js?v=20261010y";
 
 const uid = () => auth.currentUser.uid;
 // Veri sahibi: misafir kullanıcıda davet eden hesabın uid'si; kendi oturum/profil kayıtları ise her zaman kendi hesabında
@@ -26,7 +26,7 @@ export async function updateFactory(id, data) { await updateDoc(doc(db, `${base(
 // Fabrikayı tüm yıl ve kurulum verileriyle birlikte siler
 export async function deleteFactoryDeep(id) {
   for (const y of await listYears(id)) {
-    for (const coll of ["isg", "kaza", "konusma", "isbasi", "foto"]) for (const d of await listMonthDocs(id, y, coll)) await deleteDoc(monthRef(id, y, coll, d.id));
+    for (const coll of ["isg", "isgg", "kaza", "konusma", "isbasi", "foto"]) for (const d of await listMonthDocs(id, y, coll)) await deleteDoc(monthRef(id, y, coll, d.id));
     await deleteDoc(setupRef(id, y)).catch(() => {});
     await deleteDoc(doc(db, `${base()}/factories/${id}/years/${y}`));
   }
@@ -122,7 +122,7 @@ export async function exportAll() {
     const fo = { id: f.id, ...f.data(), years: [] }, ys = await listYears(f.id);
     for (const y of ys) {
       const yo = { year: y, setup: await getSetup(f.id, y).catch(() => null) };
-      for (const c of ["isg", "kaza", "konusma", "isbasi"]) yo[c] = await listMonthDocs(f.id, y, c);
+      for (const c of ["isg", "isgg", "kaza", "konusma", "isbasi"]) yo[c] = await listMonthDocs(f.id, y, c);
       fo.years.push(yo);
     }
     out.factories.push(fo);
@@ -146,7 +146,7 @@ export async function yearCounts(fid, y) {
   let n = 0; for (const coll of ["isg", "kaza", "konusma", "isbasi"]) n += (await listMonthDocs(fid, y, coll)).length; return n;
 }
 export async function deleteYearDeep(fid, y) {
-  for (const coll of ["isg", "kaza", "konusma", "isbasi", "foto"]) for (const d of await listMonthDocs(fid, y, coll)) await deleteDoc(monthRef(fid, y, coll, d.id));
+  for (const coll of ["isg", "isgg", "kaza", "konusma", "isbasi", "foto"]) for (const d of await listMonthDocs(fid, y, coll)) await deleteDoc(monthRef(fid, y, coll, d.id));
   await deleteDoc(setupRef(fid, y)).catch(() => {});
   await deleteDoc(doc(db, `${base()}/factories/${fid}/years/${y}`));
 }
