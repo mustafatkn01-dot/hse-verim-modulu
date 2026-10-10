@@ -60,14 +60,14 @@ export function noteEditor({ title, item, text, question = "Hangi makine veya al
   });
 }
 
-// Fotoğrafı küçült (tam: en çok 1200 px, küçük resim: 140 px), EXIF yönünü uygula
+// Fotoğrafı küçült (tam: yazdırma kalitesi, en çok 1800 px, küçük resim: 140 px), EXIF yönünü uygula
 export async function compressImage(file) {
   let bmp;
   try { bmp = await createImageBitmap(file, { imageOrientation: "from-image" }); }
   catch { bmp = await new Promise((res, rej) => { const im = new Image(), u = URL.createObjectURL(file); im.onload = () => res(im); im.onerror = () => rej(new Error("Resim okunamadı")); im.src = u; }); }
   const w0 = bmp.width || bmp.naturalWidth, h0 = bmp.height || bmp.naturalHeight;
   const draw = (max, q) => { const r = Math.min(1, max / Math.max(w0, h0)), c = document.createElement("canvas"); c.width = Math.round(w0 * r); c.height = Math.round(h0 * r); c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height); return c.toDataURL("image/jpeg", q); };
-  let full = draw(1200, 0.72); if (full.length > 700000) full = draw(900, 0.6);
+  let full = draw(1800, 0.85); for (const [mx, q] of [[1600, 0.8], [1400, 0.75], [1200, 0.7], [1000, 0.65]]) if (full.length > 900000) full = draw(mx, q);
   return { full, thumb: draw(140, 0.6) };
 }
 // Tam ekran fotoğraf görüntüleyici

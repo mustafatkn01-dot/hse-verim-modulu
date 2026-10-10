@@ -1,9 +1,9 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261010f";
-import { esc } from "./ui.js?v=20261010f";
-import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi } from "./scoring.js?v=20261010f";
-import { askFormat, savePdf } from "./pdf.js?v=20261010f";
-import { CATS } from "./isgcats.js?v=20261010f";
+import * as S from "./store.js?v=20261010h";
+import { esc } from "./ui.js?v=20261010h";
+import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi } from "./scoring.js?v=20261010h";
+import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261010h";
+import { CATS } from "./isgcats.js?v=20261010h";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -11,6 +11,7 @@ const BAND = {
 };
 const NONE = { fill: "#D5E0DC", c: "#6A7E79", bg: "#EEF2F0" };
 const MS = ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"];
+const MF = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
 const MET = [["İş Kazası", "Kaza"], ["Eğitim Konuşması", "Eğitim K."], ["İşbaşı Eğitim", "İşbaşı"], ["İSG Denetim", "İSG"], ["Toplam Verim", "Toplam"]];
 const rng = (a, z) => Array.from({ length: z - a + 1 }, (_, i) => a + i);
 const f1 = n => n.toFixed(1).replace(".", ",");
@@ -71,7 +72,7 @@ function draw() {
   const hasM = Array.from({ length: 12 }, (_, m) => rows.some(r => total(r.id, m) !== null));
   const lastM = hasM.lastIndexOf(true);
   const PER = {
-    m: { t: "Aylık", items: MS.map((n, i) => ({ t: n, idx: [i] })), name: i => MS[i] + " " + y, title: "AY SEÇİN" },
+    m: { t: "Aylık", items: MS.map((n, i) => ({ t: n, idx: [i] })), name: i => MF[i] + " " + y, title: "AY SEÇİN" },
     q: { t: "3 Aylık (Ç1)", items: [{ t: "Ç1", idx: rng(0, 2) }], name: () => "1. çeyrek · Ocak-Mart " + y, title: "" },
     h: { t: "6 Aylık (Ç2)", items: [{ t: "Ç2", idx: rng(0, 5) }], name: () => "2. çeyrek · Ocak-Haziran " + y + " (kümülatif)", title: "" },
     n: { t: "9 Aylık (Ç3)", items: [{ t: "Ç3", idx: rng(0, 8) }], name: () => "3. çeyrek · Ocak-Eylül " + y + " (kümülatif)", title: "" },
@@ -193,8 +194,8 @@ async function printSheet(info, { size, orient, pics = false, file = false }) {
   const now = new Date(), ds = `${String(now.getDate()).padStart(2, "0")}.${String(now.getMonth() + 1).padStart(2, "0")}.${now.getFullYear()}`;
   const usePics = pics && info.details.some(g => g.items.some(i => i.pics?.length)), PH = {};
   if (usePics) await Promise.all(info.details.flatMap(g => g.items.flatMap(i => i.pics)).map(async p => { try { PH[p.id] = await S.getPhoto(info.fid, info.year, p.id); } catch { } }));
-  const psz = file ? 189 : Math.round(189 / z);
-  const picsHtml = a => usePics && a.pics?.length ? `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">${a.pics.map(p => `<img src="${PH[p.id] || p.t}" alt="Fotoğraf" style="width:${psz}px;height:${psz}px;object-fit:cover;border-radius:6px;border:1px solid #C3D1CC">`).join("")}</div>` : "";
+  const psz = file ? 302 : Math.round(302 / z); // 8 cm yükseklik
+  const picsHtml = a => usePics && a.pics?.length ? `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">${a.pics.map(p => `<img src="${PH[p.id] || p.t}" alt="Fotoğraf" style="height:${psz}px;width:auto;max-width:100%;border-radius:6px;border:1px solid #C3D1CC">`).join("")}</div>` : "";
   const sh = document.createElement("div"); sh.id = "psheet";
   const build = (ch, z) => { const s = (ch - 60) / 100;
     const line = (v, l) => `<div style="position:absolute;left:30px;right:0;bottom:${30 + v * s}px;border-top:1px dashed #B5C5BF"></div><div style="position:absolute;left:0;bottom:${30 + v * s - 7}px;font-size:11px;color:#6A7E79">${l}</div>`;
@@ -221,7 +222,7 @@ async function printSheet(info, { size, orient, pics = false, file = false }) {
   sh.style.cssText = "display:block;position:fixed;left:-99999px;top:0;visibility:hidden";
   if (!usePics) for (; c >= 140; c -= 15) { sh.innerHTML = build(c, 1); if (sh.firstElementChild.offsetHeight <= avail) break; }
   const clean = () => { sh.remove(); stl.remove(); window.removeEventListener("afterprint", clean); };
-  const fit = Math.max(140, c);
+  const fit = Math.max(140, c), ttl = fileTitle(info.title, info.plabel, size);
   if (file) {
     // İstenirse yazdırmadan doğrudan PDF dosyası olarak indir
     try {
@@ -229,14 +230,13 @@ async function printSheet(info, { size, orient, pics = false, file = false }) {
       sh.style.cssText = "display:block;position:fixed;left:-99999px;top:0;background:#fff";
       const el = sh.firstElementChild, top0 = el.getBoundingClientRect().top;
       const breaks = [...el.querySelectorAll("[data-brk]")].map(x => x.getBoundingClientRect().top - top0).filter(t => t > 0);
-      const nm = `HSE-Verim-${(info.title + "-" + info.plabel).replace(/[^A-Za-z0-9]+/g, "-")}-${size}-${land ? "yatay" : "dikey"}.pdf`;
-      await savePdf(el, { size, orient, name: nm, margin: M * 0.75 * z, scale: size === "A3" ? 3 : 2.5, single: !usePics, breaks });
+      await savePdf(el, { size, orient, name: ttl + ".pdf", margin: M * 0.75 * z, scale: size === "A3" ? 3 : 2.5, single: !usePics, breaks });
       clean(); return;
     } catch (e) { console.warn("PDF üretilemedi, yazdırmaya dönülüyor", e); }
   }
   sh.innerHTML = build(fit, z); sh.style.cssText = "";
   window.addEventListener("afterprint", clean);
-  setTimeout(() => window.print(), 150);
+  setTimeout(() => withTitle(ttl, () => window.print()), 150);
 }
 
 export function downloadCsv(name, rows) {

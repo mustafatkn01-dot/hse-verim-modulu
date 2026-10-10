@@ -1,5 +1,5 @@
 // Ortak PDF yardımcıları: kâğıt boyutu (A4/A3) + sayfa düzeni (dikey/yatay) penceresi
-import { esc } from "./ui.js?v=20261010f";
+import { esc } from "./ui.js?v=20261010h";
 
 export function askFormat({ title = "PDF indir", text = "", defOrient = "portrait", hint = "", pics = 0 } = {}) {
   return new Promise(res => {
@@ -28,13 +28,13 @@ export function askFormat({ title = "PDF indir", text = "", defOrient = "portrai
 }
 
 // Açık sayfayı seçilen kâğıt/yönde yazdır (menü ve düğmeler gizlenir)
-export function printCurrent({ size, orient }) {
+export function printCurrent({ size, orient, name }) {
   const stl = document.createElement("style");
   stl.textContent = `@media print{@page{size:${size} ${orient};margin:10mm}}`;
   document.head.appendChild(stl);
   const clean = () => { stl.remove(); window.removeEventListener("afterprint", clean); };
   window.addEventListener("afterprint", clean);
-  setTimeout(() => window.print(), 150);
+  setTimeout(() => (name ? withTitle(name, () => window.print()) : window.print()), 150);
 }
 
 // Gerçek PDF dosyası üret (yazdırma penceresinden bağımsız: telefonda da seçilen boyut/yön korunur)
@@ -90,4 +90,13 @@ export async function saveReportPdf(v, { size, orient, name }) {
     const breaks = [...box.children, ...box.querySelectorAll("[data-brk]")].map(c => c.getBoundingClientRect().top - top0).filter(t => t > 0);
     await savePdf(box, { size, orient, name, margin: M * 0.75 * (size === "A3" ? 1.4142 : 1), scale: size === "A3" ? 3 : 2.5, breaks });
   } finally { box.remove(); }
+}
+
+// Dosya adı: "<Tablo adı> (<Ay Yıl> - A3)"; yazdırma ekranından PDF kaydedilirken de bu ad önerilir
+export const fileTitle = (title, plabel, size) => `${title} (${plabel} - ${size})`.replace(/\s*·\s*/g, " - ").replace(/[\\/:*?"<>|]+/g, "-").replace(/\s+/g, " ").trim();
+export function withTitle(name, fn) {
+  const old = document.title; document.title = name;
+  const back = () => { document.title = old; window.removeEventListener("afterprint", back); };
+  window.addEventListener("afterprint", back); setTimeout(back, 120000);
+  fn();
 }

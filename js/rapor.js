@@ -1,9 +1,9 @@
 // Aylık HSE Raporu · kayıtlı verilerden otomatik grafik + açıklama
-import * as S from "./store.js?v=20261010f";
-import { esc } from "./ui.js?v=20261010f";
-import { askFormat, printCurrent, saveReportPdf } from "./pdf.js?v=20261010f";
-import { CATS } from "./isgcats.js?v=20261010f";
-import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261010f";
+import * as S from "./store.js?v=20261010h";
+import { esc } from "./ui.js?v=20261010h";
+import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261010h";
+import { CATS } from "./isgcats.js?v=20261010h";
+import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261010h";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -47,7 +47,7 @@ const notesBox = list => `<div style="border-top:1px solid var(--line);padding-t
   ${list.length ? list.map((t, i) => `<div style="display:flex;gap:10px;line-height:1.55"><span style="flex:0 0 22px;font-weight:800;color:#0B6E4F">${i + 1}.</span><span>${t}</span></div>`).join("") : `<div class="muted">Bu dönem için açıklama girilmemiş.</div>`}</div>`;
 const card = (title, sub, body) => `<div class="cd" style="gap:18px"><div class="row sp" style="align-items:baseline"><h2>${title}</h2><div class="muted" style="font-size:13px">${sub}</div></div>${body}</div>`;
 
-const imgH = p => `<img data-pid="${p.id}" src="${R.ph[p.id] || p.t}" alt="Fotoğraf" style="width:189px;height:189px;object-fit:cover;border-radius:8px;border:1px solid #C3D1CC;background:#EEF2F0">`;
+const imgH = p => `<img data-pid="${p.id}" src="${R.ph[p.id] || p.t}" alt="Fotoğraf" style="height:302px;width:auto;max-width:100%;border-radius:8px;border:1px solid #C3D1CC;background:#EEF2F0">`;
 function g6Body(a, mpre) {
   const tail = `<b style="white-space:nowrap">${esc(a.dept)}</b> <span class="muted" style="white-space:nowrap">· sıklık ${a.f}</span>`;
   if (!R.pics || !a.notes.some(n => n.pics.length)) return `${mpre(a.mi)}${esc(a.notes.length ? a.notes.map(n => n.t).join("; ") : a.text)} ${tail}`;
@@ -204,7 +204,8 @@ function draw(v, st, setup, data) {
     if (!o) return;
     if (o.pics !== R.pics) { R.pics = o.pics; const cb = document.getElementById("rPic"); if (cb) cb.checked = o.pics; draw(v, st, setup, data); }
     if (R.pics) await hydrate(v, st);
-    if (o.file) { try { await saveReportPdf(document.getElementById("view") || v, { ...o, name: `HSE-Rapor-${plabel.replace(/[^A-Za-z0-9]+/g, "-")}-${o.size}-${o.orient === "landscape" ? "yatay" : "dikey"}.pdf` }); return; } catch (e) { console.warn("PDF üretilemedi, yazdırmaya dönülüyor", e); } }
-    printCurrent(o);
+    const ttl = fileTitle(`${multi ? PER[R.per] : "Aylık"} HSE Raporu`, plabel, o.size);
+    if (o.file) { try { await saveReportPdf(document.getElementById("view") || v, { ...o, name: ttl + ".pdf" }); return; } catch (e) { console.warn("PDF üretilemedi, yazdırmaya dönülüyor", e); } }
+    printCurrent({ ...o, name: ttl });
   };
 }
