@@ -1,16 +1,16 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261011e";
-import * as S from "./store.js?v=20261011e";
-import * as Prim from "./primary.js?v=20261011e";
-import * as Denetim from "./denetim.js?v=20261011e";
-import * as Kaza from "./kaza.js?v=20261011e";
-import * as Konusma from "./konusma.js?v=20261011e";
-import * as Genel from "./genel.js?v=20261011e";
-import * as Rapor from "./rapor.js?v=20261011e";
-import * as Verim from "./verim.js?v=20261011e";
-import * as Isbasi from "./isbasi.js?v=20261011e";
-import * as Guest from "./guest.js?v=20261011e";
-import { $, esc, ic, toast, modal, confirmBox, formBox, GUEST } from "./ui.js?v=20261011e";
-import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261011e";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261011f";
+import * as S from "./store.js?v=20261011f";
+import * as Prim from "./primary.js?v=20261011f";
+import * as Denetim from "./denetim.js?v=20261011f";
+import * as Kaza from "./kaza.js?v=20261011f";
+import * as Konusma from "./konusma.js?v=20261011f";
+import * as Genel from "./genel.js?v=20261011f";
+import * as Rapor from "./rapor.js?v=20261011f";
+import * as Verim from "./verim.js?v=20261011f";
+import * as Isbasi from "./isbasi.js?v=20261011f";
+import * as Guest from "./guest.js?v=20261011f";
+import { $, esc, ic, toast, modal, confirmBox, formBox, GUEST } from "./ui.js?v=20261011f";
+import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261011f";
 
 const VERSION = "1.0.0";
 const st = { factories: [], years: [], fid: null, year: null, page: "genel", profile: {}, lastSync: new Date() };
@@ -361,12 +361,11 @@ function yearMenu(y, { active, archived }) {
 function pageGuestAyarlar(v) {
   const g = st.guest, theme = S.pref.get("theme") || "light";
   v.innerHTML = `<div><h1 class="ttl">Ayarlar</h1><div class="sub">Misafir erişimi</div></div>
-  <div class="cd"><div class="row" style="gap:16px;flex-wrap:nowrap"><div class="av">${esc(initials(g.name))}</div><div style="min-width:0"><b style="font-size:17px">${esc(g.name)}</b><div class="muted" style="overflow-wrap:anywhere">${esc(g.email)}</div></div></div>
+  <div class="cd"><div class="row" style="gap:16px;flex-wrap:nowrap"><div class="av">${esc(initials(g.name))}</div><div style="min-width:0;flex:1"><b style="font-size:17px">${esc(g.name)}</b><div class="muted" style="overflow-wrap:anywhere">${esc(g.email)}</div></div><button class="sm sec" id="gOut" style="flex:0 0 auto">Çıkış yap</button></div>
     <div class="fg"><div><span class="hd">ROL</span><div class="inp ro">Misafir</div></div><div><span class="hd">ERİŞİM</span><div class="inp ro">${esc(Guest.leftText(g.member))}</div></div>
     <div><span class="hd">FABRİKALAR</span><div class="inp ro">${esc(st.all.map(f => f.name).join(", "))}</div></div></div>
     <div class="muted" style="font-size:12.5px;line-height:1.6">Misafir olarak veri girişi yapabilir, İSG denetimini kaydedebilir, raporları görüp PDF alabilirsiniz. Denetimi tamamlama, silme, kurulum ve yıl/tarih ekleme yetkili kullanıcıdadır.</div></div>
-  <div class="cd"><h2>Görünüm</h2><div class="th">${THEMES.map(([k, n, sd, bg, cd]) => `<button class="tb ${k === theme ? "on" : ""}" data-theme="${k}" aria-pressed="${k === theme}"><div class="pv"><div style="flex:0 0 28%;background:${sd}"></div><div style="flex:1;background:${bg};display:flex;flex-direction:column;gap:5px;padding:7px"><div style="height:8px;border-radius:4px;background:${cd}"></div><div style="height:8px;width:60%;border-radius:4px;background:#17A06F"></div></div></div><b>${n}</b></button>`).join("")}</div></div>
-  <div class="cd" style="background:#FDF1EF;border-color:#F2C4BF;flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:space-between"><div style="flex:1 1 240px"><h2 style="color:#6E1511">Çıkış Yap</h2><div style="color:#5A1A16">Çıkış yaparsanız yeniden onay istemeniz gerekir.</div></div><button class="big" style="background:#B3261E" id="gOut">Çıkış Yap</button></div>`;
+  <div class="cd"><h2>Görünüm</h2><div class="th">${THEMES.map(([k, n, sd, bg, cd]) => `<button class="tb ${k === theme ? "on" : ""}" data-theme="${k}" aria-pressed="${k === theme}"><div class="pv"><div style="flex:0 0 28%;background:${sd}"></div><div style="flex:1;background:${bg};display:flex;flex-direction:column;gap:5px;padding:7px"><div style="height:8px;border-radius:4px;background:${cd}"></div><div style="height:8px;width:60%;border-radius:4px;background:#17A06F"></div></div></div><b>${n}</b></button>`).join("")}</div></div>`;
   v.querySelectorAll("[data-theme]").forEach(b => b.onclick = () => { S.pref.set("theme", b.dataset.theme); applyTheme(); pageGuestAyarlar(v); });
   $("gOut").onclick = () => { if (confirm("Çıkış yapılsın mı? Tekrar girmek için yeniden onay gerekir.")) guestOut(); };
 }
@@ -391,13 +390,15 @@ async function pageAyarlar(v) {
   <div class="colw">
     <div class="cd"><div><h2>Hesap</h2><div class="muted" style="font-size:13px">Giriş yaptığınız hesabın bilgileri. E-posta ile giriş yapılır, şifreniz hiçbir yerde gösterilmez.</div></div>
       <div class="row" style="gap:16px;flex-wrap:nowrap"><div class="av">${esc(initials(name || email))}</div>
-        <div style="min-width:0"><b style="font-size:17px">${esc(name || "Adınızı girin")}</b><div class="muted" style="overflow-wrap:anywhere">${esc(email)}</div></div></div>
+        <div style="min-width:0;flex:1"><b style="font-size:17px">${esc(name || "Adınızı girin")}</b><div class="muted" style="overflow-wrap:anywhere">${esc(email)}</div></div><button class="sm sec" id="askOut" style="flex:0 0 auto">Çıkış yap</button></div>
       <div class="fg">
         <div><label class="hd" for="adSoyad">AD SOYAD</label><input id="adSoyad" class="inp" value="${esc(name)}" placeholder="Ad Soyad"></div>
         <div><span class="hd">E-POSTA</span><div class="inp ro">${esc(email)}</div></div>
         <div><span class="hd">ROL</span><div class="inp ro">Yönetici</div></div>
         <div><span class="hd">GİRİŞ YÖNTEMİ</span><div class="inp ro">E-posta ve şifre</div></div></div>
       <div class="row"><button class="sec" id="saveName">Adı kaydet</button><button class="sec" id="resetPw">Şifre sıfırlama bağlantısı gönder</button></div></div>
+
+    <div class="cd" id="guestBox"></div>
 
     <div class="cd"><div><h2>Oturumlar ve Cihazlar</h2><div class="muted" style="font-size:13px">Hesabınıza giriş yapılmış cihazlar. Tanımadığınız bir cihaz varsa oradan uzaktan çıkış yapabilirsiniz.</div></div>
       <div class="col1">${sessions.map(d => { const prim = d.id === prime?.deviceId, mine = d.id === me; return item(`
@@ -409,12 +410,6 @@ async function pageAyarlar(v) {
       ${iAmPrime ? "" : '<div class="muted" style="font-size:12.5px;line-height:1.6">Bu cihaz ikincil cihazdır. Diğer oturumları yalnızca ana cihaz kapatabilir. Bu cihazı ana cihaz yapmak için "Yetkili cihaz yap" düğmesini kullanın; e-postanıza kod gönderilir.</div>'}
       <div class="muted" style="font-size:12.5px;line-height:1.6">Çıkış yapılan cihazda oturum kapatılır ve yerel önbellek temizlenir. Verileriniz bulutta güvende kalır, tekrar giriş yapınca geri gelir.</div></div>
 
-    <div class="cd"><div><h2>Yedekleme</h2><div class="muted" style="font-size:13px;line-height:1.5">Tüm fabrikalar, yıllar, kurulumlar ve aylık kayıtlar tek bir dosya olarak bilgisayarınıza indirilir. Verileriniz bulutta zaten saklanır; bu dosya ek güvence içindir.</div></div>
-      <div class="row"><button class="sec" id="backup">Tüm verileri indir (JSON)</button><span class="muted" id="backupT" style="font-size:12.5px"></span></div></div>
-    <div class="cd" id="guestBox"></div>
-    <div class="cd" style="background:#FDF1EF;border-color:#F2C4BF;flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:space-between">
-      <div style="flex:1 1 240px"><h2 style="color:#6E1511">Çıkış Yap</h2><div style="color:#5A1A16">Bu cihazdaki oturumunuz güvenli şekilde kapatılır.</div></div>
-      <button class="big" style="background:#B3261E" id="askOut">Çıkış Yap</button></div>
   </div>
   <div class="colw">
     <div class="cd"><div><h2>Fabrikalar</h2><div class="muted" style="font-size:13px">Birden fazla fabrikanın denetimini yapabilirsiniz. Her fabrikanın bölümleri, kayıtları ve raporları ayrı tutulur; fabrika seçerek geçiş yaparsınız.</div></div>
@@ -432,8 +427,8 @@ async function pageAyarlar(v) {
     <div class="cd"><div><h2>Yıllar</h2><div class="muted" style="font-size:13px">Veriler yıl bazında saklanır. Yalnızca aktif yıl düzenlenebilir, arşiv yıllarını üstteki yıl seçiciden inceleyebilir, gerekirse “Aktif yap” ile tekrar düzenlemeye açabilirsiniz. Yeni yıl başlatınca Genel Bakış sayfasının altında “Yıllar Arası Karşılaştırma” kartı iki yılı kıyaslar.</div></div>
       <div class="ygrid">${st.yearsMeta.map(m => { const y = m.id, a = String(y) === String(st.active), fut = +y > cy, ar = m.archived;
         const stt = a ? "Aktif" : fut ? "Henüz başlamadı" : ar ? "Arşivde" : "Salt okunur";
-        const btn = a || fut ? `<span class="yb" style="visibility:hidden">.</span>` : ar ? `<button class="sec yb" data-unarch="${y}">Arşivden çıkar</button>` : `<button class="sec yb" data-actyear="${y}">Aktif yap</button>`;
-        return `<div class="ycard ${a ? "cur" : ""} ${ar || fut ? "dim" : ""}" title="${stt}"><button class="yx" data-yx="${y}" aria-label="${y} yılı için seçenekler">×</button><b class="yn">${y}</b><span class="ys">${stt}</span>${btn}</div>`; }).join("")}${st.fid && canStart ? `<button class="ycard add" id="newY"><b class="yn">+ ${next}</b><span class="ys">Yıl başlat</span></button>` : ""}${st.fid ? "" : '<span class="muted">Seçili fabrikada yıl yok.</span>'}</div>
+        const btn = a || fut ? `<span class="ys">${stt}</span>` : ar ? `<button class="sec yb" data-unarch="${y}">Arşivden çıkar</button>` : `<button class="sec yb" data-actyear="${y}">Aktif yap</button>`;
+        return `<div class="ycard ${a ? "cur" : ""} ${ar || fut ? "dim" : ""}" title="${stt}"><button class="yx" data-yx="${y}" aria-label="${y} yılı için seçenekler">×</button><b class="yn">${y}</b>${btn}</div>`; }).join("")}${st.fid && canStart ? `<button class="ycard add" id="newY"><b class="yn">+ ${next}</b><span class="ys">Yıl başlat</span></button>` : ""}${st.fid ? "" : '<span class="muted">Seçili fabrikada yıl yok.</span>'}</div>
       ${st.fid && !canStart ? `<div class="muted" style="font-size:12.5px">${next} yılı, ${next} yılı başladığında (1 Ocak ${next}) başlatılabilir. Bugünün tarihi: ${new Date().toLocaleDateString("tr-TR")}.</div>` : ""}
       ${canStart ? '<div class="muted" style="font-size:12.5px">Yeni yıl başlatılınca bölümler ve parametreler önceki yıldan kopyalanır.</div>' : ""}</div>
     <div class="cd"><div><h2>Görünüm</h2><div class="muted" style="font-size:13px">Tema seçimi bu cihazda saklanır.</div></div>
@@ -446,7 +441,7 @@ async function pageAyarlar(v) {
         <div><span class="hd">DERLEME TARİHİ</span><div style="font-weight:700">${BUILD}</div></div>
         <div><span class="hd">VERİ ALTYAPISI</span><div style="font-weight:700">Bulut depolama · cihazlar arası senkronizasyon</div></div>
         <div><span class="hd">SENKRONİZASYON</span><div style="font-weight:700"><i class="sw" style="background:#17A06F;border-radius:50%"></i><span id="syncT">Güncel · ${st.lastSync.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}</span></div></div></div>
-      <div><button class="sec" id="doSync">Şimdi senkronize et</button></div></div>
+      <div class="row"><button class="sec" id="doSync">Şimdi senkronize et</button><button class="sec" id="backup" title="Tüm fabrikalar, yıllar ve kayıtlar tek JSON dosyası olarak indirilir">Tüm verileri indir (JSON)</button><span class="muted" id="backupT" style="font-size:12.5px"></span></div></div>
   </div></div>
   <div id="modal" class="mod hide"><div class="mbox"><h2>Çıkış yapılsın mı?</h2>
     <p class="muted">Bu cihazdaki oturum kapatılır ve yerel önbellek temizlenir. Verileriniz bulutta güvende kalır.</p>

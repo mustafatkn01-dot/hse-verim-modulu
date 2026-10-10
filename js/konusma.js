@@ -1,7 +1,7 @@
 // Eğitim Konuşması · Aylık Giriş
-import * as S from "./store.js?v=20261011e";
-import { esc, ic, toast, noteEditor, guestLock, roText } from "./ui.js?v=20261011e";
-import { katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261011e";
+import * as S from "./store.js?v=20261011f";
+import { esc, ic, toast, noteEditor, guestLock, roText } from "./ui.js?v=20261011f";
+import { katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261011f";
 
 const COLL = "konusma";
 const BAND = { Mükemmel: ["#17A06F", "#0B6E4F", "#D9F1E6"], İyi: ["#2A82C4", "#145F96", "#DCEAF7"], Orta: ["#E8A512", "#6B3F00", "#FBE9C6"], Kritik: ["#D6382E", "#B3261E", "#FADAD7"] };
