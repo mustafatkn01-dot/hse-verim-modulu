@@ -3,8 +3,8 @@
 //   users/{sahip}/invites/{kod}        davet (e-posta ayarı kopyası)
 //   users/{sahip}/guestReqs/{misafirUid}  onay isteği {gid, code, name, email, status, at}
 //   users/{sahip}/members/{misafirUid}    onaylı üye {name, email, factories[], mode, expires|null}
-import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously } from "./firebase.js?v=20261010m";
-import { esc, toast } from "./ui.js?v=20261010m";
+import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously } from "./firebase.js?v=20261010n";
+import { esc, toast } from "./ui.js?v=20261010n";
 
 const Q = new URLSearchParams(location.search);
 export const linkInfo = () => {
@@ -182,8 +182,8 @@ export async function renderSettings(box, { ownerUid, factories, onChange }) {
   const pend = reqs.filter(r => r.status === "pending").sort((a, b) => b.at - a.at);
   box.innerHTML = `<div><h2>Misafir Kullanıcılar</h2><div class="muted" style="font-size:13px;line-height:1.5">Saha yardımcınıza veya denetim yapacak yetkiliye bağlantıyı gönderin. Adını ve e-postasını yazıp <b>Onay Gönder</b>'e basar; siz Süresiz veya 24 saatlik onay verirsiniz. Misafir fabrika bazlı yetkilendirilir.</div></div>
     <div class="col1" style="gap:8px"><span class="hd">DAVET BAĞLANTISI</span>
-      ${inv ? `<input class="inp" id="gLink" readonly value="${esc(link)}" onfocus="this.select()"><div class="row"><button class="sm" id="gCopy">Kopyala</button><button class="sm sec" id="gShare">Paylaş</button><button class="sm sec" id="gRegen">Bağlantıyı yenile</button></div>
-        <div class="muted" style="font-size:12.5px">“Yenile” eski bağlantıyı geçersiz kılar (onaylı misafirler etkilenmez).</div>` : `<div><button id="gMake">Davet bağlantısı oluştur</button></div>`}</div>
+      ${inv ? `<input class="inp" id="gLink" readonly value="${esc(link)}" onfocus="this.select()"><div class="row"><button class="sm" id="gCopy">Kopyala</button><button class="sm sec" id="gShare">Paylaş</button><button class="sm sec" id="gRegen">Bağlantıyı yenile</button><button class="sm" id="gClose" aria-label="Davet bağlantısını kapat" title="Davet bağlantısını kapat" style="background:#B3261E;border-color:#B3261E;color:#fff;width:38px;padding:0;font-size:20px;line-height:1;margin-left:auto">×</button></div>
+        <div class="muted" style="font-size:12.5px">“Yenile” eski bağlantıyı geçersiz kılar, kırmızı × bağlantıyı kapatır (onaylı misafirler etkilenmez).</div>` : `<div><button id="gMake">Davet bağlantısı oluştur</button></div>`}</div>
     ${pend.length ? `<div class="col1" style="gap:8px"><span class="hd">ONAY BEKLEYEN İSTEKLER (${pend.length})</span>${pend.map(r => `<div class="it" style="gap:10px;flex-wrap:wrap"><div class="grow"><b>${esc(r.name)}</b><div class="muted" style="font-size:12.5px">${esc(r.email)} · ${ago(r.at)}</div></div><button class="sm" data-rv="${r.id}">İncele ve onayla</button></div>`).join("")}</div>` : ""}
     <div class="col1" style="gap:8px"><span class="hd">MİSAFİRLER (${mems.length})</span>
       ${mems.map(m => { const live = isLive(m); return `<div class="it" style="gap:10px;flex-wrap:wrap"><div class="grow"><b>${esc(m.name)}</b> <span class="tag" style="${live ? "" : "background:#FADAD7;color:#8E1B16"}">${esc(leftText(m))}</span><div class="muted" style="font-size:12.5px">${esc(m.email)} · ${esc(fname(m.factories))}</div></div>
@@ -203,6 +203,7 @@ export async function renderSettings(box, { ownerUid, factories, onChange }) {
   };
   q("#gMake") && (q("#gMake").onclick = mk);
   q("#gRegen") && (q("#gRegen").onclick = () => { if (confirm("Eski davet bağlantısı geçersiz olacak. Yenilensin mi?")) mk(); });
+  q("#gClose") && (q("#gClose").onclick = async () => { if (!confirm("Davet bağlantısı kapatılsın mı? Bağlantı çalışmaz; onaylı misafirler etkilenmez. İstediğinizde yeniden oluşturabilirsiniz.")) return; for (const i of invs) await deleteDoc(doc(db, `users/${ownerUid}/invites/${i.id}`)).catch(() => {}); toast("Davet bağlantısı kapatıldı."); refresh(); });
   q("#gCopy") && (q("#gCopy").onclick = async () => { try { await navigator.clipboard.writeText(link); toast("Bağlantı kopyalandı."); } catch { q("#gLink").select(); toast("Bağlantıyı seçip kopyalayın."); } });
   q("#gShare") && (q("#gShare").onclick = async () => { if (navigator.share) { try { await navigator.share({ title: "HSE Verim Modülü · Misafir erişimi", text: "HSE Verim Modülü misafir erişim bağlantısı:", url: link }); } catch {} } else { try { await navigator.clipboard.writeText(link); toast("Bağlantı kopyalandı."); } catch {} } });
   q("#gCfg").onclick = async () => {
