@@ -28,6 +28,7 @@ export const bandOf = (sc, p) => {
 };
 
 /**
+ * Sıklık: bir kategoride uygunsuzluk bulunan FARKLI GÜN sayısı (aynı gün birden çok denetim = 1)
  * cats: [{w, items:[...]}]   sessions: [{fails:{id:[]}, app:{ci:bool}}]
  * draft: {marks, notes}      freqOv: {ci: 0-3}      bonusIdx: 0-3     F: bölüm katsayısı   p: parametreler
  * Ceza = 100 × Σ(sıklık·ağırlık) / (azami × toplam ağırlık) × F   (Y.D. kategori: ceza 0, payda sabit)
@@ -39,7 +40,8 @@ export function calcIsg({ cats, sessions, draft, freqOv, bonusIdx, F, p }) {
   let numer = 0, den = 0, total = 0, nCount = 0, totalItems = 0, unmarked = 0, missing = 0, ydMissing = 0, curFails = 0, curMarked = false;
   const catInfo = cats.map((c, ci) => {
     total += c.w; totalItems += c.items.length;
-    const savedCat = sessions.filter(s => Object.keys(s.fails).some(k => k.startsWith(`c${ci}i`))).length;
+    const dayOf = (x, i) => x.date || "#" + i, curDay = draft.date || "#cur";
+    const catDays = new Set(sessions.map((x, i) => [x, i]).filter(([x]) => Object.keys(x.fails).some(k => k.startsWith(`c${ci}i`))).map(([x, i]) => dayOf(x, i)));
     let curFailed = 0, anyApplicable = false, allYD = c.items.length > 0;
     const items = c.items.map((_, ii) => {
       const id = `c${ci}i${ii}`, mk = draft.marks[id];
@@ -49,12 +51,13 @@ export function calcIsg({ cats, sessions, draft, freqOv, bonusIdx, F, p }) {
       const prev = sessions.filter(s => s.fails[id] !== undefined);
       const isX = mk === "x";
       if (isX) { curFails++; curFailed++; if (!(draft.notes[id] || []).some(t => t.trim())) missing++; }
-      return { id, mk, prev, isX, cnt: prev.length + (isX ? 1 : 0) };
+      const pd = new Set(sessions.map((x, i) => [x, i]).filter(([x]) => x.fails[id] !== undefined).map(([x, i]) => dayOf(x, i)));
+      return { id, mk, prev, isX, cnt: pd.size + (isX && !pd.has(curDay) ? 1 : 0) };
     });
     if (allYD && !(draft.ydNotes?.[ci] || "").trim()) ydMissing++;
     const savedApplicable = sessions.some(s => s.app[ci]);
     const hasFreq = anyApplicable || savedApplicable;
-    const catCount = savedCat + (curFailed > 0 ? 1 : 0);
+    const catCount = catDays.size + (curFailed > 0 && !catDays.has(curDay) ? 1 : 0); // aynı gün yapılan denetimler tek sayılır
     let auto = Math.min(azami, mf(catCount));
     if (c.w === 3 && catCount > 0) auto = Math.min(azami, Math.max(2, auto));
     const ov = freqOv[ci];
