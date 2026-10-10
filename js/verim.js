@@ -1,9 +1,9 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261010e";
-import { esc } from "./ui.js?v=20261010e";
-import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi } from "./scoring.js?v=20261010e";
-import { askFormat, savePdf } from "./pdf.js?v=20261010e";
-import { CATS } from "./isgcats.js?v=20261010e";
+import * as S from "./store.js?v=20261010f";
+import { esc } from "./ui.js?v=20261010f";
+import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi } from "./scoring.js?v=20261010f";
+import { askFormat, savePdf } from "./pdf.js?v=20261010f";
+import { CATS } from "./isgcats.js?v=20261010f";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -42,9 +42,9 @@ export async function load(st, setup) {
   kn.forEach(d => rows.forEach(r => { const x = num0(d.result?.per?.[r.id]?.pct), t = nt(d, r.id); if (low(x) && t) notes.push({ m: mOf(d), k: 1, id: r.id, t, x: `verim ${f1(x)}` }); }));
   ib.forEach(d => rows.forEach(r => { const x = d.result?.per?.[r.id], t = nt(d, r.id); if (x?.state === "ok" && x.verim < 99.995 && t) notes.push({ m: mOf(d), k: 2, id: r.id, t, x: `verim ${f1(x.verim)}` }); }));
   ig.forEach(d => { const id = String(d.id).slice(3); if (!out[id] || !d.sessions?.length) return; const items = {};
-    d.sessions.forEach(se => Object.entries(se.fails || {}).forEach(([key, arr]) => { (items[key] ||= { n: new Set(), c: 0 }).c++; (arr || []).forEach(t => items[key].n.add(t)); }));
+    d.sessions.forEach(se => Object.entries(se.fails || {}).forEach(([key, arr]) => { const o = (items[key] ||= { n: new Set(), c: 0, pics: [] }); o.c++; (arr || []).forEach((t, j) => { o.n.add(t); ((se.photos || {})[key + "|" + j] || []).forEach(ph => { if (!o.pics.some(x => x.id === ph.id)) o.pics.push(ph); }); }); }));
     Object.entries(items).forEach(([key, o]) => { const mm = /^c(\d+)i(\d+)$/.exec(key); if (!mm) return; const c = CATS[+mm[1]]; if (!c) return;
-      notes.push({ m: mOf(d), k: 3, id, t: `${c.name}: ${o.n.size ? [...o.n].join("; ") : c.items[+mm[2]]}`, x: `${o.c} denetimde uygunsuz` }); }); });
+      notes.push({ m: mOf(d), k: 3, id, t: `${c.name}: ${o.n.size ? [...o.n].join("; ") : c.items[+mm[2]]}`, x: `${o.c} denetimde uygunsuz`, pics: o.pics }); }); });
   out._n = notes;
   return out;
 }
@@ -156,10 +156,10 @@ function draw() {
     <div class="muted" style="font-size:12.5px;line-height:1.6">Veri girilmeyen aylar "–" gösterir. Eksik aylı dönemler mevcut aylar üzerinden hesaplanır ve "kısmi" olarak işaretlenir. Bir bölümde değerlendirilen modül yoksa (örn. işe giriş yok) toplam verimde ağırlıklar kalan modüllere yeniden dağıtılır (ağırlıklar: İş Kazası ${W[0]}, Konuşma ${W[1]}, İşbaşı ${W[2]}, İSG ${W[3]}).</div></div>`;
   const rowIx = Object.fromEntries(rows.map((r, i) => [r.id, i])), MODN = ["İş Kazası", "Eğitim Konuşması", "İşbaşı Eğitim", "İSG Denetim"];
   const sel = (V.data._n || []).filter(n => (mk === 4 || n.k === mk) && cur.idx.includes(n.m) && rowIx[n.id] !== undefined).sort((a, b) => a.k - b.k || rowIx[a.id] - rowIx[b.id] || a.m - b.m);
-  const details = [0, 1, 2, 3].map(k => ({ mod: MODN[k], items: sel.filter(n => n.k === k).map(n => ({ dept: rows[rowIx[n.id]].name, text: n.t, extra: n.x, mon: cur.idx.length > 1 ? MS[n.m] : "" })) })).filter(g => g.items.length);
+  const details = [0, 1, 2, 3].map(k => ({ mod: MODN[k], items: sel.filter(n => n.k === k).map(n => ({ dept: rows[rowIx[n.id]].name, text: n.t, extra: n.x, pics: n.pics || [], mon: cur.idx.length > 1 ? MS[n.m] : "" })) })).filter(g => g.items.length);
   const detHtml = `<div style="border-top:1px solid var(--line);padding-top:16px;display:flex;flex-direction:column;gap:12px"><div style="font-weight:800;font-size:13px;letter-spacing:.8px;color:var(--muted)">BÖLÜM AÇIKLAMALARI <span style="font-weight:600;letter-spacing:0">· denetim ve eğitim kayıtlarında yazılanlar</span></div>
     ${details.length ? details.map(g => `<div class="col1" style="gap:6px">${mk === 4 ? `<div style="font-weight:800;color:#145F96">${g.mod}</div>` : ""}${g.items.map((a, i) => `<div style="display:flex;gap:10px;line-height:1.55"><span style="flex:0 0 22px;font-weight:800;color:#0B6E4F">${i + 1}.</span><span>${a.mon ? `<span class="muted">${a.mon} · </span>` : ""}<b>${esc(a.dept)}</b> — ${esc(a.text)} <span class="muted" style="white-space:nowrap">· ${esc(a.extra)}</span></span></div>`).join("")}</div>`).join("") : `<div class="muted">Bu dönem için girilmiş açıklama yok.</div>`}</div>`;
-  const info = { details, mk4: mk === 4, fname: st.factories.find(f => f.id === st.fid)?.name || "", title: `${MET[mk][0]} · Bölüm Karşılaştırması`, plabel: PER[V.p].name(V.sel), av, abn: bname(av), ab, names: rows.map(r => r.name), vals, bandOf: x => (x === null ? NONE : band(x)), notes, partial: partial ? `Kısmi dönem: ${cur.idx.length} aydan ${have} tanesi için veri var. Değerler mevcut aylar üzerinden hesaplandı.` : "", esik: p.esik };
+  const info = { fid: st.fid, year: st.year, details, mk4: mk === 4, fname: st.factories.find(f => f.id === st.fid)?.name || "", title: `${MET[mk][0]} · Bölüm Karşılaştırması`, plabel: PER[V.p].name(V.sel), av, abn: bname(av), ab, names: rows.map(r => r.name), vals, bandOf: x => (x === null ? NONE : band(x)), notes, partial: partial ? `Kısmi dönem: ${cur.idx.length} aydan ${have} tanesi için veri var. Değerler mevcut aylar üzerinden hesaplandı.` : "", esik: p.esik };
   V.v.querySelector("[data-detslot]").innerHTML = detHtml;
   V.v.querySelector("[data-pdf]").onclick = () => pdfDialog(info);
   const fn = `${(info.fname || "tesis").replace(/[^\wğüşıöçĞÜŞİÖÇ-]+/g, "_")}_${y}`;
@@ -178,10 +178,10 @@ function draw() {
 // ---- Tek sayfalık grafik + açıklama PDF'i (A4/A3, dikey/yatay) ----
 function pdfDialog(info) {
   const n = info.names.length;
-  askFormat({ title: "PDF indir", text: `${info.title} · ${info.plabel}. Tek sayfalık grafik ve açıklamalar; yöneticinize göndermek için hazırlanır.`, defOrient: n > 7 ? "landscape" : "portrait", hint: n > 7 ? `${n} bölüm olduğu için yatay düzen önerilir.` : "Az sayıda bölümde dikey düzen yeterlidir." }).then(o => o && printSheet(info, o));
+  askFormat({ title: "PDF indir", text: `${info.title} · ${info.plabel}. Grafik ve açıklamalar; yöneticinize göndermek için hazırlanır (resimsiz tek sayfa).`, defOrient: n > 7 ? "landscape" : "portrait", hint: n > 7 ? `${n} bölüm olduğu için yatay düzen önerilir.` : "Az sayıda bölümde dikey düzen yeterlidir.", pics: info.details.reduce((a, g) => a + g.items.reduce((b, it) => b + (it.pics?.length || 0), 0), 0) }).then(o => o && printSheet(info, o));
 }
 
-async function printSheet(info, { size, orient }) {
+async function printSheet(info, { size, orient, pics = false, file = false }) {
   // Tasarım A4 ölçüsünde (96 dpi) yapılır; A3 için √2 büyütülür.
   const land = orient === "landscape", W = land ? 1123 : 794, Hh = land ? 794 : 1123, M = 38, z = size === "A3" ? 1.4142 : 1;
   const cw = W - 2 * M, cpl = Math.floor(cw / 6.3);
@@ -191,6 +191,10 @@ async function printSheet(info, { size, orient }) {
   const ch = land ? 300 : 520;
   const n = info.names.length, gap = n > 12 ? 6 : 10, fs = n > 12 ? 11 : 13;
   const now = new Date(), ds = `${String(now.getDate()).padStart(2, "0")}.${String(now.getMonth() + 1).padStart(2, "0")}.${now.getFullYear()}`;
+  const usePics = pics && info.details.some(g => g.items.some(i => i.pics?.length)), PH = {};
+  if (usePics) await Promise.all(info.details.flatMap(g => g.items.flatMap(i => i.pics)).map(async p => { try { PH[p.id] = await S.getPhoto(info.fid, info.year, p.id); } catch { } }));
+  const psz = file ? 189 : Math.round(189 / z);
+  const picsHtml = a => usePics && a.pics?.length ? `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">${a.pics.map(p => `<img src="${PH[p.id] || p.t}" alt="Fotoğraf" style="width:${psz}px;height:${psz}px;object-fit:cover;border-radius:6px;border:1px solid #C3D1CC">`).join("")}</div>` : "";
   const sh = document.createElement("div"); sh.id = "psheet";
   const build = (ch, z) => { const s = (ch - 60) / 100;
     const line = (v, l) => `<div style="position:absolute;left:30px;right:0;bottom:${30 + v * s}px;border-top:1px dashed #B5C5BF"></div><div style="position:absolute;left:0;bottom:${30 + v * s - 7}px;font-size:11px;color:#6A7E79">${l}</div>`;
@@ -206,7 +210,7 @@ async function printSheet(info, { size, orient }) {
     <div style="position:relative;height:${ch}px"><div style="position:absolute;inset:0">${line(50, 50)}${line(75, 75)}${line(90, 90)}</div><div style="position:absolute;left:30px;right:0;top:0;bottom:0;display:flex;gap:${gap}px">${bars}</div></div>
     <div style="display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:#546964">${[["Mükemmel", `≥ ${num(info.esik.m)}`], ["İyi", `${num(info.esik.i)}-${num(info.esik.m) - 1}`], ["Orta", `${num(info.esik.o)}-${num(info.esik.i) - 1}`], ["Kritik", `< ${num(info.esik.o)}`]].map(([k, r]) => `<span style="display:flex;align-items:center;gap:6px"><span style="width:11px;height:11px;border-radius:3px;background:${BAND[k].fill}"></span>${k} ${r}</span>`).join("")}</div>
     <div style="border-top:1px solid #D5E0DC;padding-top:10px;display:flex;flex-direction:column;gap:5px"><div style="font-weight:800;font-size:12px;letter-spacing:.8px;color:#3E534E">AÇIKLAMA</div>
-      ${info.details.length ? info.details.map(g => `<div style="display:flex;flex-direction:column;gap:4px">${info.mk4 ? `<div style="font-weight:800;color:#145F96">${esc(g.mod)}</div>` : ""}${g.items.map((a, i) => `<div style="display:flex;gap:8px;line-height:1.45;font-size:12px"><span style="flex:0 0 20px;font-weight:800;color:#0B6E4F">${i + 1}.</span><span>${a.mon ? `<span style="color:#546964">${a.mon} · </span>` : ""}<b>${esc(a.dept)}</b> — ${esc(a.text)} <span style="color:#546964">· ${esc(a.extra)}</span></span></div>`).join("")}</div>`).join("") : `<div style="color:#546964">Bu dönem için girilmiş açıklama yok.</div>`}</div>
+      ${info.details.length ? info.details.map(g => `<div style="display:flex;flex-direction:column;gap:4px">${info.mk4 ? `<div style="font-weight:800;color:#145F96">${esc(g.mod)}</div>` : ""}${g.items.map((a, i) => `<div data-brk style="display:flex;gap:8px;line-height:1.45;font-size:12px;break-inside:avoid"><span style="flex:0 0 20px;font-weight:800;color:#0B6E4F">${i + 1}.</span><span>${a.mon ? `<span style="color:#546964">${a.mon} · </span>` : ""}<b>${esc(a.dept)}</b> — ${esc(a.text)} <span style="color:#546964">· ${esc(a.extra)}</span>${picsHtml(a)}</span></div>`).join("")}</div>`).join("") : `<div style="color:#546964">Bu dönem için girilmiş açıklama yok.</div>`}</div>
     <div style="color:#6A7E79;font-size:11px;border-top:1px solid #E4ECE9;padding-top:6px">Oluşturma tarihi: ${ds} · HSE Verim Modülü</div></div>`; };
   sh.innerHTML = build(ch, z);
   const stl = document.createElement("style"); stl.id = "pstyle";
@@ -215,17 +219,21 @@ async function printSheet(info, { size, orient }) {
   // Gerçek yüksekliği ölç, tek sayfaya sığana kadar grafiği küçült
   const base = land ? 300 : 520, avail = Hh - 2 * M - 6; let c = base;
   sh.style.cssText = "display:block;position:fixed;left:-99999px;top:0;visibility:hidden";
-  for (; c >= 140; c -= 15) { sh.innerHTML = build(c, 1); if (sh.firstElementChild.offsetHeight <= avail) break; }
+  if (!usePics) for (; c >= 140; c -= 15) { sh.innerHTML = build(c, 1); if (sh.firstElementChild.offsetHeight <= avail) break; }
   const clean = () => { sh.remove(); stl.remove(); window.removeEventListener("afterprint", clean); };
   const fit = Math.max(140, c);
-  // Önce gerçek PDF dosyası üret (boyut/yön her cihazda korunur); olmazsa yazdırma penceresine dön
-  try {
-    sh.innerHTML = build(fit, 1);
-    sh.style.cssText = "display:block;position:fixed;left:-99999px;top:0;background:#fff";
-    const nm = `HSE-Verim-${(info.title + "-" + info.plabel).replace(/[^A-Za-z0-9]+/g, "-")}-${size}-${land ? "yatay" : "dikey"}.pdf`;
-    await savePdf(sh.firstElementChild, { size, orient, name: nm, margin: M * 0.75 * z, scale: size === "A3" ? 3 : 2.5, single: true });
-    clean(); return;
-  } catch (e) { console.warn("PDF üretilemedi, yazdırmaya dönülüyor", e); }
+  if (file) {
+    // İstenirse yazdırmadan doğrudan PDF dosyası olarak indir
+    try {
+      sh.innerHTML = build(fit, 1);
+      sh.style.cssText = "display:block;position:fixed;left:-99999px;top:0;background:#fff";
+      const el = sh.firstElementChild, top0 = el.getBoundingClientRect().top;
+      const breaks = [...el.querySelectorAll("[data-brk]")].map(x => x.getBoundingClientRect().top - top0).filter(t => t > 0);
+      const nm = `HSE-Verim-${(info.title + "-" + info.plabel).replace(/[^A-Za-z0-9]+/g, "-")}-${size}-${land ? "yatay" : "dikey"}.pdf`;
+      await savePdf(el, { size, orient, name: nm, margin: M * 0.75 * z, scale: size === "A3" ? 3 : 2.5, single: !usePics, breaks });
+      clean(); return;
+    } catch (e) { console.warn("PDF üretilemedi, yazdırmaya dönülüyor", e); }
+  }
   sh.innerHTML = build(fit, z); sh.style.cssText = "";
   window.addEventListener("afterprint", clean);
   setTimeout(() => window.print(), 150);

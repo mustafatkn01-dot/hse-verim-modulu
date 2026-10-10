@@ -193,3 +193,4 @@ body,html{background:#fff!important}#app{display:block!important}.pg{padding:0!i
 .phs{flex-wrap:wrap;gap:8px}
 .pbtn{flex-direction:column;justify-content:center;gap:2px;height:60px;width:76px;min-width:0;padding:0 4px;border-radius:10px;font-weight:400}
 .pbtn i{font-size:11px;line-height:1.1;font-weight:500;font-style:italic}
+@media print{[data-brk]{break-inside:avoid}}

@@ -1,9 +1,9 @@
 // Ortak PDF yardımcıları: kâğıt boyutu (A4/A3) + sayfa düzeni (dikey/yatay) penceresi
-import { esc } from "./ui.js?v=20261010e";
+import { esc } from "./ui.js?v=20261010f";
 
-export function askFormat({ title = "PDF indir", text = "", defOrient = "portrait", hint = "" } = {}) {
+export function askFormat({ title = "PDF indir", text = "", defOrient = "portrait", hint = "", pics = 0 } = {}) {
   return new Promise(res => {
-    const o = { size: "A4", orient: defOrient };
+    const o = { size: "A4", orient: defOrient, pics: false };
     const m = document.createElement("div"); m.className = "mod";
     const seg = (k, items) => items.map(([v, t]) => `<button class="sec" data-k="${k}" data-v="${v}" style="flex:1;height:44px;border-radius:10px;font-weight:700">${t}</button>`).join("");
     m.innerHTML = `<div class="mbox" role="dialog" aria-modal="true" style="gap:16px"><h2>${esc(title)}</h2>
@@ -11,8 +11,9 @@ export function askFormat({ title = "PDF indir", text = "", defOrient = "portrai
       <div class="col1" style="gap:8px"><span class="hd">KÂĞIT BOYUTU</span><div class="row" style="gap:8px;flex-wrap:nowrap">${seg("size", [["A4", "A4"], ["A3", "A3"]])}</div></div>
       <div class="col1" style="gap:8px"><span class="hd">SAYFA DÜZENİ</span><div class="row" style="gap:8px;flex-wrap:nowrap">${seg("orient", [["portrait", "Dikey"], ["landscape", "Yatay"]])}</div>
         ${hint ? `<span class="muted" style="font-size:12.5px">${esc(hint)}</span>` : ""}</div>
-      <div class="muted" style="font-size:12.5px;line-height:1.5">Açılan yazdırma penceresinde hedef olarak "PDF olarak kaydet" seçin. Ölçek ve kenar boşlukları "Varsayılan" kalsın.</div>
-      <div class="row" style="justify-content:flex-end"><button class="sec" data-no>İptal</button><button data-yes>PDF oluştur</button></div></div>`;
+      ${pics ? `<label class="row" style="gap:10px;flex-wrap:nowrap;font-weight:600;cursor:pointer"><input type="checkbox" data-pics style="width:20px;height:20px"> Resimleri ekle (${pics} adet · her açıklamanın altında yaklaşık 5 cm)</label>` : ""}
+      <div class="muted" style="font-size:12.5px;line-height:1.5">Yazdırma önizlemesi açılır; oradan doğrudan yazdırabilir veya hedef olarak "PDF olarak kaydet" seçebilirsiniz. Ölçek ve kenar boşlukları "Varsayılan" kalsın.</div>
+      <div class="row" style="justify-content:flex-end"><button class="sec" data-no>İptal</button><button class="sec" data-file title="Yazdırmadan doğrudan PDF dosyası olarak indir">Dosya olarak indir</button><button data-yes>Önizleme ve yazdır</button></div></div>`;
     document.body.appendChild(m);
     const paint = () => m.querySelectorAll("[data-k]").forEach(b => { const on = o[b.dataset.k] === b.dataset.v; b.style.background = on ? "var(--sel)" : ""; b.style.color = on ? "#fff" : ""; b.setAttribute("aria-pressed", on); });
     m.querySelectorAll("[data-k]").forEach(b => b.onclick = () => { o[b.dataset.k] = b.dataset.v; paint(); });
@@ -20,7 +21,9 @@ export function askFormat({ title = "PDF indir", text = "", defOrient = "portrai
     const done = v => { m.remove(); res(v); };
     m.querySelector("[data-no]").onclick = () => done(null);
     m.addEventListener("mousedown", e => { if (e.target === m) done(null); });
-    m.querySelector("[data-yes]").onclick = () => done({ ...o });
+    const pc = m.querySelector("[data-pics]");
+    m.querySelector("[data-yes]").onclick = () => done({ ...o, pics: !!pc?.checked, file: false });
+    m.querySelector("[data-file]").onclick = () => done({ ...o, pics: !!pc?.checked, file: true });
   });
 }
 

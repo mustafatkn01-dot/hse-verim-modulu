@@ -1,9 +1,9 @@
 // Aylık HSE Raporu · kayıtlı verilerden otomatik grafik + açıklama
-import * as S from "./store.js?v=20261010e";
-import { esc } from "./ui.js?v=20261010e";
-import { askFormat, printCurrent, saveReportPdf } from "./pdf.js?v=20261010e";
-import { CATS } from "./isgcats.js?v=20261010e";
-import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261010e";
+import * as S from "./store.js?v=20261010f";
+import { esc } from "./ui.js?v=20261010f";
+import { askFormat, printCurrent, saveReportPdf } from "./pdf.js?v=20261010f";
+import { CATS } from "./isgcats.js?v=20261010f";
+import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261010f";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -199,5 +199,12 @@ function draw(v, st, setup, data) {
   if (R.pics) hydrate(v, st);
   document.getElementById("rPer").onchange = e => { R.per = e.target.value; draw(v, st, setup, data); };
   const ay = document.getElementById("rAy"); if (ay) ay.onchange = e => { R.month = +e.target.value; draw(v, st, setup, data); };
-  document.getElementById("rPdf").onclick = async () => { const o = await askFormat({ title: "Raporu PDF indir", text: `${plabel} raporu. Birden fazla sayfa olabilir; kartlar sayfa sonlarında bölünmez.`, defOrient: "portrait", hint: "Çok bölümlü tesislerde yatay düzen grafik satırlarını genişletir." }); if (o) { try { if (R.pics) await hydrate(v, st); await saveReportPdf(document.getElementById("view") || v, { ...o, name: `HSE-Rapor-${plabel.replace(/[^A-Za-z0-9]+/g, "-")}-${o.size}-${o.orient === "landscape" ? "yatay" : "dikey"}.pdf` }); } catch (e) { console.warn("PDF üretilemedi, yazdırmaya dönülüyor", e); printCurrent(o); } } };
+  document.getElementById("rPdf").onclick = async () => {
+    const o = await askFormat({ title: "Raporu PDF indir", text: `${plabel} raporu. Birden fazla sayfa olabilir; kartlar sayfa sonlarında bölünmez.`, defOrient: "portrait", hint: "Çok bölümlü tesislerde yatay düzen grafik satırlarını genişletir.", pics: phIds.size });
+    if (!o) return;
+    if (o.pics !== R.pics) { R.pics = o.pics; const cb = document.getElementById("rPic"); if (cb) cb.checked = o.pics; draw(v, st, setup, data); }
+    if (R.pics) await hydrate(v, st);
+    if (o.file) { try { await saveReportPdf(document.getElementById("view") || v, { ...o, name: `HSE-Rapor-${plabel.replace(/[^A-Za-z0-9]+/g, "-")}-${o.size}-${o.orient === "landscape" ? "yatay" : "dikey"}.pdf` }); return; } catch (e) { console.warn("PDF üretilemedi, yazdırmaya dönülüyor", e); } }
+    printCurrent(o);
+  };
 }
