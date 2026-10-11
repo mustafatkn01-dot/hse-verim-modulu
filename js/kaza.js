@@ -1,7 +1,8 @@
 // İş Kazası · Aylık Giriş
-import * as S from "./store.js?v=20261011k";
-import { esc, ic, toast, noteEditor, guestLock, roText } from "./ui.js?v=20261011k";
-import { katsayi, bandOf, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261011k";
+import * as S from "./store.js?v=20261011l";
+import * as Gorev from "./gorev.js?v=20261011l";
+import { esc, ic, toast, noteEditor, guestLock, roText, GUEST } from "./ui.js?v=20261011l";
+import { katsayi, bandOf, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261011l";
 
 const COLL = "kaza";
 const T = [["Gün kayıpsız", 2], ["1-5 gün kayıplı", 5], ["5-20 gün kayıplı", 10], ["20+ gün kayıplı", 20], ["Uzuv kaybı", 50], ["Ölüm", 100]];
@@ -57,6 +58,14 @@ function persist(now = false) {
 }
 const setSv = () => { const e = document.getElementById("sv"); if (e) e.textContent = D.msg || (D.saved ? (D.exists ? "Kayıtlı" : "Bu ay henüz kaydedilmedi") : "Kaydediliyor…"); };
 
+function gchip(r, row, x, st) {
+  const t = row.note.trim();
+  if (!t || D.ro || GUEST.on) return "";
+  const sinif = row.c.map((n, k) => n > 0 ? `${T[k][0]} ×${n}` : "").filter(Boolean).join(", ");
+  const key = Gorev.noteKey("k", st.fid, st.year, D.month, r.id, "", t);
+  return Gorev.chip(key, { tip: "kaza", fab: st.factories?.find(f => f.id === st.fid)?.name || "", yil: +st.year, ay: D.month, bolum: r.name, sinif, sayi: x.count, metin: t, url: location.origin + location.pathname + "#kaza" });
+}
+
 function draw() {
   const { st } = D.ctx, v = D.v, p = D.setup.params || DEFAULT_PARAMS, s = summary(), sb = BAND[bandOf(s.tesis, p)];
   const cell = (id, k, n) => `<div class="stp"><button class="sm sec" data-d="${id}|${k}|-1" aria-label="Azalt">−</button><span style="min-width:22px;text-align:center;font-weight:800;color:${n > 0 ? "#B3261E" : "var(--text)"}">${n}</span><button class="sm sec" data-d="${id}|${k}|1" aria-label="Artır">+</button></div>`;
@@ -82,7 +91,7 @@ function draw() {
           <span style="font-weight:700">${f1(x.pen)}</span>
           <div class="row" style="gap:8px;flex-wrap:nowrap"><b>${f1(x.verim)}</b><span class="pill" style="background:${b[1]};color:${b[0]}">${bandOf(x.verim, p)}</span></div></div>
           ${x.count > 0 ? `<div class="row" style="flex-wrap:nowrap;align-items:flex-start"><span class="hd" style="padding-top:12px;min-width:56px">AÇIKLAMA</span>
-            <button class="nb" style="border-color:${miss ? "#D6382E" : "#C3D1CC"}" data-note="${r.id}" aria-label="Açıklamayı yaz veya düzenle"><span class="nt" style="color:${row.note.trim() ? "var(--text)" : "#8A6A66"}">${esc(row.note.trim() ? row.note : "Dokunun ve yazın: kaza nerede, nasıl oldu?")}</span>${ic('<path d="M4 20h4L19 9l-4-4L4 16v4z"/>', 18)}</button></div>` : ""}</div>`;
+            <button class="nb" style="border-color:${miss ? "#D6382E" : "#C3D1CC"}" data-note="${r.id}" aria-label="Açıklamayı yaz veya düzenle"><span class="nt" style="color:${row.note.trim() ? "var(--text)" : "#8A6A66"}">${esc(row.note.trim() ? row.note : "Dokunun ve yazın: kaza nerede, nasıl oldu?")}</span>${ic('<path d="M4 20h4L19 9l-4-4L4 16v4z"/>', 18)}</button>${gchip(r, row, x, st)}</div>` : ""}</div>`;
       }).join("")}</div></div>
     <div class="row"><button id="saveK">${MONTHS[D.month - 1]} Verilerini Kaydet</button><span class="muted" style="font-size:12.5px">Değişiklikler otomatik kaydedilir. Kaza girilen bölümlerde açıklama yazılmalı; rapor bu metni bölüm adıyla yayınlar.</span></div></div></fieldset>`;
   const re = () => { draw(); persist(); };

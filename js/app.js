@@ -1,16 +1,17 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261011k";
-import * as S from "./store.js?v=20261011k";
-import * as Prim from "./primary.js?v=20261011k";
-import * as Denetim from "./denetim.js?v=20261011k";
-import * as Kaza from "./kaza.js?v=20261011k";
-import * as Konusma from "./konusma.js?v=20261011k";
-import * as Genel from "./genel.js?v=20261011k";
-import * as Rapor from "./rapor.js?v=20261011k";
-import * as Verim from "./verim.js?v=20261011k";
-import * as Isbasi from "./isbasi.js?v=20261011k";
-import * as Guest from "./guest.js?v=20261011k";
-import { $, esc, ic, toast, modal, confirmBox, formBox, GUEST } from "./ui.js?v=20261011k";
-import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261011k";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261011l";
+import * as S from "./store.js?v=20261011l";
+import * as Prim from "./primary.js?v=20261011l";
+import * as Denetim from "./denetim.js?v=20261011l";
+import * as Kaza from "./kaza.js?v=20261011l";
+import * as Konusma from "./konusma.js?v=20261011l";
+import * as Genel from "./genel.js?v=20261011l";
+import * as Rapor from "./rapor.js?v=20261011l";
+import * as Verim from "./verim.js?v=20261011l";
+import * as Isbasi from "./isbasi.js?v=20261011l";
+import * as Guest from "./guest.js?v=20261011l";
+import * as Gorev from "./gorev.js?v=20261011l";
+import { $, esc, ic, toast, modal, confirmBox, formBox, GUEST } from "./ui.js?v=20261011l";
+import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261011l";
 
 const VERSION = "1.2.0";
 const st = { factories: [], years: [], fid: null, year: null, page: "genel", profile: {}, lastSync: new Date() };
@@ -115,6 +116,7 @@ onAuthStateChanged(auth, async user => {
     unwatch = S.watchSession(d => { if (d?.revoked) doSignOut(); });
     beat = setInterval(() => S.touchSession().catch(() => {}), 5 * 60 * 1000);
     S.getProfile().then(p => { st.profile = p; }).catch(() => {});
+    Gorev.init();
     await loadContext(); go(location.hash.slice(1) || "genel");
     Prim.handleLanding(t => { toast(t); if (st.page === "ayarlar") render(); });
     unwatchReq?.();
@@ -442,7 +444,7 @@ async function pageAyarlar(v) {
         <div><span class="hd">DERLEME TARİHİ</span><div style="font-weight:700">${BUILD}</div></div>
         <div><span class="hd">VERİ ALTYAPISI</span><div style="font-weight:700">Bulut depolama · cihazlar arası senkronizasyon</div></div>
         <div><span class="hd">SENKRONİZASYON</span><div style="font-weight:700"><i class="sw" style="background:#17A06F;border-radius:50%"></i><span id="syncT">Güncel · ${st.lastSync.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}</span></div></div></div>
-      <div class="row"><button class="sec" id="doSync">Şimdi senkronize et</button><button class="sec" id="backup" title="Tüm fabrikalar, yıllar ve kayıtlar tek JSON dosyası olarak indirilir">Tüm verileri indir (JSON)</button><span class="muted" id="backupT" style="font-size:12.5px"></span></div></div>
+      <div class="row"><button class="sec" id="doSync">Şimdi senkronize et</button><button class="sec" id="backup" title="Tüm fabrikalar, yıllar ve kayıtlar tek JSON dosyası olarak indirilir">Tüm verileri indir (JSON)</button>${Gorev.enabled() ? `<button class="sec" id="gvBtn"></button>` : ""}<span class="muted" id="backupT" style="font-size:12.5px"></span></div></div>
   </div></div>
   <div id="modal" class="mod hide"><div class="mbox"><h2>Çıkış yapılsın mı?</h2>
     <p class="muted">Bu cihazdaki oturum kapatılır ve yerel önbellek temizlenir. Verileriniz bulutta güvende kalır.</p>
@@ -515,6 +517,11 @@ async function pageAyarlar(v) {
     if (maxYear) { const prev = await S.getSetup(st.fid, maxYear); if (prev) await S.saveSetup(st.fid, y, { rows: prev.rows, params: prev.params }); }
     await S.updateFactory(st.fid, { activeYear: y }); S.pref.set("year", y); await loadContext(); say(`${y} yılı başlatıldı ve aktif yapıldı.`); pageAyarlar(v);
   };
+  if ($("gvBtn")) {
+    const gp = () => { const ok = Gorev.state() === "hazir"; $("gvBtn").textContent = ok ? "Görev programı bağlı · Bağlantıyı kes" : "Görev programına bağlan"; $("gvBtn").title = Gorev.statusText(); };
+    gp(); const off = Gorev.onChange(() => { if ($("gvBtn")) gp(); else off(); });
+    $("gvBtn").onclick = async () => { if (Gorev.state() === "hazir") await Gorev.disconnect(); else if (await Gorev.login()) say("Görev takip programına bağlandı."); gp(); };
+  }
   $("doSync").onclick = async () => { await loadContext(); $("syncT").textContent = "Güncel · " + st.lastSync.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }); say("Veriler buluttan yenilendi."); };
 }
 function applyTheme() { document.documentElement.dataset.theme = S.pref.get("theme") || "light"; }

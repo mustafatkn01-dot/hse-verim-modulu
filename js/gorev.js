@@ -1,0 +1,118 @@
+// Görev takip programı köprüsü (mtisggorev). HSE Verim yalnızca küçük kayıtlar bırakır ve durumu okur;
+// görev/kaza kayıtlarını görev programı kendisi oluşturur. Bağlantı yoksa özellik uyarı kartıyla kapalı kalır.
+import { GOREV_CFG } from "./gorev-config.js?v=20261011l";
+import { esc } from "./ui.js?v=20261011l";
+
+const CFG = GOREV_CFG || null, CDN = "https://www.gstatic.com/firebasejs/10.14.1/";
+let F = null, auth = null, db = null, user = null, err = "", fabs = null, started = false, offs = [];
+const durum = new Map(), gelen = new Map(), pend = new Map(), subs = new Set();
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+export const enabled = () => !!CFG;
+export const state = () => !CFG ? "yok" : err && !F ? "hata" : !F ? "bekle" : !user ? "giris" : err ? "hata" : "hazir";
+export const statusText = () => ({ yok: "Tanımlı değil", bekle: "Bağlanıyor…", giris: "Bağlı değil", hata: "Bağlantı sorunu", hazir: `Bağlı · ${user?.email || ""}` })[state()];
+export const onChange = f => { subs.add(f); return () => subs.delete(f); };
+const fire = () => { subs.forEach(f => { try { f(); } catch { } }); paint(); };
+
+// Büyük/küçük harf ve Türkçe karakter farkları yok sayılır (görev programı ile aynı kural)
+const norm = s => String(s || "").replace(/İ/g, "i").replace(/I/g, "i").toLowerCase()
+  .replace(/[ıçğöşü]/g, c => ({ ı: "i", ç: "c", ğ: "g", ö: "o", ş: "s", ü: "u" })[c]).replace(/\s+/g, " ").trim();
+const hash = s => { let h = 2166136261; for (const c of String(s)) { h ^= c.codePointAt(0); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); };
+export const makeKey = (...p) => p.map(x => String(x).replace(/[^A-Za-z0-9_-]/g, "_")).join("_");
+// Aynı metinli birden fazla açıklama için dup sırası eklenir
+export const noteKey = (kind, fid, y, m, dept, extra, text, dup = 0) => makeKey(kind, fid, y, String(m).padStart(2, "0"), dept, extra, hash(String(text).trim()) + (dup ? "x" + dup : ""));
+
+const R = p => F.ref(db, (CFG.root || "isg") + "/" + p);
+const stopW = () => { offs.forEach(f => { try { f(); } catch { } }); offs = []; durum.clear(); gelen.clear(); fabs = null; };
+function startW() {
+  const bad = e => { err = /permission/i.test(e?.message || "") ? "yetki" : "okuma"; fire(); };
+  const map = (m, v) => { m.clear(); Object.keys(v || {}).forEach(k => m.set(k, v[k])); };
+  offs.push(F.onValue(R("hseDurum"), s => { map(durum, s.val()); err = ""; fire(); }, bad));
+  offs.push(F.onValue(R("hseGelen"), s => { map(gelen, s.val()); fire(); }, bad));
+  offs.push(F.onValue(R("settings/fabrikalar"), s => {
+    const v = s.val(); fabs = Object.values(v || {}).map(x => x && x.name).filter(Boolean); fire();
+  }, bad));
+}
+
+export async function init() {
+  if (!CFG || started) return; started = true;
+  try {
+    const [A, Au, D] = await Promise.all([import(CDN + "firebase-app.js"), import(CDN + "firebase-auth.js"), import(CDN + "firebase-database.js")]);
+    const app = A.initializeApp(CFG.firebase, "gorev");
+    auth = Au.getAuth(app); db = D.getDatabase(app, CFG.firebase.databaseURL); F = { ...Au, ...D };
+    Au.setPersistence(auth, Au.browserLocalPersistence).catch(() => { });
+    Au.onAuthStateChanged(auth, u => { user = u; err = ""; stopW(); if (u) startW(); fire(); });
+  } catch (e) { started = false; err = "ag"; fire(); }
+}
+
+// ---- Düğme / etiket ----
+const GREEN = "background:#D9F1E6;color:#0B6E4F";
+function inner(key) {
+  const d = durum.get(key), g = gelen.get(key);
+  if (d && (d.durum === "acik" || d.durum === "kapali")) return `<span class="pill" style="${GREEN}">✓ Göreve bağlı · ${d.durum === "kapali" ? "Kapalı" : "Açık"}</span>`;
+  if (g && g.islendi !== "hata") return `<span class="pill" style="${GREEN}" title="Görev programı açılınca eklenir">✓ Göreve bağlı · aktarım bekliyor</span>`;
+  if ((d && d.durum === "hata") || (g && g.islendi === "hata")) return `<button class="sm" data-gerr="${esc(key)}" style="height:36px;background:#FBE9C6;color:#5A3300;border:1px solid #E8C877">Aktarılamadı · fabrika adı</button>`;
+  return `<button class="sm sec" data-gadd="${esc(key)}" style="height:36px">+ Göreve ekle</button>`;
+}
+export const chip = (key, payload) => { pend.set(key, payload); return `<span class="gk" data-gk="${esc(key)}" style="margin-left:auto;flex:0 0 auto">${inner(key)}</span>`; };
+function paint() { document.querySelectorAll("[data-gk]").forEach(el => { el.innerHTML = inner(el.dataset.gk); }); }
+
+// ---- Uyarı kartı (uygulamanın .warn deseni) ----
+const MSG = {
+  yok: ["Görev takip programı bağlı değil", "Bu kurulumda görev takip programı tanımlı değil, bu özellik kullanılamaz. HSE Verim görev takibi olmadan da eksiksiz çalışır."],
+  giris: ["Görev takip programına giriş yapılmamış", "Göreve eklemek için Ayarlar → Uygulama ve Senkronizasyon bölümünden görev programı hesabınızla bağlanın."],
+  hata: ["Görev takip programına ulaşılamadı", "İnternet bağlantınızı kontrol edin. Sorun sürerse Ayarlar'dan bağlantıyı kesip yeniden bağlanın (yetki hatası olabilir)."]
+};
+export function warn(kind, x = {}) {
+  const [t, msg] = kind === "fab"
+    ? ["Fabrika adı uyuşmuyor", `HSE Verim'deki fabrika adı "${x.hse}" görev takip programında bulunamadı. Görev programındaki fabrikalar: ${(x.liste || []).join(", ") || "(liste boş)"}. Adı hangi programda değiştireceğinize siz karar verin; adlar aynı olunca tekrar deneyin.`]
+    : MSG[kind] || MSG.hata;
+  const m = document.createElement("div"); m.className = "mod";
+  m.innerHTML = `<div class="mbox" role="dialog" aria-modal="true" style="gap:14px"><h2>${esc(t)}</h2><div class="warn">${esc(msg)}</div>
+    <div class="row" style="justify-content:flex-end">${kind === "giris" || kind === "hata" ? '<button class="sec" data-go>Ayarlara git</button>' : ""}<button data-ok>Tamam</button></div></div>`;
+  document.body.appendChild(m);
+  m.querySelector("[data-ok]").onclick = () => m.remove();
+  const go = m.querySelector("[data-go]"); if (go) go.onclick = () => { m.remove(); location.hash = "#ayarlar"; };
+  m.addEventListener("mousedown", e => { if (e.target === m) m.remove(); });
+}
+
+async function add(key) {
+  const p = pend.get(key); if (!p) return;
+  if (!CFG) return warn("yok");
+  if (!F) await init();
+  let s = state(); if (s === "bekle") { await sleep(800); s = state(); }
+  if (s === "giris") return warn("giris");
+  if (s !== "hazir") return warn("hata");
+  for (let i = 0; i < 20 && fabs === null; i++) await sleep(150);
+  if (fabs === null) return warn("hata");
+  if (!fabs.some(n => norm(n) === norm(p.fab))) return warn("fab", { hse: p.fab, liste: fabs });
+  try { await F.set(R("hseGelen/" + key), { ...p, at: Date.now() }); } catch (e) { warn("hata"); }
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest?.("[data-gadd]"); if (b) { e.preventDefault(); add(b.dataset.gadd); return; }
+  const r = e.target.closest?.("[data-gerr]"); if (r) { e.preventDefault(); const p = pend.get(r.dataset.gerr); warn("fab", { hse: p?.fab || "", liste: fabs || [] }); }
+});
+
+// ---- Ayarlar: bağlan / kes ----
+export function login() {
+  return new Promise(res => {
+    const m = document.createElement("div"); m.className = "mod";
+    m.innerHTML = `<div class="mbox" role="dialog" aria-modal="true" style="gap:14px"><h2>Görev takip programına bağlan</h2>
+      <div class="muted" style="font-size:13px;line-height:1.5">Görev takip programında kullandığınız hesabın e-posta ve şifresi. Şifre kaydedilmez; yalnızca bu cihazda oturum açık kalır.</div>
+      <div><label class="hd" for="gvE">E-POSTA</label><input id="gvE" class="inp" type="email" autocomplete="username"></div>
+      <div><label class="hd" for="gvP">ŞİFRE</label><input id="gvP" class="inp" type="password" autocomplete="current-password"></div>
+      <div class="warn hide" id="gvW"></div>
+      <div class="row" style="justify-content:flex-end"><button class="sec" data-no>Vazgeç</button><button data-yes>Bağlan</button></div></div>`;
+    document.body.appendChild(m);
+    const done = v => { m.remove(); res(v); };
+    m.querySelector("[data-no]").onclick = () => done(false);
+    m.querySelector("[data-yes]").onclick = async () => {
+      const w = m.querySelector("#gvW"), email = m.querySelector("#gvE").value.trim(), pw = m.querySelector("#gvP").value;
+      if (!email || !pw) { w.textContent = "E-posta ve şifre gerekli."; w.classList.remove("hide"); return; }
+      try { if (!F) await init(); await F.signInWithEmailAndPassword(auth, email, pw); done(true); }
+      catch (e) { w.textContent = /invalid|wrong|not-found|credential/i.test(e?.code || e?.message || "") ? "E-posta veya şifre hatalı." : "Bağlanılamadı: " + (e?.message || e); w.classList.remove("hide"); }
+    };
+    m.querySelector("#gvE").focus();
+  });
+}
+export async function disconnect() { if (F && auth) await F.signOut(auth); }
