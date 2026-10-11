@@ -1,7 +1,7 @@
 // Görev takip programı köprüsü (mtisggorev). HSE Verim yalnızca küçük kayıtlar bırakır ve durumu okur;
 // görev/kaza kayıtlarını görev programı kendisi oluşturur. Bağlantı yoksa özellik uyarı kartıyla kapalı kalır.
-import { GOREV_CFG } from "./gorev-config.js?v=20261011l";
-import { esc } from "./ui.js?v=20261011l";
+import { GOREV_CFG } from "./gorev-config.js?v=20261011m";
+import { esc } from "./ui.js?v=20261011m";
 
 const CFG = GOREV_CFG || null, CDN = "https://www.gstatic.com/firebasejs/10.14.1/";
 let F = null, auth = null, db = null, user = null, err = "", fabs = null, started = false, offs = [];
@@ -47,15 +47,21 @@ export async function init() {
 
 // ---- Düğme / etiket ----
 const GREEN = "background:#D9F1E6;color:#0B6E4F";
-function inner(key) {
+function inner(key, tile) {
   const d = durum.get(key), g = gelen.get(key);
-  if (d && (d.durum === "acik" || d.durum === "kapali")) return `<span class="pill" style="${GREEN}">✓ Göreve bağlı · ${d.durum === "kapali" ? "Kapalı" : "Açık"}</span>`;
-  if (g && g.islendi !== "hata") return `<span class="pill" style="${GREEN}" title="Görev programı açılınca eklenir">✓ Göreve bağlı · aktarım bekliyor</span>`;
-  if ((d && d.durum === "hata") || (g && g.islendi === "hata")) return `<button class="sm" data-gerr="${esc(key)}" style="height:36px;background:#FBE9C6;color:#5A3300;border:1px solid #E8C877">Aktarılamadı · fabrika adı</button>`;
-  return `<button class="sm sec" data-gadd="${esc(key)}" style="height:36px">+ Göreve ekle</button>`;
+  const T = (kind, ic, t1, t2, extra) => tile
+    ? `<button class="pbtn" ${extra}style="${kind}"><b style="font-size:17px;line-height:1">${ic}</b><i>${t2}</i></button>`
+    : null;
+  if (d && (d.durum === "acik" || d.durum === "kapali")) {
+    const k = d.durum === "kapali" ? "Kapalı" : "Açık";
+    return T("background:#D9F1E6;color:#0B6E4F;border-color:#0B6E4F;cursor:default", "✓", "", `Bağlı · ${k}`, "disabled ") || `<span class="pill" style="${GREEN}">✓ Göreve bağlı · ${k}</span>`;
+  }
+  if (g && g.islendi !== "hata") return T("background:#D9F1E6;color:#0B6E4F;border-color:#0B6E4F;cursor:default", "✓", "", "Bağlı · bekliyor", "disabled title=\"Görev programı açılınca eklenir\" ") || `<span class="pill" style="${GREEN}" title="Görev programı açılınca eklenir">✓ Göreve bağlı · aktarım bekliyor</span>`;
+  if ((d && d.durum === "hata") || (g && g.islendi === "hata")) return T("background:#FBE9C6;color:#5A3300;border-color:#E8C877", "!", "", "Fabrika adı", `data-gerr="${esc(key)}" `) || `<button class="sm" data-gerr="${esc(key)}" style="height:36px;background:#FBE9C6;color:#5A3300;border:1px solid #E8C877">Aktarılamadı · fabrika adı</button>`;
+  return T("color:#0B6E4F;border-color:#0B6E4F", "+", "", "Göreve ekle", `data-gadd="${esc(key)}" `) || `<button class="sm sec" data-gadd="${esc(key)}" style="height:36px">+ Göreve ekle</button>`;
 }
-export const chip = (key, payload) => { pend.set(key, payload); return `<span class="gk" data-gk="${esc(key)}" style="margin-left:auto;flex:0 0 auto">${inner(key)}</span>`; };
-function paint() { document.querySelectorAll("[data-gk]").forEach(el => { el.innerHTML = inner(el.dataset.gk); }); }
+export const chip = (key, payload, tile = false) => { pend.set(key, payload); return `<span class="gk" data-gk="${esc(key)}"${tile ? ' data-tile="1"' : ' style="margin-left:auto;flex:0 0 auto"'}>${inner(key, tile)}</span>`; };
+function paint() { document.querySelectorAll("[data-gk]").forEach(el => { el.innerHTML = inner(el.dataset.gk, !!el.dataset.tile); }); }
 
 // ---- Uyarı kartı (uygulamanın .warn deseni) ----
 const MSG = {

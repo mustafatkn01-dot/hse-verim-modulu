@@ -1,10 +1,10 @@
 // İSG Denetim Listesi sayfası
-import * as Guest from "./guest.js?v=20261011l";
-import * as Gorev from "./gorev.js?v=20261011l";
-import * as S from "./store.js?v=20261011l";
-import { esc, ic, toast, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261011l";
-import { CATS } from "./isgcats.js?v=20261011l";
-import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261011l";
+import * as Guest from "./guest.js?v=20261011m";
+import * as Gorev from "./gorev.js?v=20261011m";
+import * as S from "./store.js?v=20261011m";
+import { esc, ic, toast, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261011m";
+import { CATS } from "./isgcats.js?v=20261011m";
+import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261011m";
 
 const COLL = "isg";
 const D = { key: "", setup: null, doc: null, dept: null, month: null, open: { 0: true }, ro: false, timer: null, saved: true, msg: "" };
@@ -165,7 +165,7 @@ function gchip(cat, ii, id, notes, k, curNo, row, st) {
   if (!t || D.ro || GUEST.on) return "";
   const dup = notes.slice(0, k).filter(x => String(x || "").trim() === t).length;
   const key = Gorev.noteKey("d", st.fid, st.year, D.month, D.dept, `${id}_${curNo}`, t, dup);
-  return Gorev.chip(key, { tip: "denetim", fab: st.factories?.find(f => f.id === st.fid)?.name || "", yil: +st.year, ay: D.month, bolum: row?.name || "", kategori: cat.name, madde: cat.items[ii], metin: t, agirlik: cat.w, url: location.origin + location.pathname + "#denetim" });
+  return Gorev.chip(key, { tip: "denetim", fab: st.factories?.find(f => f.id === st.fid)?.name || "", yil: +st.year, ay: D.month, bolum: row?.name || "", kategori: cat.name, madde: cat.items[ii], metin: t, agirlik: cat.w, url: location.origin + location.pathname + "#denetim" }, true);
 }
 
 function draw() {
@@ -199,7 +199,7 @@ function draw() {
             <button class="nx" data-nrm="${id}|${k}" aria-label="Açıklamayı sil">×</button></div>
           <div class="phs">${(doc.draft.photos?.[id + "|" + k] || []).map(p => `<span class="pth"><img src="${p.t}" data-pv="${p.id}" alt="Fotoğraf"><button class="px" data-prm="${id}|${k}|${p.id}" aria-label="Fotoğrafı sil">×</button></span>`).join("")}
             ${D.ro ? "" : `<label class="pbtn">${ic('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>', 20)}<i>Fotoğraf çek</i><input type="file" accept="image/*" capture="environment" data-ph="${id}|${k}" hidden></label><label class="pbtn">${ic('<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.5"/><path d="M21 16l-5-5-8 9"/>', 20)}<i>Resim ekle</i><input type="file" accept="image/*" multiple data-ph="${id}|${k}" hidden></label>`}${gchip(cat, ii, id, notes, k, curNo, row, st)}</div>`).join("")}
-          <button class="sec" style="align-self:flex-start;height:38px;color:#8E1B16;border-color:#B3261E" data-nadd="${id}">+ Benzer uygunsuzluk ekle</button></div>` : ""}</div>`;
+          <button class="sec" style="align-self:flex-start;height:38px;color:#8E1B16;border-color:#B3261E" data-nadd="${id}">+ Benzer ekle</button></div>` : ""}</div>`;
     }).join("");
     const ydBox = info.allYD ? `<div class="ydbox"><span class="hd">BU KATEGORİDE TÜM MADDELER Y.D. · KISA GEREKÇE</span>
       <input class="inp" data-yd="${ci}" value="${esc(doc.draft.ydNotes?.[ci] || "")}" aria-label="Y.D. gerekçesi" placeholder="Örn. Bölümde kimyasal kullanılmıyor">
@@ -321,7 +321,7 @@ function bind(v, c) {
   const nw = document.getElementById("newSess");
   if (nw) nw.onclick = () => { doc.draft = emptyDraft(defaultDate(st.year, D.month), true); persist(true); draw(); };
   on("[data-delsess]", async el => {
-    const { confirmBox } = await import("./ui.js?v=20261011l");
+    const { confirmBox } = await import("./ui.js?v=20261011m");
     if (!(await confirmBox("Son denetim silinsin mi?", "Kayıtlı denetim silinir; skor ve sıklıklar yeniden hesaplanır.", "Evet, sil", true))) return;
     const gone = doc.sessions.pop();
     // Misafir taslağından gelen denetimse: misafire "silindi" bilgisi gider (taslağı düzeltip yeniden gönderebilir), fotoğrafları korunur
