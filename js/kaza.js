@@ -1,8 +1,8 @@
 // İş Kazası · Aylık Giriş
-import * as S from "./store.js?v=20261011p";
-import * as Gorev from "./gorev.js?v=20261011p";
-import { esc, ic, toast, noteEditor, guestLock, roText, GUEST } from "./ui.js?v=20261011p";
-import { katsayi, bandOf, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261011p";
+import * as S from "./store.js?v=20261011r";
+import * as Gorev from "./gorev.js?v=20261011r";
+import { esc, ic, toast, noteEditor, guestLock, roText, GUEST } from "./ui.js?v=20261011r";
+import { katsayi, bandOf, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261011r";
 
 const COLL = "kaza";
 const T = [["Gün kayıpsız", 2], ["1-5 gün kayıplı", 5], ["5-20 gün kayıplı", 10], ["20+ gün kayıplı", 20], ["Uzuv kaybı", 50], ["Ölüm", 100]];
@@ -97,7 +97,7 @@ function draw() {
   const re = () => { draw(); persist(); };
   $("ay").onchange = e => { D.month = +e.target.value; render(D.v, D.ctx); };
   v.querySelectorAll("[data-d]").forEach(b => b.onclick = () => {
-    const [id, k, d] = b.dataset.d.split("|"), row = rowOf(id); row.c[+k] = Math.max(0, row.c[+k] + +d); re();
+    const [id, k, d] = b.dataset.d.split("|"), row = rowOf(id); row.c[+k] = Math.max(0, row.c[+k] + +d); if (!row.c.some(n => n > 0)) row.note = ""; re();
   });
   v.querySelectorAll("[data-note]").forEach(b => b.onclick = async () => {
     const id = b.dataset.note, name = D.setup.rows.find(r => r.id === id).name;
