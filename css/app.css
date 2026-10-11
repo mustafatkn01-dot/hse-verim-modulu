@@ -200,3 +200,12 @@ body,html{background:#fff!important}#app{display:block!important}.pg{padding:0!i
 .ycard.dim{opacity:.72}
 .ycard .yx{position:absolute;top:4px;right:4px;width:24px;height:24px;min-width:0;padding:0;border-radius:50%;background:transparent;color:#B3261E;border:0;font-size:18px;line-height:1;font-weight:700;display:flex;align-items:center;justify-content:center}
 .ycard.cur .yx{color:#FFB4AB}
+
+/* Uygunsuzluk açıklama alanı: dar boşluklar */
+.xbox{padding:12px}
+.xbox .phs{gap:6px;padding:0 0 2px 22px;margin-top:-6px;align-items:flex-start}
+.xbox .pbtn{width:76px;flex:0 0 76px}
+.xbox .pbtn{margin:0}
+.gk[data-tile] .pbtn i{white-space:normal;text-align:center}
+.gk[data-tile]{display:flex;flex:0 0 76px}
+.gk[data-tile] .pbtn{width:76px}
