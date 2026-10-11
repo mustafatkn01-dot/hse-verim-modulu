@@ -63,7 +63,7 @@ export function calcIsg({ cats, sessions, draft, freqOv, bonusIdx, F, p }) {
     const ov = freqOv[ci];
     const freq = !hasFreq ? null : (ov !== undefined ? ov : auto);
     if (hasFreq) { numer += freq * c.w; den += c.w; }
-    return { items, hasFreq, catCount, auto, freq, allYD, hasOverride: ov !== undefined };
+    return { items, hasFreq, catCount, auto, freq, allYD, hasOverride: ov !== undefined, marked: items.filter(x => x.mk).length, nItems: items.length };
   });
   const penalty = total > 0 ? (100 * numer / (azami * total)) * F : 0;
   const bonus = bonusVals[bonusIdx] || 0;

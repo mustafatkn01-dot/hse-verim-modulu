@@ -1,9 +1,9 @@
 // İSG Denetim Listesi sayfası
-import * as Guest from "./guest.js?v=20261011j";
-import * as S from "./store.js?v=20261011j";
-import { esc, ic, toast, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261011j";
-import { CATS } from "./isgcats.js?v=20261011j";
-import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261011j";
+import * as Guest from "./guest.js?v=20261011k";
+import * as S from "./store.js?v=20261011k";
+import { esc, ic, toast, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261011k";
+import { CATS } from "./isgcats.js?v=20261011k";
+import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261011k";
 
 const COLL = "isg";
 const D = { key: "", setup: null, doc: null, dept: null, month: null, open: { 0: true }, ro: false, timer: null, saved: true, msg: "" };
@@ -202,6 +202,7 @@ function draw() {
       <span class="grow"><b style="font-size:15px;line-height:1.35">${esc(cat.name)}</b><span class="muted" style="display:block;font-size:12.5px">${!info.hasFreq ? "Tüm maddeler Y.D. · bu dönem değerlendirme dışı" : `${esc(cat.sub)} · bu ay ${info.catCount} farklı günde bulgu`}</span></span>
       <span style="transform:rotate(${open ? 180 : 0}deg);display:flex">${ic('<path d="M6 9l6 6 6-6"/>')}</span></button>
       <span class="pill" style="background:${w[1]};color:${w[2]}">${w[0]}</span>
+      ${on ? `<span class="pill" style="min-width:74px;text-align:center;background:${info.marked === info.nItems ? "#D9F1E6" : "#FBE9C6"};color:${info.marked === info.nItems ? "#0B6E4F" : "#5A3300"}" title="İşaretlenen madde sayısı">Kontrol ${info.marked}/${info.nItems}</span>` : ""}
       <span class="pill" style="min-width:74px;text-align:center;background:${fb};color:${fc}">${info.hasFreq ? "Sıklık " + info.freq : "Dışı"}</span></div>
       ${open ? `<div class="catb">${items}${ydBox}${freqBox}</div>` : ""}</div>`;
   }).join("");
@@ -310,7 +311,7 @@ function bind(v, c) {
   const nw = document.getElementById("newSess");
   if (nw) nw.onclick = () => { doc.draft = emptyDraft(defaultDate(st.year, D.month), true); persist(true); draw(); };
   on("[data-delsess]", async el => {
-    const { confirmBox } = await import("./ui.js?v=20261011j");
+    const { confirmBox } = await import("./ui.js?v=20261011k");
     if (!(await confirmBox("Son denetim silinsin mi?", "Kayıtlı denetim silinir; skor ve sıklıklar yeniden hesaplanır.", "Evet, sil", true))) return;
     const gone = doc.sessions.pop();
     // Misafir taslağından gelen denetimse: misafire "silindi" bilgisi gider (taslağı düzeltip yeniden gönderebilir), fotoğrafları korunur
