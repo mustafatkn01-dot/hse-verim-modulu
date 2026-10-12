@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-title" content="HSE Verim">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&family=Sora:wght@600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=20261012b">
+<link rel="stylesheet" href="css/app.css?v=20261012c">
 </head>
 <body>
 <section id="login" class="hide">
@@ -39,6 +39,24 @@
   </div>
 </div>
 <div id="toast"></div>
-<script type="module" src="js/app.js?v=20261012b"></script>
+<script>
+// Açılış bekçisi: uygulama birkaç saniyede açılmazsa beyaz ekran yerine hata özeti ve yenile düğmesi gösterir
+(function () {
+  var last = "";
+  var note = function (m) { last = String(m || "").slice(0, 300); };
+  addEventListener("error", function (e) { note((e.message || "Hata") + (e.filename ? " · " + e.filename.split("/").pop() + ":" + e.lineno : "")); });
+  addEventListener("unhandledrejection", function (e) { note(e.reason && (e.reason.message || e.reason)); });
+  setTimeout(function () {
+    var ok = document.querySelector("#app:not(.hide), #login:not(.hide), #guestReq:not(.hide)");
+    var any = document.querySelector("section:not(.hide), #app:not(.hide)");
+    if (ok || any) return;
+    var d = document.createElement("div");
+    d.style.cssText = "position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;background:#EDF2F0;z-index:99999;font-family:system-ui,sans-serif";
+    d.innerHTML = '<div style="max-width:420px;background:#fff;border:1px solid #C3D1CC;border-radius:16px;padding:22px;color:#10201C"><b style="font-size:18px">Uygulama açılamadı</b><p style="line-height:1.5;color:#546964">Sayfa tam yüklenemedi. Güncelleme yeni yayınlanmış olabilir; bir dakika bekleyip yenileyin.</p><p style="font-size:12px;color:#8E1B16;word-break:break-word">' + (last ? "Hata: " + last.replace(/[<>&]/g, "") : "Hata bilgisi alınamadı (ağ veya yükleme sorunu olabilir).") + '</p><button onclick="location.reload()" style="height:44px;padding:0 20px;border-radius:12px;background:#0B6E4F;color:#fff;font-weight:700;border:0">Yenile</button></div>';
+    document.body.appendChild(d);
+  }, 9000);
+})();
+</script>
+<script type="module" src="js/app.js?v=20261012c"></script>
 </body>
 </html>
