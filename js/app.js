@@ -1,19 +1,19 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261012s";
-import * as S from "./store.js?v=20261012s";
-import * as Prim from "./primary.js?v=20261012s";
-import * as Denetim from "./denetim.js?v=20261012s";
-import * as Kaza from "./kaza.js?v=20261012s";
-import * as Konusma from "./konusma.js?v=20261012s";
-import * as Genel from "./genel.js?v=20261012s";
-import * as Rapor from "./rapor.js?v=20261012s";
-import * as Verim from "./verim.js?v=20261012s";
-import * as Isbasi from "./isbasi.js?v=20261012s";
-import * as Guest from "./guest.js?v=20261012s";
-import * as Yontem from "./yontem.js?v=20261012s";
-import * as Tatil from "./tatil.js?v=20261012s";
-import * as Gorev from "./gorev.js?v=20261012s";
-import { $, esc, ic, toast, modal, confirmBox, formBox, GUEST } from "./ui.js?v=20261012s";
-import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261012s";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261012t";
+import * as S from "./store.js?v=20261012t";
+import * as Prim from "./primary.js?v=20261012t";
+import * as Denetim from "./denetim.js?v=20261012t";
+import * as Kaza from "./kaza.js?v=20261012t";
+import * as Konusma from "./konusma.js?v=20261012t";
+import * as Genel from "./genel.js?v=20261012t";
+import * as Rapor from "./rapor.js?v=20261012t";
+import * as Verim from "./verim.js?v=20261012t";
+import * as Isbasi from "./isbasi.js?v=20261012t";
+import * as Guest from "./guest.js?v=20261012t";
+import * as Yontem from "./yontem.js?v=20261012t";
+import * as Tatil from "./tatil.js?v=20261012t";
+import * as Gorev from "./gorev.js?v=20261012t";
+import { $, esc, ic, toast, modal, confirmBox, formBox, GUEST } from "./ui.js?v=20261012t";
+import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261012t";
 
 const VERSION = "1.2.0";
 const st = { factories: [], years: [], fid: null, year: null, page: "genel", profile: {}, lastSync: new Date() };
@@ -252,6 +252,7 @@ const K = { key: "", rows: [], params: null, help: null, dirty: false };
 const sel = (cls, opts, val, label) => `<select class="${cls}" aria-label="${label}">${opts.map(([v, t]) => `<option value="${v}" ${v === val ? "selected" : ""}>${t}</option>`).join("")}</select>`;
 
 async function pageKurulum(v) {
+  Tatil.reset(); Yontem.reset();
   const key = st.fid + "/" + st.year;
   if (K.key !== key) {
     const s = await S.getSetup(st.fid, st.year);

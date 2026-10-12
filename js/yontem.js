@@ -1,10 +1,11 @@
 // Kurulum sayfasındaki katlanabilir "Hesaplama Yöntemi" kartı (parametrelerden canlı; PDF indirilebilir)
-import { esc } from "./ui.js?v=20261012s";
-import { num, c2, empCoef, RISK, DEFAULT_PARAMS } from "./scoring.js?v=20261012s";
-import { T as KAZA } from "./kaza.js?v=20261012s";
-import { askFormat, savePdf } from "./pdf.js?v=20261012s";
+import { esc } from "./ui.js?v=20261012t";
+import { num, c2, empCoef, RISK, DEFAULT_PARAMS } from "./scoring.js?v=20261012t";
+import { T as KAZA } from "./kaza.js?v=20261012t";
+import { askFormat, savePdf } from "./pdf.js?v=20261012t";
 
 const Y = { open: false };
+export const reset = () => { Y.open = false; };
 const f = n => String(Math.round(n * 100) / 100).replace(".", ",");
 const COL = ["#0B6E4F", "#2A82C4", "#F5B700", "#D6382E"];
 const HD = t => `<span class="hd" style="letter-spacing:.8px">${t}</span>`;
