@@ -1,6 +1,6 @@
 // Tatil takvimi ve haftalık denetim planı (yalnızca gösterim; puanı etkilemez)
-import * as S from "./store.js?v=20261012w";
-import { esc, modal, toast } from "./ui.js?v=20261012w";
+import * as S from "./store.js?v=20261012x";
+import { esc, modal, toast } from "./ui.js?v=20261012x";
 
 const pad = n => String(n).padStart(2, "0");
 const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -69,8 +69,8 @@ export const dotCss = (k, n) => {
   if (DC[k]) return base + `background:${DC[k]};border:1.5px solid ${DC[k]}`;
   if (k === "off") return base + "border:1.5px solid #8FA19B;background:linear-gradient(#fff,#fff) center/52% 2px no-repeat #8FA19B";
   if (k === "ask") return base + "background:#fff;border:1.5px dashed #E8A512";
-  if (k === "wait") return base + "background:#fff;border:2px solid #0B6E4F";
-  return base + "background:#fff;border:1.5px solid #C3CFCB";
+  if (k === "wait") return base + "border:2px solid #0B6E4F;background:radial-gradient(circle,#0B6E4F 0 28%,#fff 32%)";
+  return base + "background:#fff;border:1.5px solid #1E3A5F";
 };
 // Rapor dönemi: pazartesisi seçilen aylarda olan haftalar
 export function donem(u, aylar, today = new Date()) {
