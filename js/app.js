@@ -1,18 +1,19 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261012o";
-import * as S from "./store.js?v=20261012o";
-import * as Prim from "./primary.js?v=20261012o";
-import * as Denetim from "./denetim.js?v=20261012o";
-import * as Kaza from "./kaza.js?v=20261012o";
-import * as Konusma from "./konusma.js?v=20261012o";
-import * as Genel from "./genel.js?v=20261012o";
-import * as Rapor from "./rapor.js?v=20261012o";
-import * as Verim from "./verim.js?v=20261012o";
-import * as Isbasi from "./isbasi.js?v=20261012o";
-import * as Guest from "./guest.js?v=20261012o";
-import * as Tatil from "./tatil.js?v=20261012o";
-import * as Gorev from "./gorev.js?v=20261012o";
-import { $, esc, ic, toast, modal, confirmBox, formBox, GUEST } from "./ui.js?v=20261012o";
-import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261012o";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261012q";
+import * as S from "./store.js?v=20261012q";
+import * as Prim from "./primary.js?v=20261012q";
+import * as Denetim from "./denetim.js?v=20261012q";
+import * as Kaza from "./kaza.js?v=20261012q";
+import * as Konusma from "./konusma.js?v=20261012q";
+import * as Genel from "./genel.js?v=20261012q";
+import * as Rapor from "./rapor.js?v=20261012q";
+import * as Verim from "./verim.js?v=20261012q";
+import * as Isbasi from "./isbasi.js?v=20261012q";
+import * as Guest from "./guest.js?v=20261012q";
+import * as Yontem from "./yontem.js?v=20261012q";
+import * as Tatil from "./tatil.js?v=20261012q";
+import * as Gorev from "./gorev.js?v=20261012q";
+import { $, esc, ic, toast, modal, confirmBox, formBox, GUEST } from "./ui.js?v=20261012q";
+import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261012q";
 
 const VERSION = "1.2.0";
 const st = { factories: [], years: [], fid: null, year: null, page: "genel", profile: {}, lastSync: new Date() };
@@ -307,7 +308,8 @@ function drawKurulum(v) {
       <button class="go" id="saveK">Kaydet ve Sistemi Aktifleştir</button>
       <small>Sonradan bölüm eklendiğinde veya silindiğinde tablolar ve grafikler yeniden hesaplanır.</small></div>
   </div>
-  <div id="tatilCard"></div>`;
+  <div id="tatilCard"></div>
+  <div id="yontemCard"></div>`;
   v.querySelectorAll("[data-h]").forEach(b => b.onclick = () => { K.help = K.help === b.dataset.h ? null : b.dataset.h; drawKurulum(v); });
   v.querySelectorAll(".g[data-i]").forEach(g => g.querySelectorAll("[data-k]").forEach(el => el.onchange = () => {
     K.rows[+g.dataset.i][el.dataset.k] = el.value; drawKurulum(v);
@@ -322,6 +324,7 @@ function drawKurulum(v) {
     v.insertAdjacentHTML("afterbegin", `<div class="warn">${st.year} arşiv yılıdır, salt okunur. Değişiklik için aktif yılı seçin veya Ayarlar → Yıllar’dan bu yılı aktif yapın.</div>`);
   }
   Tatil.mount($("tatilCard"), st, String(st.year) !== String(st.active) || st.role === "guest").catch(() => {});
+  Yontem.mount($("yontemCard"), () => K.params, { fname: st.factories.find(x => x.id === st.fid)?.name || "", year: st.year });
   $("saveK").onclick = async () => {
     const errs = validateK();
     const box = $("kerr"); box.classList.toggle("hide", !errs.length); box.innerHTML = errs.join("<br>");

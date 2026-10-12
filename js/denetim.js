@@ -1,10 +1,10 @@
 // İSG Denetim Listesi sayfası
-import * as Guest from "./guest.js?v=20261012o";
-import * as Gorev from "./gorev.js?v=20261012o";
-import * as S from "./store.js?v=20261012o";
-import { esc, ic, toast, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261012o";
-import { CATS } from "./isgcats.js?v=20261012o";
-import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261012o";
+import * as Guest from "./guest.js?v=20261012q";
+import * as Gorev from "./gorev.js?v=20261012q";
+import * as S from "./store.js?v=20261012q";
+import { esc, ic, toast, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261012q";
+import { CATS } from "./isgcats.js?v=20261012q";
+import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261012q";
 
 const COLL = "isg";
 const D = { key: "", setup: null, doc: null, dept: null, month: null, open: { 0: true }, ro: false, timer: null, saved: true, msg: "" };
@@ -321,7 +321,7 @@ function bind(v, c) {
   const nw = document.getElementById("newSess");
   if (nw) nw.onclick = () => { doc.draft = emptyDraft(defaultDate(st.year, D.month), true); persist(true); draw(); };
   on("[data-delsess]", async el => {
-    const { confirmBox } = await import("./ui.js?v=20261012o");
+    const { confirmBox } = await import("./ui.js?v=20261012q");
     if (!(await confirmBox("Son denetim silinsin mi?", "Kayıtlı denetim silinir; skor ve sıklıklar yeniden hesaplanır.", "Evet, sil", true))) return;
     const gone = doc.sessions.pop();
     // Misafir taslağından gelen denetimse: misafire "silindi" bilgisi gider (taslağı düzeltip yeniden gönderebilir), fotoğrafları korunur

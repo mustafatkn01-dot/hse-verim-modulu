@@ -1,11 +1,11 @@
 // İş Kazası · Aylık Giriş
-import * as S from "./store.js?v=20261012o";
-import * as Gorev from "./gorev.js?v=20261012o";
-import { esc, ic, toast, noteEditor, guestLock, roText, GUEST } from "./ui.js?v=20261012o";
-import { katsayi, bandOf, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261012o";
+import * as S from "./store.js?v=20261012q";
+import * as Gorev from "./gorev.js?v=20261012q";
+import { esc, ic, toast, noteEditor, guestLock, roText, GUEST } from "./ui.js?v=20261012q";
+import { katsayi, bandOf, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261012q";
 
 const COLL = "kaza";
-const T = [["Gün kayıpsız", 2], ["1-5 gün kayıplı", 5], ["5-20 gün kayıplı", 10], ["20+ gün kayıplı", 20], ["Uzuv kaybı", 50], ["Ölüm", 100]];
+export const T = [["Gün kayıpsız", 2], ["1-5 gün kayıplı", 5], ["5-20 gün kayıplı", 10], ["20+ gün kayıplı", 20], ["Uzuv kaybı", 50], ["Ölüm", 100]];
 const BAND = { Mükemmel: ["#0B6E4F", "#D9F1E6"], İyi: ["#145F96", "#DCEAF7"], Orta: ["#6B3F00", "#FBE9C6"], Kritik: ["#B3261E", "#FADAD7"] };
 const pad = n => String(n).padStart(2, "0");
 const D = { key: "", month: null, rows: {}, exists: false, saved: true, timer: null, msg: "" };
