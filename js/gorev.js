@@ -1,7 +1,7 @@
 // Görev takip programı köprüsü (mtisggorev). HSE Verim yalnızca küçük kayıtlar bırakır ve durumu okur;
 // görev/kaza kayıtlarını görev programı kendisi oluşturur. Bağlantı yoksa özellik uyarı kartıyla kapalı kalır.
-import { GOREV_CFG } from "./gorev-config.js?v=20261013a";
-import { esc } from "./ui.js?v=20261013a";
+import { GOREV_CFG } from "./gorev-config.js?v=20261013b";
+import { esc } from "./ui.js?v=20261013b";
 
 const CFG = GOREV_CFG || null, CDN = "https://www.gstatic.com/firebasejs/10.14.1/";
 let F = null, auth = null, db = null, user = null, err = "", fabs = null, started = false, offs = [], loaded = false;

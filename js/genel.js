@@ -1,11 +1,11 @@
 // Genel Bakış · yıllık özet panosu (gerçek verilerden)
-import * as S from "./store.js?v=20261013a";
-import { esc } from "./ui.js?v=20261013a";
-import { CATS } from "./isgcats.js?v=20261013a";
-import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261013a";
-import { load } from "./verim.js?v=20261013a";
-import * as T from "./tatil.js?v=20261013a";
-import * as Gorev from "./gorev.js?v=20261013a";
+import * as S from "./store.js?v=20261013b";
+import { esc } from "./ui.js?v=20261013b";
+import { CATS } from "./isgcats.js?v=20261013b";
+import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261013b";
+import { load } from "./verim.js?v=20261013b";
+import * as T from "./tatil.js?v=20261013b";
+import * as Gorev from "./gorev.js?v=20261013b";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -18,7 +18,7 @@ const TONE = [{ bg: "#DDF1E7", c: "#0B6E4F" }, { bg: "#FBE9C6", c: "#6B3F00" }, 
 const f1 = n => n.toFixed(1).replace(".", ",");
 const pad = n => String(n).padStart(2, "0");
 const iso0 = (() => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; })();
-const G = { cmp: null, key: "", pw: "10" };
+const G = { cmp: null, key: "", pw: "10", fo: false };
 const avgOf = a => { const v = a.filter(x => x !== null && x !== undefined); return v.length ? v.reduce((s, c) => s + c, 0) / v.length : null; };
 
 export async function render(v, ctx) {
@@ -142,10 +142,11 @@ export async function render(v, ctx) {
     return `<div style="display:flex;gap:12px;align-items:stretch;padding:10px;border-radius:14px;background:var(--calc)">${th}<div class="col1" style="gap:4px;min-width:0;flex:1;justify-content:center"><div style="display:flex;align-items:center;gap:8px;min-width:0"><b style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.r.name)}</b><span class="pill" style="flex:0 0 auto;background:${wb};color:${wc}">${wt}</span></div>
       <div class="muted" style="font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.cat.name)}</div>
       <div style="line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${esc(f.tx)}</div>${st1 ? `<div class="muted" style="font-size:12px">${st1}</div>` : ""}</div></div>`; };
-  const findHtml = `<div class="col1" style="gap:10px;border-top:1px solid var(--line);padding-top:14px"><div class="row sp" style="align-items:center"><span class="hd">AÇIK KRİTİK BULGULAR</span><span class="muted" style="font-size:12.5px">${fnd.length ? fnd.length + " bulgu" : ""}</span></div>
-    ${shown.length ? shown.map(fRow).join("") : `<div class="muted" style="line-height:1.5">${conn ? "Görevi kapanmamış kritik veya major bulgu yok." : "Son denetim ayında kritik veya major bulgu yok."}</div>`}
+  const fOpen = !!G.fo, chev = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 20px;transition:transform .15s;transform:rotate(${fOpen ? 180 : 0}deg)"><path d="M6 9l6 6 6-6"/></svg>`;
+  const findHtml = `<div class="col1" style="gap:10px;border-top:1px solid var(--line);padding-top:6px"><button type="button" data-fg aria-expanded="${fOpen}" aria-label="Açık kritik bulgular listesini ${fOpen ? "kapat" : "aç"}" style="display:flex;align-items:center;gap:10px;width:100%;min-height:40px;height:auto;padding:0;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer"><span class="hd" style="flex:1;min-width:0">AÇIK KRİTİK BULGULAR</span><span class="muted" style="font-size:12.5px;font-weight:600">${fnd.length ? fnd.length + " bulgu" : "Yok"}</span>${chev}</button>
+    <div class="col1" data-fgb style="gap:10px"${fOpen ? "" : " hidden"}>${shown.length ? shown.map(fRow).join("") : `<div class="muted" style="line-height:1.5">${conn ? "Görevi kapanmamış kritik veya major bulgu yok." : "Son denetim ayında kritik veya major bulgu yok."}</div>`}
     ${fnd.length > SH ? `<a href="#denetim" class="muted" style="font-size:12.5px;font-weight:700;text-decoration:none">+${fnd.length - SH} bulgu daha · İSG Denetim sayfasında</a>` : ""}
-    ${conn ? "" : `<div class="muted" style="font-size:12px;line-height:1.5">Görev programı bağlı olmadığından yalnızca son denetim ayındaki bulgular listelenir; kapanış durumu bilinmez.</div>`}</div>`;
+    ${conn ? "" : `<div class="muted" style="font-size:12px;line-height:1.5">Görev programı bağlı olmadığından yalnızca son denetim ayındaki bulgular listelenir; kapanış durumu bilinmez.</div>`}</div></div>`;
   v.innerHTML = `
   <div class="row sp"><div class="col1" style="gap:6px"><h1 class="ttl">Genel Bakış</h1>
     <div class="sub">${esc(fname)} · ${st.year} · ${rows.length} aktif bölüm · Yıllık görünüm</div>
@@ -186,6 +187,7 @@ export async function render(v, ctx) {
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="${a.c}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 22px">${a.ic.split("|").map(d => `<path d="${d}"/>`).join("")}</svg>
       <div class="col1" style="gap:3px"><div style="font-weight:800;color:${a.c}">${a.t}</div><div style="color:${a.c2};line-height:1.5">${a.d}</div></div></div>`).join("")}</div>
       ${have.length ? findHtml : ""}</div></div>${cmpHtml}`;
+  const fg = v.querySelector("[data-fg]"); if (fg) fg.onclick = () => { G.fo = !G.fo; const b = v.querySelector("[data-fgb]"); b.hidden = !G.fo; fg.setAttribute("aria-expanded", G.fo); fg.setAttribute("aria-label", "Açık kritik bulgular listesini " + (G.fo ? "kapat" : "aç")); fg.querySelector("svg").style.transform = `rotate(${G.fo ? 180 : 0}deg)`; };
   v.querySelectorAll("[data-fp]").forEach(b => b.onclick = () => lightbox(shown[+b.dataset.fp].ph, st));
   v.querySelectorAll("[data-pw]").forEach(b => b.onclick = () => { G.pw = b.dataset.pw; render(v, ctx); });
   v.querySelectorAll("[data-tk]").forEach(b => b.onclick = async () => { const [mon, k] = b.dataset.tk.split("|"); b.disabled = true; try { await T.karar(st.fid, st.year, mon, k); } catch (e) { alert("Kaydedilemedi: " + e.message); } render(v, ctx); });

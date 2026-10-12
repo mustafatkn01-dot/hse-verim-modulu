@@ -213,3 +213,5 @@ body,html{background:#fff!important}#app{display:block!important}.pg{padding:0!i
 /* Denetim planı kartı: kapalıyken gizli, yazdırmada her zaman açık */
 .plc[hidden]{display:none!important}
 @media print{.plc[hidden]{display:flex!important}.ytprint{position:static!important;left:auto!important;width:auto!important}body.ytp>*:not(.ytprint):not(style):not(script),body.ytp>#app{display:none!important}}
+
+[data-fgb][hidden]{display:none!important}
