@@ -1,8 +1,8 @@
 // Kurulum sayfasındaki katlanabilir "Hesaplama Yöntemi" kartı (parametrelerden canlı; PDF indirilebilir)
-import { esc } from "./ui.js?v=20261012t";
-import { num, c2, empCoef, RISK, DEFAULT_PARAMS } from "./scoring.js?v=20261012t";
-import { T as KAZA } from "./kaza.js?v=20261012t";
-import { askFormat, savePdf } from "./pdf.js?v=20261012t";
+import { esc } from "./ui.js?v=20261012u";
+import { num, c2, empCoef, RISK, DEFAULT_PARAMS } from "./scoring.js?v=20261012u";
+import { T as KAZA } from "./kaza.js?v=20261012u";
+import { askFormat, savePdf } from "./pdf.js?v=20261012u";
 
 const Y = { open: false };
 export const reset = () => { Y.open = false; };
@@ -24,7 +24,7 @@ export function body(p0) {
     ["İSG Denetim", "Skor = min(100, 100 − ceza + ramak kala bonusu)", `Ceza = 100 × Σ(sıklık × kategori ağırlığı) ÷ (azami ${az} × Σ ağırlık) × F. Sıklık, uygunsuzluğun görüldüğü farklı gün sayısıdır (1 gün = 1, 2-3 gün = 2, 4+ gün = 3); aynı gün yapılan denetimler tek sayılır. Ramak kala bonusu: ayda 1 = ${f(num(p.isg.r1))}, 2 haftada 1 = ${f(num(p.isg.r2))}, haftada 1 = ${f(num(p.isg.r3))} puan.`]
   ];
   const BAND = [["Kritik", `${f(num(e.o))} altı`, "#FADAD7", "#B3261E"], ["Orta", `${f(num(e.o))} – ${f(num(e.i) - 1)}`, "#FBE9C6", "#6B3F00"], ["İyi", `${f(num(e.i))} – ${f(num(e.m) - 1)}`, "#DCEAF7", "#145F96"], ["Mükemmel", `${f(num(e.m))} ve üzeri`, "#D9F1E6", "#0B6E4F"]];
-  const RULES = ["Hafta Pazartesi–Pazar arasıdır. Her hafta, her bölüm için bir denetim planlanır; yıl 52 hafta olarak görünür.", "İdeal gün Pzt–Çar'dır. O günlerde yapılan denetim \"zamanında\", Per–Paz arası \"geç\" sayılır; ikisi de yapıldı sayılır.", "Pzt–Çar'da hiç iş günü kalmıyorsa (bayram, resmi tatil) program tesis sahibine sorar: \"Tatil, plan dışı\" veya \"Denetim yapılacak\".", "Tatil seçilir ve denetim yapılmazsa hafta gri görünür ve yüzdeye girmez; hafta takvimde yerinde kalır.", "Tatil haftasında denetim yapıldıysa hafta normal \"yapıldı\" sayılır."];
+  const RULES = ["Hafta Pazartesi–Pazar arasıdır. Her hafta, her bölüm için bir denetim planlanır; yıl 52 hafta olarak görünür.", "İdeal gün Pzt–Çar'dır. O günlerde yapılan denetim \"zamanında\", Per–Paz arası \"geç\" sayılır; ikisi de yapıldı sayılır.", "Pzt–Çar'da hiç iş günü kalmıyorsa (bayram, resmi tatil) program tesis sahibine sorar: \"Tatil, plan dışı\" veya \"Denetim yapılacak\".", "Tatil seçilir ve denetim yapılmazsa hafta gri görünür ve muaf sayılır (yapıldı gibi); yüzdeyi düşürmez, hafta sayacı değişmez (örn. 2/40).", "Tatil haftasında denetim yapıldıysa hafta normal \"yapıldı\" sayılır."];
   const dot = (c, t) => `<span style="display:flex;align-items:center;gap:6px;white-space:nowrap"><span style="width:10px;height:10px;border-radius:50%;background:${c};box-sizing:border-box;border:1.5px solid ${c === "#fff" ? "#9DB5AE" : c}"></span>${t}</span>`;
   return [
     sec("1 · Toplam skor nasıl oluşur", "Ağırlıklar Parametreler'den gelir", `<div style="display:flex;height:16px;border-radius:999px;overflow:hidden;gap:2px">${w.map((x, i) => `<div style="flex:${x || 0.001};background:${COL[i]}"></div>`).join("")}</div>
