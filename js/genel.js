@@ -1,10 +1,10 @@
 // Genel Bakış · yıllık özet panosu (gerçek verilerden)
-import * as S from "./store.js?v=20261012q";
-import { esc } from "./ui.js?v=20261012q";
-import { CATS } from "./isgcats.js?v=20261012q";
-import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261012q";
-import { load } from "./verim.js?v=20261012q";
-import * as T from "./tatil.js?v=20261012q";
+import * as S from "./store.js?v=20261012s";
+import { esc } from "./ui.js?v=20261012s";
+import { CATS } from "./isgcats.js?v=20261012s";
+import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261012s";
+import { load } from "./verim.js?v=20261012s";
+import * as T from "./tatil.js?v=20261012s";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -105,14 +105,14 @@ export async function render(v, ctx) {
   const legend = [["ok", "Zamanında (Pzt–Çar)"], ["late", "Geç (Per–Paz)"], ["miss", "Yapılmadı"], ["off", "Tatil (plan dışı)"], ["wait", "Bu hafta bekliyor"]].concat(u0?.ask.length ? [["ask", "Karar bekliyor"]] : []);
   const ask = (u0?.ask || []).map(w => `<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 14px;border-radius:14px;background:#FBE9C6"><div style="flex:1 1 220px;min-width:0;color:#5A3300;line-height:1.5"><b>${T.range(w.a, w.z)}</b> haftası tatilden etkileniyor${w.ad ? ` (${esc(w.ad)})` : ""}. Pzt–Çar iş günü yok; bu hafta denetim planlansın mı?</div>
     ${canDecide ? `<div class="row" style="gap:8px;flex-wrap:nowrap"><button class="sec" data-tk="${w.a}|tatil">Tatil, plan dışı</button><button data-tk="${w.a}|yap">Denetim yapılacak</button></div>` : ""}</div>`).join("");
-  const rowOf = ({ r, u }) => { const ws = all ? u.weeks : Array.from({ length: NW }, (_, i) => { const k = u.weeks.reduce((x, w, j) => (w.a <= iso0 ? j : x), u.weeks.length - 1); return u.weeks[k - NW + 1 + i]; });
+  const rowOf = ({ r, u }) => { const ws = all ? u.weeks : Array.from({ length: NW }, (_, i) => { const k = u.weeks.reduce((x, w, j) => (w.a <= iso0 ? j : x), u.weeks.length - 1); const e = Math.min(u.weeks.length - 1, k + 2); return u.weeks[e - NW + 1 + i]; });
     const info = `<span style="flex:0 0 auto;display:flex;align-items:baseline;gap:8px;white-space:nowrap"><span class="muted" style="font-size:12.5px">${u.plan ? u.done + "/" + u.plan : "–"}</span><b style="min-width:34px;text-align:right">${u.pct === null ? "–" : "%" + Math.round(u.pct)}</b></span>`;
     return all ? `<div class="col1" style="gap:6px"><div style="display:flex;align-items:center;gap:10px"><span style="flex:1;min-width:0;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.name)}</span>${info}</div><div style="display:flex;flex-wrap:wrap;gap:4px">${ws.map(w => dot(w, all)).join("")}</div></div>`
       : `<div style="display:flex;align-items:center;gap:10px"><span style="width:84px;flex:0 0 84px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.name)}</span><span style="flex:1;min-width:0;display:flex;gap:3px;align-items:center">${ws.map(w => dot(w, all)).join("")}</span>${info}</div>`; };
   const planHtml = `<div class="cd" style="gap:14px"><div class="row sp" style="align-items:baseline"><h2>Denetim Planı Uyumu</h2><div class="muted" style="font-size:13px">Haftalık plan · ${st.year} · ${u0 ? u0.total : 52} hafta${u0?.off ? ` · ${u0.off} tatil` : ""}${pt === null ? "" : ` · tesis %${Math.round(pt)} (${pd}/${pp})`}</div></div>
     ${ask}
     <div class="row sp noprint" style="gap:10px"><div class="row" style="gap:14px;font-size:12px;color:var(--muted)">${legend.map(([k, t]) => `<span class="row" style="gap:6px;flex-wrap:nowrap"><span style="width:10px;height:10px;border-radius:50%;background:${DOT[k]};box-sizing:border-box;border:1.5px ${k === "ask" ? "dashed #E8A512" : k === "wait" ? "solid #9DB5AE" : "solid " + DOT[k]}"></span>${t}</span>`).join("")}</div>
-      <div class="seg" role="group" aria-label="Görünüm">${[["10", "Son 10 hafta"], ["all", "Tüm yıl"]].map(([k, t]) => `<button data-pw="${k}" style="height:30px;padding:0 12px;border-radius:8px;font-size:12.5px;${G.pw === k ? "background:#0B6E4F;color:#fff" : "background:#EEF2F0;color:#2A3F3A"}">${t}</button>`).join("")}</div></div>
+      <div class="seg" role="group" aria-label="Görünüm">${[["10", "10 hafta"], ["all", "Tüm yıl"]].map(([k, t]) => `<button data-pw="${k}" style="height:30px;padding:0 12px;border-radius:8px;font-size:12.5px;${G.pw === k ? "background:#0B6E4F;color:#fff" : "background:#EEF2F0;color:#2A3F3A"}">${t}</button>`).join("")}</div></div>
     <div class="col1" style="gap:${all ? 16 : 10}px">${pl.map(rowOf).join("")}</div>
     <div class="muted" style="font-size:12.5px">Her hafta (Pzt–Paz) için bölüm başına bir denetim planlanır; ideal gün Pzt–Çar'dır. Tatil, plan dışı denilen ve denetimi yapılmayan hafta gri görünür, yüzdeye girmez; hafta sayısı korunur. Bu kart puanı etkilemez.</div></div>`;
   const label = s => (s === null ? "Veri yok" : bn(s));
