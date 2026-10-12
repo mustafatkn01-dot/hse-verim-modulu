@@ -1,5 +1,5 @@
 // Veri katmanı: users/{uid}/factories/{fid}/years/{yıl}/setup/main
-import { auth, db, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, updateDoc, query, orderBy, serverTimestamp, onSnapshot } from "./firebase.js?v=20261012y";
+import { auth, db, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, updateDoc, query, orderBy, serverTimestamp, onSnapshot } from "./firebase.js?v=20261012z";
 
 const uid = () => auth.currentUser.uid;
 // Veri sahibi: misafir kullanıcıda davet eden hesabın uid'si; kendi oturum/profil kayıtları ise her zaman kendi hesabında
@@ -126,7 +126,7 @@ export async function exportAll() {
   for (const f of fs.docs) {
     const fo = { id: f.id, ...f.data(), years: [] }, ys = await listYears(f.id);
     for (const y of ys) {
-      const yo = { year: y, setup: await getSetup(f.id, y).catch(() => null) };
+      const yo = { year: y, setup: await getSetup(f.id, y).catch(() => null), tatil: await getTatil(f.id, y).catch(() => null) };
       for (const c of ["isg", "isgg", "kaza", "konusma", "isbasi"]) yo[c] = await listMonthDocs(f.id, y, c);
       fo.years.push(yo);
     }

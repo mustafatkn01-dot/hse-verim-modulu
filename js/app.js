@@ -1,21 +1,21 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261012y";
-import * as S from "./store.js?v=20261012y";
-import * as Prim from "./primary.js?v=20261012y";
-import * as Denetim from "./denetim.js?v=20261012y";
-import * as Kaza from "./kaza.js?v=20261012y";
-import * as Konusma from "./konusma.js?v=20261012y";
-import * as Genel from "./genel.js?v=20261012y";
-import * as Rapor from "./rapor.js?v=20261012y";
-import * as Verim from "./verim.js?v=20261012y";
-import * as Isbasi from "./isbasi.js?v=20261012y";
-import * as Guest from "./guest.js?v=20261012y";
-import * as Yontem from "./yontem.js?v=20261012y";
-import * as Tatil from "./tatil.js?v=20261012y";
-import * as Gorev from "./gorev.js?v=20261012y";
-import { $, esc, ic, toast, modal, confirmBox, formBox, GUEST } from "./ui.js?v=20261012y";
-import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261012y";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261012z";
+import * as S from "./store.js?v=20261012z";
+import * as Prim from "./primary.js?v=20261012z";
+import * as Denetim from "./denetim.js?v=20261012z";
+import * as Kaza from "./kaza.js?v=20261012z";
+import * as Konusma from "./konusma.js?v=20261012z";
+import * as Genel from "./genel.js?v=20261012z";
+import * as Rapor from "./rapor.js?v=20261012z";
+import * as Verim from "./verim.js?v=20261012z";
+import * as Isbasi from "./isbasi.js?v=20261012z";
+import * as Guest from "./guest.js?v=20261012z";
+import * as Yontem from "./yontem.js?v=20261012z";
+import * as Tatil from "./tatil.js?v=20261012z";
+import * as Gorev from "./gorev.js?v=20261012z";
+import { $, esc, ic, toast, modal, confirmBox, formBox, GUEST } from "./ui.js?v=20261012z";
+import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261012z";
 
-const VERSION = "1.2.0";
+const VERSION = "1.5.0";
 const st = { factories: [], years: [], fid: null, year: null, page: "genel", profile: {}, lastSync: new Date() };
 
 const GROUPS = [
@@ -441,7 +441,7 @@ async function pageAyarlar(v) {
         const btn = a || fut ? `<span class="ys">${stt}</span>` : ar ? `<button class="sec yb" data-unarch="${y}">Arşivden çıkar</button>` : `<button class="sec yb" data-actyear="${y}">Aktif yap</button>`;
         return `<div class="ycard ${a ? "cur" : ""} ${ar || fut ? "dim" : ""}" title="${stt}"><button class="yx" data-yx="${y}" aria-label="${y} yılı için seçenekler">×</button><b class="yn">${y}</b>${btn}</div>`; }).join("")}${st.fid && canStart ? `<button class="ycard add" id="newY"><b class="yn">+ ${next}</b><span class="ys">Yıl başlat</span></button>` : ""}${st.fid ? "" : '<span class="muted">Seçili fabrikada yıl yok.</span>'}</div>
       ${st.fid && !canStart ? `<div class="muted" style="font-size:12.5px;line-height:1.6">${futYear ? `${futYear} yılı henüz başlamadı; 1 Ocak ${futYear} tarihinde "Aktif yap" ile başlatılabilir.` : `Yeni yıl (${next}), mevcut yıl bitmeden eklenemez; 1 Ocak ${next} tarihinde başlatılabilir.`} Bugünün tarihi: ${new Date().toLocaleDateString("tr-TR")}.</div>` : ""}
-      ${canStart ? '<div class="muted" style="font-size:12.5px">Yeni yıl başlatılınca bölümler ve parametreler önceki yıldan kopyalanır.</div>' : ""}</div>
+      ${canStart ? '<div class="muted" style="font-size:12.5px">Yeni yıl başlatılınca bölümler ve parametreler önceki yıldan kopyalanır. Tatil takvimi kopyalanmaz: yeni yılda <b>Kurulum → Tatil Takvimi</b> kartını açıp dini bayramları kontrol edin (senkronize simgesi veya özel gün ekleme).</div>' : ""}</div>
     <div class="cd"><div><h2>Görünüm</h2><div class="muted" style="font-size:13px">Tema seçimi bu cihazda saklanır.</div></div>
       <div class="th">${THEMES.map(([k, n, sd, bg, cd]) => `<button class="tb ${k === theme ? "on" : ""}" data-theme="${k}" aria-pressed="${k === theme}">
         <div class="pv"><div style="flex:0 0 28%;background:${sd}"></div><div style="flex:1;background:${bg};display:flex;flex-direction:column;gap:5px;padding:7px"><div style="height:8px;border-radius:4px;background:${cd}"></div><div style="height:8px;width:60%;border-radius:4px;background:#17A06F"></div></div></div><b>${n}</b></button>`).join("")}</div></div>
