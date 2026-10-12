@@ -1,6 +1,6 @@
 // Tatil takvimi ve haftalık denetim planı (yalnızca gösterim; puanı etkilemez)
-import * as S from "./store.js?v=20261012k";
-import { esc } from "./ui.js?v=20261012k";
+import * as S from "./store.js?v=20261012l";
+import { esc, modal } from "./ui.js?v=20261012l";
 
 const pad = n => String(n).padStart(2, "0");
 const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -28,7 +28,7 @@ export function takvim(doc, years) {
   });
   DINI.forEach(([a, n, ad]) => { m.set(addD(a, -1), { ad: ad + " arifesi", yarim: true, tur: "Dini" }); for (let i = 0; i < n; i++) m.set(addD(a, i), { ad: `${ad} (${i + 1}. gün)`, tur: "Dini" }); });
   (doc?.kaldir || []).forEach(d => m.delete(d));
-  (doc?.ozel || []).forEach(o => { if (o?.d) m.set(o.d, { ad: o.ad || "Özel gün", yarim: !!o.yarim, tur: "Özel" }); });
+  (doc?.ozel || []).forEach(o => { if (o?.d) m.set(o.d, { ad: o.ad || "Özel gün", yarim: !!o.yarim, tur: o.tur || "Özel" }); });
   return m;
 }
 
@@ -58,6 +58,24 @@ export function planUyum(dates, year, o = {}, today = new Date()) {
   return { weeks, total: weeks.length, done, plan, late: c("late"), miss: c("miss"), off: c("off"), ask: weeks.filter(w => w.soru), pct: plan ? done / plan * 100 : null };
 }
 
+// Senkronizasyon: ücretsiz resmî tatil servisi (Nager.Date). Diyanet'in tarayıcıdan okunabilir servisi yoktur.
+const DINI_AD = /ramazan|kurban|ramadan|eid|sugar feast|sacrifice/i, SURE = { ramazan: 3, kurban: 4 };
+export async function senkron(year, doc) {
+  const c = new AbortController(), t = setTimeout(() => c.abort(), 12000);
+  let arr; try { const r = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/TR`, { signal: c.signal }); if (!r.ok) throw new Error(r.status); arr = await r.json(); } catch (e) { return { hata: "Tatil servisine ulaşılamadı. İnternet bağlantınızı kontrol edip tekrar deneyin." } } finally { clearTimeout(t); }
+  const kaldir = new Set(doc?.kaldir || []), map = takvim(doc), out = new Map(), put = (d, ad, tur, yarim) => { if (d.startsWith(String(year)) && !map.has(d) && !out.has(d) && !kaldir.has(d)) out.set(d, { d, ad, tur, yarim: !!yarim }); };
+  (Array.isArray(arr) ? arr : []).filter(x => x?.date).sort((a, b) => a.date.localeCompare(b.date)).forEach(x => {
+    const ad = x.localName || x.name || "Resmi tatil";
+    if (!DINI_AD.test(ad + " " + (x.name || ""))) { if (!kaldir.has(x.date)) put(x.date, ad, "Resmi"); return; }
+  });
+  // Dini bayramlar: aynı bayramın günleri gruplanır, süre eksikse (yalnız 1. gün verilmişse) tamamlanır, arife eklenir
+  const dini = (Array.isArray(arr) ? arr : []).filter(x => x?.date && x.date.startsWith(String(year)) && DINI_AD.test((x.localName || "") + " " + (x.name || ""))).sort((a, b) => a.date.localeCompare(b.date));
+  const gr = []; dini.forEach(x => { const k = /kurban|sacrifice|adha/i.test((x.localName || "") + (x.name || "")) ? "kurban" : "ramazan", g = gr.find(z => z.k === k && (x.date <= addD(z.last, 1))); if (g) g.last = x.date; else gr.push({ k, first: x.date, last: x.date }); });
+  gr.forEach(g => { const n = Math.max(SURE[g.k], Math.round((at0(g.last) - at0(g.first)) / 864e5) + 1), ad = g.k === "kurban" ? "Kurban Bayramı" : "Ramazan Bayramı";
+    put(addD(g.first, -1), ad + " arifesi", "Dini", true); for (let i = 0; i < n; i++) put(addD(g.first, i), `${ad} (${i + 1}. gün)`, "Dini"); });
+  return { liste: [...out.values()].sort((a, b) => a.d.localeCompare(b.d)), bos: !arr || !arr.length };
+}
+
 // Depolama: setup/tatil (özel günler, kaldırılan günler, hafta kararları)
 const C = {};
 export async function yukle(fid, y, zorla) { const k = fid + "/" + y; if (!C[k] || zorla) C[k] = await S.getTatil(fid, y).catch(() => ({})); return C[k] || {}; }
@@ -82,7 +100,7 @@ export async function mount(el, st, ro) {
       <div class="col1" style="gap:2px;max-height:300px;overflow:auto">${list.length ? list.map(([k, h]) => `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)"><span style="width:84px;flex:0 0 84px;font-weight:700">${fmt(k)} <span class="muted" style="font-weight:600">${GUN[at0(k).getDay()]}</span></span><span style="flex:1;min-width:0">${esc(h.ad)}${h.yarim ? ' <span class="muted">· yarım gün</span>' : ""}</span><span class="pill" style="background:${tc[h.tur][0]};color:${tc[h.tur][1]}">${h.tur}</span><button class="xb" style="width:32px;height:32px;flex:0 0 32px;min-height:0" data-tk="rm" data-d="${k}" aria-label="Günü kaldır" ${ro ? "disabled" : ""}>×</button></div>`).join("") : `<div class="muted">Bu yıl için kayıtlı gün yok.</div>`}</div>
       <div class="row" style="gap:8px;align-items:flex-end"><div class="sf" style="flex:0 0 160px"><label class="hd" for="tkD">TARİH</label><input id="tkD" class="inp" type="date" min="${y}-01-01" max="${y}-12-31" ${ro ? "disabled" : ""}></div>
         <div class="sf" style="flex:1 1 180px"><label class="hd" for="tkA">ADI</label><input id="tkA" class="inp" placeholder="Örn. Köprü günü, idari izin" ${ro ? "disabled" : ""}></div>
-        <button class="sec" data-tk="add" ${ro ? "disabled" : ""}>+ Gün ekle</button></div>
+        <button class="sec" data-tk="add" ${ro ? "disabled" : ""}>+ Gün ekle</button><button class="sec" data-tk="sync" title="Resmî ve dini tatilleri senkronize et" aria-label="Resmî ve dini tatilleri senkronize et" style="width:44px;padding:0;flex:0 0 44px" ${ro ? "disabled" : ""}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 0 0-14.5-4.5L4 8M4 4v4h4M4 13a8 8 0 0 0 14.5 4.5L20 16M20 20v-4h-4"/></svg></button></div>${d.sync?.[y] ? `<div class="muted" style="font-size:12.5px">Son senkronizasyon: ${new Date(d.sync[y]).toLocaleString("tr-TR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</div>` : ""}
       ${kal.length ? `<div class="muted" style="font-size:12.5px">${kal.length} hazır gün kaldırılmış. <a href="#" data-tk="reset" style="color:var(--g);font-weight:700">Geri getir</a></div>` : ""}
       <div style="border-top:1px solid var(--line);padding-top:12px" class="col1"><span class="hd">HAFTA KARARLARI</span>
         ${kr.length ? kr.map(([k, x]) => `<div style="display:flex;align-items:center;gap:10px"><span style="flex:1;min-width:0"><b>${range(k, addD(k, 6))}</b> <span class="muted">· ${x.k === "tatil" ? "Tatil, plan dışı" : "Denetim yapılacak"}</span></span><button class="sec" data-tk="undo" data-d="${k}" ${ro ? "disabled" : ""}>Geri al</button></div>`).join("") : `<div class="muted" style="font-size:13px">Henüz karar yok. Tatilden etkilenen hafta olduğunda Genel Bakış'taki Denetim Planı Uyumu kartında sorulur.</div>`}</div></div>`;
@@ -91,6 +109,11 @@ export async function mount(el, st, ro) {
       if (k === "rm") sv(x => { const o = (x.ozel || []).filter(z => z.d !== dd); if (o.length !== (x.ozel || []).length) x.ozel = o; else x.kaldir = [...(x.kaldir || []), dd]; if ((x.ozel || []).length === 0) delete x.ozel; return x; });
       if (k === "reset") sv(x => { x.kaldir = (x.kaldir || []).filter(z => !z.startsWith(y)); return x; });
       if (k === "undo") sv(x => { delete x.karar[dd]; return x; });
+      if (k === "sync") return (async () => { b.disabled = true; const r = await senkron(y, d); b.disabled = false;
+        if (r.hata) return alert(r.hata);
+        if (!r.liste.length) return alert(r.bos ? `${y} yılı için henüz yayımlanmış tatil bulunamadı.` : `${y} yılı için eklenecek yeni gün yok; liste güncel.`);
+        const ok = await modal(`<h2>${y} tatilleri senkronize edilsin mi?</h2><p class="muted" style="font-size:13px">Şu günler eklenecek. Lütfen tarihleri Diyanet takvimiyle karşılaştırın; yanlış bir gün varsa eklemeden sonra listeden kaldırabilirsiniz. Sizin eklediğiniz ve kaldırdığınız günlere dokunulmaz.</p><div class="col1" style="gap:4px;max-height:280px;overflow:auto">${r.liste.map(x => `<div style="display:flex;gap:10px"><b style="width:84px;flex:0 0 84px">${fmt(x.d)} ${GUN[at0(x.d).getDay()]}</b><span>${esc(x.ad)}${x.yarim ? " · yarım gün" : ""}</span></div>`).join("")}</div><div class="row" style="justify-content:flex-end"><button class="sec" data-no>İptal</button><button data-yes>${r.liste.length} günü ekle</button></div>`);
+        if (ok) sv(x => { x.ozel = (x.ozel || []).concat(r.liste.map(z => ({ d: z.d, ad: z.ad, tur: z.tur, ...(z.yarim ? { yarim: true } : {}) }))); x.sync = { ...(x.sync || {}), [y]: Date.now() }; return x; }); })();
       if (k === "add") { const dv = el.querySelector("#tkD").value, ad = el.querySelector("#tkA").value.trim(); if (!dv || !dv.startsWith(y)) return alert("Geçerli bir tarih seçin."); sv(x => { x.ozel = (x.ozel || []).filter(z => z.d !== dv).concat({ d: dv, ad: ad || "Özel gün" }); x.kaldir = (x.kaldir || []).filter(z => z !== dv); return x; }); } });
   };
   await draw();
