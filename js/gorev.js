@@ -1,7 +1,7 @@
 // Görev takip programı köprüsü (mtisggorev). HSE Verim yalnızca küçük kayıtlar bırakır ve durumu okur;
 // görev/kaza kayıtlarını görev programı kendisi oluşturur. Bağlantı yoksa özellik uyarı kartıyla kapalı kalır.
-import { GOREV_CFG } from "./gorev-config.js?v=20261011r";
-import { esc } from "./ui.js?v=20261011r";
+import { GOREV_CFG } from "./gorev-config.js?v=20261012a";
+import { esc } from "./ui.js?v=20261012a";
 
 const CFG = GOREV_CFG || null, CDN = "https://www.gstatic.com/firebasejs/10.14.1/";
 let F = null, auth = null, db = null, user = null, err = "", fabs = null, started = false, offs = [];
@@ -56,7 +56,7 @@ function inner(key, tile) {
     const k = d.durum === "kapali" ? "Kapalı" : "Açık";
     return T("background:#D9F1E6;color:#0B6E4F;border-color:#0B6E4F;cursor:default", "✓", "", `Bağlı · ${k}`, "disabled ") || `<span class="pill" style="${GREEN}">✓ Göreve bağlı · ${k}</span>`;
   }
-  if (d && d.durum === "kayit") return T("background:#D9F1E6;color:#0B6E4F;border-color:#0B6E4F;cursor:default", "✓", "", "Olay kaydı", "disabled title=\\"Olay sayfasında; bilgileri tamamlayıp Göreve Ekle denince görev olur\\" ") || `<span class="pill" style="${GREEN}" title="Olay sayfasında; bilgileri tamamlayıp Göreve Ekle denince görev olur">✓ Olay kaydına aktarıldı</span>`;
+  if (d && d.durum === "kayit") return T("background:#D9F1E6;color:#0B6E4F;border-color:#0B6E4F;cursor:default", "✓", "", "Olay kaydı", "disabled ") || `<span class="pill" style="${GREEN}" title="Olay sayfasında; bilgileri tamamlayıp Göreve Ekle denince görev olur">✓ Olay kaydına aktarıldı</span>`;
   if (g && g.islendi !== "hata") return T("background:#D9F1E6;color:#0B6E4F;border-color:#0B6E4F;cursor:default", "✓", "", "Bağlı · bekliyor", "disabled title=\"Görev programı açılınca eklenir\" ") || `<span class="pill" style="${GREEN}" title="Görev programı açılınca eklenir">✓ Göreve bağlı · aktarım bekliyor</span>`;
   if ((d && d.durum === "hata") || (g && g.islendi === "hata")) return T("background:#FBE9C6;color:#5A3300;border-color:#E8C877", "!", "", "Fabrika adı", `data-gerr="${esc(key)}" `) || `<button class="sm" data-gerr="${esc(key)}" style="height:36px;background:#FBE9C6;color:#5A3300;border:1px solid #E8C877">Aktarılamadı · fabrika adı</button>`;
   return T("color:#0B6E4F;border-color:#0B6E4F", "+", "", "Göreve ekle", `data-gadd="${esc(key)}" `) || `<button class="sm sec" data-gadd="${esc(key)}" style="height:36px">+ Göreve ekle</button>`;
