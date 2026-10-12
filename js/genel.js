@@ -1,9 +1,9 @@
 // Genel Bakış · yıllık özet panosu (gerçek verilerden)
-import * as S from "./store.js?v=20261012f";
-import { esc } from "./ui.js?v=20261012f";
-import { CATS } from "./isgcats.js?v=20261012f";
-import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261012f";
-import { load } from "./verim.js?v=20261012f";
+import * as S from "./store.js?v=20261012g";
+import { esc } from "./ui.js?v=20261012g";
+import { CATS } from "./isgcats.js?v=20261012g";
+import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261012g";
+import { load } from "./verim.js?v=20261012g";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -35,6 +35,7 @@ export async function render(v, ctx) {
   const MODN = ["İş Kazası", "Eğitim Konuşması", "İşbaşı Eğitim", "İSG Denetim"];
   const mods = MODN.map((n, k) => ({ n, v: avgOf(rows.map(r => modYear(r.id, k))) }));
   const trend = Array.from({ length: 12 }, (_, m) => avgOf(rows.map(r => total(r.id, m))));
+  const hedef = num(p.esik.h ?? "95") || 95, hit = trend.filter(x => x !== null && x >= hedef).length;
   const lastM = trend.reduce((a, x, i) => (x !== null ? i : a), -1);
   const ro = String(st.year) !== String(st.active);
   const ob = bb(overall), CIRC = 2 * Math.PI * 74;
@@ -119,8 +120,8 @@ export async function render(v, ctx) {
       <div class="col1" style="gap:12px">${rank.length ? rank.map((x, i) => { const b = bb(x.v); return `<div style="display:flex;align-items:center;gap:10px"><span style="width:20px;flex:0 0 20px;color:#6A7E79;font-weight:700;font-size:13px">${i + 1}</span><span style="width:112px;flex:0 0 112px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.r.name)}</span>
         <div style="flex:1;min-width:30px;height:12px;border-radius:999px;background:#E4ECE9;overflow:hidden"><div style="height:100%;border-radius:999px;width:${Math.min(100, x.v)}%;background:${b.fill}"></div></div><b style="width:40px;text-align:right">${f1(x.v)}</b>
         <span style="width:68px;flex:0 0 68px;text-align:center;font-size:12px;font-weight:700;padding:3px 0;border-radius:999px;background:${b.bg};color:${b.c}">${bn(x.v)}</span></div>`; }).join("") : `<div class="muted">Henüz veri yok.</div>`}</div></div>
-    <div class="cd" style="flex:1.3 1 460px;min-width:0;gap:14px"><div class="row sp" style="align-items:baseline"><h2>Aylık Trend</h2><div class="muted" style="font-size:13px">Tesis HSE verimi · ${st.year}</div></div>
-      <div style="position:relative;height:236px">${[[50, 50], [75, 75], [90, 90]].map(([a, l]) => `<div style="position:absolute;left:30px;right:0;bottom:${24 + a * 1.8 - 0}px;border-top:1px dashed #B5C5BF"></div><div style="position:absolute;left:0;bottom:${24 + a * 1.8 - 7}px;font-size:11px;color:var(--muted)">${l}</div>`).join("")}
+    <div class="cd" style="flex:1.3 1 460px;min-width:0;gap:14px"><div class="row sp" style="align-items:baseline"><h2>Aylık Trend</h2><div class="muted" style="font-size:13px">Tesis HSE verimi · ${st.year} · hedef ${f1(hedef).replace(/,0$/, "")} · ${hit}/${trend.filter(x => x !== null).length} ay hedefte</div></div>
+      <div style="position:relative;height:236px"><div style="position:absolute;left:30px;right:0;bottom:${24 + hedef * 1.8}px;border-top:2px solid #0B6E4F;z-index:1"></div><div style="position:absolute;right:0;bottom:${24 + hedef * 1.8 + 3}px;font-size:11px;font-weight:700;color:#0B6E4F;background:var(--card);padding:0 4px;z-index:1">Hedef ${f1(hedef).replace(/,0$/, "")}</div>${[[50, 50], [75, 75], [90, 90]].map(([a, l]) => `<div style="position:absolute;left:30px;right:0;bottom:${24 + a * 1.8 - 0}px;border-top:1px dashed #B5C5BF"></div><div style="position:absolute;left:0;bottom:${24 + a * 1.8 - 7}px;font-size:11px;color:var(--muted)">${l}</div>`).join("")}
         <div style="position:absolute;left:30px;right:0;top:0;bottom:0;display:flex;gap:6px;align-items:flex-end">${trend.map((x, i) => `<div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:236px">
           <div style="font-size:10.5px;font-weight:700;margin-bottom:4px;${x === null ? "" : "writing-mode:vertical-rl;transform:rotate(180deg)"}">${x === null ? "" : f1(x)}</div>
           <div style="width:68%;max-width:34px;height:${x === null ? 3 : Math.round(x * 1.8)}px;background:${bb(x).fill};border-radius:7px 7px 2px 2px"></div>

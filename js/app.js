@@ -1,17 +1,17 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261012f";
-import * as S from "./store.js?v=20261012f";
-import * as Prim from "./primary.js?v=20261012f";
-import * as Denetim from "./denetim.js?v=20261012f";
-import * as Kaza from "./kaza.js?v=20261012f";
-import * as Konusma from "./konusma.js?v=20261012f";
-import * as Genel from "./genel.js?v=20261012f";
-import * as Rapor from "./rapor.js?v=20261012f";
-import * as Verim from "./verim.js?v=20261012f";
-import * as Isbasi from "./isbasi.js?v=20261012f";
-import * as Guest from "./guest.js?v=20261012f";
-import * as Gorev from "./gorev.js?v=20261012f";
-import { $, esc, ic, toast, modal, confirmBox, formBox, GUEST } from "./ui.js?v=20261012f";
-import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261012f";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261012g";
+import * as S from "./store.js?v=20261012g";
+import * as Prim from "./primary.js?v=20261012g";
+import * as Denetim from "./denetim.js?v=20261012g";
+import * as Kaza from "./kaza.js?v=20261012g";
+import * as Konusma from "./konusma.js?v=20261012g";
+import * as Genel from "./genel.js?v=20261012g";
+import * as Rapor from "./rapor.js?v=20261012g";
+import * as Verim from "./verim.js?v=20261012g";
+import * as Isbasi from "./isbasi.js?v=20261012g";
+import * as Guest from "./guest.js?v=20261012g";
+import * as Gorev from "./gorev.js?v=20261012g";
+import { $, esc, ic, toast, modal, confirmBox, formBox, GUEST } from "./ui.js?v=20261012g";
+import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261012g";
 
 const VERSION = "1.2.0";
 const st = { factories: [], years: [], fid: null, year: null, page: "genel", profile: {}, lastSync: new Date() };
@@ -255,7 +255,7 @@ async function pageKurulum(v) {
     const s = await S.getSetup(st.fid, st.year);
     K.key = key; K.help = null; K.dirty = false;
     K.rows = (s?.rows?.length ? s.rows : [newRow(1)]).map(r => (r.id ? r : { ...r, id: rid() }));
-    K.params = JSON.parse(JSON.stringify({ ...DEFAULT_PARAMS, ...(s?.params || {}) }));
+    K.params = JSON.parse(JSON.stringify({ ...DEFAULT_PARAMS, ...(s?.params || {}) })); K.params.esik = { ...DEFAULT_PARAMS.esik, ...(K.params.esik || {}) };
   }
   drawKurulum(v);
 }
@@ -295,7 +295,7 @@ function drawKurulum(v) {
   <div class="two">
     <div class="cd"><h2>2 · Parametreler</h2><div class="params">
       <div class="col"><span class="hd">MODÜL AĞIRLIKLARI (%)</span>${pr("İş Kazası", "w.kaza", "İş Kazası ağırlığı")}${pr("Eğitim Konuşması", "w.konusma", "Eğitim Konuşması ağırlığı")}${pr("İşbaşı Eğitim", "w.isbasi", "İşbaşı Eğitim ağırlığı")}${pr("İSG Denetim", "w.isg", "İSG Denetim ağırlığı")}</div>
-      <div class="col"><span class="hd">DURUM EŞİKLERİ (≥)</span>${pr("Mükemmel", "esik.m", "Mükemmel eşiği", '<i class="sw" style="background:#17A06F"></i>')}${pr("İyi", "esik.i", "İyi eşiği", '<i class="sw" style="background:#2A82C4"></i>')}${pr("Orta", "esik.o", "Orta eşiği", '<i class="sw" style="background:#F5B700"></i>')}</div>
+      <div class="col"><span class="hd">DURUM EŞİKLERİ (≥)</span>${pr("Mükemmel", "esik.m", "Mükemmel eşiği", '<i class="sw" style="background:#17A06F"></i>')}${pr("İyi", "esik.i", "İyi eşiği", '<i class="sw" style="background:#2A82C4"></i>')}${pr("Orta", "esik.o", "Orta eşiği", '<i class="sw" style="background:#F5B700"></i>')}${pr("Yıllık hedef", "esik.h", "Yıllık hedef", '<i class="sw" style="background:#fff;border:2px solid #0B6E4F;box-sizing:border-box"></i>')}</div>
       <div class="col"><span class="hd">EĞİTİM</span>${pr("Hedef süre (dk/kişi/ay)", "egitim.hedef", "Hedef süre")}${pr("ZTF şiddeti (kZTF)", "egitim.kztf", "ZTF şiddeti")}${pr("TC şiddeti (kTC)", "egitim.ktc", "TC şiddeti")}<div class="muted" style="font-size:12px">1 = tam etki, 0 = etkisiz.</div></div>
       <div class="col"><span class="hd">RAMP TOLERANSI (ZTF'YE EKLENİR)</span>${pr("Düşük", "ramp.dusuk", "Düşük ramp toleransı")}${pr("Orta", "ramp.orta", "Orta ramp toleransı")}${pr("Yüksek", "ramp.yuksek", "Yüksek ramp toleransı")}</div>
       <div class="col"><span class="hd">İSG DENETİMİ</span>${pr("Azami sıklık puanı", "isg.azami", "Azami sıklık puanı")}${pr("Ramak kala: ayda 1", "isg.r1", "Ayda 1 bonusu")}${pr("Ramak kala: 2 haftada 1", "isg.r2", "2 haftada 1 bonusu")}${pr("Ramak kala: haftalık", "isg.r3", "Haftalık bonusu")}</div>
@@ -335,6 +335,7 @@ function validateK() {
   const sum = Object.values(p.w).reduce((a, x) => a + num(x), 0);
   if (Math.round(sum) !== 100) e.push(`Modül ağırlıkları toplamı 100 olmalı (şu an ${sum}).`);
   if (!(num(p.esik.m) > num(p.esik.i) && num(p.esik.i) > num(p.esik.o))) e.push("Eşikler Mükemmel > İyi > Orta sırasında olmalı.");
+  if (!(num(p.esik.h) > 0 && num(p.esik.h) <= 100)) e.push("Yıllık hedef 1 ile 100 arasında olmalı.");
   return e;
 }
 
