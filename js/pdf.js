@@ -1,5 +1,5 @@
 // Ortak PDF yardımcıları: kâğıt boyutu (A4/A3) + sayfa düzeni (dikey/yatay) penceresi
-import { esc } from "./ui.js?v=20261012e";
+import { esc } from "./ui.js?v=20261012f";
 
 export function askFormat({ title = "PDF indir", text = "", defOrient = "portrait", hint = "", pics = 0 } = {}) {
   return new Promise(res => {
@@ -32,7 +32,7 @@ export function askFormat({ title = "PDF indir", text = "", defOrient = "portrai
 export function printCurrent({ size, orient, name, header = "" }) {
   const stl = document.createElement("style");
   const hs = header.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-  stl.textContent = `@media print{@page{size:${size} ${orient};margin:${header ? "17mm" : "10mm"} 10mm 14mm;@bottom-center{content:"Sayfa " counter(page) "/" counter(pages);font:600 9.5px Manrope,system-ui,sans-serif;color:#546964}${header ? `@top-left{content:"${hs}";font:700 9.5px Manrope,system-ui,sans-serif;letter-spacing:.6px;color:#546964;vertical-align:bottom;padding-bottom:3mm;border-bottom:1.5px solid #0B2230}` : ""}}}`;
+  stl.textContent = `@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{size:${size} ${orient};margin:${header ? "17mm" : "10mm"} 10mm 14mm;@bottom-center{content:"Sayfa " counter(page) "/" counter(pages);font:600 9.5px Manrope,system-ui,sans-serif;color:#546964}${header ? `@top-left{content:"${hs}";font:700 9.5px Manrope,system-ui,sans-serif;letter-spacing:.6px;color:#546964;vertical-align:bottom;padding-bottom:3mm;border-bottom:1.5px solid #0B2230}` : ""}}}`;
   document.head.appendChild(stl);
   const clean = () => { stl.remove(); window.removeEventListener("afterprint", clean); };
   window.addEventListener("afterprint", clean);
