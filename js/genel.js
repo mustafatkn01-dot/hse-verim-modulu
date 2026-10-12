@@ -1,10 +1,10 @@
 // Genel Bakış · yıllık özet panosu (gerçek verilerden)
-import * as S from "./store.js?v=20261012v";
-import { esc } from "./ui.js?v=20261012v";
-import { CATS } from "./isgcats.js?v=20261012v";
-import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261012v";
-import { load } from "./verim.js?v=20261012v";
-import * as T from "./tatil.js?v=20261012v";
+import * as S from "./store.js?v=20261012w";
+import { esc } from "./ui.js?v=20261012w";
+import { CATS } from "./isgcats.js?v=20261012w";
+import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261012w";
+import { load } from "./verim.js?v=20261012w";
+import * as T from "./tatil.js?v=20261012w";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -100,9 +100,8 @@ export async function render(v, ctx) {
   const td = await T.yukle(st.fid, st.year), tmap = T.takvim(td), canDecide = st.role !== "guest" && !ro;
   const pl = rows.map(r => ({ r, u: T.planUyum(data._s?.[r.id], st.year, { map: tmap, karar: td.karar }) })), all = G.pw === "all", NW = 10;
   const pd = pl.reduce((a, x) => a + x.u.done + x.u.offPast, 0), pc = pl.reduce((a, x) => a + x.u.plan + x.u.offPast, 0), pt = pc ? pd / pc * 100 : null, u0 = pl[0]?.u;
-  const DOT = { ok: "#17A06F", late: "#E8A512", miss: "#D6382E", off: "#C3CFCB", wait: "#fff", ask: "#fff", future: "#E4ECE9" };
-  const dot = (w, fx) => w ? `<span title="${T.range(w.a, w.z)}${w.ad ? " · " + esc(w.ad) : ""}" style="${fx ? "flex:0 0 11px;width:11px;height:11px" : "flex:1 1 0;min-width:0;max-width:11px;aspect-ratio:1"};border-radius:50%;background:${DOT[w.st]};box-sizing:border-box;border:1.5px ${w.st === "ask" ? "dashed #E8A512" : w.st === "wait" ? "solid #9DB5AE" : "solid " + DOT[w.st]}"></span>` : `<span style="flex:1 1 0;min-width:0;max-width:11px"></span>`;
-  const legend = [["ok", "Zamanında (Pzt–Çar)"], ["late", "Geç (Per–Paz)"], ["miss", "Yapılmadı"], ["off", "Tatil (plan dışı)"], ["wait", "Bu hafta bekliyor"]].concat(u0?.ask.length ? [["ask", "Karar bekliyor"]] : []);
+  const dot = (w, fx) => w ? `<span title="${T.range(w.a, w.z)}${w.ad ? " · " + esc(w.ad) : ""}" style="${fx ? T.dotCss(w.st, 11) : T.dotCss(w.st, 11).replace("flex:0 0 11px;width:11px;height:11px", "flex:1 1 0;min-width:0;max-width:11px;aspect-ratio:1")}"></span>` : `<span style="flex:1 1 0;min-width:0;max-width:11px"></span>`;
+  const legend = [["ok", "Zamanında (Pzt–Çar)"], ["late", "Geç (Per–Paz)"], ["miss", "Yapılmadı"], ["off", "Tatil (plan dışı)"], ["wait", "Bu hafta"], ["future", "Gelecek"]].concat(u0?.ask.length ? [["ask", "Karar bekliyor"]] : []);
   const ask = (u0?.ask || []).map(w => `<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 14px;border-radius:14px;background:#FBE9C6"><div style="flex:1 1 220px;min-width:0;color:#5A3300;line-height:1.5"><b>${T.range(w.a, w.z)}</b> haftası tatilden etkileniyor${w.ad ? ` (${esc(w.ad)})` : ""}. Pzt–Çar iş günü yok; bu hafta denetim planlansın mı?</div>
     ${canDecide ? `<div class="row" style="gap:8px;flex-wrap:nowrap"><button class="sec" data-tk="${w.a}|tatil">Tatil, plan dışı</button><button data-tk="${w.a}|yap">Denetim yapılacak</button></div>` : ""}</div>`).join("");
   const rowOf = ({ r, u }) => { const ws = all ? u.weeks : Array.from({ length: NW }, (_, i) => { const k = u.weeks.reduce((x, w, j) => (w.a <= iso0 ? j : x), u.weeks.length - 1); const e = Math.min(u.weeks.length - 1, k + 2); return u.weeks[e - NW + 1 + i]; });
@@ -111,7 +110,7 @@ export async function render(v, ctx) {
       : `<div style="display:flex;align-items:center;gap:10px"><span style="width:84px;flex:0 0 84px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.name)}</span><span style="flex:1;min-width:0;display:flex;gap:3px;align-items:center">${ws.map(w => dot(w, all)).join("")}</span>${info}</div>`; };
   const planHtml = `<div class="cd" style="gap:14px"><div class="row sp" style="align-items:baseline"><h2>Denetim Planı Uyumu</h2><div class="muted" style="font-size:13px">Haftalık plan · ${st.year} · ${u0 ? u0.total : 52} hafta${u0?.off ? ` · ${u0.off} tatil (muaf)` : ""}${pt === null ? "" : ` · tesis %${Math.round(pt)} (${pd}/${pc})`}</div></div>
     ${ask}
-    <div class="row sp noprint" style="gap:10px"><div class="row" style="gap:14px;font-size:12px;color:var(--muted)">${legend.map(([k, t]) => `<span class="row" style="gap:6px;flex-wrap:nowrap"><span style="width:10px;height:10px;border-radius:50%;background:${DOT[k]};box-sizing:border-box;border:1.5px ${k === "ask" ? "dashed #E8A512" : k === "wait" ? "solid #9DB5AE" : "solid " + DOT[k]}"></span>${t}</span>`).join("")}</div>
+    <div class="row sp noprint" style="gap:10px"><div class="row" style="gap:14px;font-size:12px;color:var(--muted)">${legend.map(([k, t]) => `<span class="row" style="gap:6px;flex-wrap:nowrap"><span style="${T.dotCss(k, 10)}"></span>${t}</span>`).join("")}</div>
       <div class="seg" role="group" aria-label="Görünüm">${[["10", "10 hafta"], ["all", "Tüm yıl"]].map(([k, t]) => `<button data-pw="${k}" style="height:30px;padding:0 12px;border-radius:8px;font-size:12.5px;${G.pw === k ? "background:#0B6E4F;color:#fff" : "background:#EEF2F0;color:#2A3F3A"}">${t}</button>`).join("")}</div></div>
     <div class="col1" style="gap:${all ? 16 : 10}px">${pl.map(rowOf).join("")}</div>
     <div class="muted" style="font-size:12.5px">Her hafta (Pzt–Paz) için bölüm başına bir denetim planlanır; ideal gün Pzt–Çar'dır. Tatil, plan dışı denilen ve denetimi yapılmayan hafta gri görünür, muaf sayılır (yapıldı gibi) ve yüzdeyi düşürmez; sayaç hafta düzenini korur (örn. 2/40). Bu kart puanı etkilemez.</div></div>`;

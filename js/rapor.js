@@ -1,11 +1,11 @@
 // Aylık HSE Raporu · kayıtlı verilerden otomatik grafik + açıklama
-import * as S from "./store.js?v=20261012v";
-import { esc } from "./ui.js?v=20261012v";
-import * as Gorev from "./gorev.js?v=20261012v";
-import * as T from "./tatil.js?v=20261012v";
-import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261012v";
-import { CATS } from "./isgcats.js?v=20261012v";
-import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261012v";
+import * as S from "./store.js?v=20261012w";
+import { esc } from "./ui.js?v=20261012w";
+import * as Gorev from "./gorev.js?v=20261012w";
+import * as T from "./tatil.js?v=20261012w";
+import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261012w";
+import { CATS } from "./isgcats.js?v=20261012w";
+import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261012w";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -16,7 +16,7 @@ const CCOL = ["#2A82C4", "#17A06F", "#D6382E", "#F5B700", "#2A82C4", "#8A6FD1", 
 const pad = n => String(n).padStart(2, "0");
 const f1 = n => n.toFixed(1).replace(".", ",");
 const fin = x => (typeof x === "number" && isFinite(x) ? x : null);
-const R = { month: null, per: "m", key: "", pics: false, ph: {}, off: new Set(), vert: new Set() };
+const R = { plOpen: false, month: null, per: "m", key: "", pics: false, ph: {}, off: new Set(), vert: new Set() };
 const PER = { m: "Aylık", q: "3 Aylık (Ç1)", h: "6 Aylık (Ç2)", n: "9 Aylık (Ç3)", y: "Yıllık" };
 const PN = { q: "1. çeyrek · Ocak-Mart", h: "2. çeyrek · Ocak-Haziran (kümülatif)", n: "3. çeyrek · Ocak-Eylül (kümülatif)", y: "Ocak-Aralık" };
 const LAST = { q: 3, h: 6, n: 9, y: 12 };
@@ -212,13 +212,15 @@ function draw(v, st, setup, data) {
   // Denetim planı uyumu (haftalık plan · yalnızca gösterim, puanı etkilemez)
   const tmap = T.takvim(data.td), pl = rows.map(r => ({ r, u: T.donem(T.planUyum(data._s?.[r.id], y, { map: tmap, karar: data.td?.karar }), ms) })), u0 = pl[0]?.u;
   const pd = pl.reduce((a, x) => a + x.u.done + x.u.offPast, 0), pc = pl.reduce((a, x) => a + x.u.plan + x.u.offPast, 0), pt = pc ? pd / pc * 100 : null;
-  const DOT = { ok: "#17A06F", late: "#E8A512", miss: "#D6382E", off: "#C3CFCB", wait: "#fff", ask: "#fff", future: "#E4ECE9" }, sd = (k, n) => `<span style="flex:0 0 ${n}px;width:${n}px;height:${n}px;border-radius:50%;background:${DOT[k]};box-sizing:border-box;border:1.5px ${k === "ask" ? "dashed #E8A512" : k === "wait" ? "solid #9DB5AE" : "solid " + DOT[k]}"></span>`;
-  const used = new Set(pl.flatMap(x => x.u.weeks.map(w => w.st))), LG = [["ok", "Zamanında (Pzt–Çar)"], ["late", "Geç (Per–Paz)"], ["miss", "Yapılmadı"], ["off", "Tatil (plan dışı)"], ["wait", "Bu hafta bekliyor"], ["ask", "Karar bekliyor"], ["future", "Gelecek"]].filter(([k]) => used.has(k));
+  const sd = (k, n) => `<span style="${T.dotCss(k, n)}"></span>`;
+  const used = new Set(pl.flatMap(x => x.u.weeks.map(w => w.st))), LG = [["ok", "Zamanında (Pzt–Çar)"], ["late", "Geç (Per–Paz)"], ["miss", "Yapılmadı"], ["off", "Tatil (plan dışı)"], ["wait", "Bu hafta"], ["ask", "Karar bekliyor"], ["future", "Gelecek"]].filter(([k]) => used.has(k));
   const planRow = ({ r, u }) => `<div class="col1" style="gap:6px"><div style="display:flex;align-items:center;gap:10px"><span style="flex:1;min-width:0;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.name)}</span><span style="flex:0 0 auto;display:flex;align-items:baseline;gap:8px;white-space:nowrap"><span class="muted" style="font-size:12.5px">${u.plan + u.offPast ? (u.done + u.offPast) + "/" + (u.plan + u.offPast) : "–"}</span><b style="min-width:34px;text-align:right">${u.pct === null ? "–" : "%" + Math.round(u.pct)}</b></span></div>
     <div style="display:flex;flex-wrap:wrap;gap:4px">${u.weeks.map(w => `<span title="${T.range(w.a, w.z)}${w.ad ? " · " + esc(w.ad) : ""}" style="display:inline-flex">${sd(w.st, 11)}</span>`).join("")}</div></div>`;
-  const planCard = u0 && u0.total && !R.off.has("Denetim planı") ? card("Denetim Planı Uyumu", `${plabel} · ${u0.total} hafta${u0.off ? ` · ${u0.off} tatil (muaf)` : ""}${pt === null ? "" : ` · tesis %${Math.round(pt)} (${pd}/${pc})`}`,
-    `<div class="row" style="gap:14px;font-size:12px;color:var(--muted)">${LG.map(([k, t]) => `<span class="row" style="gap:6px;flex-wrap:nowrap">${sd(k, 10)}${t}</span>`).join("")}</div><div class="col1" style="gap:16px">${pl.map(planRow).join("")}</div>
-    <div class="muted" style="font-size:12.5px">Haftalık denetim planıdır; her hafta pazartesisinin ayına bağlanır. Tatil, plan dışı haftalar muaf sayılır (yapıldı gibi) ve yüzdeyi düşürmez. Bu kart puanı etkilemez.</div>`) : "";
+  const planBody = `<div class="row" style="gap:14px;font-size:12px;color:var(--muted)">${LG.map(([k, t]) => `<span class="row" style="gap:6px;flex-wrap:nowrap">${sd(k, 10)}${t}</span>`).join("")}</div><div class="col1" style="gap:16px">${pl.map(planRow).join("")}</div>
+    <div class="muted" style="font-size:12.5px">Haftalık denetim planıdır; her hafta pazartesisinin ayına bağlanır. Tatil, plan dışı haftalar muaf sayılır (yapıldı gibi) ve yüzdeyi düşürmez. Bu kart puanı etkilemez.</div>`;
+  const planCard = u0 && u0.total && !R.off.has("Denetim planı") ? `<div class="cd" style="gap:18px"><div class="row sp" style="align-items:center;flex-wrap:nowrap;gap:12px"><div style="min-width:0"><h2>Denetim Planı Uyumu</h2><div class="muted" style="font-size:13px;margin-top:4px">${plabel} · ${u0.total} hafta${u0.off ? ` · ${u0.off} tatil (muaf)` : ""}${pt === null ? "" : ` · tesis %${Math.round(pt)} (${pd}/${pc})`}</div></div>
+    <button class="sec noprint" data-pl aria-expanded="${R.plOpen}" aria-label="${R.plOpen ? "Kartı kapat" : "Kartı aç"}" style="width:40px;height:40px;padding:0;flex:0 0 40px;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(${R.plOpen ? 180 : 0}deg)"><path d="M6 9l6 6 6-6"/></svg></button></div>
+    ${R.plOpen ? `<div class="col1" style="gap:14px;border-top:1px solid var(--line);padding-top:14px">${planBody}</div>` : ""}</div>` : "";
   const inc = ["Genel verim", "Modül verimleri", ...TITLE.filter((_, i) => modHas[i]), ...(anyIsg ? ["İSG bulgu dağılımı"] : []), ...(u0?.total ? ["Denetim planı"] : []), ...(gs ? ["Görev takibi"] : []), plabel];
   const first1 = tv.length ? (R.vert.has("g1") ? vbars(rank.map(r => ({ name: r.name, v: total[r.id], label: { t: bn(total[r.id]), band: bn(total[r.id]) } })), hedef) : `<div class="col1" style="gap:10px">${rank.map(r => bar(r.name, total[r.id], 0, { t: bn(total[r.id]), band: bn(total[r.id]) }, false, 72, hedef)).join("")}</div>`) : `<div class="muted">Bu dönem için henüz kayıtlı veri yok.</div>`;
   const hLeg = tv.length ? `<div class="muted" style="display:flex;align-items:center;gap:8px;font-size:12.5px"><span style="width:18px;border-top:2px solid #0B6E4F"></span>Hedef ${hedef}</div>` : "";
@@ -248,15 +250,18 @@ function draw(v, st, setup, data) {
   v.querySelectorAll("[data-vt]").forEach(b => b.onclick = () => { if (b.dataset.to === "v") R.vert.add(b.dataset.vt); else R.vert.delete(b.dataset.vt); draw(v, st, setup, data); });
   const rp = document.getElementById("rPic"); if (rp) rp.onchange = e => { R.pics = e.target.checked; draw(v, st, setup, data); };
   if (R.pics) hydrate(v, st);
+  const pb = v.querySelector("[data-pl]"); if (pb) pb.onclick = () => { R.plOpen = !R.plOpen; draw(v, st, setup, data); };
   document.getElementById("rPer").onchange = e => { R.per = e.target.value; draw(v, st, setup, data); };
   const ay = document.getElementById("rAy"); if (ay) ay.onchange = e => { R.month = +e.target.value; draw(v, st, setup, data); };
   document.getElementById("rPdf").onclick = async () => {
     const o = await askFormat({ title: "Raporu PDF indir", text: `${plabel} raporu. Birden fazla sayfa olabilir; kartlar sayfa sonlarında bölünmez.`, defOrient: "portrait", hint: "Çok bölümlü tesislerde yatay düzen grafik satırlarını genişletir.", pics: phIds.size });
     if (!o) return;
     if (o.pics !== R.pics) { R.pics = o.pics; const cb = document.getElementById("rPic"); if (cb) cb.checked = o.pics; draw(v, st, setup, data); }
+    const wasOpen = R.plOpen; if (!wasOpen) { R.plOpen = true; draw(v, st, setup, data); }
+    const restore = () => { if (!wasOpen) { R.plOpen = false; draw(v, st, setup, data); } };
     if (R.pics) await hydrate(v, st);
     const ttl = fileTitle(`${multi ? PER[R.per] : "Aylık"} HSE Raporu`, plabel, o.size), header = `${fname} · ${multi ? PER[R.per] : "Aylık"} HSE Raporu · ${plabel}`;
-    if (o.file) { try { await saveReportPdf(document.getElementById("view") || v, { ...o, name: ttl + ".pdf", header }); return; } catch (e) { console.warn("PDF üretilemedi, yazdırmaya dönülüyor", e); } }
-    printCurrent({ ...o, name: ttl, header });
+    if (o.file) { try { await saveReportPdf(document.getElementById("view") || v, { ...o, name: ttl + ".pdf", header }); restore(); return; } catch (e) { console.warn("PDF üretilemedi, yazdırmaya dönülüyor", e); } }
+    printCurrent({ ...o, name: ttl, header }); restore();
   };
 }

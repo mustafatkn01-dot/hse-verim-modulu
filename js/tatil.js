@@ -1,6 +1,6 @@
 // Tatil takvimi ve haftalık denetim planı (yalnızca gösterim; puanı etkilemez)
-import * as S from "./store.js?v=20261012v";
-import { esc, modal, toast } from "./ui.js?v=20261012v";
+import * as S from "./store.js?v=20261012w";
+import { esc, modal, toast } from "./ui.js?v=20261012w";
 
 const pad = n => String(n).padStart(2, "0");
 const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -62,6 +62,16 @@ function say(weeks, tdy) {
   const offP = weeks.filter(w => w.st === "off" && w.a <= tdy).length, c = s => weeks.filter(w => w.st === s).length, done = c("ok") + c("late"), plan = done + c("miss");
   return { done, plan, late: c("late"), miss: c("miss"), off: c("off"), offPast: offP, pct: plan + offP ? (done + offP) / (plan + offP) * 100 : null };
 }
+// Hafta noktası görünümü (Genel ve Rapor ortak): dolu = gerçekleşen, içi boş = henüz gelmemiş, ortasında çizgi olan gri = tatil (plan dışı)
+const DC = { ok: "#17A06F", late: "#E8A512", miss: "#D6382E" };
+export const dotCss = (k, n) => {
+  const base = `flex:0 0 ${n}px;width:${n}px;height:${n}px;border-radius:50%;box-sizing:border-box;`;
+  if (DC[k]) return base + `background:${DC[k]};border:1.5px solid ${DC[k]}`;
+  if (k === "off") return base + "border:1.5px solid #8FA19B;background:linear-gradient(#fff,#fff) center/52% 2px no-repeat #8FA19B";
+  if (k === "ask") return base + "background:#fff;border:1.5px dashed #E8A512";
+  if (k === "wait") return base + "background:#fff;border:2px solid #0B6E4F";
+  return base + "background:#fff;border:1.5px solid #C3CFCB";
+};
 // Rapor dönemi: pazartesisi seçilen aylarda olan haftalar
 export function donem(u, aylar, today = new Date()) {
   const weeks = u.weeks.filter(w => aylar.includes(+w.a.slice(5, 7)));
