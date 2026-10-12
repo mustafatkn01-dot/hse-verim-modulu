@@ -1,10 +1,10 @@
 // Genel Bakış · yıllık özet panosu (gerçek verilerden)
-import * as S from "./store.js?v=20261012u";
-import { esc } from "./ui.js?v=20261012u";
-import { CATS } from "./isgcats.js?v=20261012u";
-import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261012u";
-import { load } from "./verim.js?v=20261012u";
-import * as T from "./tatil.js?v=20261012u";
+import * as S from "./store.js?v=20261012v";
+import { esc } from "./ui.js?v=20261012v";
+import { CATS } from "./isgcats.js?v=20261012v";
+import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261012v";
+import { load } from "./verim.js?v=20261012v";
+import * as T from "./tatil.js?v=20261012v";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },

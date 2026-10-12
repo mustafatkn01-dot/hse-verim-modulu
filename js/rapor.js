@@ -1,10 +1,11 @@
 // Aylık HSE Raporu · kayıtlı verilerden otomatik grafik + açıklama
-import * as S from "./store.js?v=20261012u";
-import { esc } from "./ui.js?v=20261012u";
-import * as Gorev from "./gorev.js?v=20261012u";
-import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261012u";
-import { CATS } from "./isgcats.js?v=20261012u";
-import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261012u";
+import * as S from "./store.js?v=20261012v";
+import { esc } from "./ui.js?v=20261012v";
+import * as Gorev from "./gorev.js?v=20261012v";
+import * as T from "./tatil.js?v=20261012v";
+import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261012v";
+import { CATS } from "./isgcats.js?v=20261012v";
+import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261012v";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -23,7 +24,8 @@ const LAST = { q: 3, h: 6, n: 9, y: 12 };
 async function load(st) {
   const [kz, kn, ib, ig] = await Promise.all(["kaza", "konusma", "isbasi", "isg"].map(c => S.listMonthDocs(st.fid, st.year, c)));
   const by = d => Object.fromEntries(d.map(x => [x.id, x]));
-  return { kz: by(kz), kn: by(kn), ib: by(ib), ig: by(ig) };
+  const _s = {}; ig.forEach(d => { const id = String(d.id).slice(3); (d.sessions || []).forEach(se => { if (se?.date) (_s[id] ||= []).push(se.date); }); });
+  return { kz: by(kz), kn: by(kn), ib: by(ib), ig: by(ig), _s, td: await T.yukle(st.fid, st.year).catch(() => ({})) };
 }
 
 export async function render(v, ctx) {
@@ -37,22 +39,22 @@ export async function render(v, ctx) {
   draw(v, st, setup, data);
 }
 
-const bar = (name, v, w, label, thin, lw) => {
+const bar = (name, v, w, label, thin, lw, hf) => {
   const b = v === null ? NONE : BAND[label.band];
   return `<div style="display:flex;align-items:center;gap:12px"><span style="width:96px;flex:0 0 96px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(name)}</span>
-    <div style="flex:1;min-width:40px;height:${thin ? 12 : 14}px;border-radius:999px;background:#E4ECE9;overflow:hidden"><div style="height:100%;border-radius:999px;width:${v === null ? 0 : Math.max(0, Math.min(100, v))}%;background:${b.fill}"></div></div>
+    <div style="flex:1;min-width:40px;position:relative"><div style="height:${thin ? 12 : 14}px;border-radius:999px;background:#E4ECE9;overflow:hidden"><div style="height:100%;border-radius:999px;width:${v === null ? 0 : Math.max(0, Math.min(100, v))}%;background:${b.fill}"></div></div>${hf ? `<span style="position:absolute;left:${hf}%;top:-3px;bottom:-3px;width:2px;margin-left:-1px;background:#0B6E4F"></span>` : ""}</div>
     <span style="width:44px;text-align:right;font-weight:700">${v === null ? "–" : f1(v)}</span>
     <span style="width:${lw || 76}px;flex:0 0 ${lw || 76}px;text-align:center;font-size:12px;font-weight:700;padding:3px 0;border-radius:999px;background:${label.bg || b.bg};color:${label.c || b.c}">${esc(label.t)}</span></div>`;
 };
 const notesBox = list => `<div style="border-top:1px solid var(--line);padding-top:16px;display:flex;flex-direction:column;gap:8px"><div style="font-weight:800;font-size:13px;letter-spacing:.8px;color:var(--muted)">AÇIKLAMA</div>
   ${list.length ? list.map((t, i) => `<div style="display:flex;gap:10px;line-height:1.55"><span style="flex:0 0 22px;font-weight:800;color:#0B6E4F">${i + 1}.</span><span>${t}</span></div>`).join("") : `<div class="muted">Bu dönem için açıklama girilmemiş.</div>`}</div>`;
 // Dikey sütun grafiği (yatay çubuğun alternatifi); items: [{ name, v, label }]
-const vbars = items => {
+const vbars = (items, hf) => {
   const mw = Math.max(items.length * 72, 240);
   return `<div style="overflow-x:auto"><div style="min-width:${mw}px;display:flex;flex-direction:column;gap:8px">
-    <div style="display:flex;gap:12px;align-items:flex-end;height:236px;border-bottom:1.5px solid #9FB4AE;background:repeating-linear-gradient(to top,transparent 0,transparent 49px,#E4ECE9 49px,#E4ECE9 50px)">
+    <div style="display:flex;gap:12px;align-items:flex-end;height:236px;position:relative;border-bottom:1.5px solid #9FB4AE;background:repeating-linear-gradient(to top,transparent 0,transparent 49px,#E4ECE9 49px,#E4ECE9 50px)">
       ${items.map(i => { const b = i.v === null ? NONE : BAND[i.label.band], h = i.v === null ? 0 : Math.round(Math.max(0, Math.min(100, i.v)) * 2);
-        return `<div style="flex:1;min-width:56px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end"><span style="font-weight:700;font-size:13px;margin-bottom:4px">${i.v === null ? "–" : f1(i.v)}</span><div style="width:min(46px,72%);height:${h}px;min-height:${i.v === null ? 0 : 3}px;border-radius:8px 8px 0 0;background:${b.fill}"></div></div>`; }).join("")}</div>
+        return `<div style="flex:1;min-width:56px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end"><span style="font-weight:700;font-size:13px;margin-bottom:4px">${i.v === null ? "–" : f1(i.v)}</span><div style="width:min(46px,72%);height:${h}px;min-height:${i.v === null ? 0 : 3}px;border-radius:8px 8px 0 0;background:${b.fill}"></div></div>`; }).join("")}${hf ? `<span style="position:absolute;left:0;right:0;bottom:${Math.round(hf * 2)}px;border-top:2px solid #0B6E4F;pointer-events:none"></span>` : ""}</div>
     <div style="display:flex;gap:12px">${items.map(i => { const b = i.v === null ? NONE : BAND[i.label.band];
       return `<div style="flex:1;min-width:56px;display:flex;flex-direction:column;align-items:center;gap:5px;text-align:center"><span style="font-size:12px;font-weight:600;line-height:1.25;word-break:break-word">${esc(i.name)}</span><span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:${i.label.bg || b.bg};color:${i.label.c || b.c}">${esc(i.label.t)}</span></div>`; }).join("")}</div></div></div>`;
 };
@@ -109,6 +111,7 @@ function draw(v, st, setup, data) {
   const avg = avgOf(tv.map(r => total[r.id]));
   const anyData = tv.length > 0;
 
+  const hedef = num(p.esik.h ?? "90") || 90, hitN = tv.filter(r => total[r.id] >= hedef).length;
   // Grafik 1
   const rank = tv.slice().sort((a, b) => total[b.id] - total[a.id]);
   const c1 = [];
@@ -206,8 +209,19 @@ function draw(v, st, setup, data) {
     ? `<div class="warn noprint">${Gorev.state() === "giris" ? "Görev Takibi · Kapatma kartı için görev takip programına bağlı değilsiniz. Ayarlar → Uygulama ve Senkronizasyon bölümünden \"Görev programına bağlan\" deyin."
       : Gorev.state() === "hata" ? "Görev takip programına ulaşılamadı; Görev Takibi · Kapatma kartı gösterilemiyor."
       : `${plabel} için görev programına aktarılmış denetim bulgusu veya kaza kaydı yok; Görev Takibi · Kapatma kartı bu yüzden gösterilmiyor.`}</div>` : "";
-  const inc = ["Genel verim", "Modül verimleri", ...TITLE.filter((_, i) => modHas[i]), ...(anyIsg ? ["İSG bulgu dağılımı"] : []), ...(gs ? ["Görev takibi"] : []), plabel];
-  const first1 = tv.length ? (R.vert.has("g1") ? vbars(rank.map(r => ({ name: r.name, v: total[r.id], label: { t: bn(total[r.id]), band: bn(total[r.id]) } }))) : `<div class="col1" style="gap:10px">${rank.map(r => bar(r.name, total[r.id], 0, { t: bn(total[r.id]), band: bn(total[r.id]) }, false, 72)).join("")}</div>`) : `<div class="muted">Bu dönem için henüz kayıtlı veri yok.</div>`;
+  // Denetim planı uyumu (haftalık plan · yalnızca gösterim, puanı etkilemez)
+  const tmap = T.takvim(data.td), pl = rows.map(r => ({ r, u: T.donem(T.planUyum(data._s?.[r.id], y, { map: tmap, karar: data.td?.karar }), ms) })), u0 = pl[0]?.u;
+  const pd = pl.reduce((a, x) => a + x.u.done + x.u.offPast, 0), pc = pl.reduce((a, x) => a + x.u.plan + x.u.offPast, 0), pt = pc ? pd / pc * 100 : null;
+  const DOT = { ok: "#17A06F", late: "#E8A512", miss: "#D6382E", off: "#C3CFCB", wait: "#fff", ask: "#fff", future: "#E4ECE9" }, sd = (k, n) => `<span style="flex:0 0 ${n}px;width:${n}px;height:${n}px;border-radius:50%;background:${DOT[k]};box-sizing:border-box;border:1.5px ${k === "ask" ? "dashed #E8A512" : k === "wait" ? "solid #9DB5AE" : "solid " + DOT[k]}"></span>`;
+  const used = new Set(pl.flatMap(x => x.u.weeks.map(w => w.st))), LG = [["ok", "Zamanında (Pzt–Çar)"], ["late", "Geç (Per–Paz)"], ["miss", "Yapılmadı"], ["off", "Tatil (plan dışı)"], ["wait", "Bu hafta bekliyor"], ["ask", "Karar bekliyor"], ["future", "Gelecek"]].filter(([k]) => used.has(k));
+  const planRow = ({ r, u }) => `<div class="col1" style="gap:6px"><div style="display:flex;align-items:center;gap:10px"><span style="flex:1;min-width:0;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.name)}</span><span style="flex:0 0 auto;display:flex;align-items:baseline;gap:8px;white-space:nowrap"><span class="muted" style="font-size:12.5px">${u.plan + u.offPast ? (u.done + u.offPast) + "/" + (u.plan + u.offPast) : "–"}</span><b style="min-width:34px;text-align:right">${u.pct === null ? "–" : "%" + Math.round(u.pct)}</b></span></div>
+    <div style="display:flex;flex-wrap:wrap;gap:4px">${u.weeks.map(w => `<span title="${T.range(w.a, w.z)}${w.ad ? " · " + esc(w.ad) : ""}" style="display:inline-flex">${sd(w.st, 11)}</span>`).join("")}</div></div>`;
+  const planCard = u0 && u0.total && !R.off.has("Denetim planı") ? card("Denetim Planı Uyumu", `${plabel} · ${u0.total} hafta${u0.off ? ` · ${u0.off} tatil (muaf)` : ""}${pt === null ? "" : ` · tesis %${Math.round(pt)} (${pd}/${pc})`}`,
+    `<div class="row" style="gap:14px;font-size:12px;color:var(--muted)">${LG.map(([k, t]) => `<span class="row" style="gap:6px;flex-wrap:nowrap">${sd(k, 10)}${t}</span>`).join("")}</div><div class="col1" style="gap:16px">${pl.map(planRow).join("")}</div>
+    <div class="muted" style="font-size:12.5px">Haftalık denetim planıdır; her hafta pazartesisinin ayına bağlanır. Tatil, plan dışı haftalar muaf sayılır (yapıldı gibi) ve yüzdeyi düşürmez. Bu kart puanı etkilemez.</div>`) : "";
+  const inc = ["Genel verim", "Modül verimleri", ...TITLE.filter((_, i) => modHas[i]), ...(anyIsg ? ["İSG bulgu dağılımı"] : []), ...(u0?.total ? ["Denetim planı"] : []), ...(gs ? ["Görev takibi"] : []), plabel];
+  const first1 = tv.length ? (R.vert.has("g1") ? vbars(rank.map(r => ({ name: r.name, v: total[r.id], label: { t: bn(total[r.id]), band: bn(total[r.id]) } })), hedef) : `<div class="col1" style="gap:10px">${rank.map(r => bar(r.name, total[r.id], 0, { t: bn(total[r.id]), band: bn(total[r.id]) }, false, 72, hedef)).join("")}</div>`) : `<div class="muted">Bu dönem için henüz kayıtlı veri yok.</div>`;
+  const hLeg = tv.length ? `<div class="muted" style="display:flex;align-items:center;gap:8px;font-size:12.5px"><span style="width:18px;border-top:2px solid #0B6E4F"></span>Hedef ${hedef}</div>` : "";
 
   v.innerHTML = `
   <div class="row sp"><div class="col1" style="gap:6px"><h1 class="ttl">${multi ? PER[R.per] : "Aylık"} HSE Raporu</h1>
@@ -221,14 +235,14 @@ function draw(v, st, setup, data) {
   <div class="cd" style="flex-direction:row;flex-wrap:wrap;gap:12px;align-items:center;padding:14px 18px"><span style="font-weight:700">Rapora dahil:</span>${inc.map(t => t === plabel ? `<span style="display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:#D9F1E6;color:#0B6E4F;font-weight:700;font-size:13px">&#10003; ${esc(t)}</span>`
     : R.off.has(t) ? `<button class="incb noprint" data-inc="${esc(t)}" aria-pressed="false" title="Rapora eklemek için dokunun" style="display:flex;align-items:center;gap:8px;padding:6px 12px;height:auto;min-height:0;border-radius:999px;background:#fff;color:#10201C;border:1px solid #C3D1CC;font-weight:600;font-size:13px">${esc(t)}</button>`
     : `<button class="incb" data-inc="${esc(t)}" aria-pressed="true" title="Rapordan çıkarmak için dokunun" style="display:flex;align-items:center;gap:8px;padding:6px 12px;height:auto;min-height:0;border-radius:999px;background:#D9F1E6;color:#0B6E4F;border:1px solid #D9F1E6;font-weight:700;font-size:13px">&#10003; ${esc(t)}</button>`).join("")}</div>
-  ${!R.off.has("Genel verim") ? card("Grafik 1 · Bölüm HSE Verimi (Genel)", `${plabel} · tesis ortalaması ${avg === null ? "–" : f1(avg)}`, first1 + (anyData ? notesBox(c1) : ""), "g1") : ""}
+  ${!R.off.has("Genel verim") ? card("Grafik 1 · Bölüm HSE Verimi (Genel)", `${plabel} · tesis ortalaması ${avg === null ? "–" : f1(avg)} · hedef ${hedef}: ${hitN}/${tv.length} bölüm`, first1 + hLeg + (anyData ? notesBox(c1) : ""), "g1") : ""}
   ${anyData && !R.off.has("Modül verimleri") ? card("Grafik 2 · Modül Verimleri", `Ağırlıklı toplam ${wTot === null ? "–" : f1(wTot)} · ağırlıklar ${W.join(" / ")}`, (R.vert.has("g2") ? g2v : `<div class="col1" style="gap:10px">${g2}</div>`) + notesBox(c2), "g2") : ""}
   ${anyData && !R.off.has(TITLE[0]) ? modCard("kaza", 0, "Grafik 3 · İş Kazası Verimi", `${plabel} · kaza ceza puanı × bölüm katsayısı`, nk, "g3") : ""}
   ${anyData && !R.off.has(TITLE[1]) ? modCard("konusma", 1, "Grafik 4 · Eğitim Konuşması Verimi", `${plabel} · gerçekleşen süre / (kişi × hedef süre × katsayı)`, nn) : ""}
   ${anyData && !R.off.has(TITLE[2]) ? modCard("isbasi", 2, "Grafik 5 · İşbaşı Eğitim Verimi", `${plabel} · eğitim oranı × ZTF (gecikme) × TC (düzensizlik)`, ni) : ""}
   ${anyData && modHas[3] && !R.off.has(TITLE[3]) ? card("İSG Denetim Verimi", `${plabel} · denetim sıklığı × kategori ağırlığı × bölüm katsayısı + ramak kala bonusu`, modBars("isg", "isg"), "isg") : ""}
   ${R.off.has("İSG bulgu dağılımı") ? "" : g6}${R.off.has(TITLE[3]) ? "" : scope}
-  ${gorevCard}${gNote}
+  ${planCard}${gorevCard}${gNote}
   <div class="muted noprint" style="font-size:13px;line-height:1.6">Dönem raporlarında bölüm değerleri, verisi olan ayların ortalamasıdır (kümülatif: Ç1 Ocak-Mart, Ç2 Ocak-Haziran, Ç3 Ocak-Eylül). Açıklamalar, aylık giriş sayfalarında yazılan notlardan derlenir (İSG için "Uygunsuz" işaretli maddelerin notları). Metni değiştirmek için ilgili kaydı güncelleyin; rapor kendiliğinden yenilenir. PDF için tarayıcının yazdırma penceresinde "PDF olarak kaydet" seçin.</div>`;
   v.querySelectorAll("[data-inc]").forEach(b => b.onclick = () => { const k = b.dataset.inc; R.off.has(k) ? R.off.delete(k) : R.off.add(k); draw(v, st, setup, data); });
   v.querySelectorAll("[data-vt]").forEach(b => b.onclick = () => { if (b.dataset.to === "v") R.vert.add(b.dataset.vt); else R.vert.delete(b.dataset.vt); draw(v, st, setup, data); });

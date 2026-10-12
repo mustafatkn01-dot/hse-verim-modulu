@@ -1,6 +1,6 @@
 // Tatil takvimi ve haftalık denetim planı (yalnızca gösterim; puanı etkilemez)
-import * as S from "./store.js?v=20261012u";
-import { esc, modal, toast } from "./ui.js?v=20261012u";
+import * as S from "./store.js?v=20261012v";
+import { esc, modal, toast } from "./ui.js?v=20261012v";
 
 const pad = n => String(n).padStart(2, "0");
 const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -55,8 +55,17 @@ export function planUyum(dates, year, o = {}, today = new Date()) {
     else st = fut ? "future" : cur ? "wait" : "miss";
     weeks.push({ a: m, z, st, cur, ad: hb.ad, soru: st === "ask" && m <= ahead });
   }
+  return { weeks, total: weeks.length, ...say(weeks, tdy), ask: weeks.filter(w => w.soru) };
+}
+// Hafta listesinden sayımlar (muaf kuralı: geçmiş tatil haftası yapıldı sayılır)
+function say(weeks, tdy) {
   const offP = weeks.filter(w => w.st === "off" && w.a <= tdy).length, c = s => weeks.filter(w => w.st === s).length, done = c("ok") + c("late"), plan = done + c("miss");
-  return { weeks, total: weeks.length, done, plan, late: c("late"), miss: c("miss"), off: c("off"), offPast: offP, ask: weeks.filter(w => w.soru), pct: plan + offP ? (done + offP) / (plan + offP) * 100 : null };
+  return { done, plan, late: c("late"), miss: c("miss"), off: c("off"), offPast: offP, pct: plan + offP ? (done + offP) / (plan + offP) * 100 : null };
+}
+// Rapor dönemi: pazartesisi seçilen aylarda olan haftalar
+export function donem(u, aylar, today = new Date()) {
+  const weeks = u.weeks.filter(w => aylar.includes(+w.a.slice(5, 7)));
+  return { weeks, total: weeks.length, ...say(weeks, iso(today)) };
 }
 
 // Senkronizasyon: ücretsiz resmî tatil servisi (Nager.Date). Diyanet'in tarayıcıdan okunabilir servisi yoktur.
