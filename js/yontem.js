@@ -1,9 +1,9 @@
 // Kurulum sayfasındaki katlanabilir "Hesaplama Yöntemi" kartı (parametrelerden canlı; PDF indirilebilir)
-import { dotCss } from "./tatil.js?v=20261012z";
-import { esc } from "./ui.js?v=20261012z";
-import { num, c2, empCoef, RISK, DEFAULT_PARAMS } from "./scoring.js?v=20261012z";
-import { T as KAZA } from "./kaza.js?v=20261012z";
-import { askFormat, savePdf, printCurrent } from "./pdf.js?v=20261012z";
+import { dotCss } from "./tatil.js?v=20261012zz";
+import { esc } from "./ui.js?v=20261012zz";
+import { num, c2, empCoef, RISK, DEFAULT_PARAMS } from "./scoring.js?v=20261012zz";
+import { T as KAZA } from "./kaza.js?v=20261012zz";
+import { askFormat, savePdf, printCurrent } from "./pdf.js?v=20261012zz";
 
 const Y = { open: false };
 export const reset = () => { Y.open = false; };
@@ -59,8 +59,8 @@ export function mount(el, getParams, meta = {}) {
       b.innerHTML = `<div data-brk><h1 class="ttl" style="margin:0">Hesaplama Yöntemi</h1><div class="sub">${esc(meta.fname || "")}${meta.year ? " · " + esc(String(meta.year)) : ""} · HSE Verim Modülü</div></div>${body(getParams())}`;
       document.body.appendChild(b);
       if (!o.file) {
-        b.classList.add("ytprint"); b.style.cssText = "position:fixed;left:-99999px;top:0;background:#fff;color:#10201C;display:flex;flex-direction:column;gap:18px;width:" + W + "px";
-        const done = () => { b.remove(); window.removeEventListener("afterprint", done); }; window.addEventListener("afterprint", done);
+        b.classList.add("ytprint"); document.body.classList.add("ytp"); b.style.cssText = "position:fixed;left:-99999px;top:0;background:#fff;color:#10201C;display:flex;flex-direction:column;gap:18px;width:" + W + "px";
+        const done = () => { b.remove(); document.body.classList.remove("ytp"); window.removeEventListener("afterprint", done); }; window.addEventListener("afterprint", done);
         printCurrent({ size: o.size, orient: o.orient, name: "HSE Hesaplama Yöntemi", header: `${meta.fname || ""} · Hesaplama Yöntemi` }); return;
       }
       try {
