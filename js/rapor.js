@@ -1,10 +1,10 @@
 // Aylık HSE Raporu · kayıtlı verilerden otomatik grafik + açıklama
-import * as S from "./store.js?v=20261012c";
-import { esc } from "./ui.js?v=20261012c";
-import * as Gorev from "./gorev.js?v=20261012c";
-import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261012c";
-import { CATS } from "./isgcats.js?v=20261012c";
-import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261012c";
+import * as S from "./store.js?v=20261012d";
+import { esc } from "./ui.js?v=20261012d";
+import * as Gorev from "./gorev.js?v=20261012d";
+import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261012d";
+import { CATS } from "./isgcats.js?v=20261012d";
+import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261012d";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -187,6 +187,10 @@ function draw(v, st, setup, data) {
   const gcell = (l, t) => `<div><span class="hd">${l}</span><div style="font-weight:800;font-size:18px">${t}</div></div>`;
   const grow = (name, o) => o.n ? `<div class="col1" style="gap:10px"><b>${name}</b><div class="fg">${gcell("AKTARILAN", o.n)}${gcell("KAPANAN", o.kapali)}${gcell("KAPATMA ORANI", "%" + Math.round(100 * o.kapali / o.n))}${gcell("ORT. KAPANIŞ SÜRESİ", o.nSure ? f1(o.topSure / o.nSure).replace(/,0$/, "") + " gün" : "–")}</div></div>` : "";
   const gorevCard = gs && !R.off.has("Görev takibi") ? card("Görev Takibi · Kapatma", `${plabel} · görev takip programından`, `<div class="col1" style="gap:18px">${grow("İSG Denetim bulguları", gs.d)}${grow("İş kazası olayları", gs.k)}</div><div class="muted" style="font-size:12.5px">Yalnızca bilgi amaçlıdır; HSE puanına dahil edilmez. Süre, görevin açılışından kapanışına kadar geçen ortalama gündür.</div>`) : "";
+  const gNote = !gs && Gorev.enabled() && ["giris", "hazir", "hata"].includes(Gorev.state())
+    ? `<div class="warn noprint">${Gorev.state() === "giris" ? "Görev Takibi · Kapatma kartı için görev takip programına bağlı değilsiniz. Ayarlar → Uygulama ve Senkronizasyon bölümünden \"Görev programına bağlan\" deyin."
+      : Gorev.state() === "hata" ? "Görev takip programına ulaşılamadı; Görev Takibi · Kapatma kartı gösterilemiyor."
+      : `${plabel} için görev programına aktarılmış denetim bulgusu veya kaza kaydı yok; Görev Takibi · Kapatma kartı bu yüzden gösterilmiyor.`}</div>` : "";
   const inc = ["Genel verim", "Modül verimleri", ...TITLE.filter((_, i) => modHas[i]), ...(anyIsg ? ["İSG bulgu dağılımı"] : []), ...(gs ? ["Görev takibi"] : []), plabel];
   const first1 = tv.length ? `<div class="col1" style="gap:10px">${rank.map(r => bar(r.name, total[r.id], 0, { t: bn(total[r.id]), band: bn(total[r.id]) }, false, 72)).join("")}</div>` : `<div class="muted">Bu dönem için henüz kayıtlı veri yok.</div>`;
 
@@ -209,7 +213,7 @@ function draw(v, st, setup, data) {
   ${anyData && !R.off.has(TITLE[2]) ? modCard("isbasi", 2, "Grafik 5 · İşbaşı Eğitim Verimi", `${plabel} · eğitim oranı × ZTF (gecikme) × TC (düzensizlik)`, ni) : ""}
   ${anyData && modHas[3] && !R.off.has(TITLE[3]) ? card("İSG Denetim Verimi", `${plabel} · denetim sıklığı × kategori ağırlığı × bölüm katsayısı + ramak kala bonusu`, modBars("isg")) : ""}
   ${R.off.has("İSG bulgu dağılımı") ? "" : g6}${R.off.has(TITLE[3]) ? "" : scope}
-  ${gorevCard}
+  ${gorevCard}${gNote}
   <div class="muted" style="font-size:13px;line-height:1.6">Dönem raporlarında bölüm değerleri, verisi olan ayların ortalamasıdır (kümülatif: Ç1 Ocak-Mart, Ç2 Ocak-Haziran, Ç3 Ocak-Eylül). Açıklamalar, aylık giriş sayfalarında yazılan notlardan derlenir (İSG için "Uygunsuz" işaretli maddelerin notları). Metni değiştirmek için ilgili kaydı güncelleyin; rapor kendiliğinden yenilenir. PDF için tarayıcının yazdırma penceresinde "PDF olarak kaydet" seçin.</div>`;
   v.querySelectorAll("[data-inc]").forEach(b => b.onclick = () => { const k = b.dataset.inc; R.off.has(k) ? R.off.delete(k) : R.off.add(k); draw(v, st, setup, data); });
   const rp = document.getElementById("rPic"); if (rp) rp.onchange = e => { R.pics = e.target.checked; draw(v, st, setup, data); };
