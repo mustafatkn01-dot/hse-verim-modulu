@@ -1,10 +1,10 @@
 // Aylık HSE Raporu · kayıtlı verilerden otomatik grafik + açıklama
-import * as S from "./store.js?v=20261012d";
-import { esc } from "./ui.js?v=20261012d";
-import * as Gorev from "./gorev.js?v=20261012d";
-import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261012d";
-import { CATS } from "./isgcats.js?v=20261012d";
-import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261012d";
+import * as S from "./store.js?v=20261012e";
+import { esc } from "./ui.js?v=20261012e";
+import * as Gorev from "./gorev.js?v=20261012e";
+import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261012e";
+import { CATS } from "./isgcats.js?v=20261012e";
+import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261012e";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -184,9 +184,10 @@ function draw(v, st, setup, data) {
   }
 
   const gs = Gorev.summary(st.fid, y, ms);
+  const gdonem = gs ? (gs.m0 === gs.m1 ? `${MONTHS[gs.m0 - 1]} ${y} Bulguları` : `${MONTHS[gs.m0 - 1]}-${MONTHS[gs.m1 - 1]} ${y} Bulguları`) : "";
   const gcell = (l, t) => `<div><span class="hd">${l}</span><div style="font-weight:800;font-size:18px">${t}</div></div>`;
   const grow = (name, o) => o.n ? `<div class="col1" style="gap:10px"><b>${name}</b><div class="fg">${gcell("AKTARILAN", o.n)}${gcell("KAPANAN", o.kapali)}${gcell("KAPATMA ORANI", "%" + Math.round(100 * o.kapali / o.n))}${gcell("ORT. KAPANIŞ SÜRESİ", o.nSure ? f1(o.topSure / o.nSure).replace(/,0$/, "") + " gün" : "–")}</div></div>` : "";
-  const gorevCard = gs && !R.off.has("Görev takibi") ? card("Görev Takibi · Kapatma", `${plabel} · görev takip programından`, `<div class="col1" style="gap:18px">${grow("İSG Denetim bulguları", gs.d)}${grow("İş kazası olayları", gs.k)}</div><div class="muted" style="font-size:12.5px">Yalnızca bilgi amaçlıdır; HSE puanına dahil edilmez. Süre, görevin açılışından kapanışına kadar geçen ortalama gündür.</div>`) : "";
+  const gorevCard = gs && !R.off.has("Görev takibi") ? card("Görev Takibi · Kapatma", gdonem, `<div class="col1" style="gap:18px">${grow("İSG Denetim bulguları", gs.d)}${grow("İş kazası olayları", gs.k)}</div><div class="muted" style="font-size:12.5px">Yalnızca bilgi amaçlıdır; HSE puanına dahil edilmez. Süre, görevin açılışından kapanışına kadar geçen ortalama gündür.</div>`) : "";
   const gNote = !gs && Gorev.enabled() && ["giris", "hazir", "hata"].includes(Gorev.state())
     ? `<div class="warn noprint">${Gorev.state() === "giris" ? "Görev Takibi · Kapatma kartı için görev takip programına bağlı değilsiniz. Ayarlar → Uygulama ve Senkronizasyon bölümünden \"Görev programına bağlan\" deyin."
       : Gorev.state() === "hata" ? "Görev takip programına ulaşılamadı; Görev Takibi · Kapatma kartı gösterilemiyor."
@@ -214,7 +215,7 @@ function draw(v, st, setup, data) {
   ${anyData && modHas[3] && !R.off.has(TITLE[3]) ? card("İSG Denetim Verimi", `${plabel} · denetim sıklığı × kategori ağırlığı × bölüm katsayısı + ramak kala bonusu`, modBars("isg")) : ""}
   ${R.off.has("İSG bulgu dağılımı") ? "" : g6}${R.off.has(TITLE[3]) ? "" : scope}
   ${gorevCard}${gNote}
-  <div class="muted" style="font-size:13px;line-height:1.6">Dönem raporlarında bölüm değerleri, verisi olan ayların ortalamasıdır (kümülatif: Ç1 Ocak-Mart, Ç2 Ocak-Haziran, Ç3 Ocak-Eylül). Açıklamalar, aylık giriş sayfalarında yazılan notlardan derlenir (İSG için "Uygunsuz" işaretli maddelerin notları). Metni değiştirmek için ilgili kaydı güncelleyin; rapor kendiliğinden yenilenir. PDF için tarayıcının yazdırma penceresinde "PDF olarak kaydet" seçin.</div>`;
+  <div class="muted noprint" style="font-size:13px;line-height:1.6">Dönem raporlarında bölüm değerleri, verisi olan ayların ortalamasıdır (kümülatif: Ç1 Ocak-Mart, Ç2 Ocak-Haziran, Ç3 Ocak-Eylül). Açıklamalar, aylık giriş sayfalarında yazılan notlardan derlenir (İSG için "Uygunsuz" işaretli maddelerin notları). Metni değiştirmek için ilgili kaydı güncelleyin; rapor kendiliğinden yenilenir. PDF için tarayıcının yazdırma penceresinde "PDF olarak kaydet" seçin.</div>`;
   v.querySelectorAll("[data-inc]").forEach(b => b.onclick = () => { const k = b.dataset.inc; R.off.has(k) ? R.off.delete(k) : R.off.add(k); draw(v, st, setup, data); });
   const rp = document.getElementById("rPic"); if (rp) rp.onchange = e => { R.pics = e.target.checked; draw(v, st, setup, data); };
   if (R.pics) hydrate(v, st);

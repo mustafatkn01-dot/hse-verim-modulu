@@ -1,7 +1,7 @@
 // Görev takip programı köprüsü (mtisggorev). HSE Verim yalnızca küçük kayıtlar bırakır ve durumu okur;
 // görev/kaza kayıtlarını görev programı kendisi oluşturur. Bağlantı yoksa özellik uyarı kartıyla kapalı kalır.
-import { GOREV_CFG } from "./gorev-config.js?v=20261012d";
-import { esc } from "./ui.js?v=20261012d";
+import { GOREV_CFG } from "./gorev-config.js?v=20261012e";
+import { esc } from "./ui.js?v=20261012e";
 
 const CFG = GOREV_CFG || null, CDN = "https://www.gstatic.com/firebasejs/10.14.1/";
 let F = null, auth = null, db = null, user = null, err = "", fabs = null, started = false, offs = [], loaded = false;
@@ -139,7 +139,7 @@ export function summary(fid, year, months) {
     const p = key.split("_");
     if (p.length < 5 || (p[0] !== "d" && p[0] !== "k") || p[1] !== makeKey(fid) || p[2] !== String(year) || !months.includes(+p[3])) return;
     if (!v || !["acik", "kapali", "kayit"].includes(v.durum)) return;
-    const o = out[p[0]]; o.n++;
+    const o = out[p[0]]; o.n++; out.m0 = Math.min(out.m0 ?? 99, +p[3]); out.m1 = Math.max(out.m1 ?? 0, +p[3]);
     if (v.durum === "kapali") { o.kapali++; if (v.kapanis && v.acilis && v.kapanis >= v.acilis) { o.topSure += (v.kapanis - v.acilis) / 864e5; o.nSure++; } }
     else o.acik++;
   });
