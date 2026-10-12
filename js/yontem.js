@@ -1,8 +1,9 @@
 // Kurulum sayfasındaki katlanabilir "Hesaplama Yöntemi" kartı (parametrelerden canlı; PDF indirilebilir)
-import { esc } from "./ui.js?v=20261012x";
-import { num, c2, empCoef, RISK, DEFAULT_PARAMS } from "./scoring.js?v=20261012x";
-import { T as KAZA } from "./kaza.js?v=20261012x";
-import { askFormat, savePdf } from "./pdf.js?v=20261012x";
+import { dotCss } from "./tatil.js?v=20261012y";
+import { esc } from "./ui.js?v=20261012y";
+import { num, c2, empCoef, RISK, DEFAULT_PARAMS } from "./scoring.js?v=20261012y";
+import { T as KAZA } from "./kaza.js?v=20261012y";
+import { askFormat, savePdf, printCurrent } from "./pdf.js?v=20261012y";
 
 const Y = { open: false };
 export const reset = () => { Y.open = false; };
@@ -25,7 +26,7 @@ export function body(p0) {
   ];
   const BAND = [["Kritik", `${f(num(e.o))} altı`, "#FADAD7", "#B3261E"], ["Orta", `${f(num(e.o))} – ${f(num(e.i) - 1)}`, "#FBE9C6", "#6B3F00"], ["İyi", `${f(num(e.i))} – ${f(num(e.m) - 1)}`, "#DCEAF7", "#145F96"], ["Mükemmel", `${f(num(e.m))} ve üzeri`, "#D9F1E6", "#0B6E4F"]];
   const RULES = ["Hafta Pazartesi–Pazar arasıdır. Her hafta, her bölüm için bir denetim planlanır; yıl 52 hafta olarak görünür.", "İdeal gün Pzt–Çar'dır. O günlerde yapılan denetim \"zamanında\", Per–Paz arası \"geç\" sayılır; ikisi de yapıldı sayılır.", "Pzt–Çar'da hiç iş günü kalmıyorsa (bayram, resmi tatil) program tesis sahibine sorar: \"Tatil, plan dışı\" veya \"Denetim yapılacak\".", "Tatil seçilir ve denetim yapılmazsa hafta gri görünür ve muaf sayılır (yapıldı gibi); yüzdeyi düşürmez, hafta sayacı değişmez (örn. 2/40).", "Tatil haftasında denetim yapıldıysa hafta normal \"yapıldı\" sayılır."];
-  const dot = (c, t) => `<span style="display:flex;align-items:center;gap:6px;white-space:nowrap"><span style="width:10px;height:10px;border-radius:50%;background:${c};box-sizing:border-box;border:1.5px solid ${c === "#fff" ? "#9DB5AE" : c}"></span>${t}</span>`;
+  const dot = (k, t) => `<span style="display:flex;align-items:center;gap:6px;white-space:nowrap"><span style="${dotCss(k, 10)}"></span>${t}</span>`;
   return [
     sec("1 · Toplam skor nasıl oluşur", "Ağırlıklar Parametreler'den gelir", `<div style="display:flex;height:16px;border-radius:999px;overflow:hidden;gap:2px">${w.map((x, i) => `<div style="flex:${x || 0.001};background:${COL[i]}"></div>`).join("")}</div>
       <div style="display:flex;flex-wrap:wrap;gap:10px 16px">${MOD.map((m, i) => `<div style="flex:1 1 220px;min-width:0;display:flex;gap:10px"><span style="width:12px;height:12px;border-radius:4px;background:${COL[i]};margin-top:5px;flex:0 0 12px"></span><div><b>${m[0]}</b> <span class="muted">· %${f(w[i])}</span><div class="muted" style="font-size:13px">${m[1]}</div></div></div>`).join("")}</div>
@@ -38,7 +39,7 @@ export function body(p0) {
     sec("4 · Durum eşikleri ve yıllık hedef", "Parametreler'den gelir", `<div style="display:flex;flex-wrap:wrap;gap:8px">${BAND.map(b => `<div style="flex:1 1 140px;min-width:0;border-radius:10px;padding:10px 12px;background:${b[2]};color:${b[3]};display:flex;justify-content:space-between;gap:8px"><b>${b[0]}</b><span>${b[1]}</span></div>`).join("")}</div>
       <div class="muted" style="line-height:1.6;font-size:13px">Yıllık hedef <b>${f(h)}</b>. Yalnızca gösterim içindir: Genel Bakış'ta Aylık Trend grafiğinde çizgi olarak görünür ve kaç ayın hedefte kaldığı sayılır; skoru değiştirmez.</div>`),
     sec("5 · Haftalık denetim planı ve tatil kuralı", "", `<div style="display:flex;flex-direction:column;gap:8px">${RULES.map((t, i) => `<div style="display:flex;gap:10px"><span style="width:22px;height:22px;border-radius:50%;background:var(--navy);color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:0 0 22px">${i + 1}</span><div style="line-height:1.55">${t}</div></div>`).join("")}</div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px 16px;font-size:12px;color:var(--muted)">${dot("#17A06F", "Zamanında")}${dot("#E8A512", "Geç")}${dot("#D6382E", "Yapılmadı")}${dot("#C3CFCB", "Tatil (plan dışı)")}${dot("#fff", "Bu hafta bekliyor")}</div>`),
+      <div style="display:flex;flex-wrap:wrap;gap:8px 16px;font-size:12px;color:var(--muted)">${dot("ok", "Zamanında")}${dot("late", "Geç")}${dot("miss", "Yapılmadı")}${dot("off", "Tatil (plan dışı)")}${dot("wait", "Bu hafta")}${dot("future", "Gelecek")}</div>`),
     sec("6 · Skoru etkilemeyenler", "", `<div style="display:flex;flex-wrap:wrap;gap:8px">${[["Görev takibi", "Görev programındaki kapatma durumu yalnızca bilgidir."], ["Denetim planı uyumu", "Haftalık plan yüzdesi ve gri tatil haftaları skora girmez."], ["Tatil kararları", "\"Tatil, plan dışı\" kararı hiçbir puanı değiştirmez."], ["Yıllık hedef çizgisi", "Trend grafiğindeki hedef yalnızca karşılaştırma içindir."]].map(n => `<div style="flex:1 1 220px;min-width:0;border-radius:10px;background:var(--calc);padding:10px 12px"><b>${n[0]}</b><div class="muted" style="font-size:13px">${n[1]}</div></div>`).join("")}</div>`)
   ].join("");
 }
@@ -51,12 +52,17 @@ export function mount(el, getParams, meta = {}) {
       ${Y.open ? `<div class="col1" style="gap:18px;border-top:1px solid var(--line);padding-top:18px">${body(getParams())}</div>` : ""}</div>`;
     el.querySelector('[data-y="tg"]').onclick = () => { Y.open = !Y.open; draw(); };
     el.querySelector('[data-y="pdf"]').onclick = async () => {
-      const o = await askFormat({ title: "Hesaplama yöntemini PDF indir", text: "Programın skoru nasıl hesapladığını anlatan özet. Birden fazla sayfa olabilir.", defOrient: "portrait", fileOnly: true });
+      const o = await askFormat({ title: "Hesaplama yöntemini PDF indir", text: "Programın skoru nasıl hesapladığını anlatan özet. Birden fazla sayfa olabilir.", defOrient: "portrait" });
       if (!o) return;
       const W = (o.orient === "landscape" ? 1123 : 794) - 76, b = document.createElement("div"); b.className = "lightbox";
       b.style.cssText = `position:fixed;left:-99999px;top:0;width:${W}px;background:#fff;color:#10201C;display:flex;flex-direction:column;gap:18px`;
       b.innerHTML = `<div data-brk><h1 class="ttl" style="margin:0">Hesaplama Yöntemi</h1><div class="sub">${esc(meta.fname || "")}${meta.year ? " · " + esc(String(meta.year)) : ""} · HSE Verim Modülü</div></div>${body(getParams())}`;
       document.body.appendChild(b);
+      if (!o.file) {
+        b.classList.add("ytprint"); b.style.cssText = "position:fixed;left:-99999px;top:0;background:#fff;color:#10201C;display:flex;flex-direction:column;gap:18px;width:" + W + "px";
+        const done = () => { b.remove(); window.removeEventListener("afterprint", done); }; window.addEventListener("afterprint", done);
+        printCurrent({ size: o.size, orient: o.orient, name: "HSE Hesaplama Yöntemi", header: `${meta.fname || ""} · Hesaplama Yöntemi` }); return;
+      }
       try {
         const top0 = b.getBoundingClientRect().top, breaks = [...b.querySelectorAll("[data-brk]")].map(c => c.getBoundingClientRect().top - top0).filter(t => t > 0);
         await savePdf(b, { size: o.size, orient: o.orient, name: `HSE Hesaplama Yöntemi (${o.size}).pdf`, margin: 28.5 * (o.size === "A3" ? 1.4142 : 1), scale: o.size === "A3" ? 3 : 2.5, breaks, header: `${meta.fname || ""} · Hesaplama Yöntemi`, pageNo: true });

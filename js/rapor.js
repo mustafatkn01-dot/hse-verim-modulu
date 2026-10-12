@@ -1,11 +1,11 @@
 // Aylık HSE Raporu · kayıtlı verilerden otomatik grafik + açıklama
-import * as S from "./store.js?v=20261012x";
-import { esc } from "./ui.js?v=20261012x";
-import * as Gorev from "./gorev.js?v=20261012x";
-import * as T from "./tatil.js?v=20261012x";
-import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261012x";
-import { CATS } from "./isgcats.js?v=20261012x";
-import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261012x";
+import * as S from "./store.js?v=20261012y";
+import { esc } from "./ui.js?v=20261012y";
+import * as Gorev from "./gorev.js?v=20261012y";
+import * as T from "./tatil.js?v=20261012y";
+import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261012y";
+import { CATS } from "./isgcats.js?v=20261012y";
+import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261012y";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -220,7 +220,7 @@ function draw(v, st, setup, data) {
     <div class="muted" style="font-size:12.5px">Haftalık denetim planıdır; her hafta pazartesisinin ayına bağlanır. Tatil, plan dışı haftalar muaf sayılır (yapıldı gibi) ve yüzdeyi düşürmez. Bu kart puanı etkilemez.</div>`;
   const planCard = u0 && u0.total && !R.off.has("Denetim planı") ? `<div class="cd" style="gap:18px"><div class="row sp" style="align-items:center;flex-wrap:nowrap;gap:12px"><div style="min-width:0"><h2>Denetim Planı Uyumu</h2><div class="muted" style="font-size:13px;margin-top:4px">${plabel} · ${u0.total} hafta${u0.off ? ` · ${u0.off} tatil (muaf)` : ""}${pt === null ? "" : ` · tesis %${Math.round(pt)} (${pd}/${pc})`}</div></div>
     <button class="sec noprint" data-pl aria-expanded="${R.plOpen}" aria-label="${R.plOpen ? "Kartı kapat" : "Kartı aç"}" style="width:40px;height:40px;padding:0;flex:0 0 40px;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(${R.plOpen ? 180 : 0}deg)"><path d="M6 9l6 6 6-6"/></svg></button></div>
-    ${R.plOpen ? `<div class="col1" style="gap:14px;border-top:1px solid var(--line);padding-top:14px">${planBody}</div>` : ""}</div>` : "";
+    <div class="col1 plc" ${R.plOpen ? "" : "hidden"} style="gap:14px;border-top:1px solid var(--line);padding-top:14px">${planBody}</div></div>` : "";
   const inc = ["Genel verim", "Modül verimleri", ...TITLE.filter((_, i) => modHas[i]), ...(anyIsg ? ["İSG bulgu dağılımı"] : []), ...(u0?.total ? ["Denetim planı"] : []), ...(gs ? ["Görev takibi"] : []), plabel];
   const first1 = tv.length ? (R.vert.has("g1") ? vbars(rank.map(r => ({ name: r.name, v: total[r.id], label: { t: bn(total[r.id]), band: bn(total[r.id]) } })), hedef) : `<div class="col1" style="gap:10px">${rank.map(r => bar(r.name, total[r.id], 0, { t: bn(total[r.id]), band: bn(total[r.id]) }, false, 72, hedef)).join("")}</div>`) : `<div class="muted">Bu dönem için henüz kayıtlı veri yok.</div>`;
   const hLeg = tv.length ? `<div class="muted" style="display:flex;align-items:center;gap:8px;font-size:12.5px"><span style="width:18px;border-top:2px solid #0B6E4F"></span>Hedef ${hedef}</div>` : "";
@@ -257,11 +257,11 @@ function draw(v, st, setup, data) {
     const o = await askFormat({ title: "Raporu PDF indir", text: `${plabel} raporu. Birden fazla sayfa olabilir; kartlar sayfa sonlarında bölünmez.`, defOrient: "portrait", hint: "Çok bölümlü tesislerde yatay düzen grafik satırlarını genişletir.", pics: phIds.size });
     if (!o) return;
     if (o.pics !== R.pics) { R.pics = o.pics; const cb = document.getElementById("rPic"); if (cb) cb.checked = o.pics; draw(v, st, setup, data); }
-    const wasOpen = R.plOpen; if (!wasOpen) { R.plOpen = true; draw(v, st, setup, data); }
-    const restore = () => { if (!wasOpen) { R.plOpen = false; draw(v, st, setup, data); } };
+    const pls = [...v.querySelectorAll(".plc[hidden]")]; pls.forEach(e => { e.hidden = false; });
+    const restore = () => pls.forEach(e => { e.hidden = true; });
     if (R.pics) await hydrate(v, st);
     const ttl = fileTitle(`${multi ? PER[R.per] : "Aylık"} HSE Raporu`, plabel, o.size), header = `${fname} · ${multi ? PER[R.per] : "Aylık"} HSE Raporu · ${plabel}`;
     if (o.file) { try { await saveReportPdf(document.getElementById("view") || v, { ...o, name: ttl + ".pdf", header }); restore(); return; } catch (e) { console.warn("PDF üretilemedi, yazdırmaya dönülüyor", e); } }
-    printCurrent({ ...o, name: ttl, header }); restore();
+    printCurrent({ ...o, name: ttl, header }); window.addEventListener("afterprint", restore, { once: true });
   };
 }
