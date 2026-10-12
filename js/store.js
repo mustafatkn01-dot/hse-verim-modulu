@@ -1,5 +1,5 @@
 // Veri katmanı: users/{uid}/factories/{fid}/years/{yıl}/setup/main
-import { auth, db, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, updateDoc, query, orderBy, serverTimestamp, onSnapshot } from "./firebase.js?v=20261012h";
+import { auth, db, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, updateDoc, query, orderBy, serverTimestamp, onSnapshot } from "./firebase.js?v=20261012j";
 
 const uid = () => auth.currentUser.uid;
 // Veri sahibi: misafir kullanıcıda davet eden hesabın uid'si; kendi oturum/profil kayıtları ise her zaman kendi hesabında
@@ -57,6 +57,10 @@ export async function getSetup(fid, y) {
   }
   return data;
 }
+// Tatil takvimi ve hafta kararları ayrı belgede: .../years/{yıl}/setup/tatil (kurulum kaydı bunu ezmez)
+const tatilRef = (fid, y) => doc(db, `${base()}/factories/${fid}/years/${y}/setup/tatil`);
+export async function getTatil(fid, y) { const d = await getDoc(tatilRef(fid, y)); return d.exists() ? d.data() : {}; }
+export async function saveTatil(fid, y, data) { await setDoc(tatilRef(fid, y), { ...data, updatedAt: serverTimestamp() }); }
 export async function saveSetup(fid, y, data) { await setDoc(setupRef(fid, y), { ...data, updatedAt: serverTimestamp() }); }
 
 // Aylık veri: .../years/{yıl}/{koleksiyon}/{belgeId}

@@ -1,17 +1,18 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261012h";
-import * as S from "./store.js?v=20261012h";
-import * as Prim from "./primary.js?v=20261012h";
-import * as Denetim from "./denetim.js?v=20261012h";
-import * as Kaza from "./kaza.js?v=20261012h";
-import * as Konusma from "./konusma.js?v=20261012h";
-import * as Genel from "./genel.js?v=20261012h";
-import * as Rapor from "./rapor.js?v=20261012h";
-import * as Verim from "./verim.js?v=20261012h";
-import * as Isbasi from "./isbasi.js?v=20261012h";
-import * as Guest from "./guest.js?v=20261012h";
-import * as Gorev from "./gorev.js?v=20261012h";
-import { $, esc, ic, toast, modal, confirmBox, formBox, GUEST } from "./ui.js?v=20261012h";
-import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261012h";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261012j";
+import * as S from "./store.js?v=20261012j";
+import * as Prim from "./primary.js?v=20261012j";
+import * as Denetim from "./denetim.js?v=20261012j";
+import * as Kaza from "./kaza.js?v=20261012j";
+import * as Konusma from "./konusma.js?v=20261012j";
+import * as Genel from "./genel.js?v=20261012j";
+import * as Rapor from "./rapor.js?v=20261012j";
+import * as Verim from "./verim.js?v=20261012j";
+import * as Isbasi from "./isbasi.js?v=20261012j";
+import * as Guest from "./guest.js?v=20261012j";
+import * as Tatil from "./tatil.js?v=20261012j";
+import * as Gorev from "./gorev.js?v=20261012j";
+import { $, esc, ic, toast, modal, confirmBox, formBox, GUEST } from "./ui.js?v=20261012j";
+import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261012j";
 
 const VERSION = "1.2.0";
 const st = { factories: [], years: [], fid: null, year: null, page: "genel", profile: {}, lastSync: new Date() };
@@ -305,7 +306,8 @@ function drawKurulum(v) {
       <div id="kerr" class="warn hide"></div>
       <button class="go" id="saveK">Kaydet ve Sistemi Aktifleştir</button>
       <small>Sonradan bölüm eklendiğinde veya silindiğinde tablolar ve grafikler yeniden hesaplanır.</small></div>
-  </div>`;
+  </div>
+  <div id="tatilCard"></div>`;
   v.querySelectorAll("[data-h]").forEach(b => b.onclick = () => { K.help = K.help === b.dataset.h ? null : b.dataset.h; drawKurulum(v); });
   v.querySelectorAll(".g[data-i]").forEach(g => g.querySelectorAll("[data-k]").forEach(el => el.onchange = () => {
     K.rows[+g.dataset.i][el.dataset.k] = el.value; drawKurulum(v);
@@ -319,6 +321,7 @@ function drawKurulum(v) {
     v.querySelectorAll(".inp,.pi,.xb,#addRow,#saveK").forEach(e => e.disabled = true);
     v.insertAdjacentHTML("afterbegin", `<div class="warn">${st.year} arşiv yılıdır, salt okunur. Değişiklik için aktif yılı seçin veya Ayarlar → Yıllar’dan bu yılı aktif yapın.</div>`);
   }
+  Tatil.mount($("tatilCard"), st, String(st.year) !== String(st.active) || st.role === "guest").catch(() => {});
   $("saveK").onclick = async () => {
     const errs = validateK();
     const box = $("kerr"); box.classList.toggle("hide", !errs.length); box.innerHTML = errs.join("<br>");

@@ -1,9 +1,10 @@
 // Genel Bakış · yıllık özet panosu (gerçek verilerden)
-import * as S from "./store.js?v=20261012h";
-import { esc } from "./ui.js?v=20261012h";
-import { CATS } from "./isgcats.js?v=20261012h";
-import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261012h";
-import { load, planUyum } from "./verim.js?v=20261012h";
+import * as S from "./store.js?v=20261012j";
+import { esc } from "./ui.js?v=20261012j";
+import { CATS } from "./isgcats.js?v=20261012j";
+import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261012j";
+import { load } from "./verim.js?v=20261012j";
+import * as T from "./tatil.js?v=20261012j";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -15,7 +16,8 @@ const SHORT = ["KKD", "Makine", "Bakım ve İzin", "Elektrik", "Yaya Yolu", "5S"
 const TONE = [{ bg: "#DDF1E7", c: "#0B6E4F" }, { bg: "#FBE9C6", c: "#6B3F00" }, { bg: "#F6C890", c: "#5C2A00" }, { bg: "#F2B0AA", c: "#7A130E" }];
 const f1 = n => n.toFixed(1).replace(".", ",");
 const pad = n => String(n).padStart(2, "0");
-const G = { cmp: null, key: "" };
+const iso0 = (() => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; })();
+const G = { cmp: null, key: "", pw: "10" };
 const avgOf = a => { const v = a.filter(x => x !== null && x !== undefined); return v.length ? v.reduce((s, c) => s + c, 0) / v.length : null; };
 
 export async function render(v, ctx) {
@@ -95,15 +97,24 @@ export async function render(v, ctx) {
     } else cmpHtml = !M.length ? ph(`${st.year} yılında henüz veri girilmedi; veri girildikçe ${G.cmp} ile aynı aylar karşılaştırılır.`) : ph(`${G.cmp} yılı için kurulum (bölüm listesi) bulunamadı. Ayarlar → Yıllar bölümünden o yılı başlatın.`);
   } else cmpHtml = ph("Karşılaştırma için en az iki yıl gerekir. Şu an yalnızca " + st.year + " yılı var. <b>Ayarlar → Yıllar → “" + (Number(st.year) + 1) + " yılını başlat”</b> ile yeni yıl açıldığında, her iki yılda veri girilen aynı aylar bölüm ve modül bazında burada kıyaslanır.");
   // Denetim planı uyumu (haftalık plan · yalnızca gösterim, puanı etkilemez)
-  const pl = rows.map(r => ({ r, u: planUyum(data._s?.[r.id], st.year) })), NW = 10;
-  const pd = pl.reduce((a, x) => a + x.u.done, 0), pp = pl.reduce((a, x) => a + x.u.plan, 0), pt = pp ? pd / pp * 100 : null;
-  const DOT = { ok: "#17A06F", late: "#E8A512", miss: "#D6382E", wait: "#fff" };
-  const planHtml = `<div class="cd" style="gap:14px"><div class="row sp" style="align-items:baseline"><h2>Denetim Planı Uyumu</h2><div class="muted" style="font-size:13px">Haftalık plan · ${st.year}${pt === null ? "" : ` · tesis %${Math.round(pt)} (${pd}/${pp} hafta)`}</div></div>
-    <div class="row" style="gap:14px;font-size:12px;color:var(--muted)">${[["ok", "Zamanında (Pzt–Çar)"], ["late", "Geç (Per–Paz)"], ["miss", "Yapılmadı"], ["wait", "Bu hafta bekliyor"]].map(([k, t]) => `<span class="row" style="gap:6px;flex-wrap:nowrap"><span style="width:10px;height:10px;border-radius:50%;background:${DOT[k]};border:1.5px solid ${k === "wait" ? "#9DB5AE" : DOT[k]}"></span>${t}</span>`).join("")}</div>
-    <div class="col1" style="gap:10px">${pl.map(({ r, u }) => `<div style="display:flex;align-items:center;gap:10px"><span style="width:96px;flex:0 0 96px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.name)}</span>
-      <span style="flex:1;min-width:0;display:flex;gap:4px">${Array.from({ length: NW }, (_, i) => { const w = u.weeks[u.weeks.length - NW + i]; return w ? `<span title="${w.a} – ${w.z}" style="width:11px;height:11px;border-radius:50%;background:${DOT[w.st]};border:1.5px solid ${w.st === "wait" ? "#9DB5AE" : DOT[w.st]}"></span>` : `<span style="width:11px;height:11px"></span>`; }).join("")}</span>
-      <span class="muted" style="width:42px;text-align:right;font-size:12.5px">${u.plan ? u.done + "/" + u.plan : "–"}</span><b style="width:46px;text-align:right">${u.pct === null ? "–" : "%" + Math.round(u.pct)}</b></div>`).join("")}</div>
-    <div class="muted" style="font-size:12.5px">Her hafta (Pzt–Paz) için bölüm başına bir denetim planlanır; ideal gün Pzt–Çar'dır. Noktalar son ${NW} haftayı gösterir. Bu kart puanı etkilemez.</div></div>`;
+  const td = await T.yukle(st.fid, st.year), tmap = T.takvim(td), canDecide = st.role !== "guest" && !ro;
+  const pl = rows.map(r => ({ r, u: T.planUyum(data._s?.[r.id], st.year, { map: tmap, karar: td.karar }) })), all = G.pw === "all", NW = 10;
+  const pd = pl.reduce((a, x) => a + x.u.done, 0), pp = pl.reduce((a, x) => a + x.u.plan, 0), pt = pp ? pd / pp * 100 : null, u0 = pl[0]?.u;
+  const DOT = { ok: "#17A06F", late: "#E8A512", miss: "#D6382E", off: "#C3CFCB", wait: "#fff", ask: "#fff", future: "#E4ECE9" };
+  const dot = w => w ? `<span title="${T.range(w.a, w.z)}${w.ad ? " · " + esc(w.ad) : ""}" style="width:11px;height:11px;flex:0 0 11px;border-radius:50%;background:${DOT[w.st]};box-sizing:border-box;border:1.5px ${w.st === "ask" ? "dashed #E8A512" : w.st === "wait" ? "solid #9DB5AE" : "solid " + DOT[w.st]}"></span>` : `<span style="width:11px;flex:0 0 11px"></span>`;
+  const legend = [["ok", "Zamanında (Pzt–Çar)"], ["late", "Geç (Per–Paz)"], ["miss", "Yapılmadı"], ["off", "Tatil (plan dışı)"], ["wait", "Bu hafta bekliyor"]].concat(u0?.ask.length ? [["ask", "Karar bekliyor"]] : []);
+  const ask = (u0?.ask || []).map(w => `<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 14px;border-radius:14px;background:#FBE9C6"><div style="flex:1 1 220px;min-width:0;color:#5A3300;line-height:1.5"><b>${T.range(w.a, w.z)}</b> haftası tatilden etkileniyor${w.ad ? ` (${esc(w.ad)})` : ""}. Pzt–Çar iş günü yok; bu hafta denetim planlansın mı?</div>
+    ${canDecide ? `<div class="row" style="gap:8px;flex-wrap:nowrap"><button class="sec" data-tk="${w.a}|tatil">Tatil, plan dışı</button><button data-tk="${w.a}|yap">Denetim yapılacak</button></div>` : ""}</div>`).join("");
+  const rowOf = ({ r, u }) => { const ws = all ? u.weeks : Array.from({ length: NW }, (_, i) => { const k = u.weeks.reduce((x, w, j) => (w.a <= iso0 ? j : x), u.weeks.length - 1); return u.weeks[k - NW + 1 + i]; });
+    const info = `<span class="muted" style="width:42px;text-align:right;font-size:12.5px">${u.plan ? u.done + "/" + u.plan : "–"}</span><b style="width:46px;text-align:right">${u.pct === null ? "–" : "%" + Math.round(u.pct)}</b>`;
+    return all ? `<div class="col1" style="gap:6px"><div style="display:flex;align-items:center;gap:10px"><span style="flex:1;min-width:0;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.name)}</span>${info}</div><div style="display:flex;flex-wrap:wrap;gap:4px">${ws.map(dot).join("")}</div></div>`
+      : `<div style="display:flex;align-items:center;gap:10px"><span style="width:96px;flex:0 0 96px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.name)}</span><span style="flex:1;min-width:0;display:flex;gap:4px">${ws.map(dot).join("")}</span>${info}</div>`; };
+  const planHtml = `<div class="cd" style="gap:14px"><div class="row sp" style="align-items:baseline"><h2>Denetim Planı Uyumu</h2><div class="muted" style="font-size:13px">Haftalık plan · ${st.year} · ${u0 ? u0.total : 52} hafta${u0?.off ? ` · ${u0.off} tatil` : ""}${pt === null ? "" : ` · tesis %${Math.round(pt)} (${pd}/${pp})`}</div></div>
+    ${ask}
+    <div class="row sp noprint" style="gap:10px"><div class="row" style="gap:14px;font-size:12px;color:var(--muted)">${legend.map(([k, t]) => `<span class="row" style="gap:6px;flex-wrap:nowrap"><span style="width:10px;height:10px;border-radius:50%;background:${DOT[k]};box-sizing:border-box;border:1.5px ${k === "ask" ? "dashed #E8A512" : k === "wait" ? "solid #9DB5AE" : "solid " + DOT[k]}"></span>${t}</span>`).join("")}</div>
+      <div class="seg" role="group" aria-label="Görünüm">${[["10", "Son 10 hafta"], ["all", "Tüm yıl"]].map(([k, t]) => `<button data-pw="${k}" style="height:30px;padding:0 12px;border-radius:8px;font-size:12.5px;${G.pw === k ? "background:#0B6E4F;color:#fff" : "background:#EEF2F0;color:#2A3F3A"}">${t}</button>`).join("")}</div></div>
+    <div class="col1" style="gap:${all ? 16 : 10}px">${pl.map(rowOf).join("")}</div>
+    <div class="muted" style="font-size:12.5px">Her hafta (Pzt–Paz) için bölüm başına bir denetim planlanır; ideal gün Pzt–Çar'dır. Tatil, plan dışı denilen ve denetimi yapılmayan hafta gri görünür, yüzdeye girmez; hafta sayısı korunur. Bu kart puanı etkilemez.</div></div>`;
   const label = s => (s === null ? "Veri yok" : bn(s));
   const rank = have.slice().sort((a, b) => b.v - a.v);
   v.innerHTML = `
@@ -145,5 +156,7 @@ export async function render(v, ctx) {
     <div class="cd" style="flex:1 1 300px;min-width:0"><h2>Öncelikli Aksiyonlar</h2><div class="col1" style="gap:12px">${acts.map(a => `<div style="display:flex;gap:12px;padding:14px;border-radius:14px;background:${a.bg}">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="${a.c}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 22px">${a.ic.split("|").map(d => `<path d="${d}"/>`).join("")}</svg>
       <div class="col1" style="gap:3px"><div style="font-weight:800;color:${a.c}">${a.t}</div><div style="color:${a.c2};line-height:1.5">${a.d}</div></div></div>`).join("")}</div></div></div>${cmpHtml}`;
+  v.querySelectorAll("[data-pw]").forEach(b => b.onclick = () => { G.pw = b.dataset.pw; render(v, ctx); });
+  v.querySelectorAll("[data-tk]").forEach(b => b.onclick = async () => { const [mon, k] = b.dataset.tk.split("|"); b.disabled = true; try { await T.karar(st.fid, st.year, mon, k); } catch (e) { alert("Kaydedilemedi: " + e.message); } render(v, ctx); });
   const cy = document.getElementById("cmpY"); if (cy) cy.onchange = e => { G.cmp = e.target.value; render(v, ctx); };
 }
