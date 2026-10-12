@@ -1,10 +1,10 @@
 // Görev takip programı köprüsü (mtisggorev). HSE Verim yalnızca küçük kayıtlar bırakır ve durumu okur;
 // görev/kaza kayıtlarını görev programı kendisi oluşturur. Bağlantı yoksa özellik uyarı kartıyla kapalı kalır.
-import { GOREV_CFG } from "./gorev-config.js?v=20261012a";
-import { esc } from "./ui.js?v=20261012a";
+import { GOREV_CFG } from "./gorev-config.js?v=20261012b";
+import { esc } from "./ui.js?v=20261012b";
 
 const CFG = GOREV_CFG || null, CDN = "https://www.gstatic.com/firebasejs/10.14.1/";
-let F = null, auth = null, db = null, user = null, err = "", fabs = null, started = false, offs = [];
+let F = null, auth = null, db = null, user = null, err = "", fabs = null, started = false, offs = [], loaded = false;
 const durum = new Map(), gelen = new Map(), pend = new Map(), subs = new Set();
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -23,11 +23,11 @@ export const makeKey = (...p) => p.map(x => String(x).replace(/[^A-Za-z0-9_-]/g,
 export const noteKey = (kind, fid, y, m, dept, extra, text, dup = 0) => makeKey(kind, fid, y, String(m).padStart(2, "0"), dept, extra, hash(String(text).trim()) + (dup ? "x" + dup : ""));
 
 const R = p => F.ref(db, (CFG.root || "isg") + "/" + p);
-const stopW = () => { offs.forEach(f => { try { f(); } catch { } }); offs = []; durum.clear(); gelen.clear(); fabs = null; };
+const stopW = () => { offs.forEach(f => { try { f(); } catch { } }); offs = []; durum.clear(); gelen.clear(); fabs = null; loaded = false; };
 function startW() {
   const bad = e => { err = /permission/i.test(e?.message || "") ? "yetki" : "okuma"; fire(); };
   const map = (m, v) => { m.clear(); Object.keys(v || {}).forEach(k => m.set(k, v[k])); };
-  offs.push(F.onValue(R("hseDurum"), s => { map(durum, s.val()); err = ""; fire(); }, bad));
+  offs.push(F.onValue(R("hseDurum"), s => { map(durum, s.val()); err = ""; loaded = true; fire(); }, bad));
   offs.push(F.onValue(R("hseGelen"), s => { map(gelen, s.val()); fire(); }, bad));
   offs.push(F.onValue(R("settings/fabrikalar"), s => {
     const v = s.val(); fabs = Object.values(v || {}).map(x => x && x.name).filter(Boolean); fire();
@@ -123,3 +123,25 @@ export function login() {
   });
 }
 export async function disconnect() { if (F && auth) await F.signOut(auth); }
+
+// ---- Rapor: kapatma özeti (yalnızca gösterim, puana girmez) ----
+// Veri yüklenene kadar (en fazla ms) bekler; bağlı değilse hemen döner
+export async function whenReady(ms = 2500) {
+  if (!CFG) return;
+  for (let t = 0; t < ms && !(state() === "hazir" && loaded); t += 100) { if (state() === "giris") return; await sleep(100); }
+}
+// Anahtar biçimi: d|k _ fabrikaId _ yıl _ ay _ bölümId _ ...
+const sum0 = () => ({ n: 0, kapali: 0, acik: 0, topSure: 0, nSure: 0 });
+export function summary(fid, year, months) {
+  if (!CFG || state() !== "hazir" || !loaded) return null;
+  const out = { d: sum0(), k: sum0() };
+  durum.forEach((v, key) => {
+    const p = key.split("_");
+    if (p.length < 5 || (p[0] !== "d" && p[0] !== "k") || p[1] !== makeKey(fid) || p[2] !== String(year) || !months.includes(+p[3])) return;
+    if (!v || !["acik", "kapali", "kayit"].includes(v.durum)) return;
+    const o = out[p[0]]; o.n++;
+    if (v.durum === "kapali") { o.kapali++; if (v.kapanis && v.acilis && v.kapanis >= v.acilis) { o.topSure += (v.kapanis - v.acilis) / 864e5; o.nSure++; } }
+    else o.acik++;
+  });
+  return out.d.n + out.k.n ? out : null;
+}

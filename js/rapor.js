@@ -1,9 +1,10 @@
 // Aylık HSE Raporu · kayıtlı verilerden otomatik grafik + açıklama
-import * as S from "./store.js?v=20261012a";
-import { esc } from "./ui.js?v=20261012a";
-import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261012a";
-import { CATS } from "./isgcats.js?v=20261012a";
-import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261012a";
+import * as S from "./store.js?v=20261012b";
+import { esc } from "./ui.js?v=20261012b";
+import * as Gorev from "./gorev.js?v=20261012b";
+import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261012b";
+import { CATS } from "./isgcats.js?v=20261012b";
+import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261012b";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -30,7 +31,7 @@ export async function render(v, ctx) {
   const setup = await S.getSetup(st.fid, st.year);
   if (!setup?.rows?.length) { v.innerHTML = `<div class="cd"><h2>Önce bölümleri tanımlayın</h2><p class="sub">Rapor için Kurulum ve Kayıtlar sayfasında en az bir bölüm kaydedilmeli.</p><div><a href="#kurulum"><button>Kurulum'a git</button></a></div></div>`; return; }
   v.innerHTML = `<div class="sub">Rapor hazırlanıyor…</div>`;
-  const data = await load(st), key = [st.fid, st.year].join("/");
+  const data = await load(st); await Gorev.whenReady(); const key = [st.fid, st.year].join("/");
   const has = m => [data.kz, data.kn, data.ib].some(c => c[pad(m)]?.result) || setup.rows.some(r => data.ig[`${pad(m)}_${r.id}`]?.result);
   if (R.key !== key || !R.month) { R.key = key; let l = 0; for (let m = 12; m >= 1; m--) if (has(m)) { l = m; break; } R.month = l || (+st.year === new Date().getFullYear() ? new Date().getMonth() + 1 : 1); }
   draw(v, st, setup, data);
@@ -182,7 +183,11 @@ function draw(v, st, setup, data) {
       <div class="row" style="gap:8px"><span style="font-weight:700;font-size:13px;color:var(--muted)">Ramak kala bonusu:</span>${bonus}</div></div>`;
   }
 
-  const inc = ["Genel verim", "Modül verimleri", ...TITLE.filter((_, i) => modHas[i]), ...(anyIsg ? ["İSG bulgu dağılımı"] : []), plabel];
+  const gs = Gorev.summary(st.fid, y, ms);
+  const gcell = (l, t) => `<div><span class="hd">${l}</span><div style="font-weight:800;font-size:18px">${t}</div></div>`;
+  const grow = (name, o) => o.n ? `<div class="col1" style="gap:10px"><b>${name}</b><div class="fg">${gcell("AKTARILAN", o.n)}${gcell("KAPANAN", o.kapali)}${gcell("KAPATMA ORANI", "%" + Math.round(100 * o.kapali / o.n))}${gcell("ORT. KAPANIŞ SÜRESİ", o.nSure ? f1(o.topSure / o.nSure).replace(/,0$/, "") + " gün" : "–")}</div></div>` : "";
+  const gorevCard = gs && !R.off.has("Görev takibi") ? card("Görev Takibi · Kapatma", `${plabel} · görev takip programından`, `<div class="col1" style="gap:18px">${grow("İSG Denetim bulguları", gs.d)}${grow("İş kazası olayları", gs.k)}</div><div class="muted" style="font-size:12.5px">Yalnızca bilgi amaçlıdır; HSE puanına dahil edilmez. Süre, görevin açılışından kapanışına kadar geçen ortalama gündür.</div>`) : "";
+  const inc = ["Genel verim", "Modül verimleri", ...TITLE.filter((_, i) => modHas[i]), ...(anyIsg ? ["İSG bulgu dağılımı"] : []), ...(gs ? ["Görev takibi"] : []), plabel];
   const first1 = tv.length ? `<div class="col1" style="gap:10px">${rank.map(r => bar(r.name, total[r.id], 0, { t: bn(total[r.id]), band: bn(total[r.id]) }, false, 72)).join("")}</div>` : `<div class="muted">Bu dönem için henüz kayıtlı veri yok.</div>`;
 
   v.innerHTML = `
@@ -204,6 +209,7 @@ function draw(v, st, setup, data) {
   ${anyData && !R.off.has(TITLE[2]) ? modCard("isbasi", 2, "Grafik 5 · İşbaşı Eğitim Verimi", `${plabel} · eğitim oranı × ZTF (gecikme) × TC (düzensizlik)`, ni) : ""}
   ${anyData && modHas[3] && !R.off.has(TITLE[3]) ? card("İSG Denetim Verimi", `${plabel} · denetim sıklığı × kategori ağırlığı × bölüm katsayısı + ramak kala bonusu`, modBars("isg")) : ""}
   ${R.off.has("İSG bulgu dağılımı") ? "" : g6}${R.off.has(TITLE[3]) ? "" : scope}
+  ${gorevCard}
   <div class="muted" style="font-size:13px;line-height:1.6">Dönem raporlarında bölüm değerleri, verisi olan ayların ortalamasıdır (kümülatif: Ç1 Ocak-Mart, Ç2 Ocak-Haziran, Ç3 Ocak-Eylül). Açıklamalar, aylık giriş sayfalarında yazılan notlardan derlenir (İSG için "Uygunsuz" işaretli maddelerin notları). Metni değiştirmek için ilgili kaydı güncelleyin; rapor kendiliğinden yenilenir. PDF için tarayıcının yazdırma penceresinde "PDF olarak kaydet" seçin.</div>`;
   v.querySelectorAll("[data-inc]").forEach(b => b.onclick = () => { const k = b.dataset.inc; R.off.has(k) ? R.off.delete(k) : R.off.add(k); draw(v, st, setup, data); });
   const rp = document.getElementById("rPic"); if (rp) rp.onchange = e => { R.pics = e.target.checked; draw(v, st, setup, data); };
