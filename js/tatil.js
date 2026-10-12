@@ -1,6 +1,6 @@
 // Tatil takvimi ve haftalık denetim planı (yalnızca gösterim; puanı etkilemez)
-import * as S from "./store.js?v=20261012j";
-import { esc } from "./ui.js?v=20261012j";
+import * as S from "./store.js?v=20261012k";
+import { esc } from "./ui.js?v=20261012k";
 
 const pad = n => String(n).padStart(2, "0");
 const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -22,7 +22,7 @@ export const diniVar = y => DINI.some(x => x[0].startsWith(String(y)));
 // Ana takvim: tarih → { ad, yarim, tur }
 export function takvim(doc, years) {
   const m = new Map();
-  (years || [2025, 2026, 2027, 2028]).forEach(y => {
+  (years || Array.from({ length: 21 }, (_, i) => 2025 + i)).forEach(y => {
     Object.entries(FIX).forEach(([k, ad]) => m.set(`${y}-${k}`, { ad, tur: "Resmi" }));
     m.set(`${y}-10-28`, { ad: "Cumhuriyet Bayramı arifesi", yarim: true, tur: "Resmi" });
   });
