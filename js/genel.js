@@ -1,9 +1,9 @@
 // Genel Bakış · yıllık özet panosu (gerçek verilerden)
-import * as S from "./store.js?v=20261012g";
-import { esc } from "./ui.js?v=20261012g";
-import { CATS } from "./isgcats.js?v=20261012g";
-import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261012g";
-import { load } from "./verim.js?v=20261012g";
+import * as S from "./store.js?v=20261012h";
+import { esc } from "./ui.js?v=20261012h";
+import { CATS } from "./isgcats.js?v=20261012h";
+import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261012h";
+import { load, planUyum } from "./verim.js?v=20261012h";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -35,7 +35,7 @@ export async function render(v, ctx) {
   const MODN = ["İş Kazası", "Eğitim Konuşması", "İşbaşı Eğitim", "İSG Denetim"];
   const mods = MODN.map((n, k) => ({ n, v: avgOf(rows.map(r => modYear(r.id, k))) }));
   const trend = Array.from({ length: 12 }, (_, m) => avgOf(rows.map(r => total(r.id, m))));
-  const hedef = num(p.esik.h ?? "95") || 95, hit = trend.filter(x => x !== null && x >= hedef).length;
+  const hedef = num(p.esik.h ?? "90") || 90, hit = trend.filter(x => x !== null && x >= hedef).length;
   const lastM = trend.reduce((a, x, i) => (x !== null ? i : a), -1);
   const ro = String(st.year) !== String(st.active);
   const ob = bb(overall), CIRC = 2 * Math.PI * 74;
@@ -94,6 +94,16 @@ export async function render(v, ctx) {
         ${both.length < pairs.length ? `<div class="muted" style="font-size:12.5px">Bazı bölümler iki yılda da bulunmadığı veya veri girilmediği için karşılaştırılamadı.</div>` : ""}<div class="muted" style="font-size:12.5px">Toplam verim, o yılda verisi girilen modüllerle hesaplanır; modül sayısı iki yılda farklıysa modül satırlarına bakın.</div></div>`;
     } else cmpHtml = !M.length ? ph(`${st.year} yılında henüz veri girilmedi; veri girildikçe ${G.cmp} ile aynı aylar karşılaştırılır.`) : ph(`${G.cmp} yılı için kurulum (bölüm listesi) bulunamadı. Ayarlar → Yıllar bölümünden o yılı başlatın.`);
   } else cmpHtml = ph("Karşılaştırma için en az iki yıl gerekir. Şu an yalnızca " + st.year + " yılı var. <b>Ayarlar → Yıllar → “" + (Number(st.year) + 1) + " yılını başlat”</b> ile yeni yıl açıldığında, her iki yılda veri girilen aynı aylar bölüm ve modül bazında burada kıyaslanır.");
+  // Denetim planı uyumu (haftalık plan · yalnızca gösterim, puanı etkilemez)
+  const pl = rows.map(r => ({ r, u: planUyum(data._s?.[r.id], st.year) })), NW = 10;
+  const pd = pl.reduce((a, x) => a + x.u.done, 0), pp = pl.reduce((a, x) => a + x.u.plan, 0), pt = pp ? pd / pp * 100 : null;
+  const DOT = { ok: "#17A06F", late: "#E8A512", miss: "#D6382E", wait: "#fff" };
+  const planHtml = `<div class="cd" style="gap:14px"><div class="row sp" style="align-items:baseline"><h2>Denetim Planı Uyumu</h2><div class="muted" style="font-size:13px">Haftalık plan · ${st.year}${pt === null ? "" : ` · tesis %${Math.round(pt)} (${pd}/${pp} hafta)`}</div></div>
+    <div class="row" style="gap:14px;font-size:12px;color:var(--muted)">${[["ok", "Zamanında (Pzt–Çar)"], ["late", "Geç (Per–Paz)"], ["miss", "Yapılmadı"], ["wait", "Bu hafta bekliyor"]].map(([k, t]) => `<span class="row" style="gap:6px;flex-wrap:nowrap"><span style="width:10px;height:10px;border-radius:50%;background:${DOT[k]};border:1.5px solid ${k === "wait" ? "#9DB5AE" : DOT[k]}"></span>${t}</span>`).join("")}</div>
+    <div class="col1" style="gap:10px">${pl.map(({ r, u }) => `<div style="display:flex;align-items:center;gap:10px"><span style="width:96px;flex:0 0 96px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.name)}</span>
+      <span style="flex:1;min-width:0;display:flex;gap:4px">${Array.from({ length: NW }, (_, i) => { const w = u.weeks[u.weeks.length - NW + i]; return w ? `<span title="${w.a} – ${w.z}" style="width:11px;height:11px;border-radius:50%;background:${DOT[w.st]};border:1.5px solid ${w.st === "wait" ? "#9DB5AE" : DOT[w.st]}"></span>` : `<span style="width:11px;height:11px"></span>`; }).join("")}</span>
+      <span class="muted" style="width:42px;text-align:right;font-size:12.5px">${u.plan ? u.done + "/" + u.plan : "–"}</span><b style="width:46px;text-align:right">${u.pct === null ? "–" : "%" + Math.round(u.pct)}</b></div>`).join("")}</div>
+    <div class="muted" style="font-size:12.5px">Her hafta (Pzt–Paz) için bölüm başına bir denetim planlanır; ideal gün Pzt–Çar'dır. Noktalar son ${NW} haftayı gösterir. Bu kart puanı etkilemez.</div></div>`;
   const label = s => (s === null ? "Veri yok" : bn(s));
   const rank = have.slice().sort((a, b) => b.v - a.v);
   v.innerHTML = `
@@ -126,6 +136,7 @@ export async function render(v, ctx) {
           <div style="font-size:10.5px;font-weight:700;margin-bottom:4px;${x === null ? "" : "writing-mode:vertical-rl;transform:rotate(180deg)"}">${x === null ? "" : f1(x)}</div>
           <div style="width:68%;max-width:34px;height:${x === null ? 3 : Math.round(x * 1.8)}px;background:${bb(x).fill};border-radius:7px 7px 2px 2px"></div>
           <div style="height:24px;line-height:24px;font-size:10.5px;color:var(--muted)">${MS[i]}</div></div>`).join("")}</div></div></div></div>
+  ${planHtml}
   <div class="row" style="gap:20px;align-items:stretch">
     <div class="cd" style="flex:2 1 560px;min-width:0"><div class="row sp" style="align-items:baseline"><h2>İSG Bulgu Haritası</h2><div class="muted" style="font-size:13px">${hm >= 0 ? `${MONTHS[hm]} ${st.year}` : "Veri yok"} · kategori sıklığı (0 = uygun, 3 = çok sık, – = uygulanmaz)</div></div>
       ${hm >= 0 ? `<div style="overflow-x:auto"><div style="min-width:${Math.max(420, 100 + CATS.length * 56)}px;display:flex;flex-direction:column;gap:6px">

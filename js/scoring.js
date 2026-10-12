@@ -11,7 +11,7 @@ export const ztfRamp = (r, p) => Math.min(1, num(r.ztf) + num({ Düşük: p.ramp
 
 export const DEFAULT_PARAMS = {
   w: { kaza: "40", konusma: "15", isbasi: "15", isg: "30" },
-  esik: { m: "90", i: "75", o: "50", h: "95" },
+  esik: { m: "90", i: "75", o: "50", h: "90" },
   egitim: { hedef: "10", kztf: "1", ktc: "1" },
   ramp: { dusuk: "0", orta: "0,05", yuksek: "0,10" },
   isg: { azami: "3", r1: "5", r2: "10", r3: "15" }

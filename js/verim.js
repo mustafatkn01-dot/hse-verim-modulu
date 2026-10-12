@@ -1,9 +1,9 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261012g";
-import { esc } from "./ui.js?v=20261012g";
-import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi } from "./scoring.js?v=20261012g";
-import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261012g";
-import { CATS } from "./isgcats.js?v=20261012g";
+import * as S from "./store.js?v=20261012h";
+import { esc } from "./ui.js?v=20261012h";
+import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi } from "./scoring.js?v=20261012h";
+import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261012h";
+import { CATS } from "./isgcats.js?v=20261012h";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -47,7 +47,23 @@ export async function load(st, setup) {
     Object.entries(items).forEach(([key, o]) => { const mm = /^c(\d+)i(\d+)$/.exec(key); if (!mm) return; const c = CATS[+mm[1]]; if (!c) return;
       notes.push({ m: mOf(d), k: 3, id, t: `${c.name}: ${o.n.size ? [...o.n].join("; ") : c.items[+mm[2]]}`, x: `${o.c} denetimde uygunsuz`, pics: o.pics }); }); });
   out._n = notes;
+  out._s = {}; ig.forEach(d => { const id = String(d.id).slice(3); (d.sessions || []).forEach(se => { if (se?.date) (out._s[id] ||= []).push(se.date); }); });
   return out;
+}
+
+// Haftalık denetim planı: her hafta (Pzt-Paz) bir denetim; Pzt-Çar zamanında, Per-Paz geç sayılır
+export function planUyum(dates, year, today = new Date()) {
+  const D = (y, m, d) => new Date(y, m, d), iso = x => `${x.getFullYear()}-${pad(x.getMonth() + 1)}-${pad(x.getDate())}`;
+  const t0 = D(today.getFullYear(), today.getMonth(), today.getDate()), weeks = [];
+  let m = D(+year, 0, 1); while (m.getDay() !== 1) m = D(m.getFullYear(), m.getMonth(), m.getDate() + 1);
+  for (; m.getFullYear() === +year && m <= t0; m = D(m.getFullYear(), m.getMonth(), m.getDate() + 7)) {
+    const e = D(m.getFullYear(), m.getMonth(), m.getDate() + 6), a = iso(m), z = iso(e);
+    const hit = (dates || []).filter(x => x >= a && x <= z).sort();
+    const cur = t0 <= e, on = hit.some(x => { const g = new Date(x + "T00:00:00").getDay(); return g >= 1 && g <= 3; });
+    weeks.push({ a, z, cur, st: hit.length ? (on ? "ok" : "late") : cur ? "wait" : "miss" });
+  }
+  const done = weeks.filter(w => w.st === "ok" || w.st === "late").length, plan = weeks.filter(w => w.st !== "wait").length;
+  return { weeks, done, plan, late: weeks.filter(w => w.st === "late").length, miss: weeks.filter(w => w.st === "miss").length, pct: plan ? done / plan * 100 : null };
 }
 
 export async function render(v, ctx) {
