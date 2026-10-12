@@ -28,6 +28,7 @@ Fabrika adı iki programda aynı olmalıdır (büyük/küçük harf ve Türkçe 
 - **Raporlar:** Denetim Planı Uyumu kartı (açılır; yazdırma/PDF'te açık basılır) ve Grafik 1'de hedef çizgisi.
 - **Hesaplama Yöntemi (Kurulum):** Skorun nasıl hesaplandığını anlatan katlanır kart; önizleme/yazdır veya PDF indir.
 - **Yedek:** Yedek dosyasına yıl bazında tatil takvimi (`tatil`) eklendi.
+- **Genel Bakış · Açık kritik bulgular:** Öncelikli Aksiyonlar kartında kritik (×3) ve major (×2) bulgular; küçük resim (dokununca büyür), bölüm, kategori, açıklama ve görev durumu (görevde · X gündür açık / göreve aktarılmadı). Görev programı bağlıysa kapanmış görevler gizlenir; bağlı değilse yalnızca son denetim ayı listelenir.
 
 ### Yeni yıl kontrol listesi
 1. Ayarlar → Yıllar'dan yeni yılı başlatın.

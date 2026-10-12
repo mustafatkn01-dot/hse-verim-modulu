@@ -1,10 +1,11 @@
 // Genel Bakış · yıllık özet panosu (gerçek verilerden)
-import * as S from "./store.js?v=20261012zz";
-import { esc } from "./ui.js?v=20261012zz";
-import { CATS } from "./isgcats.js?v=20261012zz";
-import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261012zz";
-import { load } from "./verim.js?v=20261012zz";
-import * as T from "./tatil.js?v=20261012zz";
+import * as S from "./store.js?v=20261013a";
+import { esc } from "./ui.js?v=20261013a";
+import { CATS } from "./isgcats.js?v=20261013a";
+import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261013a";
+import { load } from "./verim.js?v=20261013a";
+import * as T from "./tatil.js?v=20261013a";
+import * as Gorev from "./gorev.js?v=20261013a";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -26,6 +27,7 @@ export async function render(v, ctx) {
   const fname = st.factories.find(f => f.id === st.fid)?.name || "";
   if (!setup?.rows?.length) { v.innerHTML = `<div><h1 class="ttl">Genel Bakış</h1><div class="sub">${esc(fname)} · ${st.year}</div></div><div class="cd"><h2>Kurulum bekleniyor</h2><p class="sub">Bu yıl için henüz bölüm kaydı yok.</p><div><a href="#kurulum"><button>Kurulum ve Kayıtlar'a git</button></a></div></div>`; return; }
   v.innerHTML = `<div class="sub">Veriler yükleniyor…</div>`;
+  await Gorev.whenReady();
   const rows = setup.rows, p = setup.params || DEFAULT_PARAMS, data = await load(st, setup);
   const W = [num(p.w.kaza), num(p.w.konusma), num(p.w.isbasi), num(p.w.isg)];
   const bn = s => bandOf(s, p), bb = s => (s === null ? NONE : BAND[bn(s)]);
@@ -59,6 +61,23 @@ export async function render(v, ctx) {
     acts.push({ t: `${esc(x.r.name)} · ${bn(x.v)}`, d: `Yıllık verim ${f1(x.v)}.${worst.length ? ` ${MONTHS[hm]} denetiminde ${esc(worst.join(", "))}.` : ""}${kr ? " Saha denetimi önerilir." : ""}`, bg: kr ? "#FADAD7" : "#FBE9C6", c: kr ? "#6E1511" : "#5A3300", c2: kr ? "#5A1A16" : "#4A2D05", ic: kr ? "M12 3l9 16H3L12 3z|M12 10v4M12 17h0" : "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z|M12 7v5l3 2" });
   });
   mods.forEach((m, k) => { if (acts.length < 5 && m.v !== null && m.v < num(p.esik.i)) acts.push({ t: m.n, d: `Yıllık ortalama ${f1(m.v)} (${bn(m.v)}); hedefin altında.`, bg: "#DCEAF7", c: "#0F4A75", c2: "#143B5B", ic: "M4 12l5 5L20 6" }); });
+  // Açık kritik/major bulgular: görev programı bağlıysa görevi kapanmamış olanlar (+ son ayda henüz aktarılmamışlar), değilse son denetim ayındakiler
+  const conn = Gorev.linked(), allIsg = hm >= 0 ? await S.listMonthDocs(st.fid, st.year, "isg").catch(() => []) : [], fnd = [], nowMs = Date.now();
+  allIsg.forEach(d => {
+    const mm = +String(d.id).slice(0, 2), rid = String(d.id).slice(3), r = rows.find(x => x.id === rid); if (!r) return;
+    (d.sessions || []).forEach(s => Object.entries(s.fails || {}).forEach(([id, list]) => {
+      const q = /^c(\d+)i(\d+)$/.exec(id), cat = q && CATS[+q[1]]; if (!cat || cat.w < 2) return;
+      (list || []).forEach((t, j) => {
+        const tx = String(t || "").trim(); if (!tx) return;
+        const key = Gorev.noteKey("d", st.fid, st.year, mm, rid, `${id}_${s.no}`, tx, list.slice(0, j).filter(x => String(x || "").trim() === tx).length);
+        const du = conn ? Gorev.durumOf(key) : null; if (du?.durum === "kapali") return;
+        const tk = du?.durum === "acik"; if (!tk && mm !== hm + 1) return;
+        const t0 = tk && du.acilis ? du.acilis : s.date ? new Date(s.date + "T00:00:00").getTime() : null, days = t0 ? Math.max(0, Math.floor((nowMs - t0) / 864e5)) : null;
+        fnd.push({ r, cat, tx, w: cat.w, days, tk, ph: (s.photos || {})[id + "|" + j] || [] });
+      });
+    }));
+  });
+  fnd.sort((a, b) => b.w - a.w || (b.days ?? -1) - (a.days ?? -1));
   if (!acts.length && have.length) acts.push({ t: "Durum iyi", d: "Tüm bölümler ve modüller \"İyi\" veya üzerinde.", bg: "#D9F1E6", c: "#0B6E4F", c2: "#0B6E4F", ic: "M4 12l5 5L20 6" });
   if (!have.length) acts.push({ t: "Veri bekleniyor", d: "Aylık giriş sayfalarından veri kaydedildikçe burada özet ve aksiyonlar görünür.", bg: "#EEF2F0", c: "#2A3F3A", c2: "#2A3F3A", ic: "M12 8v4M12 16h0" });
 
@@ -116,6 +135,17 @@ export async function render(v, ctx) {
     <div class="muted" style="font-size:12.5px">Her hafta (Pzt–Paz) için bölüm başına bir denetim planlanır; ideal gün Pzt–Çar'dır. Tatil, plan dışı denilen ve denetimi yapılmayan hafta gri görünür, muaf sayılır (yapıldı gibi) ve yüzdeyi düşürmez; sayaç hafta düzenini korur (örn. 2/40). Bu kart puanı etkilemez.</div></div>`;
   const label = s => (s === null ? "Veri yok" : bn(s));
   const rank = have.slice().sort((a, b) => b.v - a.v);
+  const SH = 5, wp = { 3: ["Kritik", "#FADAD7", "#8E1B16"], 2: ["Major", "#FBE9C6", "#6B3F00"] }, shown = fnd.slice(0, SH);
+  const fRow = (f, i) => { const [wt, wb, wc] = wp[f.w], st1 = f.tk ? `Görevde · ${f.days === null ? "açık" : f.days < 1 ? "bugün açıldı" : f.days + " gündür açık"}` : conn ? "Göreve aktarılmadı" : f.days === null ? "" : f.days < 1 ? "Bugün tespit edildi" : f.days + " gün önce tespit";
+    const th = f.ph.length ? `<button type="button" data-fp="${i}" aria-label="Fotoğrafı büyüt" style="position:relative;width:72px;height:72px;flex:0 0 72px;padding:0;min-width:0;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:var(--calc)"><img src="${f.ph[0].t}" alt="Fotoğraf" style="width:100%;height:100%;object-fit:cover;display:block">${f.ph.length > 1 ? `<span style="position:absolute;right:4px;bottom:4px;padding:1px 6px;border-radius:999px;background:rgba(16,32,28,.78);color:#fff;font-size:11px;font-weight:700">+${f.ph.length - 1}</span>` : ""}</button>`
+      : `<span aria-hidden="true" style="width:72px;height:72px;flex:0 0 72px;border-radius:10px;border:1px dashed var(--line);display:grid;place-items:center;color:var(--muted)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></span>`;
+    return `<div style="display:flex;gap:12px;align-items:stretch;padding:10px;border-radius:14px;background:var(--calc)">${th}<div class="col1" style="gap:4px;min-width:0;flex:1;justify-content:center"><div style="display:flex;align-items:center;gap:8px;min-width:0"><b style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.r.name)}</b><span class="pill" style="flex:0 0 auto;background:${wb};color:${wc}">${wt}</span></div>
+      <div class="muted" style="font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.cat.name)}</div>
+      <div style="line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${esc(f.tx)}</div>${st1 ? `<div class="muted" style="font-size:12px">${st1}</div>` : ""}</div></div>`; };
+  const findHtml = `<div class="col1" style="gap:10px;border-top:1px solid var(--line);padding-top:14px"><div class="row sp" style="align-items:center"><span class="hd">AÇIK KRİTİK BULGULAR</span><span class="muted" style="font-size:12.5px">${fnd.length ? fnd.length + " bulgu" : ""}</span></div>
+    ${shown.length ? shown.map(fRow).join("") : `<div class="muted" style="line-height:1.5">${conn ? "Görevi kapanmamış kritik veya major bulgu yok." : "Son denetim ayında kritik veya major bulgu yok."}</div>`}
+    ${fnd.length > SH ? `<a href="#denetim" class="muted" style="font-size:12.5px;font-weight:700;text-decoration:none">+${fnd.length - SH} bulgu daha · İSG Denetim sayfasında</a>` : ""}
+    ${conn ? "" : `<div class="muted" style="font-size:12px;line-height:1.5">Görev programı bağlı olmadığından yalnızca son denetim ayındaki bulgular listelenir; kapanış durumu bilinmez.</div>`}</div>`;
   v.innerHTML = `
   <div class="row sp"><div class="col1" style="gap:6px"><h1 class="ttl">Genel Bakış</h1>
     <div class="sub">${esc(fname)} · ${st.year} · ${rows.length} aktif bölüm · Yıllık görünüm</div>
@@ -154,8 +184,23 @@ export async function render(v, ctx) {
         ${heat.map(h => `<div style="display:flex;gap:6px;align-items:center"><div style="width:96px;flex:0 0 96px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(h.r.name)}</div>${CATS.map((c, i) => { const f = h.f ? h.f[i] : null, t = f === null ? { bg: "#EEF2F0", c: "#6A7E79" } : TONE[Math.min(3, f)]; return `<div style="flex:1;min-width:0;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:800;background:${t.bg};color:${t.c}">${f === null ? "–" : f}</div>`; }).join("")}</div>`).join("")}</div></div>` : `<div class="muted">Henüz İSG denetim kaydı yok.</div>`}</div>
     <div class="cd" style="flex:1 1 300px;min-width:0"><h2>Öncelikli Aksiyonlar</h2><div class="col1" style="gap:12px">${acts.map(a => `<div style="display:flex;gap:12px;padding:14px;border-radius:14px;background:${a.bg}">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="${a.c}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 22px">${a.ic.split("|").map(d => `<path d="${d}"/>`).join("")}</svg>
-      <div class="col1" style="gap:3px"><div style="font-weight:800;color:${a.c}">${a.t}</div><div style="color:${a.c2};line-height:1.5">${a.d}</div></div></div>`).join("")}</div></div></div>${cmpHtml}`;
+      <div class="col1" style="gap:3px"><div style="font-weight:800;color:${a.c}">${a.t}</div><div style="color:${a.c2};line-height:1.5">${a.d}</div></div></div>`).join("")}</div>
+      ${have.length ? findHtml : ""}</div></div>${cmpHtml}`;
+  v.querySelectorAll("[data-fp]").forEach(b => b.onclick = () => lightbox(shown[+b.dataset.fp].ph, st));
   v.querySelectorAll("[data-pw]").forEach(b => b.onclick = () => { G.pw = b.dataset.pw; render(v, ctx); });
   v.querySelectorAll("[data-tk]").forEach(b => b.onclick = async () => { const [mon, k] = b.dataset.tk.split("|"); b.disabled = true; try { await T.karar(st.fid, st.year, mon, k); } catch (e) { alert("Kaydedilemedi: " + e.message); } render(v, ctx); });
   const cy = document.getElementById("cmpY"); if (cy) cy.onchange = e => { G.cmp = e.target.value; render(v, ctx); };
+}
+
+// Fotoğraf büyütme (Denetim sayfasındaki ile aynı düzen): çarpı, Kapat veya dışına dokunma ile kapanır
+function lightbox(list, st, i0 = 0) {
+  let i = i0; const lb = document.createElement("div"); lb.className = "mod"; lb.style.zIndex = 70;
+  const show = async () => {
+    lb.innerHTML = `<div style="position:relative;display:flex;flex-direction:column;align-items:center;gap:12px;max-width:96vw"><button data-x aria-label="Kapat" style="position:absolute;top:-14px;right:-6px;z-index:2;width:34px;height:34px;min-width:0;padding:0;background:#B3261E;border-color:#B3261E;color:#fff;font-size:24px;line-height:1;display:grid;place-items:center;border-radius:50%">×</button><img src="${list[i].t}" alt="Fotoğraf" style="max-width:96vw;max-height:78vh;border-radius:10px;background:#000"><div class="row" style="gap:10px;justify-content:center;${list.length < 2 ? "display:none" : ""}"><button class="sec" data-p>‹ Önceki</button><span style="color:#fff;font-weight:700">${i + 1} / ${list.length}</span><button class="sec" data-n>Sonraki ›</button></div></div>`;
+    lb.querySelector("[data-x]").onclick = () => lb.remove();
+    const p = lb.querySelector("[data-p]"), n = lb.querySelector("[data-n]");
+    if (p) p.onclick = () => { i = (i + list.length - 1) % list.length; show(); }; if (n) n.onclick = () => { i = (i + 1) % list.length; show(); };
+    const at = i, full = await S.getPhoto(st.fid, st.year, list[i].id).catch(() => null); if (full && at === i && lb.isConnected) lb.querySelector("img")?.setAttribute("src", full);
+  };
+  document.body.appendChild(lb); show(); lb.addEventListener("mousedown", e => { if (e.target === lb) lb.remove(); });
 }

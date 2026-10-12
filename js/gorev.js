@@ -1,7 +1,7 @@
 // Görev takip programı köprüsü (mtisggorev). HSE Verim yalnızca küçük kayıtlar bırakır ve durumu okur;
 // görev/kaza kayıtlarını görev programı kendisi oluşturur. Bağlantı yoksa özellik uyarı kartıyla kapalı kalır.
-import { GOREV_CFG } from "./gorev-config.js?v=20261012zz";
-import { esc } from "./ui.js?v=20261012zz";
+import { GOREV_CFG } from "./gorev-config.js?v=20261013a";
+import { esc } from "./ui.js?v=20261013a";
 
 const CFG = GOREV_CFG || null, CDN = "https://www.gstatic.com/firebasejs/10.14.1/";
 let F = null, auth = null, db = null, user = null, err = "", fabs = null, started = false, offs = [], loaded = false;
@@ -11,6 +11,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 export const enabled = () => !!CFG;
 export const state = () => !CFG ? "yok" : err && !F ? "hata" : !F ? "bekle" : !user ? "giris" : err ? "hata" : "hazir";
 export const statusText = () => ({ yok: "Tanımlı değil", bekle: "Bağlanıyor…", giris: "Bağlı değil", hata: "Bağlantı sorunu", hazir: `Bağlı · ${user?.email || ""}` })[state()];
+export const durumOf = key => durum.get(key) || null;
+export const linked = () => state() === "hazir" && loaded;
 export const onChange = f => { subs.add(f); return () => subs.delete(f); };
 const fire = () => { subs.forEach(f => { try { f(); } catch { } }); paint(); };
 
