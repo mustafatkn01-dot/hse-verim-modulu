@@ -1,11 +1,11 @@
 // İSG Denetim Listesi sayfası
-import * as Guest from "./guest.js?v=20261013o";
-import * as Gorev from "./gorev.js?v=20261013o";
-import * as S from "./store.js?v=20261013o";
-import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261013o";
-import { CATS } from "./isgcats.js?v=20261013o";
-import { dotCss } from "./tatil.js?v=20261013o";
-import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261013o";
+import * as Guest from "./guest.js?v=20261013p";
+import * as Gorev from "./gorev.js?v=20261013p";
+import * as S from "./store.js?v=20261013p";
+import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261013p";
+import { CATS } from "./isgcats.js?v=20261013p";
+import { dotCss } from "./tatil.js?v=20261013p";
+import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261013p";
 
 const COLL = "isg";
 const D = { key: "", setup: null, doc: null, dept: null, month: null, open: { 0: true }, ro: false, timer: null, saved: true, msg: "" };
@@ -120,7 +120,7 @@ export async function render(v, ctx) {
       settle(D.doc, st.year, D.month);
       D.gdocs = (await S.listMonthDocs(st.fid, st.year, "isgg").catch(() => [])).filter(g => g.id.startsWith(gid + "_") && (g.status === "saved" || g.status === "review"));
     }
-    D.key = key; D.saved = true; D.msg = "";
+    D.key = key; D.saved = true; D.touched = false; D.msg = "";
   }
   D.ro = String(st.year) !== String(st.active) || guestLock(st.year, D.month) || (GUEST.on && (D.gstatus === "review" || D.gstatus === "approved"));
   D.ctx = ctx; D.v = v;
@@ -161,7 +161,7 @@ function paintWk() {
 
 function persist(now = false) {
   if (D.ro) return;
-  D.saved = false; setSv();
+  D.saved = false; D.touched = true; setSv();
   clearTimeout(D.timer);
   const run = async () => {
     const { st } = D.ctx, [f, y, m, d] = D.key.split("/");
@@ -187,7 +187,8 @@ function persist(now = false) {
   if (now) return run();
   D.timer = setTimeout(run, 700);
 }
-const setSv = () => { const e = document.getElementById("sv"); if (e) e.textContent = D.msg || (D.saved ? "Taslak kayıtlı" : "Kaydediliyor…"); };
+const svTxt = () => D.msg || (!D.touched ? "" : D.saved ? "Taslak kayıtlı" : "Kaydediliyor…");
+const setSv = () => { const e = document.getElementById("sv"); if (e) e.textContent = svTxt(); };
 
 // Taslak → denetim kaydı (fails/app/yd/marks/photos)
 function makeRec(c, d) {
@@ -287,7 +288,7 @@ function draw() {
 
   v.innerHTML = `
   <div><div class="hd" style="letter-spacing:.8px">AYLIK VERİ GİRİŞİ</div><h1 class="ttl">İSG Denetim Listesi</h1>
-    <div class="muted" style="font-size:12.5px" id="sv">${D.msg || (D.saved ? "Taslak kayıtlı" : "Kaydediliyor…")}</div></div>
+    <div class="muted" style="font-size:12.5px;min-height:17px" id="sv">${svTxt()}</div></div>
   <div id="wkStrip" style="display:none"></div>
   ${D.ro && !(GUEST.on && (D.gstatus === "review" || D.gstatus === "approved")) ? `<div class="warn">${roText(st.year, D.month, st.active)}</div>` : ""}
   ${(() => { const cu = on && !GUEST.on && !D.ro && editNo != null ? doc.sessions.find(x => x.no === editNo) : null; return cu && !cu.closed && monOf(cu.date) < monOf(iso(new Date())) ? `<div class="warn">${cu.no}. denetim ${dmy(cu.date)} (${wkNo(cu.date)}. hafta) tarihinde başladı ve hâlâ açık. Eksikleri tamamlayıp “Kaydet ve Denetimi Tamamla”ya basın; açık denetim varken yeni haftanın denetimi başlatılamaz.</div>` : ""; })()}
@@ -391,7 +392,7 @@ function bind(v, c) {
   const nw = document.getElementById("newSess");
   if (nw) nw.onclick = () => { doc.draft = emptyDraft(defaultDate(st.year, D.month), true); persist(true); draw(); };
   on("[data-delsess]", async el => {
-    const { confirmBox } = await import("./ui.js?v=20261013o");
+    const { confirmBox } = await import("./ui.js?v=20261013p");
     if (!(await confirmBox("Son denetim silinsin mi?", "Kayıtlı denetim silinir; skor ve sıklıklar yeniden hesaplanır.", "Evet, sil", true))) return;
     const gone = doc.sessions.pop();
     // Misafir taslağından gelen denetimse: misafire "silindi" bilgisi gider (taslağı düzeltip yeniden gönderebilir), fotoğrafları korunur
