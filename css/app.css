@@ -215,3 +215,5 @@ body,html{background:#fff!important}#app{display:block!important}.pg{padding:0!i
 @media print{.plc[hidden]{display:flex!important}.ytprint{position:static!important;left:auto!important;width:auto!important}body.ytp>*:not(.ytprint):not(style):not(script),body.ytp>#app{display:none!important}}
 
 [data-fgb][hidden]{display:none!important}
+
+[data-ua][hidden]{display:none!important}

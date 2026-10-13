@@ -1,19 +1,19 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261013c";
-import * as S from "./store.js?v=20261013c";
-import * as Prim from "./primary.js?v=20261013c";
-import * as Denetim from "./denetim.js?v=20261013c";
-import * as Kaza from "./kaza.js?v=20261013c";
-import * as Konusma from "./konusma.js?v=20261013c";
-import * as Genel from "./genel.js?v=20261013c";
-import * as Rapor from "./rapor.js?v=20261013c";
-import * as Verim from "./verim.js?v=20261013c";
-import * as Isbasi from "./isbasi.js?v=20261013c";
-import * as Guest from "./guest.js?v=20261013c";
-import * as Yontem from "./yontem.js?v=20261013c";
-import * as Tatil from "./tatil.js?v=20261013c";
-import * as Gorev from "./gorev.js?v=20261013c";
-import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261013c";
-import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261013c";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261013d";
+import * as S from "./store.js?v=20261013d";
+import * as Prim from "./primary.js?v=20261013d";
+import * as Denetim from "./denetim.js?v=20261013d";
+import * as Kaza from "./kaza.js?v=20261013d";
+import * as Konusma from "./konusma.js?v=20261013d";
+import * as Genel from "./genel.js?v=20261013d";
+import * as Rapor from "./rapor.js?v=20261013d";
+import * as Verim from "./verim.js?v=20261013d";
+import * as Isbasi from "./isbasi.js?v=20261013d";
+import * as Guest from "./guest.js?v=20261013d";
+import * as Yontem from "./yontem.js?v=20261013d";
+import * as Tatil from "./tatil.js?v=20261013d";
+import * as Gorev from "./gorev.js?v=20261013d";
+import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261013d";
+import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261013d";
 
 const VERSION = "1.5.0";
 const st = { factories: [], years: [], fid: null, year: null, page: "genel", profile: {}, lastSync: new Date() };
@@ -446,17 +446,19 @@ async function pageAyarlar(v) {
       <div class="th">${THEMES.map(([k, n, sd, bg, cd]) => `<button class="tb ${k === theme ? "on" : ""}" data-theme="${k}" aria-pressed="${k === theme}">
         <div class="pv"><div style="flex:0 0 28%;background:${sd}"></div><div style="flex:1;background:${bg};display:flex;flex-direction:column;gap:5px;padding:7px"><div style="height:8px;border-radius:4px;background:${cd}"></div><div style="height:8px;width:60%;border-radius:4px;background:#17A06F"></div></div></div><b>${n}</b></button>`).join("")}</div></div>
 
-    <div class="cd"><h2>Uygulama ve Senkronizasyon</h2>
+    <div class="cd" style="gap:14px"><button type="button" id="uaTg" aria-expanded="false" aria-label="Uygulama ve Senkronizasyon bölümünü aç" style="display:flex;align-items:center;gap:12px;width:100%;min-height:40px;height:auto;padding:0;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer"><span style="flex:1;min-width:0"><h2 style="margin:0">Uygulama ve Senkronizasyon</h2><div class="muted" style="font-size:13px;margin-top:4px;font-weight:600">Sürüm ${VERSION}</div></span><span style="flex:0 0 40px;width:40px;height:40px;border-radius:12px;border:1.5px solid var(--gd);color:var(--gd);box-sizing:border-box;display:flex;align-items:center;justify-content:center"><svg id="uaCh" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="transition:transform .15s"><path d="M6 9l6 6 6-6"/></svg></span></button>
+      <div class="col1" id="uaBody" data-ua hidden style="gap:14px;border-top:1px solid var(--line);padding-top:14px">
       <div class="fg">
         <div><span class="hd">SÜRÜM</span><div style="font-weight:800;font-size:18px">${VERSION}</div></div>
         <div><span class="hd">DERLEME TARİHİ</span><div style="font-weight:700">${BUILD}</div></div>
         <div><span class="hd">VERİ ALTYAPISI</span><div style="font-weight:700">Bulut depolama · cihazlar arası senkronizasyon</div></div>
         <div><span class="hd">SENKRONİZASYON</span><div style="font-weight:700"><i class="sw" style="background:#17A06F;border-radius:50%"></i><span id="syncT">Güncel · ${st.lastSync.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}</span></div></div></div>
-      <div class="row"><button class="sec" id="doSync">Şimdi senkronize et</button><button class="sec" id="backup" title="Tüm fabrikalar, yıllar ve kayıtlar tek JSON dosyası olarak indirilir">Tüm verileri indir (JSON)</button>${Gorev.enabled() ? `<button class="sec" id="gvBtn"></button>` : ""}<span class="muted" id="backupT" style="font-size:12.5px"></span></div></div>
+      <div class="row"><button class="sec" id="doSync">Şimdi senkronize et</button><button class="sec" id="backup" title="Tüm fabrikalar, yıllar ve kayıtlar tek JSON dosyası olarak indirilir">Tüm verileri indir (JSON)</button>${Gorev.enabled() ? `<button class="sec" id="gvBtn"></button>` : ""}<span class="muted" id="backupT" style="font-size:12.5px"></span></div></div></div>
   </div></div>
   <div id="modal" class="mod hide"><div class="mbox"><h2>Çıkış yapılsın mı?</h2>
     <p class="muted">Bu cihazdaki oturum kapatılır ve yerel önbellek temizlenir. Verileriniz bulutta güvende kalır.</p>
     <div class="row" style="justify-content:flex-end"><button class="sec" id="noOut">Vazgeç</button><button class="danger" id="yesOut">Evet, çıkış yap</button></div></div></div>`;
+  $("uaTg").onclick = () => { const b = $("uaBody"), o = b.hidden; b.hidden = !o; $("uaTg").setAttribute("aria-expanded", o); $("uaTg").setAttribute("aria-label", "Uygulama ve Senkronizasyon bölümünü " + (o ? "kapat" : "aç")); $("uaCh").style.transform = o ? "rotate(180deg)" : ""; };
   const say = t => { $("noteT").textContent = t; $("note").classList.remove("hide"); };
   Guest.renderSettings($("guestBox"), { ownerUid: auth.currentUser.uid, factories: st.all }).catch(() => {});
   $("noteX").onclick = () => $("note").classList.add("hide");
