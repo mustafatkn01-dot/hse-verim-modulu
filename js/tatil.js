@@ -1,6 +1,6 @@
 // Tatil takvimi ve haftalık denetim planı (yalnızca gösterim; puanı etkilemez)
-import * as S from "./store.js?v=20261013i";
-import { esc, modal, toast, noticeBox } from "./ui.js?v=20261013i";
+import * as S from "./store.js?v=20261013j";
+import { esc, modal, toast, noticeBox, pickDate, fmtTarih } from "./ui.js?v=20261013j";
 
 const pad = n => String(n).padStart(2, "0");
 const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -127,8 +127,8 @@ export async function mount(el, st, ro) {
       ${OPEN.v ? `<div class="col1" style="gap:14px;border-top:1px solid var(--line);padding-top:14px">
       ${diniVar(y) ? "" : `<div class="warn">${y} yılı için dini bayram günleri hazır değil. Diyanet takvimine göre aşağıdan özel gün olarak ekleyin.</div>`}
       <div class="col1" style="gap:2px;max-height:300px;overflow:auto">${list.length ? grp(list).map(g => { const h = g.h, one = g.a === g.z; return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)"><span style="min-width:84px;flex:0 0 auto;font-weight:700">${one ? fmt(g.a) + ` <span class="muted" style="font-weight:600">${GUN[at0(g.a).getDay()]}</span>` : fmt(g.a) + "–" + fmt(g.z)}</span><span style="flex:1;min-width:0">${esc(h.ad)}${h.yarim ? ' <span class="muted">· yarım gün</span>' : ""}${one ? "" : ` <span class="muted">· ${g.n} gün</span>`}</span><span class="pill" style="background:${tc[h.tur][0]};color:${tc[h.tur][1]}">${h.tur}</span><button class="xb" style="width:32px;height:32px;flex:0 0 32px;min-height:0" data-tk="rm" data-d="${g.a}" data-z="${g.z}" aria-label="Günü kaldır" ${ro ? "disabled" : ""}>×</button></div>`; }).join("") : `<div class="muted">Bu yıl için kayıtlı gün yok.</div>`}</div>
-      <div class="col1" style="gap:10px"><div style="display:flex;align-items:flex-end;gap:8px"><div class="sf" style="flex:1;min-width:0"><label class="hd" for="tkD">BAŞLANGIÇ</label><input id="tkD" class="inp" type="date" min="${y}-01-01" max="${y}-12-31" ${ro ? "disabled" : ""}></div>
-        <div class="sf" style="flex:1;min-width:0"><label class="hd" for="tkE">BİTİŞ <span style="font-weight:600;text-transform:none;letter-spacing:0">(isteğe bağlı)</span></label><input id="tkE" class="inp" type="date" min="${y}-01-01" max="${y}-12-31" ${ro ? "disabled" : ""}></div></div>
+      <div class="col1" style="gap:10px"><div style="display:flex;align-items:flex-end;gap:8px"><div class="sf" style="flex:1;min-width:0"><label class="hd" for="tkD">BAŞLANGIÇ</label><button id="tkD" class="inp fld ph" data-pk data-v="" ${ro ? "disabled" : ""}><span>Tarih seç</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0B6E4F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></button></div>
+        <div class="sf" style="flex:1;min-width:0"><label class="hd" for="tkE">BİTİŞ <span style="font-weight:600;text-transform:none;letter-spacing:0">(isteğe bağlı)</span></label><button id="tkE" class="inp fld ph" data-pk data-v="" ${ro ? "disabled" : ""}><span>Tarih seç</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0B6E4F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></button></div></div>
       <div style="display:flex;align-items:flex-end;gap:8px"><div class="sf" style="flex:1;min-width:0"><label class="hd" for="tkA">İZİN ADI</label><input id="tkA" class="inp" placeholder="Örn. Yıllık izin, idari izin" ${ro ? "disabled" : ""}></div>
         <button class="sec" data-tk="add" style="height:40px;flex:0 0 auto" ${ro ? "disabled" : ""}>+ Ekle</button></div>
       <div class="muted" style="font-size:12.5px">Bir haftalık izin için başlangıç ve bitiş tarihini seçin. Pzt–Çar'da iş günü kalmayan hafta için planın dışında bırakmak isteyip istemediğiniz sorulur.</div>
@@ -137,6 +137,10 @@ export async function mount(el, st, ro) {
       ${kal.length ? `<div class="muted" style="font-size:12.5px">${kal.length} hazır gün kaldırılmış. <a href="#" data-tk="reset" style="color:var(--g);font-weight:700">Geri getir</a></div>` : ""}
       <div style="border-top:1px solid var(--line);padding-top:12px" class="col1"><span class="hd">HAFTA KARARLARI</span>
         ${kr.length ? kr.map(([k, x]) => `<div style="display:flex;align-items:center;gap:10px"><span style="flex:1;min-width:0"><b>${range(k, addD(k, 6))}</b> <span class="muted">· ${x.k === "tatil" ? "Tatil, plan dışı" : "Denetim yapılacak"}</span></span><button class="sec" data-tk="undo" data-d="${k}" ${ro ? "disabled" : ""}>Geri al</button></div>`).join("") : `<div class="muted" style="font-size:13px">Henüz karar yok. Tatilden etkilenen hafta olduğunda Genel Bakış'taki Denetim Planı Uyumu kartında sorulur.</div>`}</div></div>` : ""}</div>`;
+    el.querySelectorAll("[data-pk]").forEach(b => b.onclick = async () => { const D1 = el.querySelector("#tkD"), E1 = el.querySelector("#tkE");
+      const r = await pickDate({ title: "Tarih seçin", min: `${y}-01-01`, max: `${y}-12-31`, a: D1.dataset.v, z: E1.dataset.v, range: true, marks: k => map.get(k) || null });
+      if (!r) return;
+      for (const [f, v] of [[D1, r.a], [E1, r.z !== r.a ? r.z : ""]]) { f.dataset.v = v; f.classList.toggle("ph", !v); f.firstElementChild.textContent = v ? fmtTarih(v) : "Tarih seç"; } });
     const sv = async fn => { try { await yaz(st.fid, st.year, fn(JSON.parse(JSON.stringify(d)))); } catch (e) { noticeBox("Kaydedilemedi", e.message); } draw(); };
     el.querySelectorAll("[data-tk]").forEach(b => b.onclick = e => { e.preventDefault(); const k = b.dataset.tk, dd = b.dataset.d;
       if (k === "tg") { OPEN.v = !OPEN.v; return draw(); }
@@ -148,7 +152,7 @@ export async function mount(el, st, ro) {
         if (!r.liste.length) return r.bos ? noticeBox("Yayımlanmış tatil yok", `${y} yılı için henüz yayımlanmış tatil bulunamadı. Diyanet takvimi açıklanınca tekrar deneyin.`) : noticeBox("Liste güncel", `${y} yılı için eklenecek yeni gün yok. Resmi ve dini günlerin tamamı takvimde.`, "ok");
         const ok = await modal(`<h2>${y} tatilleri senkronize edilsin mi?</h2><p class="muted" style="font-size:13px">Şu günler eklenecek. Lütfen tarihleri Diyanet takvimiyle karşılaştırın; yanlış bir gün varsa eklemeden sonra listeden kaldırabilirsiniz. Sizin eklediğiniz ve kaldırdığınız günlere dokunulmaz.</p><div class="col1" style="gap:4px;max-height:280px;overflow:auto">${r.liste.map(x => `<div style="display:flex;gap:10px"><b style="width:84px;flex:0 0 84px">${fmt(x.d)} ${GUN[at0(x.d).getDay()]}</b><span>${esc(x.ad)}${x.yarim ? " · yarım gün" : ""}</span></div>`).join("")}</div><div class="row" style="justify-content:flex-end"><button class="sec" data-no>İptal</button><button data-yes>${r.liste.length} günü ekle</button></div>`);
         if (ok) sv(x => { x.ozel = (x.ozel || []).concat(r.liste.map(z => ({ d: z.d, ad: z.ad, tur: z.tur, ...(z.yarim ? { yarim: true } : {}) }))); x.sync = { ...(x.sync || {}), [y]: Date.now() }; return x; }); })();
-      if (k === "add") { const dv = el.querySelector("#tkD").value, ev = el.querySelector("#tkE").value || dv, ad = el.querySelector("#tkA").value.trim() || "Özel gün";
+      if (k === "add") { const dv = el.querySelector("#tkD").dataset.v, ev = el.querySelector("#tkE").dataset.v || dv, ad = el.querySelector("#tkA").value.trim() || "Özel gün";
         if (!dv || !dv.startsWith(y) || !ev.startsWith(y)) return noticeBox("Tarih kontrolü", `Başlangıç ve bitiş tarihleri ${y} yılı içinde olmalı.`);
         if (ev < dv) return noticeBox("Tarih kontrolü", "Bitiş tarihi başlangıçtan önce olamaz.");
         const days = []; for (let t = dv; t <= ev; t = addD(t, 1)) { days.push(t); if (days.length > 92) return noticeBox("Aralık çok uzun", "En fazla 92 günlük aralık eklenebilir."); }

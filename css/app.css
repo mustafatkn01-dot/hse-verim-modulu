@@ -219,3 +219,27 @@ body,html{background:#fff!important}#app{display:block!important}.pg{padding:0!i
 [data-ua][hidden]{display:none!important}
 
 [data-pob][hidden]{display:none!important}
+/* Tarih seçici (pickDate) */
+.mbox.cl{max-width:380px}
+.clh{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.clh b{font-size:15px}
+.clnv{width:40px;height:40px;padding:0;display:flex;align-items:center;justify-content:center}
+.clnv[disabled]{opacity:.35;cursor:default}
+.clg{display:grid;grid-template-columns:repeat(7,1fr);row-gap:2px}
+.clg>i{font-style:normal;font-size:11px;font-weight:700;color:var(--muted);text-align:center;padding:4px 0}
+.cld{position:relative;height:40px;width:100%;padding:0;background:transparent;color:var(--text);font-weight:400;font-size:14px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.cld.we{color:var(--muted)}
+.cld.out{opacity:.3;cursor:default}
+.cld.td{box-shadow:inset 0 0 0 1.5px #1E3A5F}
+:root[data-theme="dark"] .cld.td{box-shadow:inset 0 0 0 1.5px #6fa3cf}
+.cld.mid{background:color-mix(in srgb,var(--green) 18%,transparent);border-radius:0;box-shadow:none}
+.cld.sel{background:var(--green);color:#fff;font-weight:700}
+.cld.sel.a{border-radius:50% 0 0 50%}
+.cld.sel.z{border-radius:0 50% 50% 0}
+.cld.sel.a.z{border-radius:50%}
+.cdot{display:inline-block;width:5px;height:5px;border-radius:50%;margin-right:5px;vertical-align:middle}
+.cld .cdot{position:absolute;bottom:4px;left:50%;margin:0 0 0 -2.5px}
+.cld.sel .cdot{background:#fff!important}
+.fld{display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:left;font-weight:400;cursor:pointer}
+.fld.ph{color:var(--muted)}
+.fld:disabled{opacity:.6;cursor:default}

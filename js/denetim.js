@@ -1,10 +1,10 @@
 // İSG Denetim Listesi sayfası
-import * as Guest from "./guest.js?v=20261013i";
-import * as Gorev from "./gorev.js?v=20261013i";
-import * as S from "./store.js?v=20261013i";
-import { esc, ic, toast, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261013i";
-import { CATS } from "./isgcats.js?v=20261013i";
-import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261013i";
+import * as Guest from "./guest.js?v=20261013j";
+import * as Gorev from "./gorev.js?v=20261013j";
+import * as S from "./store.js?v=20261013j";
+import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261013j";
+import { CATS } from "./isgcats.js?v=20261013j";
+import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261013j";
 
 const COLL = "isg";
 const D = { key: "", setup: null, doc: null, dept: null, month: null, open: { 0: true }, ro: false, timer: null, saved: true, msg: "" };
@@ -228,7 +228,7 @@ function draw() {
   <div class="cd" style="flex-direction:row;flex-wrap:wrap;gap:16px;padding:18px 20px">
     <div class="sf" style="flex:1 1 180px"><label class="hd" for="bolum">BÖLÜM</label><select id="bolum" class="inp">${setup.rows.map(r => `<option value="${r.id}" ${r.id === D.dept ? "selected" : ""}>${esc(r.name)}</option>`).join("")}</select></div>
     <div class="sf" style="flex:1 1 150px"><label class="hd" for="ay">DÖNEM</label><select id="ay" class="inp">${MONTHS.map((m, i) => `<option value="${i + 1}" ${i + 1 === D.month ? "selected" : ""}>${m} ${st.year}</option>`).join("")}</select></div>
-    <div class="sf" style="flex:1 1 150px"><label class="hd" for="tarih">DENETİM TARİHİ</label><input id="tarih" class="inp" type="date" max="${iso(new Date())}" value="${esc(date)}" ${D.ro ? "disabled" : ""}></div>
+    <div class="sf" style="flex:1 1 150px"><label class="hd" for="tarih">DENETİM TARİHİ</label><button id="tarih" class="inp fld ${date ? "" : "ph"}" ${D.ro ? "disabled" : ""}><span>${date ? esc(fmtTarih(date)) : "Tarih seç"}</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0B6E4F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></button></div>
     <div class="sf" style="flex:1 1 200px"><label class="hd" for="denetci">DENETÇİ</label><input id="denetci" class="inp" value="${esc(doc.auditor)}" placeholder="Ad Soyad" ${D.ro ? "disabled" : ""}></div></div>
   <div class="cd" style="padding:18px 20px;gap:14px"><div class="row sp"><b style="font:600 16px Sora,sans-serif">Bu Ayın Denetim Kayıtları</b>
     <span class="muted" style="font-size:12.5px">Aynı bulgu sonraki denetimlerde tekrarlanırsa sıklık otomatik artar: 1 gün → 1 · 2-3 farklı gün → 2 · 4 ve üzeri → 3 (aynı gün yapılan denetimler tek sayılır)</span></div>
@@ -276,7 +276,7 @@ function bind(v, c) {
   const on = (sel, fn) => v.querySelectorAll(sel).forEach(el => el.onclick = () => fn(el));
   $("bolum").onchange = e => { D.dept = e.target.value; render(D.v, D.ctx); };
   $("ay").onchange = e => { D.month = +e.target.value; render(D.v, D.ctx); };
-  $("tarih").onchange = e => { d.date = e.target.value; again(); };
+  $("tarih").onclick = async () => { const r = await pickDate({ title: "Denetim tarihi", max: iso(new Date()), a: d.date || "", view: `${st.year}-${String(D.month).padStart(2, "0")}-01` }); if (r) { d.date = r.a; again(); } };
   $("denetci").onchange = e => { doc.auditor = e.target.value.trim(); persist(); };
   on("[data-tog]", el => { D.open[el.dataset.tog] = !D.open[el.dataset.tog]; draw(); });
   on("[data-mk]", el => {
@@ -321,7 +321,7 @@ function bind(v, c) {
   const nw = document.getElementById("newSess");
   if (nw) nw.onclick = () => { doc.draft = emptyDraft(defaultDate(st.year, D.month), true); persist(true); draw(); };
   on("[data-delsess]", async el => {
-    const { confirmBox } = await import("./ui.js?v=20261013i");
+    const { confirmBox } = await import("./ui.js?v=20261013j");
     if (!(await confirmBox("Son denetim silinsin mi?", "Kayıtlı denetim silinir; skor ve sıklıklar yeniden hesaplanır.", "Evet, sil", true))) return;
     const gone = doc.sessions.pop();
     // Misafir taslağından gelen denetimse: misafire "silindi" bilgisi gider (taslağı düzeltip yeniden gönderebilir), fotoğrafları korunur
