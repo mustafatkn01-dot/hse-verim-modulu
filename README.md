@@ -24,6 +24,7 @@ Fabrika adı iki programda aynı olmalıdır (büyük/küçük harf ve Türkçe 
 - **Haftalık denetim düzeni (Adım A):** Denetimler tarihine göre haftaya bağlanır (Pzt–Paz, ISO hafta no). Kayıt kartında "1. Denetim · 42. hafta", tarih alanında hafta bilgisi görünür.
 - **Yeni denetim kilidi:** Bu haftanın denetimi tamamlandıysa "Denetimi Başlat" pasiftir ve başlatılabileceği Pazartesi yazar; yeni haftada otomatik aktif olur. Hafta içinde yeni bulgu için "Yeniden aç" kullanılır.
 - **Eski açık denetim uyarısı:** Önceki haftadan açık kalmış denetim için formun üstünde uyarı çıkar.
+- **Bu hafta şeridi (Adım B):** İSG Denetim sayfasının üstünde açılır kart (varsayılan kapalı): bugünün haftasında her bölümün durumu (tamamlandı / açık / başlanmadı) ve bekleyen misafir taslağı sayısı; bölüme dokununca o bölüme geçilir.
 - **Özel tarih seçici:** Tatil Takvimi (başlangıç/bitiş aralığı, tatil noktaları) ve Denetim Tarihi için bilgi kartı düzeninde takvim; tarayıcının yerleşik takvimi kullanılmaz.
 
 ### 1.5.0

@@ -1,10 +1,11 @@
 // İSG Denetim Listesi sayfası
-import * as Guest from "./guest.js?v=20261013k";
-import * as Gorev from "./gorev.js?v=20261013k";
-import * as S from "./store.js?v=20261013k";
-import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261013k";
-import { CATS } from "./isgcats.js?v=20261013k";
-import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261013k";
+import * as Guest from "./guest.js?v=20261013l";
+import * as Gorev from "./gorev.js?v=20261013l";
+import * as S from "./store.js?v=20261013l";
+import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261013l";
+import { CATS } from "./isgcats.js?v=20261013l";
+import { dotCss } from "./tatil.js?v=20261013l";
+import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261013l";
 
 const COLL = "isg";
 const D = { key: "", setup: null, doc: null, dept: null, month: null, open: { 0: true }, ro: false, timer: null, saved: true, msg: "" };
@@ -94,7 +95,37 @@ export async function render(v, ctx) {
   }
   D.ro = String(st.year) !== String(st.active) || guestLock(st.year, D.month) || (GUEST.on && (D.gstatus === "review" || D.gstatus === "approved"));
   D.ctx = ctx; D.v = v;
-  draw();
+  draw(); loadWk();
+}
+
+// "Bu hafta" şeridi: bugünün haftasında her bölümün denetim durumu (yalnızca gösterim; bölüme dokununca o bölüme geçilir)
+const WK = { open: false, rows: null, mon: "", t: 0 };
+async function loadWk(force = false) {
+  const { st } = D.ctx || {}; if (!st || !D.setup) return;
+  if (String(st.year) !== String(new Date().getFullYear())) { WK.rows = null; return paintWk(); }
+  if (!force && Date.now() - WK.t < 15000 && WK.rows) return paintWk();
+  const mon = monOf(iso(new Date())), sun = addDays(mon, 6), ms = [...new Set([mon.slice(0, 7), sun.slice(0, 7)])].filter(x => x.slice(0, 4) === String(st.year));
+  const rows = await Promise.all(D.setup.rows.map(async r => {
+    let k = "none", m = +iso(new Date()).slice(5, 7);
+    for (const ym of ms) {
+      const d = await S.getMonthDoc(st.fid, st.year, COLL, `${ym.slice(5)}_${r.id}`).catch(() => null);
+      for (const x of d?.sessions || []) if (x.date && monOf(x.date) === mon) { m = +ym.slice(5); if (x.closed === false) k = "open"; else if (k !== "open") k = "ok"; }
+    }
+    return { id: r.id, name: r.name, k, m, g: 0 };
+  }));
+  if (!GUEST.on) (await S.listMonthDocs(st.fid, st.year, "isgg").catch(() => [])).forEach(g => { if ((g.status === "saved" || g.status === "review") && g.draft?.date && monOf(g.draft.date) === mon) { const r = rows.find(x => x.id === g.dept); if (r) r.g++; } });
+  WK.rows = rows; WK.mon = mon; WK.t = Date.now(); paintWk();
+}
+function paintWk() {
+  const el = D.v?.querySelector("#wkStrip"); if (!el) return;
+  if (!WK.rows) { el.style.display = "none"; el.innerHTML = ""; return; }
+  const mon = WK.mon, sun = addDays(mon, 6), done = WK.rows.filter(r => r.k === "ok").length, rng = mon.slice(5, 7) === sun.slice(5, 7) ? `${+mon.slice(8)}–${dmk(sun)}` : `${dmk(mon)} – ${dmk(sun)}`;
+  const DK = { ok: "ok", open: "late", none: "future" }, TX = { ok: "tamamlandı", open: "açık", none: "başlanmadı" };
+  el.style.display = "";
+  el.innerHTML = `<div class="cd" style="gap:6px;padding:14px 16px"><button type="button" data-wkt aria-expanded="${WK.open}" aria-label="${WK.open ? "Bu hafta kartını kapat" : "Bu hafta kartını aç"}" style="display:flex;align-items:center;gap:12px;width:100%;min-height:40px;height:auto;padding:0;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer;font-weight:400"><span style="flex:1;min-width:0"><b style="font:600 16px Sora,sans-serif;display:block">Bu hafta · ${rng}</b><span class="muted" style="font-size:13px;display:block;margin-top:3px">${wkNo(mon)}. hafta · ${done}/${WK.rows.length} bölüm tamamlandı</span></span><span style="flex:0 0 40px;width:40px;height:40px;border-radius:12px;border:1.5px solid var(--gd);color:var(--gd);box-sizing:border-box;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(${WK.open ? 180 : 0}deg)"><path d="M6 9l6 6 6-6"/></svg></span></button>
+    ${WK.open ? `<div style="margin-top:6px">${WK.rows.map(r => `<button type="button" data-wkd="${r.id}|${r.m}" style="display:flex;align-items:center;gap:10px;width:100%;min-height:44px;height:auto;padding:8px 0;border:0;border-top:1px solid var(--line);border-radius:0;background:transparent;color:inherit;text-align:left;cursor:pointer;font-weight:${r.id === D.dept ? 700 : 400}"><span style="${dotCss(DK[r.k], 14)}"></span><span style="flex:1;min-width:0">${esc(r.name)}</span><span class="muted" style="font-size:12.5px;font-weight:400;text-align:right">${TX[r.k]}${r.g ? ` · ${r.g} misafir taslağı` : ""}</span></button>`).join("")}</div>` : ""}</div>`;
+  el.querySelector("[data-wkt]").onclick = () => { WK.open = !WK.open; paintWk(); };
+  el.querySelectorAll("[data-wkd]").forEach(b => b.onclick = () => { const [id, m] = b.dataset.wkd.split("|"); if (id === D.dept && +m === D.month) return; D.dept = id; D.month = +m; D.key = ""; render(D.v, D.ctx); });
 }
 
 function persist(now = false) {
@@ -120,7 +151,7 @@ function persist(now = false) {
     try { const payload = { ...D.doc, result, dept: d, month: +m }, cn = D.doc.sessions.filter(x => x.closed).map(x => x.no);
       if (!GUEST.on || D.hadClosed) payload.closedNos = cn; else delete payload.closedNos;
       await S.saveMonthDoc(f, y, COLL, `${pad(+m)}_${d}`, payload); D.saved = true; } catch (e) { D.msg = "Kaydedilemedi: " + e.message; }
-    setSv();
+    setSv(); if (now) loadWk(true);
   };
   if (now) return run();
   D.timer = setTimeout(run, 700);
@@ -226,6 +257,7 @@ function draw() {
   v.innerHTML = `
   <div><div class="hd" style="letter-spacing:.8px">AYLIK VERİ GİRİŞİ</div><h1 class="ttl">İSG Denetim Listesi</h1>
     <div class="muted" style="font-size:12.5px" id="sv">${D.msg || (D.saved ? "Taslak kayıtlı" : "Kaydediliyor…")}</div></div>
+  <div id="wkStrip" style="display:none"></div>
   ${D.ro && !(GUEST.on && (D.gstatus === "review" || D.gstatus === "approved")) ? `<div class="warn">${roText(st.year, D.month, st.active)}</div>` : ""}
   ${(() => { const cu = on && !GUEST.on && !D.ro && editNo != null ? doc.sessions.find(x => x.no === editNo) : null; return cu && !cu.closed && monOf(cu.date) < monOf(iso(new Date())) ? `<div class="warn">${cu.no}. denetim ${dmy(cu.date)} (${wkNo(cu.date)}. hafta) tarihinde başladı ve hâlâ açık. Eksikleri tamamlayıp “Kaydet ve Denetimi Tamamla”ya basın; açık denetim varken yeni haftanın denetimi başlatılamaz.</div>` : ""; })()}
   ${GUEST.on && D.gstatus === "returned" ? `<div class="warn">Yetkili kullanıcı taslağı düzeltme için geri gönderdi${D.gnote ? ": " + esc(D.gnote) : "."} Düzeltip tekrar kaydedin.</div>` : ""}
@@ -274,7 +306,7 @@ function draw() {
       <div class="muted" style="line-height:1.55">${last ? `${last.no}. denetim ${dmy(last.date)} (${wkNo(last.date)}. hafta) tarihinde tamamlandı. ` : ""}Bu bölümün aylık İSG skoru <b>${f1(c.score)}</b> (${band}). ${locked ? "Saha turunda yeni bir eksiklik görürseniz “Yeniden aç” ile bu haftanın denetimine ekleyin. Yeni denetim, yeni hafta başlayınca açılır." : "Yeni hafta için denetimi başlatabilirsiniz. Geçen haftanın denetimine ekleme yapmak isterseniz “Yeniden aç”ı kullanın."}</div>
       ${D.ro ? "" : `<div><button id="newSess" ${locked ? "disabled" : ""}>${doc.sessions.length + 1}. Denetimi Başlat</button></div>${locked ? `<div class="muted" style="font-size:12.5px;margin-top:-4px">${dmk(addDays(thisMon, 7))} Pzt günü başlatılabilir</div>` : ""}`}</div>`);
   }
-  bind(v, c);
+  paintWk(); bind(v, c);
 }
 
 function bind(v, c) {
@@ -328,7 +360,7 @@ function bind(v, c) {
   const nw = document.getElementById("newSess");
   if (nw) nw.onclick = () => { doc.draft = emptyDraft(defaultDate(st.year, D.month), true); persist(true); draw(); };
   on("[data-delsess]", async el => {
-    const { confirmBox } = await import("./ui.js?v=20261013k");
+    const { confirmBox } = await import("./ui.js?v=20261013l");
     if (!(await confirmBox("Son denetim silinsin mi?", "Kayıtlı denetim silinir; skor ve sıklıklar yeniden hesaplanır.", "Evet, sil", true))) return;
     const gone = doc.sessions.pop();
     // Misafir taslağından gelen denetimse: misafire "silindi" bilgisi gider (taslağı düzeltip yeniden gönderebilir), fotoğrafları korunur
