@@ -25,6 +25,8 @@ Fabrika adı iki programda aynı olmalıdır (büyük/küçük harf ve Türkçe 
 - **Yeni denetim kilidi:** Bu haftanın denetimi tamamlandıysa "Denetimi Başlat" pasiftir ve başlatılabileceği Pazartesi yazar; yeni haftada otomatik aktif olur. Hafta içinde yeni bulgu için "Yeniden aç" kullanılır.
 - **Eski açık denetim uyarısı:** Önceki haftadan açık kalmış denetim için formun üstünde uyarı çıkar.
 - **Bu hafta şeridi (Adım B):** İSG Denetim sayfasının üstünde açılır kart (varsayılan kapalı): bugünün haftasında her bölümün durumu (tamamlandı / açık / başlanmadı) ve bekleyen misafir taslağı sayısı; bölüme dokununca o bölüme geçilir.
+- **Bu hafta şeridinde gün satırı:** Pzt–Paz yedi nokta; denetim yapılan günler sayıyla dolu yeşil, yalnızca açık olanlar sarı, bugün lacivert çerçeveli.
+- **Misafir taslağını haftaya birleştirme (Adım C):** Taslağın tarihi hangi haftaya düşüyorsa o haftanın denetim kaydı varsa taslak ona eklenir (yeni denetim açılmaz); yoksa önceki gibi yeni denetim olur. Aynı maddede bu haftaki bulgu varsa "Aynı madde" etiketiyle **Birleştir** (açıklama tekrar yazılmaz, fotoğraflar mevcut bulguya eklenir) veya **Ayrı bulgu** (açıklama aynı maddeye eklenir) seçilir. Skor ve sıklık hesabı değişmez, tarih haftanın denetiminin tarihi olarak kalır.
 - **Özel tarih seçici:** Tatil Takvimi (başlangıç/bitiş aralığı, tatil noktaları) ve Denetim Tarihi için bilgi kartı düzeninde takvim; tarayıcının yerleşik takvimi kullanılmaz.
 
 ### 1.5.0

@@ -1,11 +1,11 @@
 // İSG Denetim Listesi sayfası
-import * as Guest from "./guest.js?v=20261013m";
-import * as Gorev from "./gorev.js?v=20261013m";
-import * as S from "./store.js?v=20261013m";
-import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261013m";
-import { CATS } from "./isgcats.js?v=20261013m";
-import { dotCss } from "./tatil.js?v=20261013m";
-import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261013m";
+import * as Guest from "./guest.js?v=20261013n";
+import * as Gorev from "./gorev.js?v=20261013n";
+import * as S from "./store.js?v=20261013n";
+import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261013n";
+import { CATS } from "./isgcats.js?v=20261013n";
+import { dotCss } from "./tatil.js?v=20261013n";
+import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261013n";
 
 const COLL = "isg";
 const D = { key: "", setup: null, doc: null, dept: null, month: null, open: { 0: true }, ro: false, timer: null, saved: true, msg: "" };
@@ -29,6 +29,45 @@ function defaultDate(year, month) { const n = new Date(); return (+year === n.ge
 const blank = (year, month, auditor) => ({ sessions: [], draft: { marks: {}, notes: {}, ydNotes: {}, date: defaultDate(year, month) }, freq: {}, bonus: 0, auditor: auditor || "" });
 
 const emptyDraft = (date, on) => ({ marks: {}, notes: {}, ydNotes: {}, photos: {}, date, on, edit: null });
+// Kayıtlı denetimi yeniden düzenlenebilir taslağa çevirir
+function draftFromSession(last) {
+  const marks = { ...(last.marks || {}) }, notes = {}, ydNotes = {};
+  CATS.forEach((cat, ci) => {
+    cat.items.forEach((_, ii) => {
+      const id = `c${ci}i${ii}`;
+      if (last.fails && last.fails[id]) { marks[id] = "x"; notes[id] = last.fails[id].length ? last.fails[id].slice() : [""]; }
+      else if (!marks[id] && last.app && last.app[ci]) marks[id] = "u";
+      else if (!marks[id] && last.yd && ci in last.yd) marks[id] = "n";
+    });
+    if (last.yd && last.yd[ci]) ydNotes[ci] = last.yd[ci];
+  });
+  return { marks, notes, ydNotes, photos: JSON.parse(JSON.stringify(last.photos || {})), date: last.date };
+}
+// Misafir taslağını (w) haftanın denetim taslağına (dr) birleştirir. Aynı maddede mevcut bulgu varsa choice[id] === "sep" değilse yalnızca fotoğraflar eklenir
+function mergeGuest(dr, w, choice = {}) {
+  const rank = { x: 3, u: 2, n: 1 }, tr = t => String(t || "").trim(), nk = t => tr(t).toLowerCase();
+  dr.marks ||= {}; dr.notes ||= {}; dr.ydNotes ||= {}; dr.photos ||= {};
+  Object.entries(w.marks || {}).forEach(([id, mk]) => {
+    const cur = dr.marks[id];
+    if (mk !== "x") { if (cur !== "x" && (!cur || rank[mk] > rank[cur])) dr.marks[id] = mk; return; }
+    const had = cur === "x" && (dr.notes[id] || []).some(t => tr(t)), gn = w.notes?.[id] || [], gph = k => (w.photos?.[id + "|" + k] || []).map(p => ({ ...p }));
+    dr.marks[id] = "x";
+    if (had && choice[id] !== "sep") {
+      const at = Math.max(0, dr.notes[id].findIndex(t => tr(t))), all = gn.flatMap((_, k) => gph(k));
+      if (all.length) (dr.photos[id + "|" + at] ||= []).push(...all);
+      return;
+    }
+    const arr = had ? dr.notes[id].slice() : []; if (!had) Object.keys(dr.photos).forEach(k => { if (k.startsWith(id + "|")) delete dr.photos[k]; });
+    gn.forEach((t, k) => {
+      const dup = had ? arr.findIndex(x => tr(x) && nk(x) === nk(t)) : -1, ph = gph(k);
+      if (dup >= 0) { if (ph.length) (dr.photos[id + "|" + dup] ||= []).push(...ph); return; }
+      if (!tr(t) && !ph.length) return;
+      arr.push(tr(t)); if (ph.length) dr.photos[id + "|" + (arr.length - 1)] = ph;
+    });
+    dr.notes[id] = arr.length ? arr : [""];
+  });
+  Object.entries(w.ydNotes || {}).forEach(([ci, t]) => { if (tr(t) && !dr.ydNotes[ci]) dr.ydNotes[ci] = tr(t); });
+}
 // Denetim durumu: açık (devam eden) denetim varsa form onu düzenler; hepsi tamamlandıysa yeni denetim yalnızca kullanıcı isteyince başlar
 function settle(doc, year, month) {
   const ss = doc.sessions, dr = doc.draft;
@@ -37,17 +76,7 @@ function settle(doc, year, month) {
   if (dr.edit != null && !ss.some(x => x.no === dr.edit)) dr.edit = null;
   const last = ss[ss.length - 1];
   if (!dr.on && last && !last.closed) {
-    const marks = { ...(last.marks || {}) }, notes = {}, ydNotes = {};
-    CATS.forEach((cat, ci) => {
-      cat.items.forEach((_, ii) => {
-        const id = `c${ci}i${ii}`;
-        if (last.fails && last.fails[id]) { marks[id] = "x"; notes[id] = last.fails[id].length ? last.fails[id].slice() : [""]; }
-        else if (!marks[id] && last.app && last.app[ci]) marks[id] = "u";
-        else if (!marks[id] && last.yd && ci in last.yd) marks[id] = "n";
-      });
-      if (last.yd && last.yd[ci]) ydNotes[ci] = last.yd[ci];
-    });
-    doc.draft = { marks, notes, ydNotes, photos: JSON.parse(JSON.stringify(last.photos || {})), date: last.date, on: true, edit: last.no };
+    doc.draft = { ...draftFromSession(last), on: true, edit: last.no };
   } else if (!dr.on && !last) { doc.draft = emptyDraft(defaultDate(year, month), true); }
 }
 
@@ -99,22 +128,23 @@ export async function render(v, ctx) {
 }
 
 // "Bu hafta" şeridi: bugünün haftasında her bölümün denetim durumu (yalnızca gösterim; bölüme dokununca o bölüme geçilir)
-const WK = { open: false, rows: null, mon: "", t: 0 };
+const WK = { open: false, rows: null, mon: "", t: 0, days: {} };
 async function loadWk(force = false) {
   const { st } = D.ctx || {}; if (!st || !D.setup) return;
   if (String(st.year) !== String(new Date().getFullYear())) { WK.rows = null; return paintWk(); }
   if (!force && Date.now() - WK.t < 15000 && WK.rows) return paintWk();
   const mon = monOf(iso(new Date())), sun = addDays(mon, 6), ms = [...new Set([mon.slice(0, 7), sun.slice(0, 7)])].filter(x => x.slice(0, 4) === String(st.year));
+  const days = {};
   const rows = await Promise.all(D.setup.rows.map(async r => {
     let k = "none", m = +iso(new Date()).slice(5, 7);
     for (const ym of ms) {
       const d = await S.getMonthDoc(st.fid, st.year, COLL, `${ym.slice(5)}_${r.id}`).catch(() => null);
-      for (const x of d?.sessions || []) if (x.date && monOf(x.date) === mon) { m = +ym.slice(5); if (x.closed === false) k = "open"; else if (k !== "open") k = "ok"; }
+      for (const x of d?.sessions || []) if (x.date && monOf(x.date) === mon) { m = +ym.slice(5); const dd = (days[x.date] ||= { ok: 0, open: 0 }); if (x.closed === false) { k = "open"; dd.open++; } else { if (k !== "open") k = "ok"; dd.ok++; } }
     }
     return { id: r.id, name: r.name, k, m, g: 0 };
   }));
   if (!GUEST.on) (await S.listMonthDocs(st.fid, st.year, "isgg").catch(() => [])).forEach(g => { if ((g.status === "saved" || g.status === "review") && g.draft?.date && monOf(g.draft.date) === mon) { const r = rows.find(x => x.id === g.dept); if (r) r.g++; } });
-  WK.rows = rows; WK.mon = mon; WK.t = Date.now(); paintWk();
+  WK.rows = rows; WK.days = days; WK.mon = mon; WK.t = Date.now(); paintWk();
 }
 function paintWk() {
   const el = D.v?.querySelector("#wkStrip"); if (!el) return;
@@ -123,6 +153,7 @@ function paintWk() {
   const DK = { ok: "ok", open: "late", none: "future" }, TX = { ok: "tamamlandı", open: "açık", none: "başlanmadı" };
   el.style.display = "";
   el.innerHTML = `<div class="cd" style="gap:6px;padding:14px 16px"><button type="button" data-wkt aria-expanded="${WK.open}" aria-label="${WK.open ? "Bu hafta kartını kapat" : "Bu hafta kartını aç"}" style="display:flex;align-items:center;gap:12px;width:100%;min-height:40px;height:auto;padding:0;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer;font-weight:400"><span style="flex:1;min-width:0"><b style="font:600 16px Sora,sans-serif;display:block">Bu hafta · ${rng}</b><span class="muted" style="font-size:13px;display:block;margin-top:3px">${wkNo(mon)}. hafta · ${done}/${WK.rows.length} bölüm tamamlandı</span></span><span style="flex:0 0 40px;width:40px;height:40px;border-radius:12px;border:1.5px solid var(--gd);color:var(--gd);box-sizing:border-box;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(${WK.open ? 180 : 0}deg)"><path d="M6 9l6 6 6-6"/></svg></span></button>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;padding-top:10px;border-top:1px solid var(--line)">${["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"].map((n, i) => { const dt = addDays(mon, i), r = WK.days[dt] || {}, td = dt === iso(new Date()), n2 = r.ok || r.open || "", bg = r.ok ? "#17A06F" : r.open ? "#E8A512" : "#fff", sh = n2 ? "none" : `inset 0 0 0 1.5px ${td ? "#1E3A5F" : "#C9D8D3"}`; return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11.5px;color:${td ? "var(--text)" : "var(--muted)"};font-weight:${td ? 700 : 400}"><span>${n}</span><span title="${n2 ? n2 + " denetim" : "denetim yok"}" style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff;background:${bg};box-shadow:${sh}">${n2}</span></div>`; }).join("")}</div>
     ${WK.open ? `<div style="margin-top:6px">${WK.rows.map(r => `<button type="button" data-wkd="${r.id}|${r.m}" style="display:flex;align-items:center;gap:10px;width:100%;min-height:44px;height:auto;padding:8px 0;border:0;border-top:1px solid var(--line);border-radius:0;background:transparent;color:inherit;text-align:left;cursor:pointer;font-weight:${r.id === D.dept ? 700 : 400}"><span style="${dotCss(DK[r.k], 14)}"></span><span style="flex:1;min-width:0">${esc(r.name)}</span><span class="muted" style="font-size:12.5px;font-weight:400;text-align:right">${TX[r.k]}${r.g ? ` · ${r.g} misafir taslağı` : ""}</span></button>`).join("")}</div>` : ""}</div>`;
   el.querySelector("[data-wkt]").onclick = () => { WK.open = !WK.open; paintWk(); };
   el.querySelectorAll("[data-wkd]").forEach(b => b.onclick = () => { const [id, m] = b.dataset.wkd.split("|"); if (id === D.dept && +m === D.month) return; D.dept = id; D.month = +m; D.key = ""; render(D.v, D.ctx); });
@@ -193,7 +224,7 @@ function gPanel(list) {
       ${fx.join("") || '<div class="muted" style="font-size:12.5px">Uygunsuz madde yok.</div>'}</div>`;
   };
   return `<div class="cd" style="padding:18px 20px;gap:12px"><div><b style="font:600 16px Sora,sans-serif">Misafir denetim taslakları (${list.length})</b>
-    <div class="muted" style="font-size:12.5px;line-height:1.5">Onaylarsanız taslak bu bölümün bu ayki denetimine sıradaki denetim olarak eklenir; skora ve raporlara dahil olur. Onaylanana kadar hiçbir hesaba katılmaz.</div></div>${list.map(card).join("")}</div>`;
+    <div class="muted" style="font-size:12.5px;line-height:1.5">Onaylarsanız taslak, tarihinin düştüğü haftanın denetimine eklenir (o hafta kayıt yoksa yeni denetim olarak açılır); skora ve raporlara dahil olur. Onaylanana kadar hiçbir hesaba katılmaz.</div></div>${list.map(card).join("")}</div>`;
 }
 
 // Göreve ekle / "Göreve bağlı" etiketi: yalnızca yetkili kullanıcı, dolu açıklama ve düzenlenebilir ayda
@@ -360,7 +391,7 @@ function bind(v, c) {
   const nw = document.getElementById("newSess");
   if (nw) nw.onclick = () => { doc.draft = emptyDraft(defaultDate(st.year, D.month), true); persist(true); draw(); };
   on("[data-delsess]", async el => {
-    const { confirmBox } = await import("./ui.js?v=20261013m");
+    const { confirmBox } = await import("./ui.js?v=20261013n");
     if (!(await confirmBox("Son denetim silinsin mi?", "Kayıtlı denetim silinir; skor ve sıklıklar yeniden hesaplanır.", "Evet, sil", true))) return;
     const gone = doc.sessions.pop();
     // Misafir taslağından gelen denetimse: misafire "silindi" bilgisi gider (taslağı düzeltip yeniden gönderebilir), fotoğrafları korunur
@@ -395,14 +426,28 @@ function bind(v, c) {
   const ng = document.getElementById("newGDraft");
   if (ng) ng.onclick = () => { D.gstatus = "draft"; D.gnote = ""; D.doc.draft = emptyDraft(defaultDate(st.year, D.month), true); D.ro = guestLock(st.year, D.month); persist(true); draw(); };
   // Sahip: misafir taslağını onayla / geri gönder
-  const gDone = async (g, status, note) => {
+  const gDone = async (g, status, note, no) => {
     const [mm] = g.id.split("_");
-    await S.saveMonthDoc(st.fid, st.year, "isgg", g.id, { guestUid: g.guestUid, guestName: g.guestName, dept: g.dept, month: g.month, status, draft: g.draft, at: Date.now(), ...(note ? { note } : {}), ...(status === "approved" ? { no: doc.sessions.length } : {}) });
+    await S.saveMonthDoc(st.fid, st.year, "isgg", g.id, { guestUid: g.guestUid, guestName: g.guestName, dept: g.dept, month: g.month, status, draft: g.draft, at: Date.now(), ...(note ? { note } : {}), ...(status === "approved" ? { no: no ?? doc.sessions.length } : {}) });
     await Guest.inboxDelete(`${g.guestUid}_${st.fid}_${st.year}_${+g.month}_${g.dept}`);
   };
   // ---- Detaylı kontrol penceresi (ekranın ~%85'i) ----
-  const approveG = async (g, w) => {
-    const dr = { ...emptyDraft(w.date, true), ...w }, F2 = katsayi(D.setup.rows.find(r => r.id === D.dept)), p2 = D.setup.params || DEFAULT_PARAMS;
+  // Misafir taslağının tarihi hangi haftaya düşüyorsa, o haftanın kaydı varsa taslak ona eklenir (tek haftalık kayıt)
+  const wkTarget = date => { if (!date) return null; const ss = doc.sessions.filter(x => x.date && monOf(x.date) === monOf(date)); return ss.length ? ss[ss.length - 1] : null; };
+  const approveG = async (g, w, choice = {}) => {
+    const F2 = katsayi(D.setup.rows.find(r => r.id === D.dept)), p2 = D.setup.params || DEFAULT_PARAMS, tgt = wkTarget(w.date);
+    if (tgt) {
+      if (!Object.keys(w.marks || {}).length) { toast("Taslakta işaretlenmiş madde yok."); return false; }
+      if (doc.draft.on !== false && doc.draft.edit === tgt.no) mergeGuest(doc.draft, w, choice);
+      else {
+        const dr = draftFromSession(tgt); mergeGuest(dr, w, choice);
+        const cc = calcIsg({ cats: CATS, sessions: doc.sessions.filter(x => x.no !== tgt.no), draft: dr, freqOv: doc.freq, bonusIdx: doc.bonus, F: F2, p: p2 });
+        doc.sessions[doc.sessions.findIndex(x => x.no === tgt.no)] = { ...tgt, ...makeRec(cc, dr) };
+      }
+      await persist(true); await gDone({ ...g, draft: w }, "approved", "", tgt.no);
+      toast(`${g.guestName} taslağı ${tgt.no}. denetime (${wkNo(tgt.date)}. hafta) eklendi.`); return true;
+    }
+    const dr = { ...emptyDraft(w.date, true), ...w };
     const cc = calcIsg({ cats: CATS, sessions: doc.sessions, draft: dr, freqOv: doc.freq, bonusIdx: doc.bonus, F: F2, p: p2 });
     if (!cc.curMarked) { toast("Taslakta işaretlenmiş madde yok."); return false; }
     doc.sessions.push({ no: doc.sessions.length + 1, ...makeRec(cc, dr), closed: true });
@@ -412,6 +457,8 @@ function bind(v, c) {
   const openReview = g => {
     const w = JSON.parse(JSON.stringify(g.draft || {})); w.marks ||= {}; w.notes ||= {}; w.photos ||= {};
     const m = document.createElement("div"); m.className = "mod"; m.style.padding = "2.5vh 2vw";
+    const tgt = wkTarget(w.date), editing = !!tgt && doc.draft.on !== false && doc.draft.edit === tgt.no, mc = {};
+    const exTexts = id => !tgt ? [] : editing ? (doc.draft.marks[id] === "x" ? (doc.draft.notes[id] || []).filter(t => String(t || "").trim()) : []) : (tgt.fails?.[id] || []);
     const nUnf = () => Object.values(w.marks).filter(x => x === "x").length, nPh = () => Object.values(w.photos).reduce((a, l) => a + l.length, 0);
     const body = () => {
       let h = "";
@@ -420,6 +467,7 @@ function bind(v, c) {
         const wt = W[cat.w];
         h += `<div style="border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:12px"><div class="row" style="gap:8px"><b style="font-size:15px">${esc(cat.name)}</b><span class="pill" style="background:${wt[1]};color:${wt[2]}">${wt[0]}</span></div>
           ${its.map(x => { const ns = w.notes[x.id]?.length ? w.notes[x.id] : [""]; return `<div style="display:flex;flex-direction:column;gap:8px;padding-top:10px;border-top:1px dashed var(--line)"><span class="muted" style="font-size:13px">${esc(x.txt)}</span>
+            ${(() => { const ex = exTexts(x.id); return ex.length ? `<div style="border:1px solid var(--hbd);border-radius:12px;padding:10px 12px;background:var(--hbg);display:flex;flex-direction:column;gap:8px"><div style="font-size:12.5px;line-height:1.45"><span class="pill" style="background:#D9F1E6;color:#0B6E4F">Aynı madde</span> ${tgt.no}. denetimde bu haftaki kayıt: <b>${esc(ex[0])}</b>${ex.length > 1 ? ` <span class="muted">(+${ex.length - 1})</span>` : ""}</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">${[["merge", "Birleştir"], ["sep", "Ayrı bulgu"]].map(([v, l]) => `<button type="button" data-mc="${x.id}|${v}" class="${(mc[x.id] || "merge") === v ? "" : "sec"}" style="min-height:38px;height:auto;font-size:13px">${l}</button>`).join("")}</div><div class="muted" style="font-size:12px;line-height:1.4">${(mc[x.id] || "merge") === "merge" ? "Aynı bulgu: açıklama tekrar yazılmaz, misafirin fotoğrafları mevcut bulguya eklenir." : "Farklı bir bulgu: açıklaması aynı maddeye ayrıca eklenir."}</div></div>` : ""; })()}
             ${ns.map((t, k) => `<div style="display:flex;flex-direction:column;gap:6px"><textarea class="inp" rows="2" data-gn="${x.id}|${k}" style="min-height:64px;height:auto;padding:10px;resize:vertical" placeholder="(açıklama yok)">${esc(t)}</textarea>
               <div style="display:flex;flex-wrap:wrap;gap:10px">${(w.photos[x.id + "|" + k] || []).map(p => `<span class="pth" style="width:120px;height:120px"><img src="${p.t}" data-gp="${p.id}" alt="Fotoğraf" style="width:120px;height:120px"><button class="px" data-gpx="${x.id}|${k}|${p.id}" aria-label="Fotoğrafı çıkar" title="Bu fotoğrafı denetimden çıkar">×</button></span>`).join("")}</div></div>`).join("")}</div>`; }).join("")}</div>`;
       });
@@ -428,16 +476,17 @@ function bind(v, c) {
     const draw2 = () => {
       m.innerHTML = `<div class="mbox" style="max-width:none;width:min(96vw,1100px);height:min(95vh,900px);padding:0;gap:0;overflow:hidden">
         <div class="row sp" style="padding:16px 20px;border-bottom:1px solid var(--line);flex-wrap:nowrap"><div style="min-width:0"><b style="font:600 18px Sora,sans-serif">${esc(g.guestName)} · detaylı kontrol</b>
-          <div class="muted" style="font-size:12.5px">${w.date ? dmy(w.date) : "—"} · ${Object.keys(w.marks).length} madde işaretli · ${nUnf()} uygunsuz · ${nPh()} fotoğraf · ${esc(D.setup.rows.find(r => r.id === D.dept)?.name || "")}</div></div>
+          <div class="muted" style="font-size:12.5px">${w.date ? dmy(w.date) : "—"} · ${Object.keys(w.marks).length} madde işaretli · ${nUnf()} uygunsuz · ${nPh()} fotoğraf · ${esc(D.setup.rows.find(r => r.id === D.dept)?.name || "")}</div>${tgt ? `<div style="font-size:12.5px;margin-top:2px;color:var(--gd);font-weight:600">Onaylanınca ${tgt.no}. denetime (${wkNo(tgt.date)}. hafta) eklenir.</div>` : ""}</div>
           <button data-x aria-label="Kapat" style="flex:0 0 32px;width:32px;height:32px;min-width:0;padding:0;background:#B3261E;border-color:#B3261E;color:#fff;font-size:26px;line-height:1;display:grid;place-items:center;border-radius:8px">×</button></div>
         <div style="flex:1;overflow:auto;padding:16px 20px;display:flex;flex-direction:column;gap:14px">${body()}</div>
-        <div style="padding:14px 20px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:10px;align-items:center"><input class="inp" id="gNote" placeholder="Geri gönderirken misafire not (isteğe bağlı)" style="flex:1 1 240px"><button class="sec" data-ret>Geri gönder</button><button data-ok>Onayla ve denetime ekle</button></div></div>`;
+        <div style="padding:14px 20px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:10px;align-items:center"><input class="inp" id="gNote" placeholder="Geri gönderirken misafire not (isteğe bağlı)" style="flex:1 1 240px"><button class="sec" data-ret>Geri gönder</button><button data-ok>${tgt ? "Onayla ve bu haftanın denetimine ekle" : "Onayla ve denetime ekle"}</button></div></div>`;
       m.querySelector("[data-x]").onclick = () => m.remove();
+      m.querySelectorAll("[data-mc]").forEach(b => b.onclick = () => { const [id, v] = b.dataset.mc.split("|"); mc[id] = v; const el = m.querySelector(".mbox > div:nth-child(2)"), keep = el.scrollTop; draw2(); m.querySelector(".mbox > div:nth-child(2)").scrollTop = keep; });
       m.querySelectorAll("[data-gn]").forEach(t => t.oninput = () => { const [id, k] = t.dataset.gn.split("|"); (w.notes[id] ||= [""])[+k] = t.value; });
       m.querySelectorAll("[data-gpx]").forEach(b => b.onclick = e => { e.stopPropagation(); const [id, k, pid] = b.dataset.gpx.split("|"), key = id + "|" + k; w.photos[key] = (w.photos[key] || []).filter(p => p.id !== pid); const keep = m.querySelector(".mbox > div:nth-child(2)").scrollTop; draw2(); m.querySelector(".mbox > div:nth-child(2)").scrollTop = keep; });
       const all = [...m.querySelectorAll("[data-gp]")];
       all.forEach((im, ix) => im.onclick = () => lightbox(all.map(x => ({ id: x.dataset.gp, t: x.getAttribute("src") })), ix));
-      m.querySelector("[data-ok]").onclick = async e => { e.target.disabled = true; try { if (await approveG(g, w)) { m.remove(); D.key = ""; render(D.v, D.ctx); } else e.target.disabled = false; } catch (er) { toast("Onaylanamadı: " + (er.message || er)); e.target.disabled = false; } };
+      m.querySelector("[data-ok]").onclick = async e => { e.target.disabled = true; try { if (await approveG(g, w, mc)) { m.remove(); D.key = ""; render(D.v, D.ctx); } else e.target.disabled = false; } catch (er) { toast("Onaylanamadı: " + (er.message || er)); e.target.disabled = false; } };
       m.querySelector("[data-ret]").onclick = async e => { e.target.disabled = true; try { await gDone({ ...g, draft: w }, "returned", m.querySelector("#gNote").value.trim()); toast("Taslak düzeltme için geri gönderildi."); m.remove(); D.key = ""; render(D.v, D.ctx); } catch (er) { toast("Gönderilemedi: " + (er.message || er)); e.target.disabled = false; } };
     };
     const lightbox = (list, i0) => {
