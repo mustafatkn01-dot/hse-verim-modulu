@@ -1,11 +1,11 @@
 // İSG Denetim Listesi sayfası
-import * as Guest from "./guest.js?v=20261013p";
-import * as Gorev from "./gorev.js?v=20261013p";
-import * as S from "./store.js?v=20261013p";
-import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261013p";
-import { CATS } from "./isgcats.js?v=20261013p";
-import { dotCss } from "./tatil.js?v=20261013p";
-import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261013p";
+import * as Guest from "./guest.js?v=20261013r";
+import * as Gorev from "./gorev.js?v=20261013r";
+import * as S from "./store.js?v=20261013r";
+import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261013r";
+import { CATS } from "./isgcats.js?v=20261013r";
+import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261013r";
+import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261013r";
 
 const COLL = "isg";
 const D = { key: "", setup: null, doc: null, dept: null, month: null, open: { 0: true }, ro: false, timer: null, saved: true, msg: "" };
@@ -144,7 +144,7 @@ async function loadWk(force = false) {
     return { id: r.id, name: r.name, k, m, g: 0 };
   }));
   if (!GUEST.on) (await S.listMonthDocs(st.fid, st.year, "isgg").catch(() => [])).forEach(g => { if ((g.status === "saved" || g.status === "review") && g.draft?.date && monOf(g.draft.date) === mon) { const r = rows.find(x => x.id === g.dept); if (r) r.g++; } });
-  WK.rows = rows; WK.days = days; WK.mon = mon; WK.t = Date.now(); paintWk();
+  WK.tm = tatilMap(await tatilYukle(st.fid, st.year).catch(() => null)); WK.rows = rows; WK.days = days; WK.mon = mon; WK.t = Date.now(); paintWk();
 }
 function paintWk() {
   const el = D.v?.querySelector("#wkStrip"); if (!el) return;
@@ -153,7 +153,7 @@ function paintWk() {
   const DK = { ok: "ok", open: "late", none: "future" }, TX = { ok: "tamamlandı", open: "açık", none: "başlanmadı" };
   el.style.display = "";
   el.innerHTML = `<div class="cd" style="gap:6px;padding:14px 16px"><button type="button" data-wkt aria-expanded="${WK.open}" aria-label="${WK.open ? "Bu hafta kartını kapat" : "Bu hafta kartını aç"}" style="display:flex;align-items:center;gap:12px;width:100%;min-height:40px;height:auto;padding:0;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer;font-weight:400"><span style="flex:1;min-width:0"><b style="font:600 16px Sora,sans-serif;display:block">Bu hafta · ${rng}</b><span class="muted" style="font-size:13px;display:block;margin-top:3px">${wkNo(mon)}. hafta · ${done}/${WK.rows.length} bölüm tamamlandı</span></span><span style="flex:0 0 40px;width:40px;height:40px;border-radius:12px;border:1.5px solid var(--gd);color:var(--gd);box-sizing:border-box;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(${WK.open ? 180 : 0}deg)"><path d="M6 9l6 6 6-6"/></svg></span></button>
-    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;padding-top:10px;border-top:1px solid var(--line)">${["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"].map((n, i) => { const dt = addDays(mon, i), r = WK.days[dt] || {}, td = dt === iso(new Date()), n2 = r.ok || r.open || "", bg = r.ok ? "#17A06F" : r.open ? "#E8A512" : "#fff", sh = n2 ? "none" : `inset 0 0 0 1.5px ${td ? "#1E3A5F" : "#C9D8D3"}`; return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11.5px;color:${td ? "var(--text)" : "var(--muted)"};font-weight:${td ? 700 : 400}"><span>${n}</span><span title="${n2 ? n2 + " denetim" : "denetim yok"}" style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff;background:${bg};box-shadow:${sh}">${n2}</span></div>`; }).join("")}</div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;padding-top:10px;border-top:1px solid var(--line)">${["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"].map((n, i) => { const dt = addDays(mon, i), r = WK.days[dt] || {}, td = dt === iso(new Date()), n2 = r.ok || r.open || "", hd = !n2 && WK.tm?.get(dt) && !WK.tm.get(dt).yarim ? WK.tm.get(dt).ad : "", bg = r.ok ? "#17A06F" : r.open ? "#E8A512" : "#fff", sh = n2 ? "none" : `inset 0 0 0 1.5px ${td ? "#1E3A5F" : "#C9D8D3"}`; return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11.5px;color:${td ? "var(--text)" : "var(--muted)"};font-weight:${td ? 700 : 400}"><span>${n}</span>${hd ? `<span title="${esc(hd)}" aria-label="${esc(hd)}" style="${dotCss("off", 26)}"></span>` : `<span title="${n2 ? n2 + " denetim" : "denetim yok"}" style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff;background:${bg};box-shadow:${sh}">${n2}</span>`}</div>`; }).join("")}</div>
     ${WK.open ? `<div style="margin-top:6px">${WK.rows.map(r => `<button type="button" data-wkd="${r.id}|${r.m}" style="display:flex;align-items:center;gap:10px;width:100%;min-height:44px;height:auto;padding:8px 0;border:0;border-top:1px solid var(--line);border-radius:0;background:transparent;color:inherit;text-align:left;cursor:pointer;font-weight:${r.id === D.dept ? 700 : 400}"><span style="${dotCss(DK[r.k], 14)}"></span><span style="flex:1;min-width:0">${esc(r.name)}</span><span class="muted" style="font-size:12.5px;font-weight:400;text-align:right">${TX[r.k]}${r.g ? ` · ${r.g} misafir taslağı` : ""}</span></button>`).join("")}</div>` : ""}</div>`;
   el.querySelector("[data-wkt]").onclick = () => { WK.open = !WK.open; paintWk(); };
   el.querySelectorAll("[data-wkd]").forEach(b => b.onclick = () => { const [id, m] = b.dataset.wkd.split("|"); if (id === D.dept && +m === D.month) return; D.dept = id; D.month = +m; D.key = ""; render(D.v, D.ctx); });
@@ -392,7 +392,7 @@ function bind(v, c) {
   const nw = document.getElementById("newSess");
   if (nw) nw.onclick = () => { doc.draft = emptyDraft(defaultDate(st.year, D.month), true); persist(true); draw(); };
   on("[data-delsess]", async el => {
-    const { confirmBox } = await import("./ui.js?v=20261013p");
+    const { confirmBox } = await import("./ui.js?v=20261013r");
     if (!(await confirmBox("Son denetim silinsin mi?", "Kayıtlı denetim silinir; skor ve sıklıklar yeniden hesaplanır.", "Evet, sil", true))) return;
     const gone = doc.sessions.pop();
     // Misafir taslağından gelen denetimse: misafire "silindi" bilgisi gider (taslağı düzeltip yeniden gönderebilir), fotoğrafları korunur
