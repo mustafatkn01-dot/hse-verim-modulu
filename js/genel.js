@@ -1,11 +1,11 @@
 // Genel Bakış · yıllık özet panosu (gerçek verilerden)
-import * as S from "./store.js?v=20261013h";
-import { esc, noticeBox } from "./ui.js?v=20261013h";
-import { CATS } from "./isgcats.js?v=20261013h";
-import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261013h";
-import { load } from "./verim.js?v=20261013h";
-import * as T from "./tatil.js?v=20261013h";
-import * as Gorev from "./gorev.js?v=20261013h";
+import * as S from "./store.js?v=20261013i";
+import { esc, noticeBox } from "./ui.js?v=20261013i";
+import { CATS } from "./isgcats.js?v=20261013i";
+import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261013i";
+import { load } from "./verim.js?v=20261013i";
+import * as T from "./tatil.js?v=20261013i";
+import * as Gorev from "./gorev.js?v=20261013i";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -18,7 +18,7 @@ const TONE = [{ bg: "#DDF1E7", c: "#0B6E4F" }, { bg: "#FBE9C6", c: "#6B3F00" }, 
 const f1 = n => n.toFixed(1).replace(".", ",");
 const pad = n => String(n).padStart(2, "0");
 const iso0 = (() => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; })();
-const G = { cmp: null, key: "", pw: "10", fo: false };
+const G = { cmp: null, key: "", pw: "10", fo: false, po: false };
 const avgOf = a => { const v = a.filter(x => x !== null && x !== undefined); return v.length ? v.reduce((s, c) => s + c, 0) / v.length : null; };
 
 export async function render(v, ctx) {
@@ -127,12 +127,13 @@ export async function render(v, ctx) {
     const info = `<span style="flex:0 0 auto;display:flex;align-items:baseline;gap:8px;white-space:nowrap"><span class="muted" style="font-size:12.5px">${u.plan + u.offPast ? (u.done + u.offPast) + "/" + (u.plan + u.offPast) : "–"}</span><b style="min-width:34px;text-align:right">${u.pct === null ? "–" : "%" + Math.round(u.pct)}</b></span>`;
     return all ? `<div class="col1" style="gap:6px"><div style="display:flex;align-items:center;gap:10px"><span style="flex:1;min-width:0;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.name)}</span>${info}</div><div style="display:flex;flex-wrap:wrap;gap:4px">${ws.map(w => dot(w, all)).join("")}</div></div>`
       : `<div style="display:flex;align-items:center;gap:10px"><span style="width:84px;flex:0 0 84px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.name)}</span><span style="flex:1;min-width:0;display:flex;gap:3px;align-items:center">${ws.map(w => dot(w, all)).join("")}</span>${info}</div>`; };
-  const planHtml = `<div class="cd" style="gap:14px"><div class="row sp" style="align-items:baseline"><h2>Denetim Planı Uyumu</h2><div class="muted" style="font-size:13px">Haftalık plan · ${st.year} · ${u0 ? u0.total : 52} hafta${u0?.off ? ` · ${u0.off} tatil (muaf)` : ""}${pt === null ? "" : ` · tesis %${Math.round(pt)} (${pd}/${pc})`}</div></div>
+  const pOpen = !!G.po, pch = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="transition:transform .15s;transform:rotate(${pOpen ? 180 : 0}deg)"><path d="M6 9l6 6 6-6"/></svg>`;
+  const planHtml = `<div class="cd" style="gap:14px"><button type="button" data-po aria-expanded="${pOpen}" aria-label="Denetim planı uyumu kartını ${pOpen ? "kapat" : "aç"}" style="display:flex;align-items:center;gap:12px;width:100%;min-height:40px;height:auto;padding:0;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer"><span style="flex:1;min-width:0"><h2 style="margin:0">Denetim Planı Uyumu</h2><div class="muted" style="font-size:13px;margin-top:4px;font-weight:400">Haftalık plan · ${st.year} · ${u0 ? u0.total : 52} hafta${u0?.off ? ` · ${u0.off} tatil (muaf)` : ""}${pt === null ? "" : ` · tesis %${Math.round(pt)} (${pd}/${pc})`}</div></span><span style="flex:0 0 40px;width:40px;height:40px;border-radius:12px;border:1.5px solid var(--gd);color:var(--gd);box-sizing:border-box;display:flex;align-items:center;justify-content:center">${pch}</span></button>
     ${ask}
-    <div class="row sp noprint" style="gap:10px"><div class="row" style="gap:14px;font-size:12px;color:var(--muted)">${legend.map(([k, t]) => `<span class="row" style="gap:6px;flex-wrap:nowrap"><span style="${T.dotCss(k, 10)}"></span>${t}</span>`).join("")}</div>
+    <div class="col1" data-pob${pOpen ? "" : " hidden"} style="gap:14px;border-top:1px solid var(--line);padding-top:14px"><div class="row sp noprint" style="gap:10px"><div class="row" style="gap:14px;font-size:12px;color:var(--muted)">${legend.map(([k, t]) => `<span class="row" style="gap:6px;flex-wrap:nowrap"><span style="${T.dotCss(k, 10)}"></span>${t}</span>`).join("")}</div>
       <div class="seg" role="group" aria-label="Görünüm">${[["10", "10 hafta"], ["all", "Tüm yıl"]].map(([k, t]) => `<button data-pw="${k}" style="height:30px;padding:0 12px;border-radius:8px;font-size:12.5px;${G.pw === k ? "background:#0B6E4F;color:#fff" : "background:#EEF2F0;color:#2A3F3A"}">${t}</button>`).join("")}</div></div>
     <div class="col1" style="gap:${all ? 16 : 10}px">${pl.map(rowOf).join("")}</div>
-    <div class="muted" style="font-size:12.5px">Her hafta (Pzt–Paz) için bölüm başına bir denetim planlanır; ideal gün Pzt–Çar'dır. Tatil, plan dışı denilen ve denetimi yapılmayan hafta gri görünür, muaf sayılır (yapıldı gibi) ve yüzdeyi düşürmez; sayaç hafta düzenini korur (örn. 2/40). Bu kart puanı etkilemez.</div></div>`;
+    <div class="muted" style="font-size:12.5px">Her hafta (Pzt–Paz) için bölüm başına bir denetim planlanır; ideal gün Pzt–Çar'dır. Tatil, plan dışı denilen ve denetimi yapılmayan hafta gri görünür, muaf sayılır (yapıldı gibi) ve yüzdeyi düşürmez; sayaç hafta düzenini korur (örn. 2/40). Bu kart puanı etkilemez.</div></div></div>`;
   const label = s => (s === null ? "Veri yok" : bn(s));
   const rank = have.slice().sort((a, b) => b.v - a.v);
   const SH = 5, wp = { 3: ["Kritik", "#FADAD7", "#8E1B16"], 2: ["Major", "#FBE9C6", "#6B3F00"] }, shown = fnd.slice(0, SH);
@@ -184,7 +185,6 @@ export async function render(v, ctx) {
           ${(() => { const H = x === null ? 3 : Math.round(x * 1.8), inn = x !== null && H >= 44, lab = x === null ? "" : `<span style="font-size:10.5px;font-weight:700;writing-mode:vertical-rl;transform:rotate(180deg);${inn ? `color:${bn(x) === "Orta" ? "#3A2800" : "#fff"}` : ""}">${f1(x)}</span>`;
             return `${inn ? "" : `<div style="margin-bottom:4px">${lab}</div>`}<div style="width:68%;max-width:34px;height:${H}px;background:${bb(x).fill};border-radius:7px 7px 2px 2px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:6px;box-sizing:border-box">${inn ? lab : ""}</div>`; })()}
           <div style="height:24px;line-height:24px;font-size:10.5px;color:var(--muted)">${MS[i]}</div></div>`).join("")}</div></div></div></div>
-  ${planHtml}
   <div class="row" style="gap:20px;align-items:stretch">
     <div class="cd" style="flex:2 1 560px;min-width:0"><div class="row sp" style="align-items:baseline"><h2>İSG Bulgu Haritası</h2><div class="muted" style="font-size:13px">${hm >= 0 ? `${MONTHS[hm]} ${st.year}` : "Veri yok"} · kategori sıklığı (0 = uygun, 3 = çok sık, – = uygulanmaz)</div></div>
       ${hm >= 0 ? `<div style="overflow-x:auto"><div style="min-width:${Math.max(420, 100 + CATS.length * 56)}px;display:flex;flex-direction:column;gap:6px">
@@ -193,7 +193,8 @@ export async function render(v, ctx) {
     <div class="cd" style="flex:1 1 300px;min-width:0"><h2>Öncelikli Aksiyonlar</h2><div class="col1" style="gap:12px">${acts.map(a => `<div style="display:flex;gap:12px;padding:14px;border-radius:14px;background:${a.bg}">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="${a.c}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 22px">${a.ic.split("|").map(d => `<path d="${d}"/>`).join("")}</svg>
       <div class="col1" style="gap:3px"><div style="font-weight:800;color:${a.c}">${a.t}</div><div style="color:${a.c2};line-height:1.5">${a.d}</div></div></div>`).join("")}</div>
-      ${have.length ? findHtml : ""}</div></div>${cmpHtml}`;
+      ${have.length ? findHtml : ""}</div></div>${planHtml}${cmpHtml}`;
+  const po = v.querySelector("[data-po]"); if (po) po.onclick = () => { G.po = !G.po; const b = v.querySelector("[data-pob]"); b.hidden = !G.po; po.setAttribute("aria-expanded", G.po); po.setAttribute("aria-label", "Denetim planı uyumu kartını " + (G.po ? "kapat" : "aç")); po.querySelector("svg").style.transform = `rotate(${G.po ? 180 : 0}deg)`; };
   const fg = v.querySelector("[data-fg]"); if (fg) fg.onclick = () => { G.fo = !G.fo; const b = v.querySelector("[data-fgb]"); b.hidden = !G.fo; fg.setAttribute("aria-expanded", G.fo); fg.setAttribute("aria-label", "Açık kritik bulgular listesini " + (G.fo ? "kapat" : "aç")); fg.querySelector("svg").style.transform = `rotate(${G.fo ? 180 : 0}deg)`; };
   v.querySelectorAll("[data-fp]").forEach(b => b.onclick = () => lightbox(shown[+b.dataset.fp].ph, st));
   v.querySelectorAll("[data-pw]").forEach(b => b.onclick = () => { G.pw = b.dataset.pw; render(v, ctx); });

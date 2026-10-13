@@ -1,11 +1,11 @@
 // Aylık HSE Raporu · kayıtlı verilerden otomatik grafik + açıklama
-import * as S from "./store.js?v=20261013h";
-import { esc } from "./ui.js?v=20261013h";
-import * as Gorev from "./gorev.js?v=20261013h";
-import * as T from "./tatil.js?v=20261013h";
-import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261013h";
-import { CATS } from "./isgcats.js?v=20261013h";
-import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261013h";
+import * as S from "./store.js?v=20261013i";
+import { esc } from "./ui.js?v=20261013i";
+import * as Gorev from "./gorev.js?v=20261013i";
+import * as T from "./tatil.js?v=20261013i";
+import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261013i";
+import { CATS } from "./isgcats.js?v=20261013i";
+import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261013i";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
