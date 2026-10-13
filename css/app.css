@@ -243,3 +243,4 @@ body,html{background:#fff!important}#app{display:block!important}.pg{padding:0!i
 .fld{display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:left;font-weight:400;cursor:pointer}
 .fld.ph{color:var(--muted)}
 .fld:disabled{opacity:.6;cursor:default}
+#newSess:disabled{background:#D3DEDA;color:#5B6E69;cursor:not-allowed}

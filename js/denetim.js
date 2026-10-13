@@ -1,10 +1,10 @@
 // İSG Denetim Listesi sayfası
-import * as Guest from "./guest.js?v=20261013j";
-import * as Gorev from "./gorev.js?v=20261013j";
-import * as S from "./store.js?v=20261013j";
-import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261013j";
-import { CATS } from "./isgcats.js?v=20261013j";
-import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261013j";
+import * as Guest from "./guest.js?v=20261013k";
+import * as Gorev from "./gorev.js?v=20261013k";
+import * as S from "./store.js?v=20261013k";
+import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261013k";
+import { CATS } from "./isgcats.js?v=20261013k";
+import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261013k";
 
 const COLL = "isg";
 const D = { key: "", setup: null, doc: null, dept: null, month: null, open: { 0: true }, ro: false, timer: null, saved: true, msg: "" };
@@ -16,6 +16,12 @@ const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())
 const dm = s => `${s.slice(8, 10)}.${s.slice(5, 7)}`;
 const dmy = s => `${s.slice(8, 10)}.${s.slice(5, 7)}.${s.slice(0, 4)}`;
 const addDays = (s, n) => { const d = new Date(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10)); d.setDate(d.getDate() + n); return iso(d); };
+
+const AYK = ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"];
+const dmk = s => `${+s.slice(8)} ${AYK[+s.slice(5, 7) - 1]}`;
+// Hafta: Pzt–Paz; denetimler tarihine göre haftaya bağlanır (ISO hafta numarası)
+const monOf = s => { const g = new Date(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10)).getDay(); return addDays(s, g === 0 ? -6 : 1 - g); };
+const wkNo = s => { const m = monOf(s), t = new Date(+m.slice(0, 4), +m.slice(5, 7) - 1, +m.slice(8, 10) + 3), j4 = new Date(t.getFullYear(), 0, 4); return 1 + Math.round(((t - j4) / 864e5 - 3 + ((j4.getDay() + 6) % 7)) / 7); };
 
 function defaultMonth(year) { const n = new Date(); return +year === n.getFullYear() ? n.getMonth() + 1 : 1; }
 function defaultDate(year, month) { const n = new Date(); return (+year === n.getFullYear() && month === n.getMonth() + 1) ? iso(n) : `${year}-${pad(month)}-01`; }
@@ -221,6 +227,7 @@ function draw() {
   <div><div class="hd" style="letter-spacing:.8px">AYLIK VERİ GİRİŞİ</div><h1 class="ttl">İSG Denetim Listesi</h1>
     <div class="muted" style="font-size:12.5px" id="sv">${D.msg || (D.saved ? "Taslak kayıtlı" : "Kaydediliyor…")}</div></div>
   ${D.ro && !(GUEST.on && (D.gstatus === "review" || D.gstatus === "approved")) ? `<div class="warn">${roText(st.year, D.month, st.active)}</div>` : ""}
+  ${(() => { const cu = on && !GUEST.on && !D.ro && editNo != null ? doc.sessions.find(x => x.no === editNo) : null; return cu && !cu.closed && monOf(cu.date) < monOf(iso(new Date())) ? `<div class="warn">${cu.no}. denetim ${dmy(cu.date)} (${wkNo(cu.date)}. hafta) tarihinde başladı ve hâlâ açık. Eksikleri tamamlayıp “Kaydet ve Denetimi Tamamla”ya basın; açık denetim varken yeni haftanın denetimi başlatılamaz.</div>` : ""; })()}
   ${GUEST.on && D.gstatus === "returned" ? `<div class="warn">Yetkili kullanıcı taslağı düzeltme için geri gönderdi${D.gnote ? ": " + esc(D.gnote) : "."} Düzeltip tekrar kaydedin.</div>` : ""}
   ${GUEST.on && D.gstatus === "review" ? `<div class="okbar"><span>Taslağınız onay bekliyor. Yetkili kullanıcı onaylayınca denetime eklenir.</span></div>` : ""}
   ${GUEST.on && D.gstatus === "approved" ? `<div class="okbar"><span>Taslağınız onaylandı ve denetime eklendi.</span>${guestLock(st.year, D.month) ? "" : '<button class="sec" id="newGDraft">Yeni taslak başlat</button>'}</div>` : ""}
@@ -228,13 +235,13 @@ function draw() {
   <div class="cd" style="flex-direction:row;flex-wrap:wrap;gap:16px;padding:18px 20px">
     <div class="sf" style="flex:1 1 180px"><label class="hd" for="bolum">BÖLÜM</label><select id="bolum" class="inp">${setup.rows.map(r => `<option value="${r.id}" ${r.id === D.dept ? "selected" : ""}>${esc(r.name)}</option>`).join("")}</select></div>
     <div class="sf" style="flex:1 1 150px"><label class="hd" for="ay">DÖNEM</label><select id="ay" class="inp">${MONTHS.map((m, i) => `<option value="${i + 1}" ${i + 1 === D.month ? "selected" : ""}>${m} ${st.year}</option>`).join("")}</select></div>
-    <div class="sf" style="flex:1 1 150px"><label class="hd" for="tarih">DENETİM TARİHİ</label><button id="tarih" class="inp fld ${date ? "" : "ph"}" ${D.ro ? "disabled" : ""}><span>${date ? esc(fmtTarih(date)) : "Tarih seç"}</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0B6E4F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></button></div>
+    <div class="sf" style="flex:1 1 150px"><label class="hd" for="tarih">${date ? `TARİH · ${wkNo(date)}. HAFTA` : "DENETİM TARİHİ"}</label><button id="tarih" class="inp fld ${date ? "" : "ph"}" ${D.ro ? "disabled" : ""}><span>${date ? esc(fmtTarih(date)) : "Tarih seç"}</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0B6E4F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></button></div>
     <div class="sf" style="flex:1 1 200px"><label class="hd" for="denetci">DENETÇİ</label><input id="denetci" class="inp" value="${esc(doc.auditor)}" placeholder="Ad Soyad" ${D.ro ? "disabled" : ""}></div></div>
   <div class="cd" style="padding:18px 20px;gap:14px"><div class="row sp"><b style="font:600 16px Sora,sans-serif">Bu Ayın Denetim Kayıtları</b>
     <span class="muted" style="font-size:12.5px">Aynı bulgu sonraki denetimlerde tekrarlanırsa sıklık otomatik artar: 1 gün → 1 · 2-3 farklı gün → 2 · 4 ve üzeri → 3 (aynı gün yapılan denetimler tek sayılır)</span></div>
     <div class="row" style="gap:12px">${doc.sessions.map(s => { const isEd = on && s.no === editNo, lastS = s.no === doc.sessions.length;
       const stt = isEd ? "açık · düzenleniyor" : s.closed ? "tamamlandı" : "kaydedildi";
-      return `<div class="sess ${isEd ? "cur" : ""}">${isEd ? '<span class="sw" style="background:#0B6E4F;border-radius:50%;margin:0"></span>' : ic('<path d="M4 12l5 5L20 6"/>').replace("currentColor", "#0B6E4F")}<div><b>${s.no}. Denetim</b><div class="muted" style="font-size:12.5px">${dmy(s.date)} · ${Object.keys(s.fails).length} uygunsuz · ${stt}</div></div>
+      return `<div class="sess ${isEd ? "cur" : ""}">${isEd ? '<span class="sw" style="background:#0B6E4F;border-radius:50%;margin:0"></span>' : ic('<path d="M4 12l5 5L20 6"/>').replace("currentColor", "#0B6E4F")}<div><b>${s.no}. Denetim · ${wkNo(s.date)}. hafta</b><div class="muted" style="font-size:12.5px">${dmy(s.date)} · ${Object.keys(s.fails).length} uygunsuz · ${stt}</div></div>
       ${!D.ro && lastS && !GUEST.on ? `<div class="row" style="gap:6px;margin-left:auto;flex-wrap:nowrap">${!on ? `<button class="sm" data-reopen="${s.no}" style="white-space:nowrap" title="Bu denetimi tekrar açıp işaretlemeye devam et">Yeniden aç</button>` : ""}<button class="sm sec" data-delsess="${s.no}" style="white-space:nowrap" title="Bu denetimi sil">Sil</button></div>` : ""}</div>`; }).join("")}
       ${on && editNo == null ? `<div class="sess cur"><span class="sw" style="background:#0B6E4F;border-radius:50%;margin:0"></span><div><b>${GUEST.on ? "Taslak denetiminiz" : curNo + ". Denetim"}</b><div style="font-size:12.5px">${date ? dmy(date) : "—"} · ${c.curMarked ? c.curFails + " uygunsuz (taslak)" : "henüz işaretleme yok"} · ${GUEST.on ? ({ saved: "kaydedildi", review: "onay bekliyor", approved: "onaylandı", returned: "geri gönderildi" }[D.gstatus] || "kaydedilmedi") : "yeni, kaydedilmedi"}</div></div></div>` : ""}</div></div>
   <div class="helpbox" style="flex-direction:row;gap:14px;align-items:flex-start">${ic('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h0"/>', 22)}<div style="line-height:1.6">Her maddeyi <b>Uygun</b>, <b>Uygunsuz</b> veya <b>Y.D.</b> (yok / değerlendirilmedi) olarak işaretleyin. Uygunsuz seçtiğinizde sıklık otomatik görünür ve açıklama yazmanız istenir: hangi makine veya alanda ne gibi bir uygunsuzluk var? Aynı bölümde benzer bir uygunsuzluk daha varsa yeni madde ekleyin. Açıklamalar raporda grafiklerin altında bölüm adıyla yayınlanır.</div></div>
@@ -258,14 +265,14 @@ function draw() {
         <button class="go2" id="saveSess" ${canPart ? "" : "disabled"}>${GUEST.on ? "Taslağı Kaydet" : curNo + ". Denetimi Kaydet"}</button>
         ${GUEST.on ? `<button class="sec" id="askDone" style="height:44px;font-weight:700" ${canSave ? "" : "disabled"}>Tamamlanmasını İste</button>` : ""}
         ${GUEST.on ? "" : `<button class="sec" id="doneSess" style="height:44px;font-weight:700" ${canSave ? "" : "disabled"}>Kaydet ve Denetimi Tamamla</button>`}
-        <div class="muted" style="font-size:12.5px;line-height:1.5"><b>Kaydet:</b> işaretlediğiniz kadarını saklar, denetim açık kalır; sonra kaldığınız yerden devam edebilirsiniz (tüm maddelerin işaretlenmesi gerekmez). <b>Tamamla:</b> tüm maddeler işaretliyken denetimi kapatır. Yeni denetim ancak siz başlatınca açılır.</div></div>
+        <div class="muted" style="font-size:12.5px;line-height:1.5"><b>Kaydet:</b> işaretlediğiniz kadarını saklar, denetim açık kalır; sonra kaldığınız yerden devam edebilirsiniz (tüm maddelerin işaretlenmesi gerekmez). <b>Tamamla:</b> tüm maddeler işaretliyken denetimi kapatır. Yeni denetim, yeni hafta başlayınca “Denetimi Başlat” ile açılır.</div></div>
     </div></div></fieldset>`;
   if (!on) {
     v.querySelector("fieldset.fs")?.remove(); v.querySelector(".helpbox")?.remove();
-    const last = doc.sessions[doc.sessions.length - 1];
-    v.insertAdjacentHTML("beforeend", `<div class="cd" style="gap:12px;padding:20px"><b style="font:600 16px Sora,sans-serif">Bu ay için tüm denetimler tamamlandı</b>
-      <div class="muted" style="line-height:1.55">${last ? `${last.no}. denetim ${dmy(last.date)} tarihinde tamamlandı. ` : ""}Bu bölümün aylık İSG skoru <b>${f1(c.score)}</b> (${band}). Saha turunda yeni bir eksiklik görürseniz “Yeniden aç” ile son denetime ekleyin; ayrı bir tekrar denetimi yapacaksanız aşağıdan başlatın.</div>
-      ${D.ro ? "" : `<div><button id="newSess">${doc.sessions.length + 1}. Denetimi Başlat</button></div>`}</div>`);
+    const last = doc.sessions[doc.sessions.length - 1], thisMon = monOf(iso(new Date())), locked = !!last && monOf(last.date) === thisMon;
+    v.insertAdjacentHTML("beforeend", `<div class="cd" style="gap:12px;padding:20px"><b style="font:600 16px Sora,sans-serif">${locked ? "Bu hafta denetimi tamamlandı" : "Yeni denetim başlatılabilir"}</b>
+      <div class="muted" style="line-height:1.55">${last ? `${last.no}. denetim ${dmy(last.date)} (${wkNo(last.date)}. hafta) tarihinde tamamlandı. ` : ""}Bu bölümün aylık İSG skoru <b>${f1(c.score)}</b> (${band}). ${locked ? "Saha turunda yeni bir eksiklik görürseniz “Yeniden aç” ile bu haftanın denetimine ekleyin. Yeni denetim, yeni hafta başlayınca açılır." : "Yeni hafta için denetimi başlatabilirsiniz. Geçen haftanın denetimine ekleme yapmak isterseniz “Yeniden aç”ı kullanın."}</div>
+      ${D.ro ? "" : `<div><button id="newSess" ${locked ? "disabled" : ""}>${doc.sessions.length + 1}. Denetimi Başlat</button></div>${locked ? `<div class="muted" style="font-size:12.5px;margin-top:-4px">${dmk(addDays(thisMon, 7))} Pzt günü başlatılabilir</div>` : ""}`}</div>`);
   }
   bind(v, c);
 }
@@ -321,7 +328,7 @@ function bind(v, c) {
   const nw = document.getElementById("newSess");
   if (nw) nw.onclick = () => { doc.draft = emptyDraft(defaultDate(st.year, D.month), true); persist(true); draw(); };
   on("[data-delsess]", async el => {
-    const { confirmBox } = await import("./ui.js?v=20261013j");
+    const { confirmBox } = await import("./ui.js?v=20261013k");
     if (!(await confirmBox("Son denetim silinsin mi?", "Kayıtlı denetim silinir; skor ve sıklıklar yeniden hesaplanır.", "Evet, sil", true))) return;
     const gone = doc.sessions.pop();
     // Misafir taslağından gelen denetimse: misafire "silindi" bilgisi gider (taslağı düzeltip yeniden gönderebilir), fotoğrafları korunur
@@ -341,7 +348,7 @@ function bind(v, c) {
     else { no = doc.sessions.length + 1; doc.sessions.push({ no, ...rec, closed: false }); d.edit = no; }
     if (close) { doc.sessions.find(x => x.no === no).closed = true; doc.draft = emptyDraft(defaultDate(st.year, D.month), false); }
     await persist(true); draw();
-    toast(close ? `${no}. denetim tamamlandı. Yeni denetim için “Denetimi Başlat”a basın.` : `${no}. denetim kaydedildi; açık kaldı, kaldığınız yerden devam edebilirsiniz.`);
+    toast(close ? `${no}. denetim tamamlandı. ${monOf(d.date) === monOf(iso(new Date())) ? "Yeni denetim, yeni hafta başlayınca açılır." : "Yeni denetim için “Denetimi Başlat”a basın."}` : `${no}. denetim kaydedildi; açık kaldı, kaldığınız yerden devam edebilirsiniz.`);
   };
   const guestSave = async review => {
     if (D.ro || !dOk || c.missing || c.ydMissing || !c.curMarked || (review && !c.canSave)) return;

@@ -20,6 +20,12 @@ Fabrika adı iki programda aynı olmalıdır (büyük/küçük harf ve Türkçe 
 
 ## Sürüm notları
 
+### 1.6.0
+- **Haftalık denetim düzeni (Adım A):** Denetimler tarihine göre haftaya bağlanır (Pzt–Paz, ISO hafta no). Kayıt kartında "1. Denetim · 42. hafta", tarih alanında hafta bilgisi görünür.
+- **Yeni denetim kilidi:** Bu haftanın denetimi tamamlandıysa "Denetimi Başlat" pasiftir ve başlatılabileceği Pazartesi yazar; yeni haftada otomatik aktif olur. Hafta içinde yeni bulgu için "Yeniden aç" kullanılır.
+- **Eski açık denetim uyarısı:** Önceki haftadan açık kalmış denetim için formun üstünde uyarı çıkar.
+- **Özel tarih seçici:** Tatil Takvimi (başlangıç/bitiş aralığı, tatil noktaları) ve Denetim Tarihi için bilgi kartı düzeninde takvim; tarayıcının yerleşik takvimi kullanılmaz.
+
 ### 1.5.0
 - **Haftalık denetim planı:** Her bölüm için yıl boyunca 52 hafta; ideal gün Pzt–Çar ("zamanında"), Per–Paz "geç". Genel Bakış'ta ve raporlarda gösterilir; puanı etkilemez.
 - **Tatil Takvimi (Kurulum):** Resmi tatiller (2025–2045) ve dini bayramlar (2025–2027) hazır gelir; özel gün/tarih aralığı eklenebilir, istenmeyen gün kaldırılabilir. Pzt–Çar'da iş günü kalmayan hafta için "Tatil, plan dışı" / "Denetim yapılacak" kararı sorulur. Tatil haftası gri (çizgili) görünür ve **muaf** sayılır: yüzdeyi düşürmez, hafta sayısı korunur.
