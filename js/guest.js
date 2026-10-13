@@ -3,8 +3,8 @@
 //   users/{sahip}/invites/{kod}        davet (e-posta ayarı kopyası)
 //   users/{sahip}/guestReqs/{misafirUid}  onay isteği {gid, code, name, email, status, at}
 //   users/{sahip}/members/{misafirUid}    onaylı üye {name, email, factories[], mode, expires|null}
-import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously } from "./firebase.js?v=20261013d";
-import { esc, toast, confirmBox } from "./ui.js?v=20261013d";
+import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously } from "./firebase.js?v=20261013e";
+import { esc, toast, confirmBox } from "./ui.js?v=20261013e";
 
 const Q = new URLSearchParams(location.search);
 export const linkInfo = () => {
