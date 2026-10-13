@@ -1,11 +1,11 @@
 // Genel Bakış · yıllık özet panosu (gerçek verilerden)
-import * as S from "./store.js?v=20261013e";
-import { esc, noticeBox } from "./ui.js?v=20261013e";
-import { CATS } from "./isgcats.js?v=20261013e";
-import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261013e";
-import { load } from "./verim.js?v=20261013e";
-import * as T from "./tatil.js?v=20261013e";
-import * as Gorev from "./gorev.js?v=20261013e";
+import * as S from "./store.js?v=20261013f";
+import { esc, noticeBox } from "./ui.js?v=20261013f";
+import { CATS } from "./isgcats.js?v=20261013f";
+import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261013f";
+import { load } from "./verim.js?v=20261013f";
+import * as T from "./tatil.js?v=20261013f";
+import * as Gorev from "./gorev.js?v=20261013f";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -171,8 +171,13 @@ export async function render(v, ctx) {
       <div class="col1" style="gap:12px">${rank.length ? rank.map((x, i) => { const b = bb(x.v); return `<div style="display:flex;align-items:center;gap:10px"><span style="width:20px;flex:0 0 20px;color:#6A7E79;font-weight:700;font-size:13px">${i + 1}</span><span style="width:112px;flex:0 0 112px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.r.name)}</span>
         <div style="flex:1;min-width:30px;height:12px;border-radius:999px;background:#E4ECE9;overflow:hidden"><div style="height:100%;border-radius:999px;width:${Math.min(100, x.v)}%;background:${b.fill}"></div></div><b style="width:40px;text-align:right">${f1(x.v)}</b>
         <span style="width:68px;flex:0 0 68px;text-align:center;font-size:12px;font-weight:700;padding:3px 0;border-radius:999px;background:${b.bg};color:${b.c}">${bn(x.v)}</span></div>`; }).join("") : `<div class="muted">Henüz veri yok.</div>`}</div></div>
-    <div class="cd" style="flex:1.3 1 460px;min-width:0;gap:14px"><div class="row sp" style="align-items:baseline"><h2>Aylık Trend</h2><div class="muted" style="font-size:13px">Tesis HSE verimi · ${st.year} · hedef ${f1(hedef).replace(/,0$/, "")} · ${hit}/${trend.filter(x => x !== null).length} ay hedefte</div></div>
-      <div style="position:relative;height:236px"><div style="position:absolute;left:30px;right:0;bottom:${24 + hedef * 1.8}px;border-top:2px solid #0B6E4F;z-index:1"></div><div style="position:absolute;left:0;bottom:${24 + hedef * 1.8 - 7}px;font-size:11px;font-weight:800;color:#0B6E4F">${f1(hedef).replace(/,0$/, "")}</div>${[50, 75].map(a => [a, a]).map(([a, l]) => `<div style="position:absolute;left:30px;right:0;bottom:${24 + a * 1.8 - 0}px;border-top:1px dashed #B5C5BF"></div><div style="position:absolute;left:0;bottom:${24 + a * 1.8 - 7}px;font-size:11px;color:var(--muted)">${l}</div>`).join("")}
+    <div class="cd" style="flex:1.3 1 460px;min-width:0;gap:14px"><div class="row sp" style="align-items:baseline"><h2>Aylık Trend</h2><div class="muted" style="font-size:13px">Tesis HSE verimi · ${st.year} · 0–100 puan · hedef ${f1(hedef).replace(/,0$/, "")} · ${hit}/${trend.filter(x => x !== null).length} ay hedefte</div></div>
+      <div style="position:relative;height:236px">${(() => { const Y = v => 24 + v * 1.8, hs = f1(hedef).replace(/,0$/, ""), lo = [0, num(p.esik.o), num(p.esik.i), num(p.esik.m), 100], bandC = ["#FADAD7", "#FBE9C6", "#DCEAF7", "#D9F1E6"];
+        return bandC.map((c, k) => `<div style="position:absolute;left:30px;right:0;bottom:${Y(lo[k])}px;height:${Math.max(0, (lo[k + 1] - lo[k]) * 1.8)}px;background:${c};opacity:.45;border-radius:${k === 3 ? "6px 6px 0 0" : "0"}"></div>`).join("")
+          + [25, 50, 75, 100].map(a => `<div style="position:absolute;left:30px;right:0;bottom:${Y(a)}px;border-top:1px dashed #B5C5BF"></div>`).join("")
+          + `<div style="position:absolute;left:30px;right:0;bottom:${Y(0)}px;border-top:1.5px solid #9FB4AE"></div>`
+          + [0, 25, 50, 75, 100].filter(a => Math.abs(a - hedef) >= 7).map(a => `<div style="position:absolute;left:0;bottom:${Y(a) - 7}px;width:26px;text-align:right;font-size:11px;color:var(--muted)">${a}</div>`).join("")
+          + `<div style="position:absolute;left:30px;right:0;bottom:${Y(hedef)}px;border-top:2px solid #0B6E4F;z-index:1"></div><div style="position:absolute;left:0;bottom:${Y(hedef) - 7}px;width:26px;text-align:right;font-size:11px;font-weight:800;color:#0B6E4F">${hs}</div>`; })()}
         <div style="position:absolute;left:30px;right:0;top:0;bottom:0;display:flex;gap:6px;align-items:flex-end">${trend.map((x, i) => `<div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:236px">
           ${(() => { const H = x === null ? 3 : Math.round(x * 1.8), inn = x !== null && H >= 44, lab = x === null ? "" : `<span style="font-size:10.5px;font-weight:700;writing-mode:vertical-rl;transform:rotate(180deg);${inn ? `color:${bn(x) === "Orta" ? "#3A2800" : "#fff"}` : ""}">${f1(x)}</span>`;
             return `${inn ? "" : `<div style="margin-bottom:4px">${lab}</div>`}<div style="width:68%;max-width:34px;height:${H}px;background:${bb(x).fill};border-radius:7px 7px 2px 2px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:6px;box-sizing:border-box">${inn ? lab : ""}</div>`; })()}
