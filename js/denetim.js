@@ -1,11 +1,11 @@
 // İSG Denetim Listesi sayfası
-import * as Guest from "./guest.js?v=20261013n";
-import * as Gorev from "./gorev.js?v=20261013n";
-import * as S from "./store.js?v=20261013n";
-import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261013n";
-import { CATS } from "./isgcats.js?v=20261013n";
-import { dotCss } from "./tatil.js?v=20261013n";
-import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261013n";
+import * as Guest from "./guest.js?v=20261013o";
+import * as Gorev from "./gorev.js?v=20261013o";
+import * as S from "./store.js?v=20261013o";
+import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261013o";
+import { CATS } from "./isgcats.js?v=20261013o";
+import { dotCss } from "./tatil.js?v=20261013o";
+import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261013o";
 
 const COLL = "isg";
 const D = { key: "", setup: null, doc: null, dept: null, month: null, open: { 0: true }, ro: false, timer: null, saved: true, msg: "" };
@@ -307,7 +307,7 @@ function draw() {
       return `<div class="sess ${isEd ? "cur" : ""}">${isEd ? '<span class="sw" style="background:#0B6E4F;border-radius:50%;margin:0"></span>' : ic('<path d="M4 12l5 5L20 6"/>').replace("currentColor", "#0B6E4F")}<div><b>${s.no}. Denetim · ${wkNo(s.date)}. hafta</b><div class="muted" style="font-size:12.5px">${dmy(s.date)} · ${Object.keys(s.fails).length} uygunsuz · ${stt}</div></div>
       ${!D.ro && lastS && !GUEST.on ? `<div class="row" style="gap:6px;margin-left:auto;flex-wrap:nowrap">${!on ? `<button class="sm" data-reopen="${s.no}" style="white-space:nowrap" title="Bu denetimi tekrar açıp işaretlemeye devam et">Yeniden aç</button>` : ""}<button class="sm sec" data-delsess="${s.no}" style="white-space:nowrap" title="Bu denetimi sil">Sil</button></div>` : ""}</div>`; }).join("")}
       ${on && editNo == null ? `<div class="sess cur"><span class="sw" style="background:#0B6E4F;border-radius:50%;margin:0"></span><div><b>${GUEST.on ? "Taslak denetiminiz" : curNo + ". Denetim"}</b><div style="font-size:12.5px">${date ? dmy(date) : "—"} · ${c.curMarked ? c.curFails + " uygunsuz (taslak)" : "henüz işaretleme yok"} · ${GUEST.on ? ({ saved: "kaydedildi", review: "onay bekliyor", approved: "onaylandı", returned: "geri gönderildi" }[D.gstatus] || "kaydedilmedi") : "yeni, kaydedilmedi"}</div></div></div>` : ""}</div></div>
-  <div class="helpbox" style="flex-direction:row;gap:14px;align-items:flex-start">${ic('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h0"/>', 22)}<div style="line-height:1.6">Her maddeyi <b>Uygun</b>, <b>Uygunsuz</b> veya <b>Y.D.</b> (yok / değerlendirilmedi) olarak işaretleyin. Uygunsuz seçtiğinizde sıklık otomatik görünür ve açıklama yazmanız istenir: hangi makine veya alanda ne gibi bir uygunsuzluk var? Aynı bölümde benzer bir uygunsuzluk daha varsa yeni madde ekleyin. Açıklamalar raporda grafiklerin altında bölüm adıyla yayınlanır.</div></div>
+  <div class="helpbox" style="flex-direction:row;gap:14px;align-items:flex-start">${ic('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h0"/>', 22)}<div style="line-height:1.6">Her maddeyi <b>Uygun</b>, <b>Uygunsuz</b> veya <b>Y.D.</b> olarak işaretleyin; uygunsuzlukta açıklama yazın.</div></div>
   <fieldset class="fs" ${D.ro ? "disabled" : ""}><div class="two" style="align-items:flex-start">
     <div class="colw" style="flex:2 1 600px;gap:14px">${catHtml}</div>
     <div class="colw side" style="flex:1 1 320px;gap:16px">
@@ -391,7 +391,7 @@ function bind(v, c) {
   const nw = document.getElementById("newSess");
   if (nw) nw.onclick = () => { doc.draft = emptyDraft(defaultDate(st.year, D.month), true); persist(true); draw(); };
   on("[data-delsess]", async el => {
-    const { confirmBox } = await import("./ui.js?v=20261013n");
+    const { confirmBox } = await import("./ui.js?v=20261013o");
     if (!(await confirmBox("Son denetim silinsin mi?", "Kayıtlı denetim silinir; skor ve sıklıklar yeniden hesaplanır.", "Evet, sil", true))) return;
     const gone = doc.sessions.pop();
     // Misafir taslağından gelen denetimse: misafire "silindi" bilgisi gider (taslağı düzeltip yeniden gönderebilir), fotoğrafları korunur
