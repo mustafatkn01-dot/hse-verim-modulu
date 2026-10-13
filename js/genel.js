@@ -1,11 +1,11 @@
 // Genel Bakış · yıllık özet panosu (gerçek verilerden)
-import * as S from "./store.js?v=20261013b";
-import { esc } from "./ui.js?v=20261013b";
-import { CATS } from "./isgcats.js?v=20261013b";
-import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261013b";
-import { load } from "./verim.js?v=20261013b";
-import * as T from "./tatil.js?v=20261013b";
-import * as Gorev from "./gorev.js?v=20261013b";
+import * as S from "./store.js?v=20261013c";
+import { esc, noticeBox } from "./ui.js?v=20261013c";
+import { CATS } from "./isgcats.js?v=20261013c";
+import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261013c";
+import { load } from "./verim.js?v=20261013c";
+import * as T from "./tatil.js?v=20261013c";
+import * as Gorev from "./gorev.js?v=20261013c";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -190,7 +190,7 @@ export async function render(v, ctx) {
   const fg = v.querySelector("[data-fg]"); if (fg) fg.onclick = () => { G.fo = !G.fo; const b = v.querySelector("[data-fgb]"); b.hidden = !G.fo; fg.setAttribute("aria-expanded", G.fo); fg.setAttribute("aria-label", "Açık kritik bulgular listesini " + (G.fo ? "kapat" : "aç")); fg.querySelector("svg").style.transform = `rotate(${G.fo ? 180 : 0}deg)`; };
   v.querySelectorAll("[data-fp]").forEach(b => b.onclick = () => lightbox(shown[+b.dataset.fp].ph, st));
   v.querySelectorAll("[data-pw]").forEach(b => b.onclick = () => { G.pw = b.dataset.pw; render(v, ctx); });
-  v.querySelectorAll("[data-tk]").forEach(b => b.onclick = async () => { const [mon, k] = b.dataset.tk.split("|"); b.disabled = true; try { await T.karar(st.fid, st.year, mon, k); } catch (e) { alert("Kaydedilemedi: " + e.message); } render(v, ctx); });
+  v.querySelectorAll("[data-tk]").forEach(b => b.onclick = async () => { const [mon, k] = b.dataset.tk.split("|"); b.disabled = true; try { await T.karar(st.fid, st.year, mon, k); } catch (e) { noticeBox("Kaydedilemedi", e.message); } render(v, ctx); });
   const cy = document.getElementById("cmpY"); if (cy) cy.onchange = e => { G.cmp = e.target.value; render(v, ctx); };
 }
 

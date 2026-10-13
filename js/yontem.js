@@ -1,9 +1,9 @@
 // Kurulum sayfasındaki katlanabilir "Hesaplama Yöntemi" kartı (parametrelerden canlı; PDF indirilebilir)
-import { dotCss } from "./tatil.js?v=20261013b";
-import { esc } from "./ui.js?v=20261013b";
-import { num, c2, empCoef, RISK, DEFAULT_PARAMS } from "./scoring.js?v=20261013b";
-import { T as KAZA } from "./kaza.js?v=20261013b";
-import { askFormat, savePdf, printCurrent } from "./pdf.js?v=20261013b";
+import { dotCss } from "./tatil.js?v=20261013c";
+import { esc, noticeBox } from "./ui.js?v=20261013c";
+import { num, c2, empCoef, RISK, DEFAULT_PARAMS } from "./scoring.js?v=20261013c";
+import { T as KAZA } from "./kaza.js?v=20261013c";
+import { askFormat, savePdf, printCurrent } from "./pdf.js?v=20261013c";
 
 const Y = { open: false };
 export const reset = () => { Y.open = false; };
@@ -66,7 +66,7 @@ export function mount(el, getParams, meta = {}) {
       try {
         const top0 = b.getBoundingClientRect().top, breaks = [...b.querySelectorAll("[data-brk]")].map(c => c.getBoundingClientRect().top - top0).filter(t => t > 0);
         await savePdf(b, { size: o.size, orient: o.orient, name: `HSE Hesaplama Yöntemi (${o.size}).pdf`, margin: 28.5 * (o.size === "A3" ? 1.4142 : 1), scale: o.size === "A3" ? 3 : 2.5, breaks, header: `${meta.fname || ""} · Hesaplama Yöntemi`, pageNo: true });
-      } catch (e) { alert("PDF üretilemedi: " + e.message); } finally { b.remove(); }
+      } catch (e) { noticeBox("PDF üretilemedi", e.message); } finally { b.remove(); }
     };
   };
   draw();

@@ -1,19 +1,19 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261013b";
-import * as S from "./store.js?v=20261013b";
-import * as Prim from "./primary.js?v=20261013b";
-import * as Denetim from "./denetim.js?v=20261013b";
-import * as Kaza from "./kaza.js?v=20261013b";
-import * as Konusma from "./konusma.js?v=20261013b";
-import * as Genel from "./genel.js?v=20261013b";
-import * as Rapor from "./rapor.js?v=20261013b";
-import * as Verim from "./verim.js?v=20261013b";
-import * as Isbasi from "./isbasi.js?v=20261013b";
-import * as Guest from "./guest.js?v=20261013b";
-import * as Yontem from "./yontem.js?v=20261013b";
-import * as Tatil from "./tatil.js?v=20261013b";
-import * as Gorev from "./gorev.js?v=20261013b";
-import { $, esc, ic, toast, modal, confirmBox, formBox, GUEST } from "./ui.js?v=20261013b";
-import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261013b";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261013c";
+import * as S from "./store.js?v=20261013c";
+import * as Prim from "./primary.js?v=20261013c";
+import * as Denetim from "./denetim.js?v=20261013c";
+import * as Kaza from "./kaza.js?v=20261013c";
+import * as Konusma from "./konusma.js?v=20261013c";
+import * as Genel from "./genel.js?v=20261013c";
+import * as Rapor from "./rapor.js?v=20261013c";
+import * as Verim from "./verim.js?v=20261013c";
+import * as Isbasi from "./isbasi.js?v=20261013c";
+import * as Guest from "./guest.js?v=20261013c";
+import * as Yontem from "./yontem.js?v=20261013c";
+import * as Tatil from "./tatil.js?v=20261013c";
+import * as Gorev from "./gorev.js?v=20261013c";
+import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261013c";
+import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261013c";
 
 const VERSION = "1.5.0";
 const st = { factories: [], years: [], fid: null, year: null, page: "genel", profile: {}, lastSync: new Date() };
@@ -377,7 +377,7 @@ function pageGuestAyarlar(v) {
     <div class="muted" style="font-size:12.5px;line-height:1.6">Misafir olarak veri girişi yapabilir, İSG denetimini kaydedebilir, raporları görüp PDF alabilirsiniz. Denetimi tamamlama, silme, kurulum ve yıl/tarih ekleme yetkili kullanıcıdadır.</div></div>
   <div class="cd"><h2>Görünüm</h2><div class="th">${THEMES.map(([k, n, sd, bg, cd]) => `<button class="tb ${k === theme ? "on" : ""}" data-theme="${k}" aria-pressed="${k === theme}"><div class="pv"><div style="flex:0 0 28%;background:${sd}"></div><div style="flex:1;background:${bg};display:flex;flex-direction:column;gap:5px;padding:7px"><div style="height:8px;border-radius:4px;background:${cd}"></div><div style="height:8px;width:60%;border-radius:4px;background:#17A06F"></div></div></div><b>${n}</b></button>`).join("")}</div></div>`;
   v.querySelectorAll("[data-theme]").forEach(b => b.onclick = () => { S.pref.set("theme", b.dataset.theme); applyTheme(); pageGuestAyarlar(v); });
-  $("gOut").onclick = () => { if (confirm("Çıkış yapılsın mı? Tekrar girmek için yeniden onay gerekir.")) guestOut(); };
+  $("gOut").onclick = async () => { if (await confirmBox("Çıkış yapılsın mı?", "Tekrar girmek için yeniden onay gerekir.", "Çıkış yap")) guestOut(); };
 }
 
 async function pageAyarlar(v) {
@@ -463,7 +463,7 @@ async function pageAyarlar(v) {
   $("saveName").onclick = async () => { await S.saveProfile({ name: $("adSoyad").value.trim() }); say("Adınız kaydedildi."); pageAyarlar(v); };
   $("resetPw").onclick = async () => { try { await sendPasswordResetEmail(auth, email); say("Şifre sıfırlama bağlantısı e-postanıza gönderildi."); } catch (e) { say(errMsg(e)); } };
   v.querySelectorAll("[data-prim]").forEach(b => b.onclick = () => Prim.startTransfer({ id: b.dataset.prim, name: b.dataset.pname }, t => { toast(t); pageAyarlar(v); }));
-  v.querySelectorAll("[data-rev]").forEach(b => b.onclick = async () => { if (confirm("Bu cihazdaki oturum uzaktan kapatılsın mı?")) { try { await S.revokeSession(b.dataset.rev); say("Cihazın oturumu kapatıldı."); } catch (e) { say(e.message); } pageAyarlar(v); } });
+  v.querySelectorAll("[data-rev]").forEach(b => b.onclick = async () => { if (await confirmBox("Oturum kapatılsın mı?", "Bu cihazdaki oturum uzaktan kapatılır.", "Oturumu kapat", true)) { try { await S.revokeSession(b.dataset.rev); say("Cihazın oturumu kapatıldı."); } catch (e) { say(e.message); } pageAyarlar(v); } });
   $("backup").onclick = async () => {
     $("backup").disabled = true; $("backupT").textContent = "Hazırlanıyor…";
     try {
@@ -514,7 +514,7 @@ async function pageAyarlar(v) {
   v.querySelectorAll("[data-actyear]").forEach(b => b.onclick = async () => {
     const ay = b.dataset.actyear;
     if (+ay > cy) return say(`${ay} yılı henüz başlamadı; bugünün tarihi ${new Date().toLocaleDateString("tr-TR")}.`);
-    if (!confirm(`${ay} yılı aktif yapılsın mı? Şu an aktif olan yıl arşive geçer (salt okunur).`)) return;
+    if (!(await confirmBox(`${ay} yılı aktif yapılsın mı?`, "Şu an aktif olan yıl arşive geçer (salt okunur).", "Aktif yap"))) return;
     await S.updateFactory(st.fid, { activeYear: ay }); S.pref.set("year", ay); await loadContext(); say(`${ay} yılı aktif yapıldı.`); pageAyarlar(v);
   });
   const ny = $("newY");

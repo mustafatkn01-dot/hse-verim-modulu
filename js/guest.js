@@ -3,8 +3,8 @@
 //   users/{sahip}/invites/{kod}        davet (e-posta ayarı kopyası)
 //   users/{sahip}/guestReqs/{misafirUid}  onay isteği {gid, code, name, email, status, at}
 //   users/{sahip}/members/{misafirUid}    onaylı üye {name, email, factories[], mode, expires|null}
-import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously } from "./firebase.js?v=20261013b";
-import { esc, toast } from "./ui.js?v=20261013b";
+import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously } from "./firebase.js?v=20261013c";
+import { esc, toast, confirmBox } from "./ui.js?v=20261013c";
 
 const Q = new URLSearchParams(location.search);
 export const linkInfo = () => {
@@ -252,8 +252,8 @@ export async function renderSettings(box, { ownerUid, factories, onChange }) {
     refresh();
   };
   q("#gMake") && (q("#gMake").onclick = mk);
-  q("#gRegen") && (q("#gRegen").onclick = () => { if (confirm("Eski davet bağlantısı geçersiz olacak. Yenilensin mi?")) mk(); });
-  q("#gClose") && (q("#gClose").onclick = async () => { if (!confirm("Davet bağlantısı kapatılsın mı? Bağlantı çalışmaz; onaylı misafirler etkilenmez. İstediğinizde yeniden oluşturabilirsiniz.")) return; for (const i of invs) await deleteDoc(doc(db, `users/${ownerUid}/invites/${i.id}`)).catch(() => {}); toast("Davet bağlantısı kapatıldı."); refresh(); });
+  q("#gRegen") && (q("#gRegen").onclick = async () => { if (await confirmBox("Davet bağlantısı yenilensin mi?", "Eski davet bağlantısı geçersiz olacak.", "Yenile")) mk(); });
+  q("#gClose") && (q("#gClose").onclick = async () => { if (!(await confirmBox("Davet bağlantısı kapatılsın mı?", "Bağlantı çalışmaz; onaylı misafirler etkilenmez. İstediğinizde yeniden oluşturabilirsiniz.", "Kapat", true))) return; for (const i of invs) await deleteDoc(doc(db, `users/${ownerUid}/invites/${i.id}`)).catch(() => {}); toast("Davet bağlantısı kapatıldı."); refresh(); });
   q("#gCopy") && (q("#gCopy").onclick = async () => { try { await navigator.clipboard.writeText(link); toast("Bağlantı kopyalandı."); } catch { q("#gLink").select(); toast("Bağlantıyı seçip kopyalayın."); } });
   q("#gShare") && (q("#gShare").onclick = async () => { if (navigator.share) { try { await navigator.share({ title: "HSE Verim Modülü · Misafir erişimi", text: "HSE Verim Modülü misafir erişim bağlantısı:", url: link }); } catch {} } else { try { await navigator.clipboard.writeText(link); toast("Bağlantı kopyalandı."); } catch {} } });
   q("#gCfg").onclick = async () => {
@@ -267,14 +267,14 @@ export async function renderSettings(box, { ownerUid, factories, onChange }) {
     if (inv) await updateDoc(doc(db, `users/${ownerUid}/invites/${inv.id}`), { ntfy: t });
     refresh();
   };
-  q("#gTopicNew") && (q("#gTopicNew").onclick = () => { if (!cfg.ntfy || confirm("Yeni kod oluşturulunca ntfy'de yeniden abone olmanız gerekir. Devam edilsin mi?")) setTopic("hse-" + rnd() + rnd()); });
+  q("#gTopicNew") && (q("#gTopicNew").onclick = async () => { if (!cfg.ntfy || await confirmBox("Yeni kod oluşturulsun mu?", "Yeni kod oluşturulunca ntfy'de yeniden abone olmanız gerekir.", "Oluştur")) setTopic("hse-" + rnd() + rnd()); });
   q("#gTopicOff") && (q("#gTopicOff").onclick = () => setTopic(null));
   q("#gTopicCopy") && (q("#gTopicCopy").onclick = async () => { try { await navigator.clipboard.writeText(cfg.ntfy); toast("Kod kopyalandı."); } catch { q("#gTopic").select(); } });
   q("#gTest") && (q("#gTest").onclick = async () => { const ok = await sendPush(cfg.ntfy, { name: "Test Kullanıcı", email: "test@ornek.com", link: location.origin + location.pathname }); toast(ok ? "Test bildirimi gönderildi; telefonunuza gelmesi gerekir." : "Gönderilemedi; internet bağlantısını kontrol edin."); });
   box.querySelectorAll("[data-rv]").forEach(b => b.onclick = () => approvalDialog(ownerUid, b.dataset.rv, factories, refresh));
   box.querySelectorAll("[data-perm]").forEach(b => b.onclick = async () => { await updateDoc(MEM(ownerUid, b.dataset.perm), { mode: "perm", expires: null }); toast("Erişim süresiz yapıldı."); refresh(); });
   box.querySelectorAll("[data-h24]").forEach(b => b.onclick = async () => { await updateDoc(MEM(ownerUid, b.dataset.h24), { mode: "24h", expires: new Date(Date.now() + 864e5) }); toast("Erişim 24 saat uzatıldı."); refresh(); });
-  box.querySelectorAll("[data-rm]").forEach(b => b.onclick = async () => { if (!confirm("Bu misafirin erişimi kaldırılsın mı?")) return; await deleteDoc(MEM(ownerUid, b.dataset.rm)); await deleteDoc(REQ(ownerUid, b.dataset.rm)).catch(() => {}); toast("Erişim kaldırıldı."); refresh(); });
+  box.querySelectorAll("[data-rm]").forEach(b => b.onclick = async () => { if (!(await confirmBox("Erişim kaldırılsın mı?", "Bu misafirin erişimi kaldırılır.", "Kaldır", true))) return; await deleteDoc(MEM(ownerUid, b.dataset.rm)); await deleteDoc(REQ(ownerUid, b.dataset.rm)).catch(() => {}); toast("Erişim kaldırıldı."); refresh(); });
   box.querySelectorAll("[data-fac]").forEach(b => b.onclick = () => {
     const m0 = mems.find(x => x.id === b.dataset.fac), md = document.createElement("div"); md.className = "mod";
     md.innerHTML = `<div class="mbox" style="gap:12px"><h2>${esc(m0.name)} · Fabrikalar</h2>${factories.map(f => `<label style="display:flex;align-items:center;gap:10px;font-weight:600"><input type="checkbox" data-f="${f.id}" ${(m0.factories || []).includes(f.id) ? "checked" : ""} style="width:20px;height:20px"> ${esc(f.name)}</label>`).join("")}

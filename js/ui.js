@@ -18,6 +18,13 @@ export function modal(html, opts = {}) {
 export async function confirmBox(title, text, yes, danger = false) {
   return !!(await modal(`<h2>${esc(title)}</h2><p class="muted">${esc(text)}</p><div class="row" style="justify-content:flex-end"><button class="sec" data-no>İptal</button><button class="${danger ? "danger" : ""}" data-yes>${esc(yes)}</button></div>`));
 }
+// Bilgi / uyarı penceresi (tarayıcının yerleşik alert kutusu yerine): tone "ok" (yeşil) veya "warn" (sarı)
+export function noticeBox(title, text, tone = "warn") {
+  const [bg, c, d] = tone === "ok" ? ["#D9F1E6", "#0B6E4F", "M4 12l5 5L20 6"] : ["#FBE9C6", "#5A3300", "M12 7v6M12 17h0"];
+  return modal(`<div style="display:flex;gap:14px;align-items:flex-start"><span aria-hidden="true" style="flex:0 0 40px;width:40px;height:40px;border-radius:50%;background:${bg};display:grid;place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg></span>
+    <div class="col1" style="gap:6px;min-width:0"><h2 style="margin:0">${esc(title)}</h2><p class="muted" style="margin:0;line-height:1.55">${esc(text)}</p></div></div>
+    <div class="row" style="justify-content:flex-end"><button data-yes>Tamam</button></div><button data-no hidden aria-hidden="true"></button>`);
+}
 export const formBox = (title, fields) => modal(`<h2>${esc(title)}</h2>${fields.map(([n, l, v]) => `<div><label>${esc(l)}</label><input name="${n}" value="${esc(v)}"></div>`).join("")}<div class="row" style="justify-content:flex-end;margin-top:6px"><button class="sec" data-no>İptal</button><button data-yes>Kaydet</button></div>`);
 
 // Büyük açıklama penceresi + sesle yazma (tr-TR). Kaydet → metni döner, vazgeç → null
