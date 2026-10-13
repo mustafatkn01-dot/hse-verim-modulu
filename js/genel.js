@@ -1,11 +1,11 @@
 // Genel Bakış · yıllık özet panosu (gerçek verilerden)
-import * as S from "./store.js?v=20261013g";
-import { esc, noticeBox } from "./ui.js?v=20261013g";
-import { CATS } from "./isgcats.js?v=20261013g";
-import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261013g";
-import { load } from "./verim.js?v=20261013g";
-import * as T from "./tatil.js?v=20261013g";
-import * as Gorev from "./gorev.js?v=20261013g";
+import * as S from "./store.js?v=20261013h";
+import { esc, noticeBox } from "./ui.js?v=20261013h";
+import { CATS } from "./isgcats.js?v=20261013h";
+import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261013h";
+import { load } from "./verim.js?v=20261013h";
+import * as T from "./tatil.js?v=20261013h";
+import * as Gorev from "./gorev.js?v=20261013h";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -173,7 +173,7 @@ export async function render(v, ctx) {
         <span style="width:68px;flex:0 0 68px;text-align:center;font-size:12px;font-weight:700;padding:3px 0;border-radius:999px;background:${b.bg};color:${b.c}">${bn(x.v)}</span></div>`; }).join("") : `<div class="muted">Henüz veri yok.</div>`}</div></div>
     <div class="cd" style="flex:1.3 1 460px;min-width:0;gap:14px"><div class="row sp" style="align-items:baseline"><h2>Aylık Trend</h2><div class="muted" style="font-size:13px">Tesis HSE verimi · ${st.year} · 0–100 puan · hedef ${f1(hedef).replace(/,0$/, "")} · ${hit}/${trend.filter(x => x !== null).length} ay hedefte</div></div>
       <div style="position:relative;height:236px">${(() => { const Y = v => 24 + v * 1.8, GX = 24, kr = num(p.esik.o), hs = f1(hedef).replace(/,0$/, ""), ks = f1(kr).replace(/,0$/, ""),
-          lbl = (v, c, txt) => `<div style="position:absolute;left:${GX + 4}px;bottom:${Y(v) + 2}px;font-size:10px;font-style:italic;font-weight:600;line-height:1.2;color:${c};z-index:2;white-space:nowrap;-webkit-text-stroke:3px var(--card);paint-order:stroke fill;text-shadow:0 0 2px var(--card)">${txt}</div>`,
+          lbl = (v, c, txt) => `<div style="position:absolute;left:${GX + 4}px;bottom:${Y(v) + 2}px;font-size:8.5px;font-style:italic;font-weight:600;line-height:1.2;color:${c};z-index:2;white-space:nowrap;-webkit-text-stroke:2.5px var(--card);paint-order:stroke fill;text-shadow:0 0 2px var(--card)">${txt}</div>`,
           ax = (v, c, b, txt = v) => `<div style="position:absolute;left:0;bottom:${Y(v) - 7}px;width:${GX - 3}px;text-align:right;font-size:11px;${b ? `font-weight:800;color:${c}` : "color:var(--muted)"}">${txt}</div>`;
         return [25, 75, 100].map(a => `<div style="position:absolute;left:${GX}px;right:0;bottom:${Y(a)}px;border-top:1px dashed #B5C5BF"></div>`).join("")
           + `<div style="position:absolute;left:${GX}px;right:0;bottom:${Y(0)}px;border-top:1.5px solid #9FB4AE"></div>`
