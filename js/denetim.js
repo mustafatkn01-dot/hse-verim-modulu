@@ -1,11 +1,12 @@
 // İSG Denetim Listesi sayfası
-import * as Guest from "./guest.js?v=20261014t";
-import * as Gorev from "./gorev.js?v=20261014t";
-import * as S from "./store.js?v=20261014t";
-import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261014t";
-import { CATS } from "./isgcats.js?v=20261014t";
-import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261014t";
-import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261014t";
+import * as Guest from "./guest.js?v=20261014u";
+import * as Gorev from "./gorev.js?v=20261014u";
+import * as S from "./store.js?v=20261014u";
+import * as Ramak from "./ramak.js?v=20261014u";
+import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261014u";
+import { CATS } from "./isgcats.js?v=20261014u";
+import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261014u";
+import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261014u";
 
 const COLL = "isg";
 const D = { key: "", setup: null, doc: null, dept: null, month: null, open: {}, ro: false, timer: null, saved: true, msg: "" };
@@ -26,7 +27,7 @@ const wkNo = s => { const m = monOf(s), t = new Date(+m.slice(0, 4), +m.slice(5,
 
 function defaultMonth(year) { const n = new Date(); return +year === n.getFullYear() ? n.getMonth() + 1 : 1; }
 function defaultDate(year, month) { const n = new Date(); return (+year === n.getFullYear() && month === n.getMonth() + 1) ? iso(n) : `${year}-${pad(month)}-01`; }
-const blank = (year, month, auditor) => ({ sessions: [], draft: { marks: {}, notes: {}, ydNotes: {}, date: defaultDate(year, month) }, freq: {}, bonus: 0, auditor: auditor || "" });
+const blank = (year, month, auditor) => ({ sessions: [], draft: { marks: {}, notes: {}, ydNotes: {}, date: defaultDate(year, month) }, freq: {}, bonus: 0, bonusMan: false, auditor: auditor || "" });
 
 const emptyDraft = (date, on) => ({ marks: {}, notes: {}, ydNotes: {}, photos: {}, date, on, edit: null });
 // Kayıtlı denetimi yeniden düzenlenebilir taslağa çevirir
@@ -124,7 +125,17 @@ export async function render(v, ctx) {
   }
   D.ro = String(st.year) !== String(st.active) || guestLock(st.year, D.month) || (GUEST.on && (D.gstatus === "review" || D.gstatus === "approved"));
   D.ctx = ctx; D.v = v;
+  await rkLoad();
   draw(); loadWk();
+}
+
+// Ramak kala: bölümün bu ayki onaylı bildirimi → otomatik kademe (elle seçilmediyse bonus olarak uygulanır)
+async function rkLoad() {
+  const { st } = D.ctx;
+  D.rk = await Ramak.load(st.fid, st.year, D.month).catch(() => []);
+  D.rkN = Ramak.counts(D.rk)[D.dept] || 0; D.rkAuto = Ramak.tierIdx(D.rkN);
+  D.doc.bonusMan = Ramak.isMan(D.doc);
+  if (!D.doc.bonusMan) D.doc.bonus = D.rkAuto;
 }
 
 // "Bu hafta" şeridi: bugünün haftasında her bölümün denetim durumu (yalnızca gösterim; bölüme dokununca o bölüme geçilir)
@@ -191,11 +202,7 @@ function persist(now = false) {
       setSv(); return;
     }
     const p = D.setup.params || DEFAULT_PARAMS, row = D.setup.rows.find(r => r.id === d);
-    let result = null;
-    if (D.doc.sessions.length) {
-      const c = calcIsg({ cats: CATS, sessions: D.doc.sessions, draft: { marks: {}, notes: {}, ydNotes: {} }, freqOv: D.doc.freq, bonusIdx: D.doc.bonus, F: katsayi(row, +m), p });
-      result = { score: +c.score.toFixed(2), penalty: +c.penalty.toFixed(2), bonus: c.bonus, den: c.den, total: c.total, ydPct: c.ydPct, band: bandOf(c.score, p), F: +katsayi(row, +m).toFixed(2), sessions: D.doc.sessions.length };
-    }
+    const result = D.doc.sessions.length ? Ramak.isgResult(D.doc, row, +m, p) : null;
     try { const payload = { ...D.doc, result, dept: d, month: +m }, cn = D.doc.sessions.filter(x => x.closed).map(x => x.no);
       if (!GUEST.on || D.hadClosed) payload.closedNos = cn; else delete payload.closedNos;
       await S.saveMonthDoc(f, y, COLL, `${pad(+m)}_${d}`, payload); D.saved = true; } catch (e) { D.msg = "Kaydedilemedi: " + e.message; }
@@ -339,9 +346,13 @@ function draw() {
         <div class="col1" style="padding-top:6px;border-top:1px solid rgba(255,255,255,.12);gap:10px">
           ${[["Değerlendirme kapsamı (ağırlık)", `<b>${c.den} / ${c.total}</b>`], ["Bölüm katsayısı", `<b>×${F.toFixed(2).replace(".", ",")}</b>`], ["Ceza puanı", `<b style="color:#FFB4AB">−${f1(c.penalty)}</b>`], ["Ramak kala bonusu", `<b style="color:#7FE3B8">+${c.bonus}</b>`], ["Y.D. işaretli madde", `<b>${c.nCount} · %${c.ydPct}</b>`]].map(([a, b]) => `<div class="row sp"><span style="color:#9DB5AE">${a}</span>${b}</div>`).join("")}
           ${c.ydPct > 50 ? `<div style="padding:10px 12px;border-radius:10px;background:#FBE9C6;color:#5A3300;font-size:12.5px;line-height:1.5;font-weight:600">Değerlendirme kapsamı düşük: maddelerin yarısından fazlası Y.D. Skor yüksek görünebilir, raporda uyarı olarak yer alır.</div>` : ""}</div></div>
-      <div class="cd" style="padding:20px;gap:12px"><b style="font:600 16px Sora,sans-serif">Ramak Kala Bildirim</b>
-        <div class="muted" style="font-size:12.5px;line-height:1.5">Bu dönemde bölümün bildirim sıklığı. Ceza değil, bonus puandır.</div>
-        <div class="row">${["Yok", "Ayda 1", "2 Haftada 1", "Haftalık"].map((l, i) => `<button class="bn" data-bonus="${i}" style="${seg(doc.bonus === i, "#0B2230", "#FFF")}"><span>${l}</span><span style="font-size:12px;font-weight:600">+${c.bonusVals[i]} puan</span></button>`).join("")}</div></div>
+      <div class="cd" style="padding:20px;gap:12px"><div><b style="font:600 16px Sora,sans-serif">Ramak Kala Bildirim</b>
+        <div class="muted" style="font-size:12.5px;line-height:1.5;margin-top:4px">Bildirimi yapan bölüm, bu ay getirdiği bildirim sayısına göre bonus alır. Ceza değil, bonus puandır.</div></div>
+        <div class="rk1"><div><span class="hd">${esc(row.name).toLocaleUpperCase("tr")} · ${MONTHS[D.month - 1].toLocaleUpperCase("tr")}</span><div class="big2">${D.rkN} <span>bildirim</span></div></div><span class="kp k${doc.bonus}" style="min-width:150px"><span>${["Yok", "Ayda 1", "2 Haftada 1", "Haftalık"][doc.bonus]}</span><span>${c.bonusVals[doc.bonus] ? "+" + c.bonusVals[doc.bonus] : "0"} puan</span></span></div>
+        <div class="muted" style="font-size:12.5px">${doc.bonusMan ? "Kademe elle seçildi, bildirim sayısından hesaplanan kademenin yerine geçer." : "Kademe, onaylı bildirim kayıtlarından otomatik hesaplanır."}</div>
+        ${D.rkOpen && !GUEST.on && !D.ro ? `<div class="row" style="gap:8px">${["Yok", "Ayda 1", "2 Haftada 1", "Haftalık"].map((l, i) => `<button class="bn" data-bonus="${i}" style="${seg(doc.bonus === i, "#0B2230", "#FFF")}"><span>${l}</span><span style="font-size:12px;font-weight:600">+${c.bonusVals[i]} puan</span></button>`).join("")}</div>` : ""}
+        <div class="row" style="gap:10px;flex-wrap:nowrap">${D.ro ? "" : `<button id="rkAdd" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px"><b style="font-size:20px;line-height:1">+</b> Bildirim ekle</button>`}<button class="sec" id="rkSee" style="flex:1">Kayıtlar (${D.rk.filter(r => r.status !== "rejected" && (!GUEST.on || r.status === "approved" || r.guestUid === GUEST.uid)).length})</button></div>
+        ${GUEST.on || D.ro ? "" : `<button class="lnk" id="rkMan">${doc.bonusMan ? "Otomatik hesaba dön" : D.rkOpen ? "Kademe seçimini gizle" : "Kademeyi elle değiştir"}</button>`}</div>
       <div class="cd" style="padding:20px;gap:12px"><b style="font:600 16px Sora,sans-serif">${curNo}. Denetim · Kaydetmeden Önce</b>
         ${[["İşaretlenmeyen madde", c.unmarked], ["Açıklaması eksik uygunsuz madde", c.missing], ["Gerekçesi eksik Y.D. kategori", c.ydMissing], ["Tarih geçersiz (dönem dışı veya ileri tarih)", dateOk ? 0 : 1]].map(([t, n]) => `<div class="row sp"><span>${t}</span><span class="pill" style="min-width:34px;text-align:center;background:${n === 0 ? "#D9F1E6" : "#FADAD7"};color:${n === 0 ? "#0B6E4F" : "#B3261E"}">${n}</span></div>`).join("")}
         <button class="go2" id="saveSess" ${canPart ? "" : "disabled"}>${GUEST.on ? "Taslağı Kaydet" : curNo + ". Denetimi Kaydet"}</button>
@@ -405,11 +416,21 @@ function bind(v, c) {
   v.querySelectorAll("[data-yd]").forEach(el => el.onchange = () => { (d.ydNotes ||= {})[el.dataset.yd] = el.value; again(); });
   on("[data-freq]", el => { const [ci, k] = el.dataset.freq.split("|"); doc.freq[ci] = +k; again(); });
   on("[data-freqreset]", el => { delete doc.freq[el.dataset.freqreset]; again(); });
-  on("[data-bonus]", el => { doc.bonus = +el.dataset.bonus; again(); });
+  on("[data-bonus]", el => { doc.bonus = +el.dataset.bonus; doc.bonusMan = true; again(); });
+  const rkb = document.getElementById("rkMan");
+  if (rkb) rkb.onclick = () => { if (doc.bonusMan) { doc.bonusMan = false; doc.bonus = D.rkAuto; D.rkOpen = false; again(); } else { D.rkOpen = !D.rkOpen; draw(); } };
+  const rka = document.getElementById("rkAdd");
+  if (rka) rka.onclick = async () => {
+    const r = await Ramak.openForm({ st, setup: D.setup, month: D.month, dept: D.dept, recs: D.rk }); if (!r) return;
+    if (!GUEST.on) await Ramak.syncBonus(st.fid, st.year, D.month, D.setup, await Ramak.load(st.fid, st.year, D.month).catch(() => D.rk));
+    await rkLoad(); toast(GUEST.on ? "Kayıt gönderildi, yetkili onayından sonra puana sayılır." : "Kayıt eklendi."); if (GUEST.on) draw(); else again();
+  };
+  const rks = document.getElementById("rkSee");
+  if (rks) rks.onclick = () => { Ramak.focus(D.month); location.hash = "#ramak"; };
   on("[data-reopen]", async el => {
     const no = +el.dataset.reopen, t = doc.sessions.find(x => x.no === no); if (!t) return;
     if (doc.draft.on !== false && Object.keys(doc.draft.marks || {}).length && doc.draft.edit !== no) {
-      const { confirmBox } = await import("./ui.js?v=20261014t");
+      const { confirmBox } = await import("./ui.js?v=20261014u");
       if (!(await confirmBox(`${no}. denetim açılsın mı?`, "Şu an açık olan denetimde kaydedilmemiş değişiklikler varsa kaybolur. Önce “Kaydet”e basmanız önerilir.", "Yine de aç"))) return;
     }
     if (t.no === doc.sessions.length) t.closed = false;
@@ -427,7 +448,7 @@ function bind(v, c) {
   });
   const gAll = async () => (await S.listMonthDocs(st.fid, st.year, "isgg").catch(() => [])).filter(g => g.id.startsWith(`${pad(D.month)}_${D.dept}_`));
   on("[data-delsess]", async el => {
-    const { confirmBox } = await import("./ui.js?v=20261014t");
+    const { confirmBox } = await import("./ui.js?v=20261014u");
     const no = +el.dataset.delsess, ix = doc.sessions.findIndex(x => x.no === no); if (ix < 0) return;
     const gone = doc.sessions[ix], later = ix < doc.sessions.length - 1, all = await gAll(), gAp = all.filter(g => g.status === "approved" && g.no === gone.no);
     let mode = "all";
@@ -452,7 +473,7 @@ function bind(v, c) {
   });
   // Sahip: misafir taslağını tamamen sil (denetime ve rapora hiç girmez)
   const delG = async g => {
-    const { confirmBox } = await import("./ui.js?v=20261014t");
+    const { confirmBox } = await import("./ui.js?v=20261014u");
     if (!(await confirmBox("Misafir taslağı silinsin mi?", `${g.guestName} taslağı ve fotoğrafları kalıcı olarak silinir; denetime ve rapora hiç girmez. Misafir isterse yeniden yazabilir.`, "Evet, tamamen sil", true))) return false;
     Object.values(g.draft?.photos || {}).flat().forEach(p => S.deletePhoto(st.fid, st.year, p.id).catch(() => {}));
     await S.deleteMonthDoc(st.fid, st.year, "isgg", g.id); await Guest.inboxDelete(`${g.guestUid}_${st.fid}_${st.year}_${+g.month}_${g.dept}`);
@@ -463,7 +484,7 @@ function bind(v, c) {
   const holOK = async date => {
     if (!date || GUEST.on || D.okHol?.has(date)) return true;
     const h = tatilMap(await tatilYukle(st.fid, st.year).catch(() => null)).get(date); if (!h || h.yarim) return true;
-    const { confirmBox } = await import("./ui.js?v=20261014t");
+    const { confirmBox } = await import("./ui.js?v=20261014u");
     if (!(await confirmBox("İzin / tatil günü", `${fmtTarih(date)} tarihi "${h.ad}" olarak izinli/tatil işaretli. Yine de bu tarihle denetim yapılsın mı?`, "Evet, kabul et"))) return false;
     (D.okHol ||= new Set()).add(date); return true;
   };

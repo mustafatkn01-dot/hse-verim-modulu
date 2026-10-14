@@ -81,7 +81,7 @@ service cloud.firestore {
         // Aylık veri koleksiyonları (silme yok).
         // İSG denetim kayıtlarını (isg) misafir yalnızca okur; kendi taslağını (isgg, id'si kendi uid'si ile biter) yazar.
         match /{coll}/{docId} {
-          allow read: if live() && (coll in ['isg', 'kaza', 'konusma', 'isbasi', 'konusmag', 'isbasig', 'kazag', 'foto']
+          allow read: if live() && (coll in ['isg', 'kaza', 'konusma', 'isbasi', 'konusmag', 'isbasig', 'kazag', 'ramak', 'foto']
             || (coll == 'isgg' && docId.matches('.*_' + request.auth.uid)));
           // Eğitim konuşması / işbaşı eğitim / iş kazası aylık kaydını misafir DEĞİŞTİREMEZ; yalnızca kendi "bekleyen" kaydını ekler (sahip onaylar) veya bekleyen kaydını siler
           allow create: if live() && coll in ['konusmag', 'isbasig', 'kazag']
@@ -91,6 +91,17 @@ service cloud.firestore {
             && request.resource.data.status == 'pending'
             && request.resource.data.guestName is string && request.resource.data.guestName.size() < 80;
           allow delete: if live() && coll in ['konusmag', 'isbasig', 'kazag']
+            && resource.data.guestUid == request.auth.uid && resource.data.status == 'pending';
+          // Ramak kala bildirimi: misafir yalnızca kendi "bekleyen" kaydını ekler (sahip onaylar/reddeder) veya bekleyen kaydını siler
+          allow create: if live() && coll == 'ramak'
+            && docId.matches('.*_' + request.auth.uid + '_.*')
+            && request.resource.data.keys().hasOnly(['guestUid', 'guestName', 'month', 'd', 'src', 'dept', 'who', 'place', 'txt', 'tip', 'photos', 'status', 'at', 'updatedAt'])
+            && request.resource.data.guestUid == request.auth.uid
+            && request.resource.data.status == 'pending'
+            && request.resource.data.src in ['b', 's']
+            && request.resource.data.guestName is string && request.resource.data.guestName.size() < 80
+            && request.resource.data.txt is string && request.resource.data.txt.size() > 0 && request.resource.data.txt.size() <= 1000;
+          allow delete: if live() && coll == 'ramak'
             && resource.data.guestUid == request.auth.uid && resource.data.status == 'pending';
           allow create, update: if live() && (
             coll in ['foto']

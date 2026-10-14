@@ -1,19 +1,20 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261014t";
-import * as S from "./store.js?v=20261014t";
-import * as Prim from "./primary.js?v=20261014t";
-import * as Denetim from "./denetim.js?v=20261014t";
-import * as Kaza from "./kaza.js?v=20261014t";
-import * as Konusma from "./konusma.js?v=20261014t";
-import * as Genel from "./genel.js?v=20261014t";
-import * as Rapor from "./rapor.js?v=20261014t";
-import * as Verim from "./verim.js?v=20261014t";
-import * as Isbasi from "./isbasi.js?v=20261014t";
-import * as Guest from "./guest.js?v=20261014t";
-import * as Yontem from "./yontem.js?v=20261014t";
-import * as Tatil from "./tatil.js?v=20261014t";
-import * as Gorev from "./gorev.js?v=20261014t";
-import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261014t";
-import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261014t";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261014u";
+import * as S from "./store.js?v=20261014u";
+import * as Prim from "./primary.js?v=20261014u";
+import * as Denetim from "./denetim.js?v=20261014u";
+import * as Kaza from "./kaza.js?v=20261014u";
+import * as Konusma from "./konusma.js?v=20261014u";
+import * as Ramak from "./ramak.js?v=20261014u";
+import * as Genel from "./genel.js?v=20261014u";
+import * as Rapor from "./rapor.js?v=20261014u";
+import * as Verim from "./verim.js?v=20261014u";
+import * as Isbasi from "./isbasi.js?v=20261014u";
+import * as Guest from "./guest.js?v=20261014u";
+import * as Yontem from "./yontem.js?v=20261014u";
+import * as Tatil from "./tatil.js?v=20261014u";
+import * as Gorev from "./gorev.js?v=20261014u";
+import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261014u";
+import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261014u";
 
 const VERSION = "1.6.6";
 const st = { factories: [], years: [], fid: null, year: null, page: "genel", profile: {}, lastSync: new Date() };
@@ -25,6 +26,7 @@ const GROUPS = [
     ["ayarlar", "Ayarlar", '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/>']]],
   ["AYLIK VERİ GİRİŞİ", [
     ["denetim", "İSG Denetim Listesi", '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9z"/><path d="M9 13l2 2 4-4"/>'],
+    ["ramak", "Ramak Kala", '<circle cx="12" cy="12" r="9"/><path d="M12 7.5v5M12 16.5h0"/>'],
     ["kaza", "İş Kazası", '<path d="M12 3l9 16H3L12 3z"/><path d="M12 10v4M12 17h0"/>'],
     ["konusma", "Eğitim Konuşması", '<path d="M3 8l9-4 9 4-9 4-9-4z"/><path d="M7 10.5V15c0 1.5 2.2 3 5 3s5-1.5 5-3v-4.5"/>'],
     ["isbasi", "İşbaşı Eğitim", '<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 11l2 2 4-4"/>']]],
@@ -220,6 +222,7 @@ async function render() {
   if (st.page === "verim") return Verim.render(v, { st });
   if (st.page === "isbasi") return Isbasi.render(v, { st });
   if (st.page === "konusma") return Konusma.render(v, { st });
+  if (st.page === "ramak") return Ramak.render(v, { st });
   if (st.page === "kaza") return Kaza.render(v, { st });
   if (st.page === "denetim") return Denetim.render(v, { st });
   await Genel.render(v, { st });

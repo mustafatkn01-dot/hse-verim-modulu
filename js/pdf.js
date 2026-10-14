@@ -1,5 +1,5 @@
 // Ortak PDF yardımcıları: kâğıt boyutu (A4/A3) + sayfa düzeni (dikey/yatay) penceresi
-import { esc } from "./ui.js?v=20261014t";
+import { esc } from "./ui.js?v=20261014u";
 
 export function askFormat({ title = "PDF indir", text = "", defOrient = "portrait", hint = "", pics = 0, fileOnly = false, scopes = null } = {}) {
   return new Promise(res => {
