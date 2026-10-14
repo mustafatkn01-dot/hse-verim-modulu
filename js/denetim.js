@@ -1,14 +1,14 @@
 // İSG Denetim Listesi sayfası
-import * as Guest from "./guest.js?v=20261014a";
-import * as Gorev from "./gorev.js?v=20261014a";
-import * as S from "./store.js?v=20261014a";
-import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261014a";
-import { CATS } from "./isgcats.js?v=20261014a";
-import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261014a";
-import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261014a";
+import * as Guest from "./guest.js?v=20261014b";
+import * as Gorev from "./gorev.js?v=20261014b";
+import * as S from "./store.js?v=20261014b";
+import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261014b";
+import { CATS } from "./isgcats.js?v=20261014b";
+import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261014b";
+import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261014b";
 
 const COLL = "isg";
-const D = { key: "", setup: null, doc: null, dept: null, month: null, open: { 0: true }, ro: false, timer: null, saved: true, msg: "" };
+const D = { key: "", setup: null, doc: null, dept: null, month: null, open: {}, ro: false, timer: null, saved: true, msg: "" };
 const W = { 3: ["Kritik ×3", "#FADAD7", "#8E1B16"], 2: ["Major ×2", "#FBE9C6", "#6B3F00"], 1: ["Minor ×1", "#DCEAF7", "#145F96"] };
 const FT = [["#0B6E4F", "#FFF"], ["#F5B700", "#2B2000"], ["#F28C28", "#2B1500"], ["#B3261E", "#FFF"]];
 const BAND = { Mükemmel: ["#17A06F", "#0B6E4F", "#D9F1E6"], İyi: ["#2A82C4", "#145F96", "#DCEAF7"], Orta: ["#F5B700", "#6B3F00", "#FBE9C6"], Kritik: ["#D6382E", "#B3261E", "#FADAD7"] };
@@ -120,7 +120,7 @@ export async function render(v, ctx) {
       settle(D.doc, st.year, D.month);
       D.gdocs = (await S.listMonthDocs(st.fid, st.year, "isgg").catch(() => [])).filter(g => g.id.startsWith(gid + "_") && (g.status === "saved" || g.status === "review"));
     }
-    D.key = key; D.saved = true; D.touched = false; D.msg = "";
+    D.key = key; D.open = {}; D.saved = true; D.touched = false; D.msg = "";
   }
   D.ro = String(st.year) !== String(st.active) || guestLock(st.year, D.month) || (GUEST.on && (D.gstatus === "review" || D.gstatus === "approved"));
   D.ctx = ctx; D.v = v;
@@ -149,14 +149,15 @@ async function loadWk(force = false) {
 }
 function paintWarn() {
   const el = D.v?.querySelector("#wkWarn"); if (!el) return;
-  if (!WK.rows || GUEST.on) { el.innerHTML = ""; return; }
+  if (!WK.rows || GUEST.on) { el.innerHTML = ""; el.style.display = "none"; return; }
   const today = iso(new Date()), dow = new Date().getDay(), late = dow === 0 || dow >= 4, hol = WK.tm?.get(today) && !WK.tm.get(today).yarim;
   const A = WK.rows.filter(r => r.stale), B = hol ? [] : WK.rows.filter(r => !r.stale && r.k === "none");
   const nm = l => l.length <= 2 ? l.map(r => esc(r.name)).join(", ") : `${l.length} bölüm`;
   const L = [];
   if (A.length) L.push([A[0], `Geçen haftadan açık: ${nm(A)}. Lütfen tamamlayın.`]);
   if (B.length) L.push([B[0], `${late ? "Bu hafta denetimi geç kalan" : "Bu hafta denetlenmeyen"}: ${nm(B)}.`]);
-  el.innerHTML = L.map(([r, t]) => `<button type="button" data-wn="${r.id}|${r.stale ? r.sm : r.m}" style="display:block;width:100%;height:auto;min-height:0;padding:0;margin:0 0 6px;border:0;background:transparent;text-align:left;font:italic 600 13.5px Manrope,system-ui,sans-serif;color:#B26A00;line-height:1.45;cursor:pointer">${t}</button>`).join("");
+  el.style.cssText = L.length ? "display:flex;flex-direction:column;gap:4px;margin-top:-10px" : "display:none";
+  el.innerHTML = L.map(([r, t]) => `<button type="button" data-wn="${r.id}|${r.stale ? r.sm : r.m}" style="display:block;width:100%;height:auto;min-height:0;padding:0;margin:0;border:0;background:transparent;text-align:left;font:italic 600 13.5px Manrope,system-ui,sans-serif;color:#B26A00;line-height:1.45;cursor:pointer">${t}</button>`).join("");
   el.querySelectorAll("[data-wn]").forEach(b => b.onclick = () => { const [id, m] = b.dataset.wn.split("|"); if (id === D.dept && +m === D.month) return; D.dept = id; D.month = +m; D.key = ""; render(D.v, D.ctx); });
 }
 function paintWk() {
@@ -304,8 +305,8 @@ function draw() {
 
   v.innerHTML = `
   <div><div class="hd" style="letter-spacing:.8px">AYLIK VERİ GİRİŞİ</div><h1 class="ttl">İSG Denetim Listesi</h1>
-    <div class="muted" style="font-size:12.5px;min-height:17px" id="sv">${svTxt()}</div></div>
-  <div id="wkWarn"></div>
+    <div class="muted" style="font-size:12.5px" id="sv">${svTxt()}</div></div>
+  <div id="wkWarn" style="display:none"></div>
   <div id="wkStrip" style="display:none"></div>
   ${D.ro && !(GUEST.on && (D.gstatus === "review" || D.gstatus === "approved")) ? `<div class="warn">${roText(st.year, D.month, st.active)}</div>` : ""}
   ${(() => { const cu = on && !GUEST.on && !D.ro && editNo != null ? doc.sessions.find(x => x.no === editNo) : null; return cu && !cu.closed && monOf(cu.date) < monOf(iso(new Date())) ? `<div class="warn">${cu.no}. denetim ${dmy(cu.date)} (${wkNo(cu.date)}. hafta) tarihinde başladı ve hâlâ açık. Eksikleri tamamlayıp “Kaydet ve Denetimi Tamamla”ya basın; açık denetim varken yeni haftanın denetimi başlatılamaz.</div>` : ""; })()}
@@ -409,7 +410,7 @@ function bind(v, c) {
   const nw = document.getElementById("newSess");
   if (nw) nw.onclick = () => { doc.draft = emptyDraft(defaultDate(st.year, D.month), true); persist(true); draw(); };
   on("[data-delsess]", async el => {
-    const { confirmBox } = await import("./ui.js?v=20261014a");
+    const { confirmBox } = await import("./ui.js?v=20261014b");
     if (!(await confirmBox("Son denetim silinsin mi?", "Kayıtlı denetim silinir; skor ve sıklıklar yeniden hesaplanır.", "Evet, sil", true))) return;
     const gone = doc.sessions.pop();
     // Misafir taslağından gelen denetimse: misafire "silindi" bilgisi gider (taslağı düzeltip yeniden gönderebilir), fotoğrafları korunur
