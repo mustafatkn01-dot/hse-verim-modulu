@@ -61,3 +61,4 @@ Fabrika adı iki programda aynı olmalıdır (büyük/küçük harf ve Türkçe 
 - 1.6.3: İSG Denetim – her denetim (son olmasa da) silinebilir / yeniden açılabilir, silinince numaralar yeniden dizilir; misafir taslakları için "Sil" / "Tamamen sil" (hiç yapılmamış gibi temizler).
 - 1.6.4: İSG denetim kategorileri akordeon (tek kategori açık); Verim sayfasında "İSG Denetim · Aylık Kıyas" kartı (son 2/3 ay, değişim, en çok düşenler üstte).
 - 1.6.5: "Önceki denetimde uygunsuzdu" yalnızca daha eski denetimleri sayar (eski bir denetim düzenlenirken); Y.D. gerekçe örneği genel hale getirildi.
+- 1.6.6: İSG aylık kıyas kartı bölüm bazlı bitişik sütun grafiğe çevrildi; seçici düğmeleri okunur.

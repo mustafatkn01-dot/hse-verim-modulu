@@ -1,9 +1,9 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261014i";
-import { esc } from "./ui.js?v=20261014i";
-import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi } from "./scoring.js?v=20261014i";
-import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261014i";
-import { CATS } from "./isgcats.js?v=20261014i";
+import * as S from "./store.js?v=20261014j";
+import { esc } from "./ui.js?v=20261014j";
+import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi } from "./scoring.js?v=20261014j";
+import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261014j";
+import { CATS } from "./isgcats.js?v=20261014j";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -176,14 +176,16 @@ function draw() {
       const ms = rng(Math.max(0, last - C.n + 1), last);
       let L = isg.map(x => { const a = x.s[last], b = last > 0 ? x.s[last - 1] : null; return { ...x, d: a !== null && b !== null ? a - b : null }; });
       if (C.drop) L = L.slice().sort((p1, p2) => (p1.d === null) - (p2.d === null) || (p1.d ?? 0) - (p2.d ?? 0));
-      const gc2 = `minmax(70px,1.3fr) repeat(${ms.length},1fr) 78px`;
       const chg = d => d === null ? `<span class="muted">–</span>` : Math.abs(d) < 0.05 ? `<b style="color:#6B7B76">● 0</b>` : d > 0 ? `<b style="color:#1B7F4B">▲ +${f1(d)}</b>` : `<b style="color:#B3261E">▼ −${f1(-d)}</b>`;
-      const seg = (k, t) => `<button data-cn="${k}" aria-pressed="${C.n === k}" style="height:36px;padding:0 14px;border-radius:10px;border:1px solid var(--line);font-weight:700;${C.n === k ? "background:var(--sel);color:#fff" : "background:#fff"}">${t}</button>`;
-      card.innerHTML = head + `<div class="row" style="gap:8px">${seg(2, "Son 2 ay")}${seg(3, "Son 3 ay")}<button data-cdrop aria-pressed="${C.drop}" style="height:36px;padding:0 14px;border-radius:10px;border:1px solid var(--line);font-weight:700;${C.drop ? "background:var(--sel);color:#fff" : "background:#fff"}">En çok düşenler üstte</button></div>
-      <div style="overflow-x:auto"><div style="min-width:${ms.length * 70 + 170}px;display:flex;flex-direction:column;gap:6px">
-        <div style="display:grid;grid-template-columns:${gc2};gap:6px"><span class="hd">Bölüm</span>${ms.map(m => `<span class="hd" style="text-align:center">${MS[m]}</span>`).join("")}<span class="hd" style="text-align:center">Değişim</span></div>
-        ${L.map(x => `<div style="display:grid;grid-template-columns:${gc2};gap:6px;align-items:center"><span style="font-weight:700;overflow:hidden;text-overflow:ellipsis">${esc(x.r.name)}</span>${ms.map(m => { const c = cell(x.s[m]); return `<span style="height:38px;display:flex;align-items:center;justify-content:center;border-radius:9px;font-weight:800;background:${c.bg};color:${c.c}">${c.t}</span>`; }).join("")}<span style="text-align:center;font-size:13px">${chg(x.d)}</span></div>`).join("")}</div></div>
-      <div class="muted" style="font-size:12.5px;line-height:1.6">Değişim, ${MS[last]} ayının bir önceki aya farkıdır (puan). Veri girilmeyen ay "–" gösterir ve değişim hesaplanmaz. Eğitim ve iş kazası, aydan aya doğal olarak dalgalandığı için aylık kıyaslanmaz.</div>`;
+      const segSt = on => `height:36px;padding:0 14px;border-radius:10px;border:1px solid ${on ? "var(--sel)" : "var(--line)"};font-weight:700;background:${on ? "var(--sel)" : "#fff"};color:${on ? "#fff" : "var(--ink,#10201C)"}`;
+      const seg = (k, t) => `<button data-cn="${k}" aria-pressed="${C.n === k}" style="${segSt(C.n === k)}">${t}</button>`;
+      const CH = 2.0, op = i => (ms.length === 1 ? 1 : 0.5 + 0.5 * i / (ms.length - 1)), bw = ms.length === 2 ? 34 : 26, gw = ms.length * bw + 22;
+      const grp = L.map(x => `<div style="flex:0 0 ${gw}px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:${Math.round(100 * CH) + 90}px">
+        <div style="display:flex;align-items:flex-end;gap:2px">${ms.map((m, i) => { const v = x.s[m]; return `<div style="width:${bw}px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end"><div style="font-size:11px;font-weight:800;margin-bottom:3px">${v === null ? "–" : f1(v)}</div><div style="width:100%;height:${v === null ? 3 : Math.max(3, Math.round(v * CH))}px;background:${band(v).fill};opacity:${op(i)};border-radius:6px 6px 2px 2px"></div><div style="font-size:10.5px;color:var(--muted);margin-top:3px">${MS[m]}</div></div>`; }).join("")}</div>
+        <div style="margin-top:4px;font-size:12px;font-weight:700;text-align:center;line-height:1.2;width:100%;height:30px;overflow:hidden;display:flex;align-items:flex-start;justify-content:center;word-break:break-word">${esc(x.r.name)}</div><div style="font-size:12px;height:18px">${chg(x.d)}</div></div>`).join("");
+      card.innerHTML = head + `<div class="row" style="gap:8px">${seg(2, "Son 2 ay")}${seg(3, "Son 3 ay")}<button data-cdrop aria-pressed="${C.drop}" style="${segSt(C.drop)}">En çok düşenler üstte</button></div>
+      <div style="overflow-x:auto"><div style="display:flex;gap:6px;min-width:min-content;padding-top:4px">${grp}</div></div>
+      <div class="muted" style="font-size:12.5px;line-height:1.6">Sütunlar soldan sağa eski → yeni aydır (son ay en koyu). Bölüm adının altındaki değişim, ${MS[last]} ayının bir önceki aya farkıdır (puan). Veri girilmeyen ay "–" gösterir ve değişim hesaplanmaz. Eğitim ve iş kazası, aydan aya doğal olarak dalgalandığı için aylık kıyaslanmaz.</div>`;
     }
     V.v.appendChild(card);
     card.querySelector("[data-cmpt]").onclick = () => { C.open = !C.open; draw(); };
