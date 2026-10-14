@@ -1,10 +1,10 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261014p";
-import { esc } from "./ui.js?v=20261014p";
-import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi } from "./scoring.js?v=20261014p";
-import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261014p";
-import { CATS } from "./isgcats.js?v=20261014p";
-import * as Gorev from "./gorev.js?v=20261014p";
+import * as S from "./store.js?v=20261014q";
+import { esc } from "./ui.js?v=20261014q";
+import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi } from "./scoring.js?v=20261014q";
+import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261014q";
+import { CATS } from "./isgcats.js?v=20261014q";
+import * as Gorev from "./gorev.js?v=20261014q";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
