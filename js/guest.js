@@ -3,8 +3,8 @@
 //   users/{sahip}/invites/{kod}        davet (e-posta ayarı kopyası)
 //   users/{sahip}/guestReqs/{misafirUid}  onay isteği {gid, code, name, unit, status, at}
 //   users/{sahip}/members/{misafirUid}    onaylı üye {name, unit, factories[], mode, expires|null}
-import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously } from "./firebase.js?v=20261014c";
-import { esc, toast, confirmBox } from "./ui.js?v=20261014c";
+import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously } from "./firebase.js?v=20261014d";
+import { esc, toast, confirmBox } from "./ui.js?v=20261014d";
 
 const Q = new URLSearchParams(location.search);
 export const linkInfo = () => {
@@ -50,7 +50,7 @@ export function showRequest({ owner, code, note = "" }, onApproved) {
   s.innerHTML = boxHtml(`<div class="muted" style="line-height:1.55;margin-bottom:10px">Yetkili kullanıcının gönderdiği bağlantıyla geldiniz. Bilgilerinizi yazıp <b>Onay Gönder</b>'e basın. Yetkili kullanıcı onaylayınca bu ekran otomatik açılır.<br>Denetim kayıtlarınız bu adla tutulur.</div>
     ${note ? `<div class="warn" style="margin-bottom:10px">${esc(note)}</div>` : ""}
     <label>Ad Soyad <span style="color:#D6382E">*</span></label><input id="gName" autocomplete="name" value="${esc(prev.n || "")}" required>
-    <label>Bölüm / Görev <span style="color:#D6382E">*</span></label><input id="gUnit" autocomplete="organization-title" placeholder="Örn. Matbaa / Operatör" value="${esc(prev.u || "")}" required>
+    <label>Bölüm / Görev <span class="muted" style="font-weight:500;text-transform:none;letter-spacing:0">(isteğe bağlı)</span></label><input id="gUnit" autocomplete="organization-title" placeholder="Örn. Matbaa / Operatör" value="${esc(prev.u || "")}">
     <div class="muted" style="font-size:12.5px"><span style="color:#D6382E">*</span> Zorunlu alan</div>
     <div class="err" id="gErr"></div>
     <div class="row"><button type="button" id="gSend">Onay Gönder</button></div>`);
@@ -58,7 +58,6 @@ export function showRequest({ owner, code, note = "" }, onApproved) {
   document.getElementById("gSend").onclick = async () => {
     const name = document.getElementById("gName").value.trim(), unit = document.getElementById("gUnit").value.trim();
     if (name.length < 3) return err("Ad soyadınızı yazın.");
-    if (unit.length < 2) return err("Bölüm veya görevinizi yazın.");
     err(""); sending = true; document.getElementById("gSend").disabled = true;
     try {
       if (!auth.currentUser) await signInAnonymously(auth);
@@ -94,7 +93,7 @@ async function pushRaw(topic, { title, message, click, priority = 4, tags = ["bu
     return r.ok;
   } catch { return false; }
 }
-const sendPush = (topic, { name, unit, link }) => pushRaw(topic, { title: "HSE Verim · Misafir onay isteği", message: `${name} (${unit}) erişim istiyor. Onaylamak için dokunun.`, click: link });
+const sendPush = (topic, { name, unit, link }) => pushRaw(topic, { title: "HSE Verim · Misafir onay isteği", message: `${name}${unit ? ` (${unit})` : ""} erişim istiyor. Onaylamak için dokunun.`, click: link });
 
 // Onay bekleme ekranı: istek durumunu canlı izler
 export function waiting({ owner, gid, code, sent, tried }, onApproved) {
@@ -192,7 +191,7 @@ export async function approvalDialog(ownerUid, gid, factories, done) {
   if (!req) { m.innerHTML = `<div class="mbox" style="gap:14px"><h2>Misafir isteği bulunamadı</h2><div class="muted">İstek silinmiş olabilir veya başka bir hesapla giriş yapmış olabilirsiniz.</div><div class="row" style="justify-content:flex-end"><button class="sec" data-x>Kapat</button></div></div>`; document.body.appendChild(m); m.querySelector("[data-x]").onclick = close; return; }
   const done0 = req.status !== "pending";
   m.innerHTML = `<div class="mbox" role="dialog" aria-modal="true" style="gap:14px"><h2>Misafir erişim isteği</h2>
-    <div style="line-height:1.6"><div class="row" style="gap:8px;flex-wrap:nowrap" id="gNmRow"><b style="font-size:17px" id="gNm">${esc(req.name)}</b><button type="button" class="sm sec" id="gNmEd" aria-label="Adı düzenle" title="Adı düzenle" style="flex:0 0 32px;width:32px;height:32px;min-height:0;padding:0;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg></button></div><span class="muted">${esc(req.unit || req.email || "")} · ${ago(req.at)}</span></div>
+    <div style="line-height:1.6"><div class="row" style="gap:8px;flex-wrap:nowrap" id="gNmRow"><b style="font-size:17px" id="gNm">${esc(req.name)}</b><button type="button" class="sm sec" id="gNmEd" aria-label="Adı düzenle" title="Adı düzenle" style="flex:0 0 32px;width:32px;height:32px;min-height:0;padding:0;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg></button></div><span class="muted">${[esc(req.unit || req.email || ""), ago(req.at)].filter(Boolean).join(" · ")}</span></div>
     ${done0 ? `<div class="warn">Bu istek zaten işlendi: ${req.status === "approved" ? "onaylandı" : "reddedildi"}. İsterseniz yeniden onay verebilirsiniz.</div>` : ""}
     <div class="col1" style="gap:8px"><span class="hd">ERİŞİM VERİLECEK FABRİKA</span>
       ${factories.length > 1 ? `<select id="gFac" class="inp" style="font-weight:600">${factories.map(f => `<option value="${f.id}">${esc(f.name)}</option>`).join("")}</select>`
@@ -240,9 +239,9 @@ export async function renderSettings(box, { ownerUid, factories, onChange }) {
     <div class="col1" style="gap:8px"><span class="hd">DAVET BAĞLANTISI</span>
       ${inv ? `<div class="row" style="flex-wrap:nowrap;gap:10px;align-items:stretch"><input class="inp" id="gLink" readonly value="${esc(link)}" onfocus="this.select()" style="flex:1;min-width:0"><button class="sm" id="gClose" aria-label="Davet bağlantısını kapat" title="Davet bağlantısını kapat" style="flex:0 0 32px;width:32px;height:32px;min-height:0;align-self:center;padding:0;background:#B3261E;border-color:#B3261E;color:#fff;font-size:26px;font-weight:400;line-height:1;display:grid;place-items:center;margin-right:6px">×</button></div><div class="row"><button class="sm" id="gCopy">Kopyala</button><button class="sm sec" id="gShare">Paylaş</button><button class="sm sec" id="gRegen">Bağlantıyı yenile</button></div>
         <div class="muted" style="font-size:12.5px">“Yenile” eski bağlantıyı geçersiz kılar, kırmızı × bağlantıyı kapatır (onaylı misafirler etkilenmez).</div>` : `<div><button id="gMake">Davet bağlantısı oluştur</button></div>`}</div>
-    ${pend.length ? `<div class="col1" style="gap:8px"><span class="hd">ONAY BEKLEYEN İSTEKLER (${pend.length})</span>${pend.map(r => `<div class="it" style="gap:10px;flex-wrap:wrap"><div class="grow"><b>${esc(r.name)}</b><div class="muted" style="font-size:12.5px">${esc(r.unit || r.email || "")} · ${ago(r.at)}</div></div><button class="sm" data-rv="${r.id}">İncele ve onayla</button></div>`).join("")}</div>` : ""}
+    ${pend.length ? `<div class="col1" style="gap:8px"><span class="hd">ONAY BEKLEYEN İSTEKLER (${pend.length})</span>${pend.map(r => `<div class="it" style="gap:10px;flex-wrap:wrap"><div class="grow"><b>${esc(r.name)}</b><div class="muted" style="font-size:12.5px">${[esc(r.unit || r.email || ""), ago(r.at)].filter(Boolean).join(" · ")}</div></div><button class="sm" data-rv="${r.id}">İncele ve onayla</button></div>`).join("")}</div>` : ""}
     <div class="col1" style="gap:8px"><span class="hd">MİSAFİRLER (${mems.length})</span>
-      ${mems.map(m => { const live = isLive(m); return `<div class="it" style="gap:10px;flex-wrap:wrap"><div class="grow"><b>${esc(m.name)}</b> <span class="tag" style="${live ? "" : "background:#FADAD7;color:#8E1B16"}">${esc(leftText(m))}</span><div class="muted" style="font-size:12.5px">${esc(m.unit || m.email || "")} · ${esc(fname(m.factories))}</div></div>
+      ${mems.map(m => { const live = isLive(m); return `<div class="it" style="gap:10px;flex-wrap:wrap"><div class="grow"><b>${esc(m.name)}</b> <span class="tag" style="${live ? "" : "background:#FADAD7;color:#8E1B16"}">${esc(leftText(m))}</span><div class="muted" style="font-size:12.5px">${[esc(m.unit || m.email || ""), esc(fname(m.factories))].filter(Boolean).join(" · ")}</div></div>
         <div class="row" style="gap:6px"><button class="sm sec" data-perm="${m.id}">Süresiz yap</button><button class="sm sec" data-h24="${m.id}">24 saat</button><button class="sm sec" data-fac="${m.id}">Fabrikalar</button><button class="sm sec" data-rm="${m.id}" style="color:#B3261E;border-color:#B3261E">Erişimi kaldır</button></div></div>`; }).join("") || '<span class="muted">Henüz onaylı misafir yok.</span>'}</div>
     <details ${cfg.ntfy ? "" : "open"}><summary style="cursor:pointer;font-weight:700">Telefon bildirimi (önerilen, ücretsiz)</summary><div class="col1" style="gap:8px;margin-top:10px">
       <div class="muted" style="font-size:12.5px;line-height:1.6">Misafir “Onay Gönder”e bastığında telefonunuza anında bildirim gelir; uygulama kapalı olsa bile. Bildirime dokununca onay ekranı açılır.<br><b>1.</b> Telefonunuza <b>ntfy</b> uygulamasını kurun (Play Store / App Store).<br><b>2.</b> Aşağıdan “Bildirim kodu oluştur”a basın.<br><b>3.</b> ntfy'de <b>+</b> ile aşağıdaki kodu abone olun (sunucu: ntfy.sh).<br><b>4.</b> “Test bildirimi gönder” ile deneyin.</div>
