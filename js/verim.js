@@ -1,9 +1,9 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261014k";
-import { esc } from "./ui.js?v=20261014k";
-import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi } from "./scoring.js?v=20261014k";
-import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261014k";
-import { CATS } from "./isgcats.js?v=20261014k";
+import * as S from "./store.js?v=20261014l";
+import { esc } from "./ui.js?v=20261014l";
+import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi } from "./scoring.js?v=20261014l";
+import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261014l";
+import { CATS } from "./isgcats.js?v=20261014l";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -162,7 +162,22 @@ function draw() {
   const detHtml = `<div style="border-top:1px solid var(--line);padding-top:16px;display:flex;flex-direction:column;gap:12px"><div style="font-weight:800;font-size:13px;letter-spacing:.8px;color:var(--muted)">BÖLÜM AÇIKLAMALARI <span style="font-weight:600;letter-spacing:0">· denetim ve eğitim kayıtlarında yazılanlar</span></div>
     ${details.length ? details.map(g => `<div class="col1" style="gap:6px">${mk === 4 ? `<div style="font-weight:800;color:#145F96">${g.mod}</div>` : ""}${g.items.map((a, i) => `<div style="display:flex;gap:10px;line-height:1.55"><span style="flex:0 0 22px;font-weight:800;color:#0B6E4F">${i + 1}.</span><span>${a.mon ? `<span class="muted">${a.mon} · </span>` : ""}<b>${esc(a.dept)}</b> — ${esc(a.text)} <span class="muted" style="white-space:nowrap">· ${esc(a.extra)}</span></span></div>`).join("")}</div>`).join("") : `<div class="muted">Bu dönem için girilmiş açıklama yok.</div>`}</div>`;
   const info = { fid: st.fid, year: st.year, details, mk4: mk === 4, fname: st.factories.find(f => f.id === st.fid)?.name || "", title: `${MET[mk][0]} · Bölüm Karşılaştırması`, plabel: PER[V.p].name(V.sel), av, abn: bname(av), ab, names: rows.map(r => r.name), vals, bandOf: x => (x === null ? NONE : band(x)), notes, partial: partial ? `Kısmi dönem: ${cur.idx.length} aydan ${have} tanesi için veri var. Değerler mevcut aylar üzerinden hesaplandı.` : "", esik: p.esik };
-  V.v.querySelector("[data-detslot]").innerHTML = detHtml;
+  // ---- Açılır kartlar (varsayılan kapalı) ----
+  const OP = V.op || (V.op = {});
+  const fold = (box, head, key, clickEl) => {
+    if (!box || !head) return;
+    const body = document.createElement("div"); body.style.cssText = "display:flex;flex-direction:column;gap:14px";
+    [...box.children].filter(c => c !== head).forEach(c => body.appendChild(c)); box.appendChild(body);
+    const ch = document.createElement("span"); ch.style.cssText = "font-size:18px;margin-left:8px;color:var(--muted)";
+    const sync = () => { body.style.display = OP[key] ? "flex" : "none"; ch.textContent = OP[key] ? "▴" : "▾"; clickEl.setAttribute("aria-expanded", !!OP[key]); };
+    clickEl.appendChild(ch); clickEl.style.cursor = "pointer"; clickEl.setAttribute("role", "button"); clickEl.tabIndex = 0;
+    const tg = () => { OP[key] = !OP[key]; sync(); };
+    clickEl.onclick = tg; clickEl.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); tg(); } };
+    sync();
+  };
+  const ds = V.v.querySelector("[data-detslot]"); ds.innerHTML = detHtml;
+  fold(ds.firstElementChild, ds.firstElementChild?.firstElementChild, "det", ds.firstElementChild?.firstElementChild);
+  [...V.v.querySelectorAll(":scope > .cd")].forEach(c => { const h = c.querySelector(":scope > .row.sp"), t = h?.querySelector("h2")?.textContent || ""; if (/^Tablo ·/.test(t)) fold(c, h, "tbl", h.querySelector("h2")); else if (/^Tüm Dönemler/.test(t)) fold(c, h, "all", h.querySelector("h2")); });
 
   // ---- İSG Denetim · aylık kıyas (son 2/3 ay) ----
   {
@@ -179,14 +194,14 @@ function draw() {
       const chg = d => d === null ? `<span class="muted">–</span>` : Math.abs(d) < 0.05 ? `<b style="color:#6B7B76">● 0</b>` : d > 0 ? `<b style="color:#1B7F4B">▲ +${f1(d)}</b>` : `<b style="color:#B3261E">▼ −${f1(-d)}</b>`;
       const segSt = on => `height:36px;padding:0 14px;border-radius:10px;border:1px solid ${on ? "var(--sel)" : "var(--line)"};font-weight:700;background:${on ? "var(--sel)" : "#fff"};color:${on ? "#fff" : "var(--ink,#10201C)"}`;
       const seg = (k, t) => `<button data-cn="${k}" aria-pressed="${C.n === k}" style="${segSt(C.n === k)}">${t}</button>`;
-      const CH = 2.0, B = 68, TOP = 26, GX = 26, op = i => (ms.length === 1 ? 1 : 0.5 + 0.5 * i / (ms.length - 1)), bw = ms.length === 2 ? 28 : 22, gw = ms.length * bw + (ms.length - 1) * 2 + 20;
+      const CH = 2.0, B = 68, TOP = 26, GX = 26, op = i => (ms.length === 1 ? 1 : 0.5 + 0.5 * i / (ms.length - 1)), bw = ms.length === 2 ? 26 : 22, fw = ms.length === 2 ? 17 : 13, gw = ms.length * bw + (ms.length - 1) * 2 + 16;
       const hedef = parseFloat(String(p.esik?.h ?? "90").replace(",", ".")) || 90, kr = parseFloat(String(p.esik?.o ?? "50").replace(",", ".")) || 50, Y = v => B + v * CH, tx = v => f1(v).replace(/,0$/, "");
       const lbl = (v, c, t) => `<div style="position:absolute;left:4px;bottom:${Y(v) + 2}px;font-size:8.5px;font-style:italic;font-weight:600;line-height:1.2;color:${c};z-index:3;white-space:nowrap;-webkit-text-stroke:2.5px var(--card);paint-order:stroke fill;text-shadow:0 0 2px var(--card)">${t}</div>`;
       const ax = (v, c, b) => `<div style="position:absolute;left:0;bottom:${Y(v) - 7}px;width:${GX - 3}px;text-align:right;font-size:11px;${b ? `font-weight:800;color:${c}` : "color:var(--muted)"}">${tx(v)}</div>`;
       const ln = (v, st2) => `<div style="position:absolute;left:0;right:0;bottom:${Y(v)}px;border-top:${st2}"></div>`;
       const H2 = Math.round(100 * CH) + B + TOP;
       const grp = L.map(x => `<div style="flex:0 0 ${gw}px;position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:${H2}px">
-        <div style="display:flex;align-items:flex-end;gap:2px">${ms.map((m, i) => { const v = x.s[m]; return `<div style="width:${bw}px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end"><div style="font-size:10px;font-weight:800;margin-bottom:2px;white-space:nowrap">${v === null ? "–" : f1(v)}</div><div style="width:100%;height:${v === null ? 3 : Math.max(3, Math.round(v * CH))}px;background:${band(v).fill};opacity:${op(i)};border-radius:5px 5px 1px 1px"></div><div style="font-size:10px;color:var(--muted);height:16px;line-height:16px">${MS[m]}</div></div>`; }).join("")}</div>
+        <div style="display:flex;align-items:flex-end;gap:2px">${ms.map((m, i) => { const v = x.s[m]; return `<div style="width:${bw}px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end"><div style="font-size:10px;font-weight:800;margin-bottom:2px;white-space:nowrap">${v === null ? "–" : f1(v)}</div><div style="width:${fw}px;height:${v === null ? 3 : Math.max(3, Math.round(v * CH))}px;background:${band(v).fill};opacity:${op(i)};border-radius:5px 5px 1px 1px"></div><div style="font-size:10px;color:var(--muted);height:16px;line-height:16px">${MS[m]}</div></div>`; }).join("")}</div>
         <div style="margin-top:4px;font-size:12px;font-weight:700;text-align:center;line-height:1.2;width:100%;height:30px;overflow:hidden;display:flex;align-items:flex-start;justify-content:center;word-break:break-word">${esc(x.r.name)}</div><div style="font-size:12px;height:18px">${chg(x.d)}</div></div>`).join("");
       const axis = [0, 25, 75, 100].filter(a => Math.abs(a - hedef) >= 7 && Math.abs(a - kr) >= 7).map(a => ax(a)).join("") + ax(kr, "#D6382E", true) + ax(hedef, "#0B6E4F", true);
       const lines = [25, 75, 100].map(a => ln(a, "1px dashed #B5C5BF")).join("") + ln(0, "1.5px solid #9FB4AE") + `<div style="z-index:0;position:absolute;inset:0;pointer-events:none">${ln(kr, "2px solid #D6382E")}${ln(hedef, "2px solid #0B6E4F")}</div>`;
