@@ -1,11 +1,11 @@
 // İSG Denetim Listesi sayfası
-import * as Guest from "./guest.js?v=20261013s";
-import * as Gorev from "./gorev.js?v=20261013s";
-import * as S from "./store.js?v=20261013s";
-import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261013s";
-import { CATS } from "./isgcats.js?v=20261013s";
-import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261013s";
-import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261013s";
+import * as Guest from "./guest.js?v=20261014a";
+import * as Gorev from "./gorev.js?v=20261014a";
+import * as S from "./store.js?v=20261014a";
+import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261014a";
+import { CATS } from "./isgcats.js?v=20261014a";
+import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261014a";
+import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261014a";
 
 const COLL = "isg";
 const D = { key: "", setup: null, doc: null, dept: null, month: null, open: { 0: true }, ro: false, timer: null, saved: true, msg: "" };
@@ -134,19 +134,33 @@ async function loadWk(force = false) {
   if (String(st.year) !== String(new Date().getFullYear())) { WK.rows = null; return paintWk(); }
   if (!force && Date.now() - WK.t < 15000 && WK.rows) return paintWk();
   const mon = monOf(iso(new Date())), sun = addDays(mon, 6), ms = [...new Set([mon.slice(0, 7), sun.slice(0, 7)])].filter(x => x.slice(0, 4) === String(st.year));
+  const pm = addDays(mon.slice(0, 8) + "01", -1).slice(0, 7), ms2 = pm.slice(0, 4) === String(st.year) && !ms.includes(pm) ? [pm, ...ms] : ms;
   const days = {};
   const rows = await Promise.all(D.setup.rows.map(async r => {
-    let k = "none", m = +iso(new Date()).slice(5, 7);
-    for (const ym of ms) {
+    let k = "none", m = +iso(new Date()).slice(5, 7), stale = false, sm = 0;
+    for (const ym of ms2) {
       const d = await S.getMonthDoc(st.fid, st.year, COLL, `${ym.slice(5)}_${r.id}`).catch(() => null);
-      for (const x of d?.sessions || []) if (x.date && monOf(x.date) === mon) { m = +ym.slice(5); const dd = (days[x.date] ||= { ok: 0, open: 0 }); if (x.closed === false) { k = "open"; dd.open++; } else { if (k !== "open") k = "ok"; dd.ok++; } }
+      for (const x of d?.sessions || []) if (x.date && x.closed === false && monOf(x.date) < mon) { stale = true; sm = +ym.slice(5); } else if (x.date && monOf(x.date) === mon) { m = +ym.slice(5); const dd = (days[x.date] ||= { ok: 0, open: 0 }); if (x.closed === false) { k = "open"; dd.open++; } else { if (k !== "open") k = "ok"; dd.ok++; } }
     }
-    return { id: r.id, name: r.name, k, m, g: 0 };
+    return { id: r.id, name: r.name, k, m, g: 0, stale, sm };
   }));
   if (!GUEST.on) (await S.listMonthDocs(st.fid, st.year, "isgg").catch(() => [])).forEach(g => { if ((g.status === "saved" || g.status === "review") && g.draft?.date && monOf(g.draft.date) === mon) { const r = rows.find(x => x.id === g.dept); if (r) r.g++; } });
   WK.tm = tatilMap(await tatilYukle(st.fid, st.year).catch(() => null)); WK.rows = rows; WK.days = days; WK.mon = mon; WK.t = Date.now(); paintWk();
 }
+function paintWarn() {
+  const el = D.v?.querySelector("#wkWarn"); if (!el) return;
+  if (!WK.rows || GUEST.on) { el.innerHTML = ""; return; }
+  const today = iso(new Date()), dow = new Date().getDay(), late = dow === 0 || dow >= 4, hol = WK.tm?.get(today) && !WK.tm.get(today).yarim;
+  const A = WK.rows.filter(r => r.stale), B = hol ? [] : WK.rows.filter(r => !r.stale && r.k === "none");
+  const nm = l => l.length <= 2 ? l.map(r => esc(r.name)).join(", ") : `${l.length} bölüm`;
+  const L = [];
+  if (A.length) L.push([A[0], `Geçen haftadan açık: ${nm(A)}. Lütfen tamamlayın.`]);
+  if (B.length) L.push([B[0], `${late ? "Bu hafta denetimi geç kalan" : "Bu hafta denetlenmeyen"}: ${nm(B)}.`]);
+  el.innerHTML = L.map(([r, t]) => `<button type="button" data-wn="${r.id}|${r.stale ? r.sm : r.m}" style="display:block;width:100%;height:auto;min-height:0;padding:0;margin:0 0 6px;border:0;background:transparent;text-align:left;font:italic 600 13.5px Manrope,system-ui,sans-serif;color:#B26A00;line-height:1.45;cursor:pointer">${t}</button>`).join("");
+  el.querySelectorAll("[data-wn]").forEach(b => b.onclick = () => { const [id, m] = b.dataset.wn.split("|"); if (id === D.dept && +m === D.month) return; D.dept = id; D.month = +m; D.key = ""; render(D.v, D.ctx); });
+}
 function paintWk() {
+  paintWarn();
   const el = D.v?.querySelector("#wkStrip"); if (!el) return;
   if (!WK.rows) { el.style.display = "none"; el.innerHTML = ""; return; }
   const mon = WK.mon, sun = addDays(mon, 6), done = WK.rows.filter(r => r.k === "ok").length, rng = mon.slice(5, 7) === sun.slice(5, 7) ? `${+mon.slice(8)}–${dmk(sun)}` : `${dmk(mon)} – ${dmk(sun)}`;
@@ -291,6 +305,7 @@ function draw() {
   v.innerHTML = `
   <div><div class="hd" style="letter-spacing:.8px">AYLIK VERİ GİRİŞİ</div><h1 class="ttl">İSG Denetim Listesi</h1>
     <div class="muted" style="font-size:12.5px;min-height:17px" id="sv">${svTxt()}</div></div>
+  <div id="wkWarn"></div>
   <div id="wkStrip" style="display:none"></div>
   ${D.ro && !(GUEST.on && (D.gstatus === "review" || D.gstatus === "approved")) ? `<div class="warn">${roText(st.year, D.month, st.active)}</div>` : ""}
   ${(() => { const cu = on && !GUEST.on && !D.ro && editNo != null ? doc.sessions.find(x => x.no === editNo) : null; return cu && !cu.closed && monOf(cu.date) < monOf(iso(new Date())) ? `<div class="warn">${cu.no}. denetim ${dmy(cu.date)} (${wkNo(cu.date)}. hafta) tarihinde başladı ve hâlâ açık. Eksikleri tamamlayıp “Kaydet ve Denetimi Tamamla”ya basın; açık denetim varken yeni haftanın denetimi başlatılamaz.</div>` : ""; })()}
@@ -394,7 +409,7 @@ function bind(v, c) {
   const nw = document.getElementById("newSess");
   if (nw) nw.onclick = () => { doc.draft = emptyDraft(defaultDate(st.year, D.month), true); persist(true); draw(); };
   on("[data-delsess]", async el => {
-    const { confirmBox } = await import("./ui.js?v=20261013s");
+    const { confirmBox } = await import("./ui.js?v=20261014a");
     if (!(await confirmBox("Son denetim silinsin mi?", "Kayıtlı denetim silinir; skor ve sıklıklar yeniden hesaplanır.", "Evet, sil", true))) return;
     const gone = doc.sessions.pop();
     // Misafir taslağından gelen denetimse: misafire "silindi" bilgisi gider (taslağı düzeltip yeniden gönderebilir), fotoğrafları korunur
