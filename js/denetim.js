@@ -1,11 +1,11 @@
 // İSG Denetim Listesi sayfası
-import * as Guest from "./guest.js?v=20261014f";
-import * as Gorev from "./gorev.js?v=20261014f";
-import * as S from "./store.js?v=20261014f";
-import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261014f";
-import { CATS } from "./isgcats.js?v=20261014f";
-import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261014f";
-import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261014f";
+import * as Guest from "./guest.js?v=20261014g";
+import * as Gorev from "./gorev.js?v=20261014g";
+import * as S from "./store.js?v=20261014g";
+import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261014g";
+import { CATS } from "./isgcats.js?v=20261014g";
+import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261014g";
+import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261014g";
 
 const COLL = "isg";
 const D = { key: "", setup: null, doc: null, dept: null, month: null, open: {}, ro: false, timer: null, saved: true, msg: "" };
@@ -238,7 +238,7 @@ function gPanel(list) {
     const marked = Object.keys(dr.marks || {}).length;
     return `<div class="sess cur" style="flex-direction:column;align-items:stretch;gap:8px"><div class="row sp"><div><b>${esc(g.guestName)}</b> <span class="tag" style="${g.status === "review" ? "background:#FBE9C6;color:#6B3F00" : ""}">${g.status === "review" ? "Tamamlanması istendi" : "Kaydedildi"}</span>
       <div class="muted" style="font-size:12.5px">${dr.date ? dmy(dr.date) : "—"} · ${marked} madde işaretli · ${fx.length} uygunsuz</div></div>
-      <div class="row" style="gap:6px"><button class="sm" data-gdet="${g.id}">Detaylı kontrol</button></div></div>
+      <div class="row" style="gap:6px"><button class="sm" data-gdet="${g.id}">Detaylı kontrol</button><button class="sm sec" data-gdel="${g.id}" style="color:#B3261E;border-color:#B3261E">Sil</button></div></div>
       ${fx.join("") || '<div class="muted" style="font-size:12.5px">Uygunsuz madde yok.</div>'}</div>`;
   };
   return `<div class="cd" style="padding:18px 20px;gap:12px"><div><b style="font:600 16px Sora,sans-serif">Misafir denetim taslakları (${list.length})</b>
@@ -324,7 +324,7 @@ function draw() {
     <div class="row" style="gap:12px">${doc.sessions.map(s => { const isEd = on && s.no === editNo, lastS = s.no === doc.sessions.length;
       const stt = isEd ? "açık · düzenleniyor" : s.closed ? "tamamlandı" : "kaydedildi";
       return `<div class="sess ${isEd ? "cur" : ""}">${isEd ? '<span class="sw" style="background:#0B6E4F;border-radius:50%;margin:0"></span>' : ic('<path d="M4 12l5 5L20 6"/>').replace("currentColor", "#0B6E4F")}<div><b>${s.no}. Denetim · ${wkNo(s.date)}. hafta</b><div class="muted" style="font-size:12.5px">${dmy(s.date)} · ${Object.keys(s.fails).length} uygunsuz · ${stt}</div></div>
-      ${!D.ro && lastS && !GUEST.on ? `<div class="row" style="gap:6px;margin-left:auto;flex-wrap:nowrap">${!on ? `<button class="sm" data-reopen="${s.no}" style="white-space:nowrap" title="Bu denetimi tekrar açıp işaretlemeye devam et">Yeniden aç</button>` : ""}<button class="sm sec" data-delsess="${s.no}" style="white-space:nowrap" title="Bu denetimi sil">Sil</button></div>` : ""}</div>`; }).join("")}
+      ${!D.ro && !GUEST.on ? `<div class="row" style="gap:6px;margin-left:auto;flex-wrap:nowrap">${!isEd ? `<button class="sm" data-reopen="${s.no}" style="white-space:nowrap" title="Bu denetimi tekrar açıp işaretlemeye devam et">Yeniden aç</button>` : ""}<button class="sm sec" data-delsess="${s.no}" style="white-space:nowrap" title="Bu denetimi sil">Sil</button></div>` : ""}</div>`; }).join("")}
       ${on && editNo == null ? `<div class="sess cur"><span class="sw" style="background:#0B6E4F;border-radius:50%;margin:0"></span><div><b>${GUEST.on ? "Taslak denetiminiz" : curNo + ". Denetim"}</b><div style="font-size:12.5px">${date ? dmy(date) : "—"} · ${c.curMarked ? c.curFails + " uygunsuz (taslak)" : "henüz işaretleme yok"} · ${GUEST.on ? ({ saved: "kaydedildi", review: "onay bekliyor", approved: "onaylandı", returned: "geri gönderildi" }[D.gstatus] || "kaydedilmedi") : "yeni, kaydedilmedi"}</div></div></div>` : ""}</div></div>
   <div class="helpbox" style="flex-direction:row;gap:14px;align-items:flex-start">${ic('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h0"/>', 22)}<div style="line-height:1.6">Her maddeyi <b>Uygun</b>, <b>Uygunsuz</b> veya <b>Y.D.</b> olarak işaretleyin; uygunsuzlukta açıklama yazın.</div></div>
   <fieldset class="fs" ${D.ro ? "disabled" : ""}><div class="two" style="align-items:flex-start">
@@ -406,21 +406,59 @@ function bind(v, c) {
   on("[data-freq]", el => { const [ci, k] = el.dataset.freq.split("|"); doc.freq[ci] = +k; again(); });
   on("[data-freqreset]", el => { delete doc.freq[el.dataset.freqreset]; again(); });
   on("[data-bonus]", el => { doc.bonus = +el.dataset.bonus; again(); });
-  on("[data-reopen]", () => { const last = doc.sessions[doc.sessions.length - 1]; if (!last) return; last.closed = false; doc.draft.on = false; settle(doc, st.year, D.month); persist(true); draw(); toast(`${last.no}. denetim yeniden açıldı; eksiklikleri ekleyip kaydedin.`); });
+  on("[data-reopen]", async el => {
+    const no = +el.dataset.reopen, t = doc.sessions.find(x => x.no === no); if (!t) return;
+    if (doc.draft.on !== false && Object.keys(doc.draft.marks || {}).length && doc.draft.edit !== no) {
+      const { confirmBox } = await import("./ui.js?v=20261014g");
+      if (!(await confirmBox(`${no}. denetim açılsın mı?`, "Şu an açık olan denetimde kaydedilmemiş değişiklikler varsa kaybolur. Önce “Kaydet”e basmanız önerilir.", "Yine de aç"))) return;
+    }
+    if (t.no === doc.sessions.length) t.closed = false;
+    doc.draft = { ...draftFromSession(t), on: true, edit: t.no };
+    settle(doc, st.year, D.month); persist(true); draw(); toast(`${t.no}. denetim yeniden açıldı; düzenleyip kaydedin.`);
+  });
   const nw = document.getElementById("newSess");
   if (nw) nw.onclick = () => { doc.draft = emptyDraft(defaultDate(st.year, D.month), true); persist(true); draw(); };
-  on("[data-delsess]", async el => {
-    const { confirmBox } = await import("./ui.js?v=20261014f");
-    if (!(await confirmBox("Son denetim silinsin mi?", "Kayıtlı denetim silinir; skor ve sıklıklar yeniden hesaplanır.", "Evet, sil", true))) return;
-    const gone = doc.sessions.pop();
-    // Misafir taslağından gelen denetimse: misafire "silindi" bilgisi gider (taslağı düzeltip yeniden gönderebilir), fotoğrafları korunur
-    const gAp = (await S.listMonthDocs(st.fid, st.year, "isgg").catch(() => [])).filter(g => g.id.startsWith(`${pad(D.month)}_${D.dept}_`) && g.status === "approved" && g.no === gone.no);
-    for (const g of gAp) await S.saveMonthDoc(st.fid, st.year, "isgg", g.id, { guestUid: g.guestUid, guestName: g.guestName, dept: g.dept, month: g.month, status: "returned", draft: g.draft, at: Date.now(), note: "Onaylanan denetim yetkili kullanıcı tarafından silindi; gerekirse düzeltip yeniden gönderebilirsiniz." }).catch(() => {});
-    if (!gAp.length) Object.values(gone.photos || {}).flat().forEach(p => S.deletePhoto(st.fid, st.year, p.id).catch(() => {}));
-    if (doc.draft.edit === gone.no) doc.draft = emptyDraft(defaultDate(st.year, D.month), false);
-    if (!doc.sessions.length) doc.draft = emptyDraft(defaultDate(st.year, D.month), true); else if (doc.draft.on) { /* devam eden taslak korunur */ }
-    settle(doc, st.year, D.month); await persist(true); draw();
+  const choose = (title, text, opts) => new Promise(res => {
+    const m = document.createElement("div"); m.className = "mod";
+    m.innerHTML = `<div class="mbox" role="dialog" aria-modal="true" style="gap:14px"><h2>${esc(title)}</h2><p class="muted" style="line-height:1.55">${esc(text)}</p><div class="col1" style="gap:8px">${opts.map(([k, t, cl]) => `<button class="${cl || ""}" data-c="${k}">${esc(t)}</button>`).join("")}<button class="sec" data-c="">Vazgeç</button></div></div>`;
+    document.body.appendChild(m);
+    m.querySelectorAll("[data-c]").forEach(b => b.onclick = () => { m.remove(); res(b.dataset.c || null); });
+    m.addEventListener("mousedown", e => { if (e.target === m) { m.remove(); res(null); } });
   });
+  const gAll = async () => (await S.listMonthDocs(st.fid, st.year, "isgg").catch(() => [])).filter(g => g.id.startsWith(`${pad(D.month)}_${D.dept}_`));
+  on("[data-delsess]", async el => {
+    const { confirmBox } = await import("./ui.js?v=20261014g");
+    const no = +el.dataset.delsess, ix = doc.sessions.findIndex(x => x.no === no); if (ix < 0) return;
+    const gone = doc.sessions[ix], later = ix < doc.sessions.length - 1, all = await gAll(), gAp = all.filter(g => g.status === "approved" && g.no === gone.no);
+    let mode = "all";
+    if (gAp.length) {
+      mode = await choose(`${no}. denetim silinsin mi?`, `Bu denetim misafir taslağından geldi (${gAp[0].guestName}). “Geri gönder” misafirin taslağını düzeltip yeniden göndermesine izin verir; “Tamamen sil” taslağı ve fotoğrafları kalıcı siler, hiç yapılmamış gibi olur.${later ? " Sonraki denetimlerin numarası bir azalır." : ""}`,
+        [["ret", "Sil ve misafire geri gönder", "sec"], ["all", "Tamamen sil", "danger"]]);
+      if (!mode) return;
+    } else if (!(await confirmBox(`${no}. denetim silinsin mi?`, `Kayıtlı denetim ve fotoğrafları silinir; skor ve sıklıklar yeniden hesaplanır.${later ? " Sonraki denetimlerin numarası bir azalır." : ""}`, "Evet, sil", true))) return;
+    doc.sessions.splice(ix, 1); doc.sessions.forEach((x, i) => { x.no = i + 1; });
+    const clean = o => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)), save = (g, extra) => S.saveMonthDoc(st.fid, st.year, "isgg", g.id, clean({ guestUid: g.guestUid, guestName: g.guestName, dept: g.dept, month: g.month, status: g.status, draft: g.draft, at: g.at || Date.now(), ...(g.note ? { note: g.note } : {}), ...(g.no != null ? { no: g.no } : {}), ...extra }));
+    for (const g of all) if (g.status === "approved" && g.no > gone.no) await save(g, { no: g.no - 1 });
+    for (const g of gAp) {
+      if (mode === "ret") await save(g, { status: "returned", at: Date.now(), note: "Onaylanan denetim yetkili kullanıcı tarafından silindi; gerekirse düzeltip yeniden gönderebilirsiniz.", no: undefined });
+      else { Object.values(g.draft?.photos || {}).flat().forEach(p => S.deletePhoto(st.fid, st.year, p.id).catch(() => {})); await S.deleteMonthDoc(st.fid, st.year, "isgg", g.id).catch(() => {}); }
+    }
+    if (!gAp.length || mode === "all") Object.values(gone.photos || {}).flat().forEach(p => S.deletePhoto(st.fid, st.year, p.id).catch(() => {}));
+    if (doc.draft.edit === gone.no) doc.draft = emptyDraft(defaultDate(st.year, D.month), false);
+    else if (doc.draft.edit != null && doc.draft.edit > gone.no) doc.draft.edit -= 1;
+    if (!doc.sessions.length) doc.draft = emptyDraft(defaultDate(st.year, D.month), true);
+    settle(doc, st.year, D.month); await persist(true); draw();
+    toast(`${no}. denetim silindi.`);
+  });
+  // Sahip: misafir taslağını tamamen sil (denetime ve rapora hiç girmez)
+  const delG = async g => {
+    const { confirmBox } = await import("./ui.js?v=20261014g");
+    if (!(await confirmBox("Misafir taslağı silinsin mi?", `${g.guestName} taslağı ve fotoğrafları kalıcı olarak silinir; denetime ve rapora hiç girmez. Misafir isterse yeniden yazabilir.`, "Evet, tamamen sil", true))) return false;
+    Object.values(g.draft?.photos || {}).flat().forEach(p => S.deletePhoto(st.fid, st.year, p.id).catch(() => {}));
+    await S.deleteMonthDoc(st.fid, st.year, "isgg", g.id); await Guest.inboxDelete(`${g.guestUid}_${st.fid}_${st.year}_${+g.month}_${g.dept}`);
+    toast("Misafir taslağı silindi."); return true;
+  };
+  on("[data-gdel]", async el => { const g = D.gdocs.find(x => x.id === el.dataset.gdel); if (g && await delG(g)) { D.key = ""; render(D.v, D.ctx); } });
   const dOk = d.date && +d.date.slice(0, 4) === +st.year && +d.date.slice(5, 7) === D.month && d.date <= iso(new Date());
   const doSave = async close => {
     if (D.ro || !dOk || c.missing || c.ydMissing || !c.curMarked || (close && !c.canSave)) return;
@@ -498,7 +536,7 @@ function bind(v, c) {
           <div class="muted" style="font-size:12.5px">${w.date ? dmy(w.date) : "—"} · ${Object.keys(w.marks).length} madde işaretli · ${nUnf()} uygunsuz · ${nPh()} fotoğraf · ${esc(D.setup.rows.find(r => r.id === D.dept)?.name || "")}</div>${tgt ? `<div style="font-size:12.5px;margin-top:2px;color:var(--gd);font-weight:600">Onaylanınca ${tgt.no}. denetime (${wkNo(tgt.date)}. hafta) eklenir.</div>` : ""}</div>
           <button data-x aria-label="Kapat" style="flex:0 0 32px;width:32px;height:32px;min-width:0;padding:0;background:#B3261E;border-color:#B3261E;color:#fff;font-size:26px;line-height:1;display:grid;place-items:center;border-radius:8px">×</button></div>
         <div style="flex:1;overflow:auto;padding:16px 20px;display:flex;flex-direction:column;gap:14px">${body()}</div>
-        <div style="padding:14px 20px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:10px;align-items:center"><input class="inp" id="gNote" placeholder="Geri gönderirken misafire not (isteğe bağlı)" style="flex:1 1 240px"><button class="sec" data-ret>Geri gönder</button><button data-ok>${tgt ? "Onayla ve bu haftanın denetimine ekle" : "Onayla ve denetime ekle"}</button></div></div>`;
+        <div style="padding:14px 20px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:10px;align-items:center"><input class="inp" id="gNote" placeholder="Geri gönderirken misafire not (isteğe bağlı)" style="flex:1 1 240px"><button class="sec" data-ret>Geri gönder</button><button class="sec" data-del style="color:#B3261E;border-color:#B3261E">Tamamen sil</button><button data-ok>${tgt ? "Onayla ve bu haftanın denetimine ekle" : "Onayla ve denetime ekle"}</button></div></div>`;
       m.querySelector("[data-x]").onclick = () => m.remove();
       m.querySelectorAll("[data-mc]").forEach(b => b.onclick = () => { const [id, v] = b.dataset.mc.split("|"); mc[id] = v; const el = m.querySelector(".mbox > div:nth-child(2)"), keep = el.scrollTop; draw2(); m.querySelector(".mbox > div:nth-child(2)").scrollTop = keep; });
       m.querySelectorAll("[data-gn]").forEach(t => t.oninput = () => { const [id, k] = t.dataset.gn.split("|"); (w.notes[id] ||= [""])[+k] = t.value; });
@@ -506,6 +544,7 @@ function bind(v, c) {
       const all = [...m.querySelectorAll("[data-gp]")];
       all.forEach((im, ix) => im.onclick = () => lightbox(all.map(x => ({ id: x.dataset.gp, t: x.getAttribute("src") })), ix));
       m.querySelector("[data-ok]").onclick = async e => { e.target.disabled = true; try { if (await approveG(g, w, mc)) { m.remove(); D.key = ""; render(D.v, D.ctx); } else e.target.disabled = false; } catch (er) { toast("Onaylanamadı: " + (er.message || er)); e.target.disabled = false; } };
+      m.querySelector("[data-del]").onclick = async () => { if (await delG(g)) { m.remove(); D.key = ""; render(D.v, D.ctx); } };
       m.querySelector("[data-ret]").onclick = async e => { e.target.disabled = true; try { await gDone({ ...g, draft: w }, "returned", m.querySelector("#gNote").value.trim()); toast("Taslak düzeltme için geri gönderildi."); m.remove(); D.key = ""; render(D.v, D.ctx); } catch (er) { toast("Gönderilemedi: " + (er.message || er)); e.target.disabled = false; } };
     };
     const lightbox = (list, i0) => {

@@ -57,3 +57,5 @@ Fabrika adı iki programda aynı olmalıdır (büyük/küçük harf ve Türkçe 
 
 ### Veri yapısı eki
 - `users/{uid}/factories/{fid}/years/{yıl}/setup/tatil`: `{ ozel, kaldir, karar, sync }`
+
+- 1.6.3: İSG Denetim – her denetim (son olmasa da) silinebilir / yeniden açılabilir, silinince numaralar yeniden dizilir; misafir taslakları için "Sil" / "Tamamen sil" (hiç yapılmamış gibi temizler).
