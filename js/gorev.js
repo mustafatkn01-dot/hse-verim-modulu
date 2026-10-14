@@ -1,7 +1,7 @@
 // Görev takip programı köprüsü (mtisggorev). HSE Verim yalnızca küçük kayıtlar bırakır ve durumu okur;
 // görev/kaza kayıtlarını görev programı kendisi oluşturur. Bağlantı yoksa özellik uyarı kartıyla kapalı kalır.
-import { GOREV_CFG } from "./gorev-config.js?v=20261014u";
-import { esc } from "./ui.js?v=20261014u";
+import { GOREV_CFG } from "./gorev-config.js?v=20261014v";
+import { esc, toast } from "./ui.js?v=20261014v";
 
 const CFG = GOREV_CFG || null, CDN = "https://www.gstatic.com/firebasejs/10.14.1/";
 let F = null, auth = null, db = null, user = null, err = "", fabs = null, started = false, offs = [], loaded = false;
@@ -58,6 +58,7 @@ function inner(key, tile) {
     const k = d.durum === "kapali" ? "Kapalı" : "Açık";
     return T("background:#D9F1E6;color:#0B6E4F;border-color:#0B6E4F;cursor:default", "✓", "", `Bağlı · ${k}`, "disabled ") || `<span class="pill" style="${GREEN}">✓ Göreve bağlı · ${k}</span>`;
   }
+  if (d && d.durum === "kayit" && d.mevcut) return T("background:#D9F1E6;color:#0B6E4F;border-color:#0B6E4F;cursor:default", "✓", "", "Zaten kayıtlı", "disabled ") || `<span class="pill" style="${GREEN}" title="Aynı olay görev takipte zaten vardı; ikinci kayıt açılmadı, mevcut kayıt buna bağlandı">✓ Görev takipte zaten kayıtlı</span>`;
   if (d && d.durum === "kayit") return T("background:#D9F1E6;color:#0B6E4F;border-color:#0B6E4F;cursor:default", "✓", "", "Olay kaydı", "disabled ") || `<span class="pill" style="${GREEN}" title="Olay sayfasında; bilgileri tamamlayıp Göreve Ekle denince görev olur">✓ Olay kaydına aktarıldı</span>`;
   if (g && g.islendi !== "hata") return T("background:#D9F1E6;color:#0B6E4F;border-color:#0B6E4F;cursor:default", "✓", "", "Bağlı · bekliyor", "disabled title=\"Görev programı açılınca eklenir\" ") || `<span class="pill" style="${GREEN}" title="Görev programı açılınca eklenir">✓ Göreve bağlı · aktarım bekliyor</span>`;
   if ((d && d.durum === "hata") || (g && g.islendi === "hata")) return T("background:#FBE9C6;color:#5A3300;border-color:#E8C877", "!", "", "Fabrika adı", `data-gerr="${esc(key)}" `) || `<button class="sm" data-gerr="${esc(key)}" style="height:36px;background:#FBE9C6;color:#5A3300;border:1px solid #E8C877">Aktarılamadı · fabrika adı</button>`;
@@ -95,7 +96,11 @@ async function add(key) {
   for (let i = 0; i < 20 && fabs === null; i++) await sleep(150);
   if (fabs === null) return warn("hata");
   if (!fabs.some(n => norm(n) === norm(p.fab))) return warn("fab", { hse: p.fab, liste: fabs });
-  try { await F.set(R("hseGelen/" + key), { ...p, at: Date.now() }); } catch (e) { warn("hata"); }
+  try { await F.set(R("hseGelen/" + key), { ...p, at: Date.now() }); } catch (e) { return warn("hata"); }
+  if (p.tip === "ramak") { // görev takip aynı olayı zaten kayıtlı bulursa uyar
+    const off = onChange(() => { if (durum.get(key)?.mevcut) { off(); clearTimeout(tm); toast("Bu ramak kala görev takipte zaten kayıtlı. İkinci kayıt açılmadı, mevcut kayıt bağlandı."); } });
+    const tm = setTimeout(off, 45000);
+  }
 }
 document.addEventListener("click", e => {
   const b = e.target.closest?.("[data-gadd]"); if (b) { e.preventDefault(); add(b.dataset.gadd); return; }

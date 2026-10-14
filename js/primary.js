@@ -1,7 +1,7 @@
 // Ana (yetkili) cihaz değişimi: e-postaya doğrulama bağlantısı/kodu gönderilir, kod girilince ana cihaz değişir.
-import { auth, apiKey, authDomain, signInWithEmailLink, sendSignInLinkToEmail, EmailAuthProvider, reauthenticateWithCredential } from "./firebase.js?v=20261014u";
-import * as S from "./store.js?v=20261014u";
-import { esc } from "./ui.js?v=20261014u";
+import { auth, apiKey, authDomain, signInWithEmailLink, sendSignInLinkToEmail, EmailAuthProvider, reauthenticateWithCredential } from "./firebase.js?v=20261014v";
+import * as S from "./store.js?v=20261014v";
+import { esc } from "./ui.js?v=20261014v";
 
 const LAND = (() => { try { const q = new URLSearchParams(location.search); return q.get("mode") === "signIn" && q.get("oobCode") ? q.get("oobCode") : null; } catch { return null; } })();
 if (LAND) { try { history.replaceState(null, "", location.pathname + location.hash); } catch {} }

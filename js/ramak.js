@@ -1,10 +1,11 @@
 // Ramak Kala bildirimleri: ay bazında kayıt, bildiren bölümün bonus kademesi, misafir kaydı için yetkili onayı
 // Koleksiyon "ramak": her bildirim ayrı kayıt. status: approved (yetkili kaydı / onaylı) | pending (misafir, onay bekliyor) | rejected
-import * as S from "./store.js?v=20261014u";
-import * as Guest from "./guest.js?v=20261014u";
-import { esc, toast, pickDate, fmtTarih, compressImage, showPhoto, confirmBox, GUEST, guestLock, roText } from "./ui.js?v=20261014u";
-import { CATS } from "./isgcats.js?v=20261014u";
-import { calcIsg, katsayi, bandOf, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261014u";
+import * as S from "./store.js?v=20261014v";
+import * as Guest from "./guest.js?v=20261014v";
+import * as Gorev from "./gorev.js?v=20261014v";
+import { esc, toast, pickDate, fmtTarih, compressImage, showPhoto, confirmBox, GUEST, guestLock, roText } from "./ui.js?v=20261014v";
+import { CATS } from "./isgcats.js?v=20261014v";
+import { calcIsg, katsayi, bandOf, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261014v";
 
 export const COLL = "ramak";
 export const TIER = ["Yok", "Ayda 1", "2 Haftada 1", "Haftalık"];
@@ -51,14 +52,14 @@ export function openForm({ st, setup, month, dept = "", recs = [] }) {
     m.innerHTML = `<div class="mbox rk" role="dialog" aria-modal="true" aria-labelledby="rkT">
       <h2 id="rkT">Ramak Kala Bildirimi</h2>
       <div class="muted" style="font-size:13px;line-height:1.5">${owner ? "Kayıt hemen listeye eklenir." : "Kayıt yetkili onayından sonra puana sayılır."}</div>
-      <div class="f"><label>KAYNAK</label><div class="sw2"><button type="button" data-src="b">Bölümden bildirim<small>Bildiren bölüm puan alır</small></button><button type="button" data-src="s">Saha gözlemi<small>Puan yok, yalnızca takip</small></button></div></div>
+      <div class="f"><label for="rkSrc">KAYNAK</label><select id="rkSrc" class="inp"><option value="b">Bölümden bildirim (puanlı)</option><option value="s">Saha gözlemi (puansız, yalnızca takip)</option></select></div>
       <div class="two" id="rkB"><div class="f"><label for="rkD">BİLDİREN BÖLÜM <span class="req">*</span></label><select id="rkD" class="inp"><option value="">Seçin</option>${setup.rows.map(r => `<option value="${esc(r.id)}" ${r.id === dept ? "selected" : ""}>${esc(r.name)}</option>`).join("")}</select></div>
         <div class="f"><label for="rkW">BİLDİREN KİŞİ <span class="req">*</span></label><input id="rkW" class="inp" placeholder="Ad Soyad" autocomplete="off" maxlength="80"></div></div>
       <div class="two"><div class="f"><label>TARİH <span class="req">*</span></label><button type="button" class="inp" id="rkT2" style="display:flex;align-items:center;justify-content:space-between;text-align:left"><span id="rkTt">${fmtTarih(f.d)}</span></button></div>
         <div class="f"><label for="rkP">OLAY YERİ / MAKİNE</label><input id="rkP" class="inp" placeholder="Örn. Pres 3 yanı" autocomplete="off" maxlength="120"></div></div>
       <div class="f"><label for="rkX">NE OLDU? <span class="req">*</span></label><textarea id="rkX" class="inp" maxlength="1000" placeholder="Ramak kala olayını ve olası sonucunu yazın"></textarea></div>
       <div class="f"><label for="rkO">ÖNERİ / ALINAN ÖNLEM</label><textarea id="rkO" class="inp" maxlength="1000" style="min-height:64px" placeholder="İsteğe bağlı"></textarea></div>
-      <div class="f"><label>FOTOĞRAF</label><div class="rphs" id="rkPh"></div><label class="sm sec" style="display:inline-flex;align-items:center;justify-content:center;border-radius:10px;border:1px solid var(--gd);color:var(--gd);height:36px;padding:0 14px;margin:8px 0 0;cursor:pointer;align-self:flex-start;font-size:13px;font-weight:700">+ Fotoğraf ekle<input id="rkF" type="file" accept="image/*" multiple hidden></label></div>
+      <div class="f"><label>FOTOĞRAF</label><div class="rphs" id="rkPh"></div><div style="display:flex;gap:8px;margin-top:8px;justify-content:center"><label style="display:flex;flex:1 1 0;align-items:center;justify-content:center;gap:6px;border-radius:10px;border:1px solid var(--gd);color:var(--gd);height:40px;padding:0 10px;margin:0;cursor:pointer;font-size:11px;font-style:italic;font-weight:700;background:var(--card)">+ Fotoğraf çek<input id="rkFc" type="file" accept="image/*" capture="environment" hidden></label><label style="display:flex;flex:1 1 0;align-items:center;justify-content:center;gap:6px;border-radius:10px;border:1px solid var(--gd);color:var(--gd);height:40px;padding:0 10px;margin:0;cursor:pointer;font-size:11px;font-style:italic;font-weight:700;background:var(--card)">+ Fotoğraf ekle<input id="rkF" type="file" accept="image/*" multiple hidden></label></div></div>
       <div id="rkE" class="eff"></div><div class="err" id="rkR"></div>
       <div class="row" style="justify-content:flex-end;flex-wrap:nowrap"><button class="sec" id="rkC">İptal</button><button id="rkS">Kaydet</button></div></div>`;
     document.body.appendChild(m);
@@ -73,11 +74,11 @@ export function openForm({ st, setup, month, dept = "", recs = [] }) {
       e.innerHTML = owner ? `<b>${esc(row.name)}</b>: bu ayki bildirim ${n0} → <b>${n1}</b>. Kademe: <b>${TIER[k1]}</b> (+${v[k1]} puan${k1 !== k0 ? `, şu an +${v[k0]}` : ""}).`
         : `<b>${esc(row.name)}</b> için bu kayıt yetkili onayından sonra sayılır. Şu an ${n0} onaylı bildirim, kademe <b>${TIER[k0]}</b>.`;
     };
-    const sync = () => { m.querySelectorAll("[data-src]").forEach(b => b.classList.toggle("on", b.dataset.src === f.src)); q("#rkB").style.display = f.src === "s" ? "none" : ""; eff(); };
-    m.querySelectorAll("[data-src]").forEach(b => b.onclick = () => { f.src = b.dataset.src; sync(); });
+    const sync = () => { q("#rkSrc").value = f.src; q("#rkB").style.display = f.src === "s" ? "none" : ""; eff(); };
+    q("#rkSrc").onchange = e => { f.src = e.target.value; sync(); };
     q("#rkD").onchange = eff;
     q("#rkT2").onclick = async () => { const r = await pickDate({ title: "Tarih", min: ms, max: maxD, a: f.d, view: ms }); if (r?.a) { f.d = r.a; q("#rkTt").textContent = fmtTarih(f.d); } };
-    q("#rkF").onchange = async e => {
+    q("#rkF").onchange = q("#rkFc").onchange = async e => {
       const files = [...e.target.files]; e.target.value = ""; q("#rkR").textContent = files.length ? "Fotoğraf hazırlanıyor…" : "";
       for (const file of files) {
         if (f.ph.length >= 4) { q("#rkR").textContent = "En çok 4 fotoğraf eklenebilir."; break; }
@@ -150,6 +151,7 @@ function draw() {
     const stc = r.status === "pending" ? `<span class="chip wait">Onay bekliyor · puan sayılmadı</span>` : r.status === "rejected" ? `<span class="chip rej">Reddedildi</span>` : "";
     const mine = GUEST.on && r.guestUid === GUEST.uid, acts = [];
     if (!GUEST.on && !R.ro && r.status === "pending") acts.push(`<button class="sm" data-ra="ok|${r.id}">Onayla</button><button class="sm sec" data-ra="no|${r.id}">Reddet</button>`);
+    if (!GUEST.on && r.status === "approved") acts.push(Gorev.chip(Gorev.noteKey("r", st.fid, st.year, R.month, r.dept || "saha", r.id, r.txt), { tip: "ramak", fab: st.factories?.find(f => f.id === st.fid)?.name || "", yil: +st.year, ay: R.month, tarih: r.d, bolum: r.src === "b" ? nm(r.dept) : "", kisi: r.who || "", yer: r.place || "", metin: r.txt, oneri: r.tip || "", url: location.origin + location.pathname + "#ramak" }));
     if (GUEST.on ? mine && r.status === "pending" : !R.ro) acts.push(`<button class="sm sec" data-ra="del|${r.id}" style="color:#B3261E;border-color:#B3261E">Sil</button>`);
     const who = r.src === "b" ? `Bildiren: <b>${esc(nm(r.dept))}</b> · ${esc(r.who)}` : "Saha gözlemi";
     return `<div class="rrec"><div class="rh"><b>${dmy(r.d)}</b><span class="muted" style="font-size:12.5px;text-align:right">${esc(r.by || r.guestName || "Misafir")}${r.guestName ? " (Misafir)" : ""}</span></div>
