@@ -1,9 +1,9 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261014n";
-import { esc } from "./ui.js?v=20261014n";
-import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi } from "./scoring.js?v=20261014n";
-import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261014n";
-import { CATS } from "./isgcats.js?v=20261014n";
+import * as S from "./store.js?v=20261014o";
+import { esc } from "./ui.js?v=20261014o";
+import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi } from "./scoring.js?v=20261014o";
+import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261014o";
+import { CATS } from "./isgcats.js?v=20261014o";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -129,10 +129,10 @@ function draw() {
     <div class="sub">Aylık, çeyreklik (3-6-9 aylık, kümülatif) ve yıllık verimi sütun grafik ve tablo olarak görün. Dönemi ve göstergeyi seçin, grafik ile tablo birlikte güncellenir. Veriler aylık giriş sayfalarında kaydedilen sonuçlardan gelir.</div></div>
   ${nonEmpty ? "" : `<div class="warn">${y} yılı için henüz kayıtlı veri yok. Aylık giriş sayfalarından veri kaydedildikçe tablo dolar.</div>`}
   <div class="cd" style="padding:18px 20px;gap:14px">
-    <div class="row" style="gap:20px 28px;align-items:flex-start">
-      <div class="col1" style="gap:8px"><span class="hd">DÖNEM</span><div class="row" style="gap:8px">${["m", "q", "h", "n", "y"].map(k => `<button data-p="${k}" aria-pressed="${V.p === k}" style="height:44px;padding:0 18px;border-radius:12px;border:1px solid;font-weight:700;${seg(V.p === k)}">${PER[k].t}</button>`).join("")}</div></div>
-      <div class="col1" style="gap:8px"><span class="hd">GÖSTERGE</span><div class="row" style="gap:8px">${MET.map((m, k) => `<button data-m="${k}" aria-pressed="${mk === k}" style="height:44px;padding:0 16px;border-radius:12px;border:1px solid;font-weight:700;${seg(mk === k)}">${m[0]}</button>`).join("")}</div></div></div>
-    ${V.p === "m" ? `<div class="col1" style="gap:8px"><span class="hd">${PER[V.p].title}</span><div class="row" style="gap:8px">${PER[V.p].items.map((it, i) => `<button data-s="${i}" aria-pressed="${V.sel === i}" style="min-width:56px;height:40px;padding:0 14px;border-radius:10px;border:1px solid;font-weight:700;${seg(V.sel === i)};opacity:${V.p === "m" && !hasM[i] ? .45 : 1}">${it.t}</button>`).join("")}</div></div>` : ""}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="col1" style="gap:6px;min-width:0"><label class="hd" for="vP">DÖNEM</label><select id="vP" style="font-weight:700">${["m", "q", "h", "n", "y"].map(k => `<option value="${k}" ${V.p === k ? "selected" : ""}>${PER[k].t}</option>`).join("")}</select></div>
+      <div class="col1" style="gap:6px;min-width:0"><label class="hd" for="vS">AY</label><select id="vS" style="font-weight:700" ${V.p === "m" ? "" : "disabled"}>${V.p === "m" ? PER.m.items.map((it, i) => `<option value="${i}" ${V.sel === i ? "selected" : ""}>${MF[i]}${hasM[i] ? "" : " (veri yok)"}</option>`).join("") : `<option>${PER[V.p].items[0].t}</option>`}</select></div></div>
+    <div class="col1" style="gap:6px"><span class="hd">GÖSTERGE</span><div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">${MET.map((m, k) => `<button data-m="${k}" aria-pressed="${mk === k}" style="height:36px;padding:0 2px;border-radius:10px;border:1px solid;font-weight:700;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;${seg(mk === k)}">${m[1]}</button>`).join("")}</div></div></div>
   <div class="cd">
     <div class="row sp"><div><h2>${MET[mk][0]} · Bölüm Karşılaştırması</h2><div class="muted" style="font-size:13px;margin-top:4px">${PER[V.p].name(V.sel)}</div></div>
       <div class="row" style="gap:10px;flex-wrap:nowrap"><span class="muted" style="font-size:13px">Tesis ortalaması</span><b style="font:700 22px Sora,sans-serif">${av === null ? "–" : f1(av)}</b><span class="pill" style="background:${ab.bg};color:${ab.c}">${bname(av)}</span>
@@ -225,9 +225,9 @@ function draw() {
   const PC = [...MS.map((n, i) => [n, [i]]), ["3 Ay (Ç1)", rng(0, 2)], ["6 Ay (Ç2)", rng(0, 5)], ["9 Ay (Ç3)", rng(0, 8)], ["Yıllık", rng(0, 11)]];
   V.v.querySelector('[data-csv="m"]').onclick = () => downloadCsv(`${fn}_${MET[mk][0].replace(/\s+/g, "_")}_tum_donemler.csv`, [[`${info.fname} · ${MET[mk][0]} · ${y}`], ["Bölüm", ...PC.map(c => c[0])], ...rows.map(r => [r.name, ...PC.map(c => avg(series(r.id, mk), c[1]))])]);
   const rd = () => draw();
-  V.v.querySelectorAll("[data-p]").forEach(b => b.onclick = () => { V.p = b.dataset.p; V.sel = null; rd(); });
+  V.v.querySelector("#vP").onchange = e => { V.p = e.target.value; V.sel = null; rd(); };
+  V.v.querySelector("#vS").onchange = e => { V.sel = +e.target.value; rd(); };
   V.v.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { V.metric = +b.dataset.m; rd(); });
-  V.v.querySelectorAll("[data-s]").forEach(b => b.onclick = () => { V.sel = +b.dataset.s; rd(); });
   V.v.querySelectorAll("[data-go]").forEach(b => b.onclick = () => { const [a, i] = b.dataset.go.split(":"); V.p = a; V.sel = +i; rd(); scrollTo({ top: 0, behavior: "smooth" }); });
 }
 
