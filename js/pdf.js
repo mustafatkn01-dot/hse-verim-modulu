@@ -1,5 +1,5 @@
 // Ortak PDF yardımcıları: kâğıt boyutu (A4/A3) + sayfa düzeni (dikey/yatay) penceresi
-import { esc } from "./ui.js?v=20261014l";
+import { esc } from "./ui.js?v=20261014m";
 
 export function askFormat({ title = "PDF indir", text = "", defOrient = "portrait", hint = "", pics = 0, fileOnly = false } = {}) {
   return new Promise(res => {
@@ -11,7 +11,7 @@ export function askFormat({ title = "PDF indir", text = "", defOrient = "portrai
       <div class="col1" style="gap:8px"><span class="hd">KÂĞIT BOYUTU</span><div class="row" style="gap:8px;flex-wrap:nowrap">${seg("size", [["A4", "A4"], ["A3", "A3"]])}</div></div>
       <div class="col1" style="gap:8px"><span class="hd">SAYFA DÜZENİ</span><div class="row" style="gap:8px;flex-wrap:nowrap">${seg("orient", [["portrait", "Dikey"], ["landscape", "Yatay"]])}</div>
         ${hint ? `<span class="muted" style="font-size:12.5px">${esc(hint)}</span>` : ""}</div>
-      ${pics ? `<label class="row" style="gap:10px;flex-wrap:nowrap;font-weight:600;cursor:pointer"><input type="checkbox" data-pics style="width:20px;height:20px"> Resimleri ekle (${pics} adet · her açıklamanın altında yaklaşık 8 cm)</label>` : ""}
+      ${pics ? `<label class="row" style="gap:10px;flex-wrap:nowrap;font-weight:600;cursor:pointer"><input type="checkbox" data-pics style="width:20px;height:20px"> Resimleri ekle (${pics} adet · her açıklamanın altında yaklaşık 6 cm)</label>` : ""}
       ${fileOnly ? "" : `<div class="muted" style="font-size:12.5px;line-height:1.5">Yazdırma önizlemesi açılır; oradan doğrudan yazdırabilir veya hedef olarak "PDF olarak kaydet" seçebilirsiniz. Ölçek ve kenar boşlukları "Varsayılan" kalsın.</div>`}
       <div class="row" style="justify-content:flex-end"><button class="sec" data-no>İptal</button>${fileOnly ? `<button data-file>PDF indir</button>` : `<button class="sec" data-file title="Yazdırmadan doğrudan PDF dosyası olarak indir">Dosya olarak indir</button><button data-yes>Önizleme ve yazdır</button>`}</div></div>`;
     document.body.appendChild(m);

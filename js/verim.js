@@ -1,9 +1,9 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261014l";
-import { esc } from "./ui.js?v=20261014l";
-import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi } from "./scoring.js?v=20261014l";
-import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261014l";
-import { CATS } from "./isgcats.js?v=20261014l";
+import * as S from "./store.js?v=20261014m";
+import { esc } from "./ui.js?v=20261014m";
+import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi } from "./scoring.js?v=20261014m";
+import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261014m";
+import { CATS } from "./isgcats.js?v=20261014m";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -43,9 +43,12 @@ export async function load(st, setup) {
   kn.forEach(d => rows.forEach(r => { const x = num0(d.result?.per?.[r.id]?.pct), t = nt(d, r.id); if (low(x) && t) notes.push({ m: mOf(d), k: 1, id: r.id, t, x: `verim ${f1(x)}` }); }));
   ib.forEach(d => rows.forEach(r => { const x = d.result?.per?.[r.id], t = nt(d, r.id); if (x?.state === "ok" && x.verim < 99.995 && t) notes.push({ m: mOf(d), k: 2, id: r.id, t, x: `verim ${f1(x.verim)}` }); }));
   ig.forEach(d => { const id = String(d.id).slice(3); if (!out[id] || !d.sessions?.length) return; const items = {};
-    d.sessions.forEach(se => Object.entries(se.fails || {}).forEach(([key, arr]) => { const o = (items[key] ||= { n: new Set(), c: 0, pics: [] }); o.c++; (arr || []).forEach((t, j) => { o.n.add(t); ((se.photos || {})[key + "|" + j] || []).forEach(ph => { if (!o.pics.some(x => x.id === ph.id)) o.pics.push(ph); }); }); }));
+    // Her bulgu (madde içindeki her ayrı not) ayrı satır olur; fotoğrafları kendi notuna bağlıdır
+    d.sessions.forEach(se => Object.entries(se.fails || {}).forEach(([key, arr]) => { const o = (items[key] ||= { list: new Map(), c: 0 }); o.c++;
+      const L = (arr || []).length ? arr : [""];
+      L.forEach((t, j) => { const k = String(t || "").trim(), e = o.list.get(k) || { c: 0, pics: [], at: j }; e.c++; ((se.photos || {})[key + "|" + j] || []).forEach(ph => { if (!e.pics.some(x => x.id === ph.id)) e.pics.push(ph); }); o.list.set(k, e); }); }));
     Object.entries(items).forEach(([key, o]) => { const mm = /^c(\d+)i(\d+)$/.exec(key); if (!mm) return; const c = CATS[+mm[1]]; if (!c) return;
-      notes.push({ m: mOf(d), k: 3, id, t: `${c.name}: ${o.n.size ? [...o.n].join("; ") : c.items[+mm[2]]}`, x: `${o.c} denetimde uygunsuz`, pics: o.pics }); }); });
+      [...o.list.entries()].forEach(([t, e]) => notes.push({ m: mOf(d), k: 3, id, t: `${c.name}: ${t || c.items[+mm[2]]}`, x: `${e.c} denetimde uygunsuz`, pics: e.pics })); }); });
   out._n = notes;
   out._s = {}; ig.forEach(d => { const id = String(d.id).slice(3); (d.sessions || []).forEach(se => { if (se?.date) (out._s[id] ||= []).push(se.date); }); });
   return out;
@@ -245,7 +248,7 @@ async function printSheet(info, { size, orient, pics = false, file = false }) {
   const now = new Date(), ds = `${String(now.getDate()).padStart(2, "0")}.${String(now.getMonth() + 1).padStart(2, "0")}.${now.getFullYear()}`;
   const usePics = pics && info.details.some(g => g.items.some(i => i.pics?.length)), PH = {};
   if (usePics) await Promise.all(info.details.flatMap(g => g.items.flatMap(i => i.pics)).map(async p => { try { PH[p.id] = await S.getPhoto(info.fid, info.year, p.id); } catch { } }));
-  const psz = file ? 302 : Math.round(302 / z); // 8 cm yükseklik
+  const psz = file ? 227 : Math.round(227 / z); // 6 cm yükseklik
   const picsHtml = a => usePics && a.pics?.length ? `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">${a.pics.map(p => `<img src="${PH[p.id] || p.t}" alt="Fotoğraf" style="height:${psz}px;width:auto;max-width:100%;border-radius:6px;border:1px solid #C3D1CC">`).join("")}</div>` : "";
   const sh = document.createElement("div"); sh.id = "psheet";
   const FONT = "font-family:Manrope,system-ui,sans-serif;color:#10201C;display:flex;flex-direction:column;gap:14px;font-size:13px";
