@@ -1,11 +1,11 @@
 // Aylık HSE Raporu · kayıtlı verilerden otomatik grafik + açıklama
-import * as S from "./store.js?v=20261014m";
-import { esc } from "./ui.js?v=20261014m";
-import * as Gorev from "./gorev.js?v=20261014m";
-import * as T from "./tatil.js?v=20261014m";
-import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261014m";
-import { CATS } from "./isgcats.js?v=20261014m";
-import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261014m";
+import * as S from "./store.js?v=20261014n";
+import { esc } from "./ui.js?v=20261014n";
+import * as Gorev from "./gorev.js?v=20261014n";
+import * as T from "./tatil.js?v=20261014n";
+import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261014n";
+import { CATS } from "./isgcats.js?v=20261014n";
+import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261014n";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -63,7 +63,7 @@ const toggle = id => { const v = R.vert.has(id), btn = (on, vt, title, svg) => `
   return `<span class="noprint" style="display:inline-flex;gap:4px;margin-left:12px;vertical-align:middle">${btn(!v, "h", "Yatay çubuk", '<path d="M4 6h14M4 12h10M4 18h16"/>')}${btn(v, "v", "Dikey sütun", '<path d="M6 20V10M12 20V4M18 20v-7"/>')}</span>`; };
 const card = (title, sub, body, tg) => `<div class="cd" style="gap:18px"><div class="row sp" style="align-items:baseline"><h2>${title}${tg ? toggle(tg) : ""}</h2><div class="muted" style="font-size:13px">${sub}</div></div>${body}</div>`;
 
-const imgH = p => `<img data-pid="${p.id}" src="${R.ph[p.id] || p.t}" alt="Fotoğraf" style="height:302px;width:auto;max-width:100%;border-radius:8px;border:1px solid #C3D1CC;background:#EEF2F0">`;
+const imgH = p => `<img data-pid="${p.id}" src="${R.ph[p.id] || p.t}" alt="Fotoğraf" style="height:227px;width:auto;max-width:100%;border-radius:8px;border:1px solid #C3D1CC;background:#EEF2F0">`;
 function g6Body(a, mpre) {
   const tail = `<b style="white-space:nowrap">${esc(a.dept)}</b> <span class="muted" style="white-space:nowrap">· sıklık ${a.f}</span>`;
   if (!R.pics || !a.notes.some(n => n.pics.length)) return `${mpre(a.mi)}${esc(a.notes.length ? a.notes.map(n => n.t).join("; ") : a.text)} ${tail}`;
