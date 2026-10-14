@@ -21,6 +21,7 @@ Fabrika adı iki programda aynı olmalıdır (büyük/küçük harf ve Türkçe 
 ## Sürüm notları
 
 ### 1.6.2
+- İş Kazası da aynı sistemde: kazalar + ile (tür, açıklama) eklenir; misafir kaydı onay bekler (kazag).
 - Çalışan sayısı aylıktır: Kurulum'da değiştirilen sayı kaydedildiği aydan itibaren geçerlidir, önceki aylar değişmez (r.nm). Yıl başlatılırken Aralık değeri yeni yılın tabanı olur.
 - Eğitim Konuşması ve İşbaşı Eğitim: aylık toplam, eklenen kayıtların toplamıdır (+ düğmesi). Misafir kaydı "Onay bekliyor" olarak gelir; yetkili onaylar / reddeder. Misafir aylık kaydı değiştiremez (firestore.rules güncellendi: konusmag, isbasig).
 

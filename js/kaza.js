@@ -1,14 +1,16 @@
 // İş Kazası · Aylık Giriş
-import * as S from "./store.js?v=20261014e";
-import * as Gorev from "./gorev.js?v=20261014e";
-import { esc, ic, toast, noteEditor, guestLock, roText, GUEST } from "./ui.js?v=20261014e";
-import { katsayi, bandOf, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261014e";
+import * as S from "./store.js?v=20261014f";
+import * as Gorev from "./gorev.js?v=20261014f";
+import { esc, ic, toast, guestLock, roText, GUEST } from "./ui.js?v=20261014f";
+import * as Guest from "./guest.js?v=20261014f";
+import * as K from "./kayit.js?v=20261014f";
+import { katsayi, bandOf, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261014f";
 
 const COLL = "kaza";
 export const T = [["Gün kayıpsız", 2], ["1-5 gün kayıplı", 5], ["5-20 gün kayıplı", 10], ["20+ gün kayıplı", 20], ["Uzuv kaybı", 50], ["Ölüm", 100]];
 const BAND = { Mükemmel: ["#0B6E4F", "#D9F1E6"], İyi: ["#145F96", "#DCEAF7"], Orta: ["#6B3F00", "#FBE9C6"], Kritik: ["#B3261E", "#FADAD7"] };
 const pad = n => String(n).padStart(2, "0");
-const D = { key: "", month: null, rows: {}, exists: false, saved: true, timer: null, msg: "" };
+const D = { key: "", month: null, rows: {}, g: [], kOpen: false, exists: false, saved: true, timer: null, msg: "" };
 const f1 = n => n.toFixed(1).replace(".", ",");
 
 // Tek bölümün hesabı: verim = max(0, 100 − Σ(adet × puan) × bölüm katsayısı)
@@ -28,25 +30,35 @@ export async function render(v, ctx) {
     clearTimeout(D.timer);
     const doc = await S.getMonthDoc(st.fid, st.year, COLL, pad(D.month));
     D.rows = doc?.rows || {}; D.exists = !!doc; D.key = key; D.saved = true; D.msg = "";
+    // Eski kayıt (türe göre adetler + tek açıklama) ilk kayıtlar olarak korunur
+    Object.values(D.rows).forEach(x => {
+      if (x.log) return; x.log = []; let first = true;
+      (x.c || []).forEach((n, k) => { if (n > 0) { x.log.push({ id: "L" + k, d: "", t: k, n, note: first ? String(x.note || "").trim() : "" }); first = false; } });
+    });
   }
+  D.g = await K.loadGuest(st.fid, st.year, "kaza", D.month);
   D.ctx = ctx; D.v = v; D.setup = setup; D.ro = String(st.year) !== String(st.active) || guestLock(st.year, D.month);
   draw();
 }
 
-const rowOf = id => (D.rows[id] ||= { c: [0, 0, 0, 0, 0, 0], note: "" });
+const rowOf = id => (D.rows[id] ||= { c: [0, 0, 0, 0, 0, 0], note: "", log: [] });
+// Aylık toplam: sahip kayıtları + onaylı misafir kayıtları
+const ents = id => [...rowOf(id).log.map(x => ({ t: +x.t, n: +x.n || 1, note: x.note || "" })), ...D.g.filter(x => x.dept === id && x.status === "approved").map(x => ({ t: +x.t, n: 1, note: x.note || "" }))];
+const cnt = id => { const c = [0, 0, 0, 0, 0, 0]; ents(id).forEach(x => { if (x.t >= 0 && x.t < 6) c[x.t] += x.n; }); return c; };
+const noteOf = id => ents(id).map(x => String(x.note).trim()).filter(Boolean).join(" | ");
 
 function summary() {
   const out = {}; let sum = 0, tot = 0, lost = 0;
-  D.setup.rows.forEach(r => { const x = calcKaza(rowOf(r.id).c, katsayi(r, D.month)); out[r.id] = { ...x, F: +katsayi(r, D.month).toFixed(2) }; sum += x.verim; tot += x.count; lost += x.lost; });
+  D.setup.rows.forEach(r => { const x = calcKaza(cnt(r.id), katsayi(r, D.month)); out[r.id] = { ...x, F: +katsayi(r, D.month).toFixed(2) }; sum += x.verim; tot += x.count; lost += x.lost; });
   return { per: out, tesis: sum / D.setup.rows.length, tot, lost };
 }
 
 function persist(now = false) {
-  if (D.ro) return Promise.resolve();
+  if (D.ro || GUEST.on) return Promise.resolve();
   D.saved = false; setSv(); clearTimeout(D.timer);
   const run = async () => {
     const [f, y, m] = D.key.split("/"), s = summary(), p = D.setup.params || DEFAULT_PARAMS;
-    const rows = {}; D.setup.rows.forEach(r => { rows[r.id] = rowOf(r.id); });
+    const rows = {}; D.setup.rows.forEach(r => { rows[r.id] = { ...rowOf(r.id), c: cnt(r.id), note: noteOf(r.id) }; });
     try {
       await S.saveMonthDoc(f, y, COLL, pad(+m), { rows, month: +m, result: { tesis: +s.tesis.toFixed(2), band: bandOf(s.tesis, p), total: s.tot, lost: s.lost, per: Object.fromEntries(Object.entries(s.per).map(([k, x]) => [k, { count: x.count, lost: x.lost, pen: +x.pen.toFixed(2), verim: +x.verim.toFixed(2), F: x.F }])) } });
       D.saved = true; D.exists = true; D.msg = "";
@@ -59,19 +71,26 @@ function persist(now = false) {
 const setSv = () => { const e = document.getElementById("sv"); if (e) e.textContent = D.msg || (D.saved ? (D.exists ? "Kayıtlı" : "Bu ay henüz kaydedilmedi") : "Kaydediliyor…"); };
 
 function gchip(r, row, x, st) {
-  const t = row.note.trim();
+  const t = noteOf(r.id).trim();
   if (!t || D.ro || GUEST.on) return "";
-  const sinif = row.c.map((n, k) => n > 0 ? `${T[k][0]} ×${n}` : "").filter(Boolean).join(", ");
+  const sinif = cnt(r.id).map((n, k) => n > 0 ? `${T[k][0]} ×${n}` : "").filter(Boolean).join(", ");
   const key = Gorev.noteKey("k", st.fid, st.year, D.month, r.id, "", t);
   return Gorev.chip(key, { tip: "kaza", fab: st.factories?.find(f => f.id === st.fid)?.name || "", yil: +st.year, ay: D.month, bolum: r.name, sinif, sayi: x.count, metin: t, url: location.origin + location.pathname + "#kaza" });
 }
 
+function items() {
+  const nm = id => D.setup.rows.find(r => r.id === id)?.name || "—", out = [], tx = x => `${T[+x.t]?.[0] || "Kaza"}${(+x.n || 1) > 1 ? ` ×${x.n}` : ""}${x.note ? " · " + x.note : ""}`;
+  D.setup.rows.forEach(r => rowOf(r.id).log.forEach(x => out.push({ key: `o:${r.id}:${x.id}`, dept: nm(r.id), text: tx(x), d: x.d, who: String(x.id).startsWith("L") ? "Önceki kayıt" : "Yetkili", st: "own", del: !GUEST.on && !D.ro })));
+  D.g.forEach(x => { const mine = GUEST.on && x.guestUid === GUEST.uid; if (GUEST.on && !mine && x.status !== "approved") return;
+    out.push({ key: `g:${x.id}`, dept: nm(x.dept), text: tx(x), d: x.d, who: x.guestName || "Misafir", st: x.status, appr: !GUEST.on && !D.ro && x.status === "pending", del: GUEST.on ? mine && x.status === "pending" : !D.ro }); });
+  return out;
+}
 function draw() {
   const { st } = D.ctx, v = D.v, p = D.setup.params || DEFAULT_PARAMS, s = summary(), sb = BAND[bandOf(s.tesis, p)];
-  const cell = (id, k, n) => `<div class="stp"><button class="sm sec" data-d="${id}|${k}|-1" aria-label="Azalt">−</button><span style="min-width:22px;text-align:center;font-weight:800;color:${n > 0 ? "#B3261E" : "var(--text)"}">${n}</span><button class="sm sec" data-d="${id}|${k}|1" aria-label="Artır">+</button></div>`;
+  const cell = (id, k, n) => `<span style="font-weight:800;color:${n > 0 ? "#B3261E" : "var(--text)"}">${n}</span>`;
   v.innerHTML = `
   <div class="row sp"><div><h1 class="ttl">İş Kazası · Aylık Giriş</h1>
-    <div class="sub">Her bölüm için o ay yaşanan kazaları türüne göre girin. Verim, kaza puanı ve bölüm katsayısına göre otomatik hesaplanır.</div>
+    <div class="sub">Her bölüm için o ay yaşanan kazaları ekleyin. Verim, kaza puanı ve bölüm katsayısına göre otomatik hesaplanır.</div>
     <div class="muted" style="font-size:12.5px" id="sv">${D.msg || (D.saved ? (D.exists ? "Kayıtlı" : "Bu ay henüz kaydedilmedi") : "Kaydediliyor…")}</div></div>
     <select id="ay" class="inp" style="width:auto;min-width:170px;font-weight:600">${MONTHS.map((m, i) => `<option value="${i + 1}" ${i + 1 === D.month ? "selected" : ""}>${m} ${st.year}</option>`).join("")}</select></div>
   ${D.ro ? `<div class="warn">${roText(st.year, D.month, st.active)}</div>` : ""}
@@ -81,32 +100,50 @@ function draw() {
     <div class="cd" style="flex:1 1 220px;padding:20px;gap:8px"><span class="hd" style="letter-spacing:.8px">TOPLAM KAZA (BU AY)</span><b style="font:700 32px Sora,sans-serif">${s.tot}</b></div>
     <div class="cd" style="flex:1 1 220px;padding:20px;gap:8px"><span class="hd" style="letter-spacing:.8px">KAYIPLI KAZA</span><b style="font:700 32px Sora,sans-serif">${s.lost}</b></div></div>
   <fieldset class="fs" ${D.ro ? "disabled" : ""}><div class="cd"><div><h2>Bölüm Bazında Kaza Girişi</h2>
-    <div class="muted" style="font-size:13px;line-height:1.5">Her kaza türü için o ay yaşanan adedi girin. Ceza puanı = kaza adedi × tür puanı × bölüm katsayısı. Verim = 100 − ceza (en az 0).</div></div>
+    <div class="muted" style="font-size:13px;line-height:1.5">Yaşanan her kazayı + düğmesiyle (tür ve açıklamasıyla) ekleyin. Ceza puanı = kaza adedi × tür puanı × bölüm katsayısı. Verim = 100 − ceza (en az 0).</div></div>
     <div class="tbl"><div class="tin" style="min-width:890px">
       <div class="kg" style="align-items:end"><span class="hd">Bölüm</span><span class="hd">Katsayı</span>${T.map(([t, pt]) => `<div><span class="hd" style="display:block;line-height:1.25">${t}</span><span class="muted" style="font-size:11.5px">${pt} puan</span></div>`).join("")}<span class="hd">Ceza</span><span class="hd">Verim</span></div>
       ${D.setup.rows.map(r => {
-        const x = s.per[r.id], row = rowOf(r.id), b = BAND[bandOf(x.verim, p)], miss = x.count > 0 && !row.note.trim();
+        const x = s.per[r.id], row = rowOf(r.id), b = BAND[bandOf(x.verim, p)], nt = noteOf(r.id);
         return `<div class="krow"><div class="kg"><b>${esc(r.name)}</b><span class="muted" style="font-weight:600">×${x.F.toFixed(2).replace(".", ",")}</span>
-          ${row.c.map((n, k) => cell(r.id, k, n)).join("")}
+          ${cnt(r.id).map((n, k) => cell(r.id, k, n)).join("")}
           <span style="font-weight:700">${f1(x.pen)}</span>
           <div class="row" style="gap:8px;flex-wrap:nowrap"><b>${f1(x.verim)}</b><span class="pill" style="background:${b[1]};color:${b[0]}">${bandOf(x.verim, p)}</span></div></div>
+          <div class="row" style="margin:2px 0 4px"><button type="button" class="sm sec" data-add="${r.id}" ${D.ro ? "disabled" : ""}>+ Kaza ekle</button></div>
           ${x.count > 0 ? `<div class="row" style="flex-wrap:nowrap;align-items:flex-start"><span class="hd" style="padding-top:12px;min-width:56px">AÇIKLAMA</span>
-            <button class="nb" style="border-color:${miss ? "#D6382E" : "#C3D1CC"}" data-note="${r.id}" aria-label="Açıklamayı yaz veya düzenle"><span class="nt" style="color:${row.note.trim() ? "var(--text)" : "#8A6A66"}">${esc(row.note.trim() ? row.note : "Dokunun ve yazın: kaza nerede, nasıl oldu?")}</span>${ic('<path d="M4 20h4L19 9l-4-4L4 16v4z"/>', 18)}</button>${gchip(r, row, x, st)}</div>` : ""}</div>`;
+            <div class="nb" style="cursor:default;border-color:#C3D1CC"><span class="nt" style="color:${nt ? "var(--text)" : "#8A6A66"}">${esc(nt || "Açıklama girilmemiş")}</span></div>${gchip(r, row, x, st)}</div>` : ""}</div>`;
       }).join("")}</div></div>
-    <div class="row"><button id="saveK">${MONTHS[D.month - 1]} Verilerini Kaydet</button><span class="muted" style="font-size:12.5px">Değişiklikler otomatik kaydedilir. Kaza girilen bölümlerde açıklama yazılmalı; rapor bu metni bölüm adıyla yayınlar.</span></div></div></fieldset>`;
+    <div class="row" ${GUEST.on ? 'style="display:none"' : ""}><button id="saveK">${MONTHS[D.month - 1]} Verilerini Kaydet</button><span class="muted" style="font-size:12.5px">Değişiklikler otomatik kaydedilir. Kaza girilen bölümlerde açıklama yazılmalı; rapor bu metni bölüm adıyla yayınlar.</span></div></div></fieldset>
+  ${K.listCard(items(), D.kOpen, !GUEST.on)}`;
   const re = () => { draw(); persist(); };
   $("ay").onchange = e => { D.month = +e.target.value; render(D.v, D.ctx); };
-  v.querySelectorAll("[data-d]").forEach(b => b.onclick = () => {
-    const [id, k, d] = b.dataset.d.split("|"), row = rowOf(id); row.c[+k] = Math.max(0, row.c[+k] + +d); if (!row.c.some(n => n > 0)) row.note = ""; re();
+  v.querySelectorAll("[data-add]").forEach(b => b.onclick = async () => {
+    const id = b.dataset.add, name = D.setup.rows.find(r => r.id === id).name;
+    const a = await K.addDialog({ title: `Kaza ekle · ${name}`, sub: GUEST.on ? "Kaydınız yetkili onayından sonra aylık kayda eklenir." : "Ay kaydına eklenir.", year: D.ctx.st.year, month: D.month,
+      fields: [{ k: "t", label: "KAZA TÜRÜ", type: "select", options: T.map(([t, pt], i) => [i, `${t} (${pt} puan)`]), ok: () => true }, { k: "note", label: "AÇIKLAMA · KAZA NEREDE, NASIL OLDU?", type: "text", ph: "Örn. Pres-2 operatörü parmağını sıkıştırdı; ilk yardım verildi.", ok: s => s.length >= 3, err: "Kaza açıklamasını yazın." }] });
+    if (!a) return;
+    if (!GUEST.on) { rowOf(id).log.push({ id: K.eid(), d: a.d, t: +a.t, n: 1, note: a.note }); re(); return; }
+    const gid = `${pad(D.month)}_${id}_${GUEST.uid}_${Date.now().toString(36)}`;
+    try {
+      await S.saveMonthDoc(D.ctx.st.fid, D.ctx.st.year, "kazag", gid, { guestUid: GUEST.uid, guestName: GUEST.name, dept: id, month: D.month, d: a.d, t: +a.t, note: a.note, status: "pending", at: Date.now() });
+      D.g = await K.loadGuest(D.ctx.st.fid, D.ctx.st.year, "kaza", D.month); D.kOpen = true; draw(); toast("Kaydınız iletildi; yetkili onaylayınca kayda eklenir.");
+      Guest.pushOwner("HSE Verim · İş kazası", `${GUEST.name} · ${name}: ${T[+a.t][0]} kaydı eklemek istiyor.`);
+    } catch (e) { toast("Gönderilemedi: " + (e.message || e)); }
   });
-  v.querySelectorAll("[data-note]").forEach(b => b.onclick = async () => {
-    const id = b.dataset.note, name = D.setup.rows.find(r => r.id === id).name;
-    const r = await noteEditor({ title: `Açıklama · ${name}`, item: "Kaza nerede, nasıl oldu?", text: rowOf(id).note, question: "Kaza nerede, nasıl oldu?" , example: "Örn. Pres-2 operatörü parmağını sıkıştırdı; ilk yardım verildi, revire sevk edildi." });
-    if (r === null) return; rowOf(id).note = r; re();
+  $("kTg")?.addEventListener("click", () => { D.kOpen = !D.kOpen; draw(); });
+  v.querySelectorAll("[data-ka]").forEach(b => b.onclick = async () => {
+    const act = b.dataset.ka, key = b.dataset.kk, { fid, year } = D.ctx.st;
+    try {
+      if (key.startsWith("o:")) { if (!(await K.confirmBox("Kayıt silinsin mi?", "Bu kayıt aylık toplamdan çıkarılır.", "Sil", true))) return; const [, id, eid] = key.split(":"); rowOf(id).log = rowOf(id).log.filter(x => x.id !== eid); re(); return; }
+      const gk = key.slice(2), g = D.g.find(x => x.id === gk); if (!g) return;
+      if (act === "del") { if (!(await K.confirmBox("Kayıt silinsin mi?", "Bu kayıt kalıcı olarak silinir.", "Sil", true))) return; await S.deleteMonthDoc(fid, year, "kazag", gk); }
+      else { const { id: _i, ...rest } = g; await S.saveMonthDoc(fid, year, "kazag", gk, { ...rest, status: act === "ok" ? "approved" : "rejected" }); }
+      D.g = await K.loadGuest(fid, year, "kaza", D.month); draw(); persist(true);
+    } catch (e) { toast("İşlem yapılamadı: " + (e.message || e)); }
   });
   $("saveK").onclick = async () => {
     await persist(true); draw();
-    const miss = D.setup.rows.filter(r => { const x = s.per[r.id]; return x.count > 0 && !rowOf(r.id).note.trim(); }).length;
+    const miss = D.setup.rows.filter(r => { const x = s.per[r.id]; return x.count > 0 && !noteOf(r.id).trim(); }).length;
     toast(D.msg ? D.msg : miss ? `${MONTHS[D.month - 1]} verileri kaydedildi. ${miss} bölümde kaza açıklaması eksik.` : `${MONTHS[D.month - 1]} ${D.ctx.st.year} verileri kaydedildi. Grafikler ve rapor güncellendi.`);
   };
 }

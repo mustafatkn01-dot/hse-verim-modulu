@@ -1,6 +1,6 @@
 // Eğitim Konuşması ve İşbaşı Eğitim için "kayıt ekleme" yardımcıları: aylık toplam = sahip kayıtları + onaylı misafir kayıtları
-import * as S from "./store.js?v=20261014e";
-import { esc, ic, toast, pickDate, fmtTarih, GUEST, confirmBox } from "./ui.js?v=20261014e";
+import * as S from "./store.js?v=20261014f";
+import { esc, ic, toast, pickDate, fmtTarih, GUEST, confirmBox } from "./ui.js?v=20261014f";
 
 const pad = n => String(n).padStart(2, "0");
 const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -8,7 +8,7 @@ export const isNum = s => /^[0-9]+([.,][0-9]+)?$/.test(String(s).trim());
 export const isInt = s => /^[0-9]+$/.test(String(s).trim());
 export const toNum = s => { const v = parseFloat(String(s).replace(",", ".")); return isNaN(v) ? 0 : v; };
 export const eid = () => "k" + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-3);
-export const GCOLL = { konusma: "konusmag", isbasi: "isbasig" };
+export const GCOLL = { konusma: "konusmag", isbasi: "isbasig", kaza: "kazag" };
 
 // Bu ayın misafir kayıtları (onaylı + bekleyen + reddedilen)
 export async function loadGuest(fid, year, coll, month) {
@@ -28,7 +28,9 @@ export function addDialog({ title, sub, fields, year, month }) {
     const m = document.createElement("div"); m.className = "mod";
     m.innerHTML = `<div class="mbox" role="dialog" aria-modal="true" style="gap:14px"><h2>${esc(title)}</h2>${sub ? `<div class="muted" style="font-size:13.5px;line-height:1.5">${esc(sub)}</div>` : ""}
       <div class="col1" style="gap:6px"><span class="hd">TARİH</span><button type="button" class="inp fld" id="kD"><span id="kDt">${fmtTarih(d)}</span>${ic('<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/>', 18)}</button></div>
-      ${fields.map(f => `<div class="col1" style="gap:6px"><span class="hd">${esc(f.label)}</span><input class="inp" data-f="${f.k}" inputmode="decimal" placeholder="${esc(f.ph || "")}" autocomplete="off"></div>`).join("")}
+      ${fields.map(f => `<div class="col1" style="gap:6px"><span class="hd">${esc(f.label)}</span>${f.type === "select" ? `<select class="inp" data-f="${f.k}">${f.options.map(([v, t]) => `<option value="${v}">${esc(t)}</option>`).join("")}</select>`
+        : f.type === "text" ? `<textarea class="inp" data-f="${f.k}" rows="4" maxlength="1000" placeholder="${esc(f.ph || "")}" style="height:auto;resize:vertical"></textarea>`
+        : `<input class="inp" data-f="${f.k}" inputmode="decimal" placeholder="${esc(f.ph || "")}" autocomplete="off">`}</div>`).join("")}
       <div class="err" id="kE"></div>
       <div class="row" style="justify-content:flex-end;gap:8px"><button class="sec" data-x>Vazgeç</button><button data-s>Ekle</button></div></div>`;
     document.body.appendChild(m);

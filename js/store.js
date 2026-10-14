@@ -1,5 +1,5 @@
 // Veri katmanı: users/{uid}/factories/{fid}/years/{yıl}/setup/main
-import { auth, db, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, updateDoc, query, orderBy, serverTimestamp, onSnapshot } from "./firebase.js?v=20261014e";
+import { auth, db, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, updateDoc, query, orderBy, serverTimestamp, onSnapshot } from "./firebase.js?v=20261014f";
 
 const uid = () => auth.currentUser.uid;
 // Veri sahibi: misafir kullanıcıda davet eden hesabın uid'si; kendi oturum/profil kayıtları ise her zaman kendi hesabında
@@ -26,7 +26,7 @@ export async function updateFactory(id, data) { await updateDoc(doc(db, `${base(
 // Fabrikayı tüm yıl ve kurulum verileriyle birlikte siler
 export async function deleteFactoryDeep(id) {
   for (const y of await listYears(id)) {
-    for (const coll of ["isg", "isgg", "kaza", "konusma", "isbasi", "konusmag", "isbasig", "foto"]) for (const d of await listMonthDocs(id, y, coll)) await deleteDoc(monthRef(id, y, coll, d.id));
+    for (const coll of ["isg", "isgg", "kaza", "konusma", "isbasi", "konusmag", "isbasig", "kazag", "foto"]) for (const d of await listMonthDocs(id, y, coll)) await deleteDoc(monthRef(id, y, coll, d.id));
     await deleteDoc(setupRef(id, y)).catch(() => {});
     await deleteDoc(doc(db, `${base()}/factories/${id}/years/${y}`));
   }
