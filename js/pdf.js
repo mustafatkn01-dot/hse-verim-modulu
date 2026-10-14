@@ -1,13 +1,14 @@
 // Ortak PDF yardımcıları: kâğıt boyutu (A4/A3) + sayfa düzeni (dikey/yatay) penceresi
-import { esc } from "./ui.js?v=20261014o";
+import { esc } from "./ui.js?v=20261014p";
 
-export function askFormat({ title = "PDF indir", text = "", defOrient = "portrait", hint = "", pics = 0, fileOnly = false } = {}) {
+export function askFormat({ title = "PDF indir", text = "", defOrient = "portrait", hint = "", pics = 0, fileOnly = false, scopes = null } = {}) {
   return new Promise(res => {
-    const o = { size: "A4", orient: defOrient, pics: false };
+    const o = { size: "A4", orient: defOrient, pics: false, scope: scopes ? scopes[0][0] : "all" };
     const m = document.createElement("div"); m.className = "mod";
     const seg = (k, items) => items.map(([v, t]) => `<button class="sec" data-k="${k}" data-v="${v}" style="flex:1;height:44px;border-radius:10px;font-weight:700">${t}</button>`).join("");
     m.innerHTML = `<div class="mbox" role="dialog" aria-modal="true" style="gap:16px"><h2>${esc(title)}</h2>
       <div class="muted" style="line-height:1.5">${esc(text)}</div>
+      ${scopes ? `<div class="col1" style="gap:6px"><label class="hd" for="pScope">RAPOR İÇERİĞİ (İSG AÇIKLAMALARI)</label><select id="pScope" style="font-weight:700">${scopes.map(([v, t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join("")}</select></div>` : ""}
       <div class="col1" style="gap:8px"><span class="hd">KÂĞIT BOYUTU</span><div class="row" style="gap:8px;flex-wrap:nowrap">${seg("size", [["A4", "A4"], ["A3", "A3"]])}</div></div>
       <div class="col1" style="gap:8px"><span class="hd">SAYFA DÜZENİ</span><div class="row" style="gap:8px;flex-wrap:nowrap">${seg("orient", [["portrait", "Dikey"], ["landscape", "Yatay"]])}</div>
         ${hint ? `<span class="muted" style="font-size:12.5px">${esc(hint)}</span>` : ""}</div>
@@ -22,8 +23,9 @@ export function askFormat({ title = "PDF indir", text = "", defOrient = "portrai
     m.querySelector("[data-no]").onclick = () => done(null);
     m.addEventListener("mousedown", e => { if (e.target === m) done(null); });
     const pc = m.querySelector("[data-pics]");
-    const yb = m.querySelector("[data-yes]"); if (yb) yb.onclick = () => done({ ...o, pics: !!pc?.checked, file: false });
-    m.querySelector("[data-file]").onclick = () => done({ ...o, pics: !!pc?.checked, file: true });
+    const sc = m.querySelector("#pScope"), gv = () => ({ ...o, pics: !!pc?.checked, scope: sc ? sc.value : "all" });
+    const yb = m.querySelector("[data-yes]"); if (yb) yb.onclick = () => done({ ...gv(), file: false });
+    m.querySelector("[data-file]").onclick = () => done({ ...gv(), file: true });
   });
 }
 

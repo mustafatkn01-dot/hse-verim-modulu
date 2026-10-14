@@ -1,9 +1,10 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261014o";
-import { esc } from "./ui.js?v=20261014o";
-import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi } from "./scoring.js?v=20261014o";
-import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261014o";
-import { CATS } from "./isgcats.js?v=20261014o";
+import * as S from "./store.js?v=20261014p";
+import { esc } from "./ui.js?v=20261014p";
+import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi } from "./scoring.js?v=20261014p";
+import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261014p";
+import { CATS } from "./isgcats.js?v=20261014p";
+import * as Gorev from "./gorev.js?v=20261014p";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -46,9 +47,11 @@ export async function load(st, setup) {
     // Her bulgu (madde içindeki her ayrı not) ayrı satır olur; fotoğrafları kendi notuna bağlıdır
     d.sessions.forEach(se => Object.entries(se.fails || {}).forEach(([key, arr]) => { const o = (items[key] ||= { list: new Map(), c: 0 }); o.c++;
       const L = (arr || []).length ? arr : [""];
-      L.forEach((t, j) => { const k = String(t || "").trim(), e = o.list.get(k) || { c: 0, pics: [], at: j }; e.c++; ((se.photos || {})[key + "|" + j] || []).forEach(ph => { if (!e.pics.some(x => x.id === ph.id)) e.pics.push(ph); }); o.list.set(k, e); }); }));
+      L.forEach((t, j) => { const k = String(t || "").trim(), e = o.list.get(k) || { c: 0, pics: [], at: j, by: {} }; e.c++;
+        const ph0 = (se.photos || {})[key + "|" + j] || [], bs = e.by[se.no] || (e.by[se.no] = { no: se.no, m: mOf(d), date: se.date || "", pics: [], gk: k ? Gorev.noteKey("d", st.fid, st.year, mOf(d) + 1, id, `${key}_${se.no}`, k, L.slice(0, j).filter(x => String(x || "").trim() === k).length) : "" });
+        ph0.forEach(ph => { if (!e.pics.some(x => x.id === ph.id)) e.pics.push(ph); if (!bs.pics.some(x => x.id === ph.id)) bs.pics.push(ph); }); o.list.set(k, e); }); }));
     Object.entries(items).forEach(([key, o]) => { const mm = /^c(\d+)i(\d+)$/.exec(key); if (!mm) return; const c = CATS[+mm[1]]; if (!c) return;
-      [...o.list.entries()].forEach(([t, e]) => notes.push({ m: mOf(d), k: 3, id, t: `${c.name}: ${t || c.items[+mm[2]]}`, x: `${e.c} denetimde uygunsuz`, pics: e.pics })); }); });
+      [...o.list.entries()].forEach(([t, e]) => notes.push({ m: mOf(d), k: 3, id, t: `${c.name}: ${t || c.items[+mm[2]]}`, x: `${e.c} denetimde uygunsuz`, pics: e.pics, by: e.by })); }); });
   out._n = notes;
   out._s = {}; ig.forEach(d => { const id = String(d.id).slice(3); (d.sessions || []).forEach(se => { if (se?.date) (out._s[id] ||= []).push(se.date); }); });
   return out;
@@ -161,7 +164,7 @@ function draw() {
     <div class="muted" style="font-size:12.5px;line-height:1.6">Veri girilmeyen aylar "–" gösterir. Eksik aylı dönemler mevcut aylar üzerinden hesaplanır ve "kısmi" olarak işaretlenir. Bir bölümde değerlendirilen modül yoksa (örn. işe giriş yok) toplam verimde ağırlıklar kalan modüllere yeniden dağıtılır (ağırlıklar: İş Kazası ${W[0]}, Konuşma ${W[1]}, İşbaşı ${W[2]}, İSG ${W[3]}).</div></div>`;
   const rowIx = Object.fromEntries(rows.map((r, i) => [r.id, i])), MODN = ["İş Kazası", "Eğitim Konuşması", "İşbaşı Eğitim", "İSG Denetim"];
   const sel = (V.data._n || []).filter(n => (mk === 4 || n.k === mk) && cur.idx.includes(n.m) && rowIx[n.id] !== undefined).sort((a, b) => a.k - b.k || rowIx[a.id] - rowIx[b.id] || a.m - b.m);
-  const details = [0, 1, 2, 3].map(k => ({ mod: MODN[k], items: sel.filter(n => n.k === k).map(n => ({ dept: rows[rowIx[n.id]].name, text: n.t, extra: n.x, pics: n.pics || [], mon: cur.idx.length > 1 ? MS[n.m] : "" })) })).filter(g => g.items.length);
+  const details = [0, 1, 2, 3].map(k => ({ mod: MODN[k], items: sel.filter(n => n.k === k).map(n => ({ dept: rows[rowIx[n.id]].name, text: n.t, extra: n.x, pics: n.pics || [], by: n.by || null, mon: cur.idx.length > 1 ? MS[n.m] : "" })) })).filter(g => g.items.length);
   const detHtml = `<div style="border-top:1px solid var(--line);padding-top:16px;display:flex;flex-direction:column;gap:12px"><div style="font-weight:800;font-size:13px;letter-spacing:.8px;color:var(--muted)">BÖLÜM AÇIKLAMALARI <span style="font-weight:600;letter-spacing:0">· denetim ve eğitim kayıtlarında yazılanlar</span></div>
     ${details.length ? details.map(g => `<div class="col1" style="gap:6px">${mk === 4 ? `<div style="font-weight:800;color:#145F96">${g.mod}</div>` : ""}${g.items.map((a, i) => `<div style="display:flex;gap:10px;line-height:1.55"><span style="flex:0 0 22px;font-weight:800;color:#0B6E4F">${i + 1}.</span><span>${a.mon ? `<span class="muted">${a.mon} · </span>` : ""}<b>${esc(a.dept)}</b> — ${esc(a.text)} <span class="muted" style="white-space:nowrap">· ${esc(a.extra)}</span></span></div>`).join("")}</div>`).join("") : `<div class="muted">Bu dönem için girilmiş açıklama yok.</div>`}</div>`;
   const info = { fid: st.fid, year: st.year, details, mk4: mk === 4, fname: st.factories.find(f => f.id === st.fid)?.name || "", title: `${MET[mk][0]} · Bölüm Karşılaştırması`, plabel: PER[V.p].name(V.sel), av, abn: bname(av), ab, names: rows.map(r => r.name), vals, bandOf: x => (x === null ? NONE : band(x)), notes, partial: partial ? `Kısmi dönem: ${cur.idx.length} aydan ${have} tanesi için veri var. Değerler mevcut aylar üzerinden hesaplandı.` : "", esik: p.esik };
@@ -234,10 +237,15 @@ function draw() {
 // ---- Tek sayfalık grafik + açıklama PDF'i (A4/A3, dikey/yatay) ----
 function pdfDialog(info) {
   const n = info.names.length;
-  askFormat({ title: "PDF indir", text: `${info.title} · ${info.plabel}. Grafik ve açıklamalar; yöneticinize göndermek için hazırlanır (resimsiz tek sayfa).`, defOrient: n > 7 ? "landscape" : "portrait", hint: n > 7 ? `${n} bölüm olduğu için yatay düzen önerilir.` : "Az sayıda bölümde dikey düzen yeterlidir.", pics: info.details.reduce((a, g) => a + g.items.reduce((b, it) => b + (it.pics?.length || 0), 0), 0) }).then(o => o && printSheet(info, o));
+    const dm = d => (d ? `${d.slice(8, 10)}.${d.slice(5, 7)}` : "");
+  const sess = new Map(); info.details.filter(g => g.mod === "İSG Denetim").forEach(g => g.items.forEach(it => Object.values(it.by || {}).forEach(b => { const k = `${b.m}_${b.no}`, e = sess.get(k) || { m: b.m, no: b.no, ds: [] }; if (b.date) e.ds.push(b.date); sess.set(k, e); })));
+  const sl = [...sess.values()].sort((a, z) => a.m - z.m || a.no - z.no).map(e => { const ds = e.ds.sort(), rg = ds.length ? (ds[0] === ds[ds.length - 1] ? dm(ds[0]) : `${dm(ds[0])}–${dm(ds[ds.length - 1])}`) : ""; return { k: `${e.m}_${e.no}`, m: e.m, no: e.no, label: `${sess.size > 0 && new Set([...sess.values()].map(x => x.m)).size > 1 ? MS[e.m] + " · " : ""}${e.no}. Denetim${rg ? " · " + rg : ""}` }; });
+  info.sess = sl;
+  const scopes = sl.length ? [["all", sl.length > 1 ? "Tüm denetimler (denetim bazlı)" : sl[0].label], ...(sl.length > 1 ? [["last:" + sl[sl.length - 1].k, "Son denetim · " + sl[sl.length - 1].label], ...sl.map(x => ["s:" + x.k, x.label])] : [])] : null;
+  askFormat({ title: "PDF indir", text: `${info.title} · ${info.plabel}. Grafik ve açıklamalar; yöneticinize göndermek için hazırlanır (resimsiz tek sayfa).`, defOrient: n > 7 ? "landscape" : "portrait", hint: n > 7 ? `${n} bölüm olduğu için yatay düzen önerilir.` : "Az sayıda bölümde dikey düzen yeterlidir.", scopes, pics: info.details.reduce((a, g) => a + g.items.reduce((b, it) => b + (it.pics?.length || 0), 0), 0) }).then(o => o && printSheet(info, o));
 }
 
-async function printSheet(info, { size, orient, pics = false, file = false }) {
+async function printSheet(info, { size, orient, pics = false, file = false, scope = "all" }) {
   // Tasarım A4 ölçüsünde (96 dpi) yapılır; A3 için √2 büyütülür.
   const land = orient === "landscape", W = land ? 1123 : 794, Hh = land ? 794 : 1123, M = 38, z = size === "A3" ? 1.4142 : 1;
   const cw = W - 2 * M, cpl = Math.floor(cw / 6.3);
@@ -246,16 +254,25 @@ async function printSheet(info, { size, orient, pics = false, file = false }) {
   const fixed = 80 + 30 + (info.partial ? 40 : 0) + info.notes.reduce((a, t) => a + Math.ceil(t.length / cpl), 0) * 19 + 30 + 40 + 6 * 14;
   const n = info.names.length, gap = n > 12 ? 6 : 10, fs = n > 12 ? 11 : 13;
   const now = new Date(), ds = `${String(now.getDate()).padStart(2, "0")}.${String(now.getMonth() + 1).padStart(2, "0")}.${now.getFullYear()}`;
-  const usePics = pics && info.details.some(g => g.items.some(i => i.pics?.length)), PH = {};
-  if (usePics) await Promise.all(info.details.flatMap(g => g.items.flatMap(i => i.pics)).map(async p => { try { PH[p.id] = await S.getPhoto(info.fid, info.year, p.id); } catch { } }));
+  await Gorev.whenReady().catch(() => { });
+  const done = gk => !!gk && Gorev.linked() && Gorev.durumOf(gk)?.durum === "kapali";
+  // İSG açıklamaları: seçilen kapsama göre denetim bazlı bloklar (her blok kendi numarasıyla başlar)
+  let DET = info.details;
+  const sl = info.sess || [], sc = scope || "all";
+  if (sl.length) {
+    const want = sc === "all" ? sl : sl.filter(x => sc === "s:" + x.k || sc === "last:" + x.k);
+    DET = info.details.flatMap(g => g.mod !== "İSG Denetim" ? [g] : want.map(w => ({ mod: g.mod, sub: w.label, items: g.items.filter(it => it.by?.[w.no] && it.by[w.no].m === w.m).map(it => ({ ...it, pics: it.by[w.no].pics, extra: "", done: done(it.by[w.no].gk), mon: "" })) })).filter(x => x.items.length));
+  }
+  const usePics = pics && DET.some(g => g.items.some(i => i.pics?.length)), PH = {};
+  if (usePics) await Promise.all(DET.flatMap(g => g.items.flatMap(i => i.pics || [])).map(async p => { try { PH[p.id] = await S.getPhoto(info.fid, info.year, p.id); } catch { } }));
   const psz = file ? 227 : Math.round(227 / z); // 6 cm yükseklik
   const picsHtml = a => usePics && a.pics?.length ? `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">${a.pics.map(p => `<img src="${PH[p.id] || p.t}" alt="Fotoğraf" style="height:${psz}px;width:auto;max-width:100%;border-radius:6px;border:1px solid #C3D1CC">`).join("")}</div>` : "";
   const sh = document.createElement("div"); sh.id = "psheet";
   const FONT = "font-family:Manrope,system-ui,sans-serif;color:#10201C;display:flex;flex-direction:column;gap:14px;font-size:13px";
   const items = [];
-  info.details.forEach((g, gi) => g.items.forEach((a, i) => items.push({ gi, mod: g.mod, html: `<div data-brk style="display:flex;gap:8px;line-height:1.45;font-size:12px;break-inside:avoid"><span style="flex:0 0 20px;font-weight:800;color:#0B6E4F">${i + 1}.</span><span>${a.mon ? `<span style="color:#546964">${a.mon} · </span>` : ""}<b>${esc(a.dept)}</b> — ${esc(a.text)} <span style="color:#546964">· ${esc(a.extra)}</span>${picsHtml(a)}</span></div>` })));
-  const group = list => { let out = "", cur = -1; list.forEach(e => { if (e.gi !== cur) { if (cur !== -1) out += "</div>"; cur = e.gi; out += `<div style="display:flex;flex-direction:column;gap:4px">${info.mk4 ? `<div style="font-weight:800;color:#145F96">${esc(e.mod)}</div>` : ""}`; } out += e.html; }); return out + (cur !== -1 ? "</div>" : ""); };
-  const descBox = inner => `<div style="border-top:1px solid #D5E0DC;padding-top:10px;display:flex;flex-direction:column;gap:5px"><div style="font-weight:800;font-size:12px;letter-spacing:.8px;color:#3E534E">AÇIKLAMA</div>${inner}</div>`;
+  DET.forEach((g, gi) => g.items.forEach((a, i) => items.push({ gi, mod: g.mod, sub: g.sub, html: `<div data-brk style="display:flex;gap:8px;line-height:1.45;font-size:12px;break-inside:avoid"><span style="flex:0 0 20px;font-weight:800;color:#0B6E4F">${i + 1}.</span><span>${a.mon ? `<span style="color:#546964">${a.mon} · </span>` : ""}<b>${esc(a.dept)}</b> — ${esc(a.text)}${a.done ? ` <span style="color:#8A9A95;font-style:italic">(görev tamamlandı)</span>` : ""}${a.extra ? ` <span style="color:#546964">· ${esc(a.extra)}</span>` : ""}${picsHtml(a)}</span></div>` })));
+  const group = list => { let out = "", cur = -1; list.forEach(e => { if (e.gi !== cur) { if (cur !== -1) out += "</div>"; cur = e.gi; out += `<div style="display:flex;flex-direction:column;gap:4px">${e.sub ? `<div style="font-weight:800;color:#145F96">${info.mk4 ? esc(e.mod) : "Açıklamalar"} <span style="font-weight:400;font-style:italic;color:#8A9A95">(${esc(e.sub)})</span></div>` : info.mk4 ? `<div style="font-weight:800;color:#145F96">${esc(e.mod)}</div>` : ""}`; } out += e.html; }); return out + (cur !== -1 ? "</div>" : ""); };
+  const descBox = inner => `<div style="border-top:1px solid #D5E0DC;padding-top:10px;display:flex;flex-direction:column;gap:5px">${DET.some(g => g.sub) && !info.mk4 ? "" : `<div style="font-weight:800;font-size:12px;letter-spacing:.8px;color:#3E534E">AÇIKLAMA</div>`}${inner}</div>`;
   const NONE = `<div style="color:#546964">Bu dönem için girilmiş açıklama yok.</div>`;
   // Parçalar: head (her sayfada tekrarlanır), partial/chart/legend (yalnız 1. sayfa), foot (son sayfa)
   const parts = (ch, z) => { const s = (ch - 60) / 100;
