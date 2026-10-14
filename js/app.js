@@ -1,19 +1,19 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261014q";
-import * as S from "./store.js?v=20261014q";
-import * as Prim from "./primary.js?v=20261014q";
-import * as Denetim from "./denetim.js?v=20261014q";
-import * as Kaza from "./kaza.js?v=20261014q";
-import * as Konusma from "./konusma.js?v=20261014q";
-import * as Genel from "./genel.js?v=20261014q";
-import * as Rapor from "./rapor.js?v=20261014q";
-import * as Verim from "./verim.js?v=20261014q";
-import * as Isbasi from "./isbasi.js?v=20261014q";
-import * as Guest from "./guest.js?v=20261014q";
-import * as Yontem from "./yontem.js?v=20261014q";
-import * as Tatil from "./tatil.js?v=20261014q";
-import * as Gorev from "./gorev.js?v=20261014q";
-import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261014q";
-import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261014q";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261014r";
+import * as S from "./store.js?v=20261014r";
+import * as Prim from "./primary.js?v=20261014r";
+import * as Denetim from "./denetim.js?v=20261014r";
+import * as Kaza from "./kaza.js?v=20261014r";
+import * as Konusma from "./konusma.js?v=20261014r";
+import * as Genel from "./genel.js?v=20261014r";
+import * as Rapor from "./rapor.js?v=20261014r";
+import * as Verim from "./verim.js?v=20261014r";
+import * as Isbasi from "./isbasi.js?v=20261014r";
+import * as Guest from "./guest.js?v=20261014r";
+import * as Yontem from "./yontem.js?v=20261014r";
+import * as Tatil from "./tatil.js?v=20261014r";
+import * as Gorev from "./gorev.js?v=20261014r";
+import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261014r";
+import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261014r";
 
 const VERSION = "1.6.6";
 const st = { factories: [], years: [], fid: null, year: null, page: "genel", profile: {}, lastSync: new Date() };
@@ -80,6 +80,7 @@ async function installApp() {
   const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
   noticeBox("Ana ekrana ekle", ios ? "Safari'de alttaki Paylaş simgesine basın, ardından \"Ana Ekrana Ekle\" deyin." : "Tarayıcının sağ üstteki ⋮ menüsünü açın, \"Uygulamayı yükle\" veya \"Ana ekrana ekle\" seçeneğine basın.", "ok");
 }
+const instState = () => `<div><span class="hd">UYGULAMA</span><div style="font-weight:700"><i class="sw" style="background:${standalone() ? "#17A06F" : "#9FB4AE"};border-radius:50%"></i>${standalone() ? "Kurulu · ana ekranda" : "Tarayıcıda açık"}</div></div>`;
 const instBtn = () => standalone() ? "" : `<button class="sec" id="appInst" title="Uygulamayı telefonun ana ekranına ekler">Uygulamayı kur</button>`;
 const instBind = () => { const b = $("appInst"); if (b) b.onclick = installApp; };
 function showOnly(which) { // "login" | "app" | "none"
@@ -408,7 +409,7 @@ function pageGuestAyarlar(v) {
     <div class="fg"><div><span class="hd">ROL</span><div class="inp ro">Misafir</div></div><div><span class="hd">ERİŞİM</span><div class="inp ro">${esc(Guest.leftText(g.member))}</div></div>
     <div><span class="hd">FABRİKALAR</span><div class="inp ro">${esc(st.all.map(f => f.name).join(", "))}</div></div></div>
     <div class="muted" style="font-size:12.5px;line-height:1.6">Misafir olarak veri girişi yapabilir, İSG denetimini kaydedebilir, raporları görüp PDF alabilirsiniz. Denetimi tamamlama, silme, kurulum ve yıl/tarih ekleme yetkili kullanıcıdadır.</div></div>
-  ${standalone() ? "" : `<div class="cd" style="gap:12px"><h2>Uygulama</h2><div class="muted" style="font-size:13px;line-height:1.55">Ana ekrana ekleyerek uygulama gibi tam ekran kullanabilirsiniz.</div><div class="row">${instBtn()}</div></div>`}
+  <div class="cd" style="gap:12px"><h2>Uygulama</h2><div class="fg">${instState()}</div>${standalone() ? "" : `<div class="muted" style="font-size:13px;line-height:1.55">Ana ekrana ekleyerek uygulama gibi tam ekran kullanabilirsiniz.</div><div class="row">${instBtn()}</div>`}</div>
   <div class="cd"><h2>Görünüm</h2><div class="th">${THEMES.map(([k, n, sd, bg, cd]) => `<button class="tb ${k === theme ? "on" : ""}" data-theme="${k}" aria-pressed="${k === theme}"><div class="pv"><div style="flex:0 0 28%;background:${sd}"></div><div style="flex:1;background:${bg};display:flex;flex-direction:column;gap:5px;padding:7px"><div style="height:8px;border-radius:4px;background:${cd}"></div><div style="height:8px;width:60%;border-radius:4px;background:#17A06F"></div></div></div><b>${n}</b></button>`).join("")}</div></div>`;
   instBind();
   v.querySelectorAll("[data-theme]").forEach(b => b.onclick = () => { S.pref.set("theme", b.dataset.theme); applyTheme(); pageGuestAyarlar(v); });
@@ -487,7 +488,7 @@ async function pageAyarlar(v) {
         <div><span class="hd">SÜRÜM</span><div style="font-weight:800;font-size:18px">${VERSION}</div></div>
         <div><span class="hd">DERLEME TARİHİ</span><div style="font-weight:700">${BUILD}</div></div>
         <div><span class="hd">VERİ ALTYAPISI</span><div style="font-weight:700">Bulut depolama · cihazlar arası senkronizasyon</div></div>
-        <div><span class="hd">SENKRONİZASYON</span><div style="font-weight:700"><i class="sw" style="background:#17A06F;border-radius:50%"></i><span id="syncT">Güncel · ${st.lastSync.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}</span></div></div></div>
+        <div><span class="hd">SENKRONİZASYON</span><div style="font-weight:700"><i class="sw" style="background:#17A06F;border-radius:50%"></i><span id="syncT">Güncel · ${st.lastSync.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}</span></div></div>${instState()}</div>
       <div class="row"><button class="sec" id="doSync">Şimdi senkronize et</button>${instBtn()}<button class="sec" id="backup" title="Tüm fabrikalar, yıllar ve kayıtlar tek JSON dosyası olarak indirilir">Tüm verileri indir (JSON)</button>${Gorev.enabled() ? `<button class="sec" id="gvBtn"></button>` : ""}<span class="muted" id="backupT" style="font-size:12.5px"></span></div></div></div>
   </div></div>
   <div id="modal" class="mod hide"><div class="mbox"><h2>Çıkış yapılsın mı?</h2>
