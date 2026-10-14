@@ -1,21 +1,21 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261014d";
-import * as S from "./store.js?v=20261014d";
-import * as Prim from "./primary.js?v=20261014d";
-import * as Denetim from "./denetim.js?v=20261014d";
-import * as Kaza from "./kaza.js?v=20261014d";
-import * as Konusma from "./konusma.js?v=20261014d";
-import * as Genel from "./genel.js?v=20261014d";
-import * as Rapor from "./rapor.js?v=20261014d";
-import * as Verim from "./verim.js?v=20261014d";
-import * as Isbasi from "./isbasi.js?v=20261014d";
-import * as Guest from "./guest.js?v=20261014d";
-import * as Yontem from "./yontem.js?v=20261014d";
-import * as Tatil from "./tatil.js?v=20261014d";
-import * as Gorev from "./gorev.js?v=20261014d";
-import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261014d";
-import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261014d";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261014e";
+import * as S from "./store.js?v=20261014e";
+import * as Prim from "./primary.js?v=20261014e";
+import * as Denetim from "./denetim.js?v=20261014e";
+import * as Kaza from "./kaza.js?v=20261014e";
+import * as Konusma from "./konusma.js?v=20261014e";
+import * as Genel from "./genel.js?v=20261014e";
+import * as Rapor from "./rapor.js?v=20261014e";
+import * as Verim from "./verim.js?v=20261014e";
+import * as Isbasi from "./isbasi.js?v=20261014e";
+import * as Guest from "./guest.js?v=20261014e";
+import * as Yontem from "./yontem.js?v=20261014e";
+import * as Tatil from "./tatil.js?v=20261014e";
+import * as Gorev from "./gorev.js?v=20261014e";
+import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261014e";
+import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261014e";
 
-const VERSION = "1.6.1";
+const VERSION = "1.6.2";
 const st = { factories: [], years: [], fid: null, year: null, page: "genel", profile: {}, lastSync: new Date() };
 
 const GROUPS = [
@@ -231,7 +231,7 @@ async function pageGenel(v) {
     ? `<div class="cd"><h2>Kurulum bekleniyor</h2><p class="sub">Bu yıl için henüz bölüm kaydı yok.</p><div><a href="#kurulum"><button>Kurulum ve Kayıtlar'a git</button></a></div></div>`
     : `<div class="cd"><h2>Bölümler</h2><p class="sub">Aylık veri girişi ve verim grafikleri sonraki adımlarda eklenecek.</p>
       <div class="tbl"><table class="t"><tr><th>Bölüm</th><th>Çalışan</th><th>Risk</th><th>ZTF (ramp)</th><th>Bölüm katsayısı</th></tr>
-      ${setup.rows.map(r => `<tr><td>${esc(r.name)}</td><td>${esc(r.n)}</td><td>${r.risk}</td><td>${c2(ztfRamp(r, p))}</td><td>${c2(katsayi(r))}</td></tr>`).join("")}</table></div></div>`);
+      ${setup.rows.map(r => `<tr><td>${esc(r.name)}</td><td>${esc(nAt(r, new Date().getMonth() + 1))}</td><td>${r.risk}</td><td>${c2(ztfRamp(r, p))}</td><td>${c2(katsayi(r, new Date().getMonth() + 1))}</td></tr>`).join("")}</table></div></div>`);
 }
 
 // ---------- Kurulum ve Kayıtlar ----------
@@ -257,16 +257,28 @@ const OPT = {
   ramp: [["Düşük", "Düşük"], ["Orta", "Orta"], ["Yüksek", "Yüksek"]],
   ztf: [["1,0", "1,0 · 1-5 gün"], ["0,8", "0,8 · 6. gün"], ["0,6", "0,6 · 7. gün"], ["0,4", "0,4 · 8. gün"], ["0,2", "0,2 · 9. gün"], ["0", "0 · 10+ gün"]]
 };
-const K = { key: "", rows: [], params: null, help: null, dirty: false };
+const K = { key: "", rows: [], params: null, help: null, dirty: false, cm: 0 };
+const MONTHS_TR = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
 const sel = (cls, opts, val, label) => `<select class="${cls}" aria-label="${label}">${opts.map(([v, t]) => `<option value="${v}" ${v === val ? "selected" : ""}>${t}</option>`).join("")}</select>`;
 
+// Çalışan sayısı aylıktır: ekranda bu ayın sayısı görünür; değiştirip kaydedince değişiklik bu aydan itibaren geçerli olur (önceki aylar değişmez)
+const kLoad = rows => rows.map(r => { const o = r.id ? { ...r } : { ...r, id: rid() }; o.n0 = o.n; if (K.cm) o.n = String(nAt(o, K.cm)); return o; });
+const kSave = () => K.rows.map(r => {
+  const o = { ...r }, base = r.n0; delete o.n0;
+  if (!K.cm || base === undefined) { o.n = String(r.n).trim(); return o; }
+  const eff = String(nAt({ n: base, nm: r.nm }, K.cm)), nv = String(r.n).trim(); o.n = base;
+  if (nv !== eff) { if (K.cm === 1) o.n = nv; else o.nm = { ...(r.nm || {}), [K.cm]: nv }; }
+  if (o.nm && !Object.keys(o.nm).length) delete o.nm;
+  return o;
+});
 async function pageKurulum(v) {
   Tatil.reset(); Yontem.reset();
   const key = st.fid + "/" + st.year;
   if (K.key !== key) {
     const s = await S.getSetup(st.fid, st.year);
     K.key = key; K.help = null; K.dirty = false;
-    K.rows = (s?.rows?.length ? s.rows : [newRow(1)]).map(r => (r.id ? r : { ...r, id: rid() }));
+    K.cm = +st.year === new Date().getFullYear() ? new Date().getMonth() + 1 : 0;
+    K.rows = kLoad(s?.rows?.length ? s.rows : [newRow(1)]);
     K.params = JSON.parse(JSON.stringify({ ...DEFAULT_PARAMS, ...(s?.params || {}) })); K.params.esik = { ...DEFAULT_PARAMS.esik, ...(K.params.esik || {}) };
   }
   drawKurulum(v);
@@ -302,7 +314,7 @@ function drawKurulum(v) {
         ${sel("inp", OPT.ztf, r.ztf, "ZTF, eğitim zamanlama katsayısı").replace("<select", '<select data-k="ztf"')}
         <span class="calc">${c2(ztfRamp(r, p))}</span><span class="calc">${c2(katsayi(r))}</span>
         <button class="xb" data-del="${i}" aria-label="Bölümü sil" ${K.rows.length < 2 ? "disabled" : ""}>×</button></div>`).join("")}
-      <div class="muted" style="font-size:12px">Gri kutular hesaplanan değerlerdir, elle değiştirilemez.</div></div></div>
+      <div class="muted" style="font-size:12px">Gri kutular hesaplanan değerlerdir, elle değiştirilemez.</div>${K.cm ? `<div class="muted" style="font-size:12px">Çalışan sayısı değişikliği kaydedildiği ay (${MONTHS_TR[K.cm - 1]}) ve sonraki aylar için geçerlidir; önceki aylar değişmez.</div>` : ""}</div></div>
   </div>
   <div class="two">
     <div class="cd"><h2>2 · Parametreler</h2><div class="params">
@@ -339,7 +351,7 @@ function drawKurulum(v) {
     const errs = validateK();
     const box = $("kerr"); box.classList.toggle("hide", !errs.length); box.innerHTML = errs.join("<br>");
     if (errs.length) return;
-    try { await S.saveSetup(st.fid, st.year, { rows: K.rows, params: K.params }); toast("Kurulum kaydedildi"); }
+    try { const saved = kSave(); await S.saveSetup(st.fid, st.year, { rows: saved, params: K.params }); K.rows = kLoad(saved); drawKurulum(v); toast("Kurulum kaydedildi"); }
     catch (e) { toast("Kaydedilemedi: " + e.message); }
   };
 }
@@ -533,7 +545,7 @@ async function pageAyarlar(v) {
     const y = next;
     if (+y > cy) return say(`${y} yılı henüz başlamadı; 1 Ocak ${y} tarihinde başlatılabilir.`);
     await S.addYear(st.fid, y);
-    if (maxYear) { const prev = await S.getSetup(st.fid, maxYear); if (prev) await S.saveSetup(st.fid, y, { rows: prev.rows, params: prev.params }); }
+    if (maxYear) { const prev = await S.getSetup(st.fid, maxYear); if (prev) await S.saveSetup(st.fid, y, { rows: prev.rows.map(r => { const o = { ...r, n: String(nAt(r, 12)) }; delete o.nm; return o; }), params: prev.params }); }
     await S.updateFactory(st.fid, { activeYear: y }); S.pref.set("year", y); await loadContext(); say(`${y} yılı başlatıldı ve aktif yapıldı.`); pageAyarlar(v);
   };
   if ($("gvBtn")) {

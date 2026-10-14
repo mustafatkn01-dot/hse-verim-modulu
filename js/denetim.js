@@ -1,11 +1,11 @@
 // İSG Denetim Listesi sayfası
-import * as Guest from "./guest.js?v=20261014d";
-import * as Gorev from "./gorev.js?v=20261014d";
-import * as S from "./store.js?v=20261014d";
-import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261014d";
-import { CATS } from "./isgcats.js?v=20261014d";
-import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261014d";
-import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261014d";
+import * as Guest from "./guest.js?v=20261014e";
+import * as Gorev from "./gorev.js?v=20261014e";
+import * as S from "./store.js?v=20261014e";
+import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261014e";
+import { CATS } from "./isgcats.js?v=20261014e";
+import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261014e";
+import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261014e";
 
 const COLL = "isg";
 const D = { key: "", setup: null, doc: null, dept: null, month: null, open: {}, ro: false, timer: null, saved: true, msg: "" };
@@ -193,8 +193,8 @@ function persist(now = false) {
     const p = D.setup.params || DEFAULT_PARAMS, row = D.setup.rows.find(r => r.id === d);
     let result = null;
     if (D.doc.sessions.length) {
-      const c = calcIsg({ cats: CATS, sessions: D.doc.sessions, draft: { marks: {}, notes: {}, ydNotes: {} }, freqOv: D.doc.freq, bonusIdx: D.doc.bonus, F: katsayi(row), p });
-      result = { score: +c.score.toFixed(2), penalty: +c.penalty.toFixed(2), bonus: c.bonus, den: c.den, total: c.total, ydPct: c.ydPct, band: bandOf(c.score, p), F: +katsayi(row).toFixed(2), sessions: D.doc.sessions.length };
+      const c = calcIsg({ cats: CATS, sessions: D.doc.sessions, draft: { marks: {}, notes: {}, ydNotes: {} }, freqOv: D.doc.freq, bonusIdx: D.doc.bonus, F: katsayi(row, +m), p });
+      result = { score: +c.score.toFixed(2), penalty: +c.penalty.toFixed(2), bonus: c.bonus, den: c.den, total: c.total, ydPct: c.ydPct, band: bandOf(c.score, p), F: +katsayi(row, +m).toFixed(2), sessions: D.doc.sessions.length };
     }
     try { const payload = { ...D.doc, result, dept: d, month: +m }, cn = D.doc.sessions.filter(x => x.closed).map(x => x.no);
       if (!GUEST.on || D.hadClosed) payload.closedNos = cn; else delete payload.closedNos;
@@ -256,7 +256,7 @@ function gchip(cat, ii, id, notes, k, curNo, row, st) {
 
 function draw() {
   const { st } = D.ctx, v = D.v, doc = D.doc, setup = D.setup, p = setup.params || DEFAULT_PARAMS;
-  const row = setup.rows.find(r => r.id === D.dept), F = katsayi(row);
+  const row = setup.rows.find(r => r.id === D.dept), F = katsayi(row, D.month);
   const on = doc.draft.on !== false, editNo = doc.draft.edit;
   const calcSessions = doc.sessions.filter(x => x.no !== editNo);
   const c = calcIsg({ cats: CATS, sessions: on ? calcSessions : doc.sessions, draft: on ? doc.draft : { marks: {}, notes: {}, ydNotes: {} }, freqOv: doc.freq, bonusIdx: doc.bonus, F, p });
@@ -410,7 +410,7 @@ function bind(v, c) {
   const nw = document.getElementById("newSess");
   if (nw) nw.onclick = () => { doc.draft = emptyDraft(defaultDate(st.year, D.month), true); persist(true); draw(); };
   on("[data-delsess]", async el => {
-    const { confirmBox } = await import("./ui.js?v=20261014d");
+    const { confirmBox } = await import("./ui.js?v=20261014e");
     if (!(await confirmBox("Son denetim silinsin mi?", "Kayıtlı denetim silinir; skor ve sıklıklar yeniden hesaplanır.", "Evet, sil", true))) return;
     const gone = doc.sessions.pop();
     // Misafir taslağından gelen denetimse: misafire "silindi" bilgisi gider (taslağı düzeltip yeniden gönderebilir), fotoğrafları korunur
@@ -454,7 +454,7 @@ function bind(v, c) {
   // Misafir taslağının tarihi hangi haftaya düşüyorsa, o haftanın kaydı varsa taslak ona eklenir (tek haftalık kayıt)
   const wkTarget = date => { if (!date) return null; const ss = doc.sessions.filter(x => x.date && monOf(x.date) === monOf(date)); return ss.length ? ss[ss.length - 1] : null; };
   const approveG = async (g, w, choice = {}) => {
-    const F2 = katsayi(D.setup.rows.find(r => r.id === D.dept)), p2 = D.setup.params || DEFAULT_PARAMS, tgt = wkTarget(w.date);
+    const F2 = katsayi(D.setup.rows.find(r => r.id === D.dept), D.month), p2 = D.setup.params || DEFAULT_PARAMS, tgt = wkTarget(w.date);
     if (tgt) {
       if (!Object.keys(w.marks || {}).length) { toast("Taslakta işaretlenmiş madde yok."); return false; }
       if (doc.draft.on !== false && doc.draft.edit === tgt.no) mergeGuest(doc.draft, w, choice);

@@ -1,9 +1,9 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261014d";
-import { esc } from "./ui.js?v=20261014d";
-import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi } from "./scoring.js?v=20261014d";
-import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261014d";
-import { CATS } from "./isgcats.js?v=20261014d";
+import * as S from "./store.js?v=20261014e";
+import { esc } from "./ui.js?v=20261014e";
+import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi } from "./scoring.js?v=20261014e";
+import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261014e";
+import { CATS } from "./isgcats.js?v=20261014e";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -30,7 +30,7 @@ export async function load(st, setup) {
       const id = String(d.id).slice(3), row = rows.find(r => r.id === id); if (!out[id]) return;
       // Skor, kayıtlı denetimlerden güncel ağırlıklarla yeniden hesaplanır (kategori ağırlığı değişirse eski kayıtlar da güncellenir)
       let sc = num0(d.result.score);
-      if (d.sessions?.length && row) { try { sc = +calcIsg({ cats: CATS, sessions: d.sessions, draft: { marks: {}, notes: {}, ydNotes: {} }, freqOv: d.freq || {}, bonusIdx: d.bonus || 0, F: katsayi(row), p: setup.params || DEFAULT_PARAMS }).score.toFixed(2); } catch { } }
+      if (d.sessions?.length && row) { try { sc = +calcIsg({ cats: CATS, sessions: d.sessions, draft: { marks: {}, notes: {}, ydNotes: {} }, freqOv: d.freq || {}, bonusIdx: d.bonus || 0, F: katsayi(row, m + 1), p: setup.params || DEFAULT_PARAMS }).score.toFixed(2); } catch { } }
       out[id][m][3] = sc; return;
     }
     rows.forEach(r => { const x = d.result.per?.[r.id]; if (x) out[r.id][m][k] = num0(pick(x)); });

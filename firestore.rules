@@ -81,10 +81,19 @@ service cloud.firestore {
         // Aylık veri koleksiyonları (silme yok).
         // İSG denetim kayıtlarını (isg) misafir yalnızca okur; kendi taslağını (isgg, id'si kendi uid'si ile biter) yazar.
         match /{coll}/{docId} {
-          allow read: if live() && (coll in ['isg', 'kaza', 'konusma', 'isbasi', 'foto']
+          allow read: if live() && (coll in ['isg', 'kaza', 'konusma', 'isbasi', 'konusmag', 'isbasig', 'foto']
             || (coll == 'isgg' && docId.matches('.*_' + request.auth.uid)));
+          // Eğitim konuşması / işbaşı eğitim aylık kaydını misafir DEĞİŞTİREMEZ; yalnızca kendi "bekleyen" kaydını ekler (sahip onaylar) veya bekleyen kaydını siler
+          allow create: if live() && coll in ['konusmag', 'isbasig']
+            && docId.matches('.*_' + request.auth.uid + '_.*')
+            && request.resource.data.keys().hasOnly(['guestUid', 'guestName', 'dept', 'month', 'd', 'min', 'g', 'e', 'status', 'at', 'updatedAt'])
+            && request.resource.data.guestUid == request.auth.uid
+            && request.resource.data.status == 'pending'
+            && request.resource.data.guestName is string && request.resource.data.guestName.size() < 80;
+          allow delete: if live() && coll in ['konusmag', 'isbasig']
+            && resource.data.guestUid == request.auth.uid && resource.data.status == 'pending';
           allow create, update: if live() && (
-            coll in ['kaza', 'konusma', 'isbasi', 'foto']
+            coll in ['kaza', 'foto']
             || (coll == 'isgg' && docId.matches('.*_' + request.auth.uid)
                 && request.resource.data.keys().hasOnly(['guestUid', 'guestName', 'dept', 'month', 'status', 'draft', 'at', 'updatedAt', 'note'])
                 && request.resource.data.guestUid == request.auth.uid

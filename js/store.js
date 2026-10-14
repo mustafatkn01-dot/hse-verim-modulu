@@ -1,5 +1,5 @@
 // Veri katmanı: users/{uid}/factories/{fid}/years/{yıl}/setup/main
-import { auth, db, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, updateDoc, query, orderBy, serverTimestamp, onSnapshot } from "./firebase.js?v=20261014d";
+import { auth, db, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, updateDoc, query, orderBy, serverTimestamp, onSnapshot } from "./firebase.js?v=20261014e";
 
 const uid = () => auth.currentUser.uid;
 // Veri sahibi: misafir kullanıcıda davet eden hesabın uid'si; kendi oturum/profil kayıtları ise her zaman kendi hesabında
@@ -26,7 +26,7 @@ export async function updateFactory(id, data) { await updateDoc(doc(db, `${base(
 // Fabrikayı tüm yıl ve kurulum verileriyle birlikte siler
 export async function deleteFactoryDeep(id) {
   for (const y of await listYears(id)) {
-    for (const coll of ["isg", "isgg", "kaza", "konusma", "isbasi", "foto"]) for (const d of await listMonthDocs(id, y, coll)) await deleteDoc(monthRef(id, y, coll, d.id));
+    for (const coll of ["isg", "isgg", "kaza", "konusma", "isbasi", "konusmag", "isbasig", "foto"]) for (const d of await listMonthDocs(id, y, coll)) await deleteDoc(monthRef(id, y, coll, d.id));
     await deleteDoc(setupRef(id, y)).catch(() => {});
     await deleteDoc(doc(db, `${base()}/factories/${id}/years/${y}`));
   }
@@ -66,6 +66,7 @@ export async function saveSetup(fid, y, data) { await setDoc(setupRef(fid, y), {
 // Aylık veri: .../years/{yıl}/{koleksiyon}/{belgeId}
 const monthRef = (fid, y, coll, id) => doc(db, `${base()}/factories/${fid}/years/${y}/${coll}/${id}`);
 export async function getMonthDoc(fid, y, coll, id) { const d = await getDoc(monthRef(fid, y, coll, id)); return d.exists() ? d.data() : null; }
+export const deleteMonthDoc = (fid, y, coll, id) => deleteDoc(monthRef(fid, y, coll, id));
 export async function saveMonthDoc(fid, y, coll, id, data) { await setDoc(monthRef(fid, y, coll, id), { ...data, updatedAt: serverTimestamp() }); }
 export const watchMonthDoc = (fid, y, coll, id, cb) => onSnapshot(monthRef(fid, y, coll, id), s => cb(s.exists() ? s.data() : null), () => {});
 export async function listMonthDocs(fid, y, coll) { const s = await getDocs(collection(db, `${base()}/factories/${fid}/years/${y}/${coll}`)); return s.docs.map(d => ({ id: d.id, ...d.data() })); }
@@ -151,7 +152,7 @@ export async function yearCounts(fid, y) {
   let n = 0; for (const coll of ["isg", "kaza", "konusma", "isbasi"]) n += (await listMonthDocs(fid, y, coll)).length; return n;
 }
 export async function deleteYearDeep(fid, y) {
-  for (const coll of ["isg", "isgg", "kaza", "konusma", "isbasi", "foto"]) for (const d of await listMonthDocs(fid, y, coll)) await deleteDoc(monthRef(fid, y, coll, d.id));
+  for (const coll of ["isg", "isgg", "kaza", "konusma", "isbasi", "konusmag", "isbasig", "foto"]) for (const d of await listMonthDocs(fid, y, coll)) await deleteDoc(monthRef(fid, y, coll, d.id));
   await deleteDoc(setupRef(fid, y)).catch(() => {});
   await deleteDoc(doc(db, `${base()}/factories/${fid}/years/${y}`));
 }

@@ -3,8 +3,8 @@
 //   users/{sahip}/invites/{kod}        davet (e-posta ayarı kopyası)
 //   users/{sahip}/guestReqs/{misafirUid}  onay isteği {gid, code, name, unit, status, at}
 //   users/{sahip}/members/{misafirUid}    onaylı üye {name, unit, factories[], mode, expires|null}
-import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously } from "./firebase.js?v=20261014d";
-import { esc, toast, confirmBox } from "./ui.js?v=20261014d";
+import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously } from "./firebase.js?v=20261014e";
+import { esc, toast, confirmBox } from "./ui.js?v=20261014e";
 
 const Q = new URLSearchParams(location.search);
 export const linkInfo = () => {
@@ -124,6 +124,7 @@ export function showExpired({ owner, code, member }, onApproved) {
 // users/{sahip}/inbox/{misafirUid}_{fabrika}_{yıl}_{ay}_{bölüm}  → aynı denetim için tek satır (tekrar kayıtlar satırı günceller)
 const GC = { owner: null, uid: null, name: "", ntfy: null };
 export const setGuestCtx = c => Object.assign(GC, c);
+export const pushOwner = (title, message) => pushRaw(GC.ntfy, { title, message, click: `${location.origin}${location.pathname}`, priority: 3 });
 export async function reportAudit(info, kind) {
   if (!GC.owner || !GC.uid) return;
   const key = [info.fid, info.year, info.month, info.dept].join("_");

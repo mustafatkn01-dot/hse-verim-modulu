@@ -20,6 +20,10 @@ Fabrika adı iki programda aynı olmalıdır (büyük/küçük harf ve Türkçe 
 
 ## Sürüm notları
 
+### 1.6.2
+- Çalışan sayısı aylıktır: Kurulum'da değiştirilen sayı kaydedildiği aydan itibaren geçerlidir, önceki aylar değişmez (r.nm). Yıl başlatılırken Aralık değeri yeni yılın tabanı olur.
+- Eğitim Konuşması ve İşbaşı Eğitim: aylık toplam, eklenen kayıtların toplamıdır (+ düğmesi). Misafir kaydı "Onay bekliyor" olarak gelir; yetkili onaylar / reddeder. Misafir aylık kaydı değiştiremez (firestore.rules güncellendi: konusmag, isbasig).
+
 ### 1.6.1
 - Misafir kayıt ekranı: e-posta kaldırıldı, "Bölüm / Görev" zorunlu alan eklendi (* işaretli); onay kartında ad düzenlenebilir.
 - Geri bildirim: misafir menüsünde "Geri Bildirim Gönder", sahip menüsünde "Mesaj Kutusu" ("Mesajınız var" uyarısı).

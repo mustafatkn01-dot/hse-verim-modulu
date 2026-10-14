@@ -6,7 +6,9 @@ export function empCoef(n) {
   const v = parseInt(n, 10) || 0;
   return v >= 26 ? .30 : v >= 21 ? .25 : v >= 16 ? .20 : v >= 11 ? .15 : v >= 6 ? .10 : .05;
 }
-export const katsayi = r => 1 + (empCoef(r.n) - .05) + ((RISK[r.risk] ?? .05) - .05);
+// Çalışan sayısı aylıktır: r.n tabandır (yıl başından), r.nm = { "11": "24" } o aydan itibaren geçerli yeni sayıdır
+export const nAt = (r, m) => { const nm = r.nm || {}; let b = 0; Object.keys(nm).forEach(k => { if (+k <= +m && +k > b) b = +k; }); return b && m ? nm[b] : r.n; };
+export const katsayi = (r, m) => 1 + (empCoef(nAt(r, m)) - .05) + ((RISK[r.risk] ?? .05) - .05);
 export const ztfRamp = (r, p) => Math.min(1, num(r.ztf) + num({ Düşük: p.ramp.dusuk, Orta: p.ramp.orta, Yüksek: p.ramp.yuksek }[r.ramp] ?? 0));
 
 export const DEFAULT_PARAMS = {

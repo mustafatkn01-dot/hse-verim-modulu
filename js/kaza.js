@@ -1,8 +1,8 @@
 // İş Kazası · Aylık Giriş
-import * as S from "./store.js?v=20261014d";
-import * as Gorev from "./gorev.js?v=20261014d";
-import { esc, ic, toast, noteEditor, guestLock, roText, GUEST } from "./ui.js?v=20261014d";
-import { katsayi, bandOf, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261014d";
+import * as S from "./store.js?v=20261014e";
+import * as Gorev from "./gorev.js?v=20261014e";
+import { esc, ic, toast, noteEditor, guestLock, roText, GUEST } from "./ui.js?v=20261014e";
+import { katsayi, bandOf, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261014e";
 
 const COLL = "kaza";
 export const T = [["Gün kayıpsız", 2], ["1-5 gün kayıplı", 5], ["5-20 gün kayıplı", 10], ["20+ gün kayıplı", 20], ["Uzuv kaybı", 50], ["Ölüm", 100]];
@@ -37,7 +37,7 @@ const rowOf = id => (D.rows[id] ||= { c: [0, 0, 0, 0, 0, 0], note: "" });
 
 function summary() {
   const out = {}; let sum = 0, tot = 0, lost = 0;
-  D.setup.rows.forEach(r => { const x = calcKaza(rowOf(r.id).c, katsayi(r)); out[r.id] = { ...x, F: +katsayi(r).toFixed(2) }; sum += x.verim; tot += x.count; lost += x.lost; });
+  D.setup.rows.forEach(r => { const x = calcKaza(rowOf(r.id).c, katsayi(r, D.month)); out[r.id] = { ...x, F: +katsayi(r, D.month).toFixed(2) }; sum += x.verim; tot += x.count; lost += x.lost; });
   return { per: out, tesis: sum / D.setup.rows.length, tot, lost };
 }
 
