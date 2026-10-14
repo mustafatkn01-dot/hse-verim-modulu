@@ -1,11 +1,11 @@
 // İSG Denetim Listesi sayfası
-import * as Guest from "./guest.js?v=20261014g";
-import * as Gorev from "./gorev.js?v=20261014g";
-import * as S from "./store.js?v=20261014g";
-import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261014g";
-import { CATS } from "./isgcats.js?v=20261014g";
-import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261014g";
-import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261014g";
+import * as Guest from "./guest.js?v=20261014h";
+import * as Gorev from "./gorev.js?v=20261014h";
+import * as S from "./store.js?v=20261014h";
+import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261014h";
+import { CATS } from "./isgcats.js?v=20261014h";
+import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261014h";
+import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261014h";
 
 const COLL = "isg";
 const D = { key: "", setup: null, doc: null, dept: null, month: null, open: {}, ro: false, timer: null, saved: true, msg: "" };
@@ -367,7 +367,7 @@ function bind(v, c) {
   $("ay").onchange = e => { D.month = +e.target.value; render(D.v, D.ctx); };
   $("tarih").onclick = async () => { const r = await pickDate({ title: "Denetim tarihi", max: iso(new Date()), a: d.date || "", view: `${st.year}-${String(D.month).padStart(2, "0")}-01` }); if (r) { d.date = r.a; again(); } };
   $("denetci").onchange = e => { doc.auditor = e.target.value.trim(); persist(); };
-  on("[data-tog]", el => { D.open[el.dataset.tog] = !D.open[el.dataset.tog]; draw(); });
+  on("[data-tog]", el => { const k = el.dataset.tog, w = !D.open[k]; D.open = {}; D.open[k] = w; draw(); if (w) setTimeout(() => document.querySelector(`[data-tog="${k}"]`)?.scrollIntoView({ block: "start", behavior: "smooth" }), 30); });
   on("[data-mk]", el => {
     const [id, k] = el.dataset.mk.split("|"); d.marks[id] = k;
     if (k === "x" && !(d.notes[id] && d.notes[id].length)) d.notes[id] = [""];
@@ -409,7 +409,7 @@ function bind(v, c) {
   on("[data-reopen]", async el => {
     const no = +el.dataset.reopen, t = doc.sessions.find(x => x.no === no); if (!t) return;
     if (doc.draft.on !== false && Object.keys(doc.draft.marks || {}).length && doc.draft.edit !== no) {
-      const { confirmBox } = await import("./ui.js?v=20261014g");
+      const { confirmBox } = await import("./ui.js?v=20261014h");
       if (!(await confirmBox(`${no}. denetim açılsın mı?`, "Şu an açık olan denetimde kaydedilmemiş değişiklikler varsa kaybolur. Önce “Kaydet”e basmanız önerilir.", "Yine de aç"))) return;
     }
     if (t.no === doc.sessions.length) t.closed = false;
@@ -427,7 +427,7 @@ function bind(v, c) {
   });
   const gAll = async () => (await S.listMonthDocs(st.fid, st.year, "isgg").catch(() => [])).filter(g => g.id.startsWith(`${pad(D.month)}_${D.dept}_`));
   on("[data-delsess]", async el => {
-    const { confirmBox } = await import("./ui.js?v=20261014g");
+    const { confirmBox } = await import("./ui.js?v=20261014h");
     const no = +el.dataset.delsess, ix = doc.sessions.findIndex(x => x.no === no); if (ix < 0) return;
     const gone = doc.sessions[ix], later = ix < doc.sessions.length - 1, all = await gAll(), gAp = all.filter(g => g.status === "approved" && g.no === gone.no);
     let mode = "all";
@@ -452,7 +452,7 @@ function bind(v, c) {
   });
   // Sahip: misafir taslağını tamamen sil (denetime ve rapora hiç girmez)
   const delG = async g => {
-    const { confirmBox } = await import("./ui.js?v=20261014g");
+    const { confirmBox } = await import("./ui.js?v=20261014h");
     if (!(await confirmBox("Misafir taslağı silinsin mi?", `${g.guestName} taslağı ve fotoğrafları kalıcı olarak silinir; denetime ve rapora hiç girmez. Misafir isterse yeniden yazabilir.`, "Evet, tamamen sil", true))) return false;
     Object.values(g.draft?.photos || {}).flat().forEach(p => S.deletePhoto(st.fid, st.year, p.id).catch(() => {}));
     await S.deleteMonthDoc(st.fid, st.year, "isgg", g.id); await Guest.inboxDelete(`${g.guestUid}_${st.fid}_${st.year}_${+g.month}_${g.dept}`);

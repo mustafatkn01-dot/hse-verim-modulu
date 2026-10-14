@@ -1,9 +1,9 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261014g";
-import { esc } from "./ui.js?v=20261014g";
-import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi } from "./scoring.js?v=20261014g";
-import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261014g";
-import { CATS } from "./isgcats.js?v=20261014g";
+import * as S from "./store.js?v=20261014h";
+import { esc } from "./ui.js?v=20261014h";
+import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi } from "./scoring.js?v=20261014h";
+import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261014h";
+import { CATS } from "./isgcats.js?v=20261014h";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -163,6 +163,33 @@ function draw() {
     ${details.length ? details.map(g => `<div class="col1" style="gap:6px">${mk === 4 ? `<div style="font-weight:800;color:#145F96">${g.mod}</div>` : ""}${g.items.map((a, i) => `<div style="display:flex;gap:10px;line-height:1.55"><span style="flex:0 0 22px;font-weight:800;color:#0B6E4F">${i + 1}.</span><span>${a.mon ? `<span class="muted">${a.mon} · </span>` : ""}<b>${esc(a.dept)}</b> — ${esc(a.text)} <span class="muted" style="white-space:nowrap">· ${esc(a.extra)}</span></span></div>`).join("")}</div>`).join("") : `<div class="muted">Bu dönem için girilmiş açıklama yok.</div>`}</div>`;
   const info = { fid: st.fid, year: st.year, details, mk4: mk === 4, fname: st.factories.find(f => f.id === st.fid)?.name || "", title: `${MET[mk][0]} · Bölüm Karşılaştırması`, plabel: PER[V.p].name(V.sel), av, abn: bname(av), ab, names: rows.map(r => r.name), vals, bandOf: x => (x === null ? NONE : band(x)), notes, partial: partial ? `Kısmi dönem: ${cur.idx.length} aydan ${have} tanesi için veri var. Değerler mevcut aylar üzerinden hesaplandı.` : "", esik: p.esik };
   V.v.querySelector("[data-detslot]").innerHTML = detHtml;
+
+  // ---- İSG Denetim · aylık kıyas (son 2/3 ay) ----
+  {
+    const C = V.cmp || (V.cmp = { open: false, n: 3, drop: false });
+    const isg = rows.map(r => ({ r, s: series(r.id, 3) })), last = rng(0, 11).filter(m => isg.some(x => x.s[m] !== null)).pop();
+    const card = document.createElement("div"); card.className = "cd"; card.style.gap = "14px";
+    const head = `<button data-cmpt aria-expanded="${C.open}" class="sec" style="display:flex;justify-content:space-between;align-items:center;width:100%;border:0;background:none;padding:0;font:inherit;text-align:left"><span><h2 style="margin:0">İSG Denetim · Aylık Kıyas</h2><span class="muted" style="font-size:13px">Bölümlerin son aylardaki denetim puanı ve değişimi</span></span><span style="font-size:20px">${C.open ? "▴" : "▾"}</span></button>`;
+    if (!C.open) card.innerHTML = head;
+    else if (last === undefined) card.innerHTML = head + `<div class="muted" style="font-size:13.5px">Henüz İSG denetim verisi yok.</div>`;
+    else {
+      const ms = rng(Math.max(0, last - C.n + 1), last);
+      let L = isg.map(x => { const a = x.s[last], b = last > 0 ? x.s[last - 1] : null; return { ...x, d: a !== null && b !== null ? a - b : null }; });
+      if (C.drop) L = L.slice().sort((p1, p2) => (p1.d === null) - (p2.d === null) || (p1.d ?? 0) - (p2.d ?? 0));
+      const gc2 = `minmax(70px,1.3fr) repeat(${ms.length},1fr) 78px`;
+      const chg = d => d === null ? `<span class="muted">–</span>` : Math.abs(d) < 0.05 ? `<b style="color:#6B7B76">● 0</b>` : d > 0 ? `<b style="color:#1B7F4B">▲ +${f1(d)}</b>` : `<b style="color:#B3261E">▼ −${f1(-d)}</b>`;
+      const seg = (k, t) => `<button data-cn="${k}" aria-pressed="${C.n === k}" style="height:36px;padding:0 14px;border-radius:10px;border:1px solid var(--line);font-weight:700;${C.n === k ? "background:var(--sel);color:#fff" : "background:#fff"}">${t}</button>`;
+      card.innerHTML = head + `<div class="row" style="gap:8px">${seg(2, "Son 2 ay")}${seg(3, "Son 3 ay")}<button data-cdrop aria-pressed="${C.drop}" style="height:36px;padding:0 14px;border-radius:10px;border:1px solid var(--line);font-weight:700;${C.drop ? "background:var(--sel);color:#fff" : "background:#fff"}">En çok düşenler üstte</button></div>
+      <div style="overflow-x:auto"><div style="min-width:${ms.length * 70 + 170}px;display:flex;flex-direction:column;gap:6px">
+        <div style="display:grid;grid-template-columns:${gc2};gap:6px"><span class="hd">Bölüm</span>${ms.map(m => `<span class="hd" style="text-align:center">${MS[m]}</span>`).join("")}<span class="hd" style="text-align:center">Değişim</span></div>
+        ${L.map(x => `<div style="display:grid;grid-template-columns:${gc2};gap:6px;align-items:center"><span style="font-weight:700;overflow:hidden;text-overflow:ellipsis">${esc(x.r.name)}</span>${ms.map(m => { const c = cell(x.s[m]); return `<span style="height:38px;display:flex;align-items:center;justify-content:center;border-radius:9px;font-weight:800;background:${c.bg};color:${c.c}">${c.t}</span>`; }).join("")}<span style="text-align:center;font-size:13px">${chg(x.d)}</span></div>`).join("")}</div></div>
+      <div class="muted" style="font-size:12.5px;line-height:1.6">Değişim, ${MS[last]} ayının bir önceki aya farkıdır (puan). Veri girilmeyen ay "–" gösterir ve değişim hesaplanmaz. Eğitim ve iş kazası, aydan aya doğal olarak dalgalandığı için aylık kıyaslanmaz.</div>`;
+    }
+    V.v.appendChild(card);
+    card.querySelector("[data-cmpt]").onclick = () => { C.open = !C.open; draw(); };
+    card.querySelectorAll("[data-cn]").forEach(b => b.onclick = () => { C.n = +b.dataset.cn; draw(); });
+    card.querySelector("[data-cdrop]")?.addEventListener("click", () => { C.drop = !C.drop; draw(); });
+  }
   V.v.querySelector("[data-pdf]").onclick = () => pdfDialog(info);
   const fn = `${(info.fname || "tesis").replace(/[^\wğüşıöçĞÜŞİÖÇ-]+/g, "_")}_${y}`;
   V.v.querySelector('[data-csv="t"]').onclick = () => downloadCsv(`${fn}_verim_tablosu_${cur.idx.length === 1 ? MS[cur.idx[0]] : PER[V.p].t.split(" ")[0]}.csv`, [[`${info.fname} · ${PER[V.p].name(V.sel)}`], ["Bölüm", ...MET.map(m => m[0]), "Durum"],
