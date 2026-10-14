@@ -16,19 +16,28 @@ service cloud.firestore {
     // Onay isteği: misafir kendi isteğini oluşturur/okur; durumu yalnızca "pending"e çekebilir
     match /users/{owner}/guestReqs/{gid} {
       allow get: if request.auth != null && request.auth.uid == gid;
-      allow create: if request.auth != null && request.auth.uid == gid
-        && request.resource.data.keys().hasOnly(['gid', 'code', 'name', 'email', 'status', 'at'])
+      allow create, update: if request.auth != null && request.auth.uid == gid
+        && request.resource.data.keys().hasOnly(['gid', 'code', 'name', 'unit', 'email', 'status', 'at'])
         && request.resource.data.gid == gid
         && request.resource.data.status == 'pending'
         && request.resource.data.name is string && request.resource.data.name.size() < 80
-        && request.resource.data.email is string && request.resource.data.email.size() < 120
+        && request.resource.data.unit is string && request.resource.data.unit.size() < 80
+        && (!('email' in request.resource.data) || (request.resource.data.email is string && request.resource.data.email.size() < 120))
         && exists(/databases/$(database)/documents/users/$(owner)/invites/$(request.resource.data.code));
-      allow update: if request.auth != null && request.auth.uid == gid
-        && request.resource.data.keys().hasOnly(['gid', 'code', 'name', 'email', 'status', 'at'])
-        && request.resource.data.status == 'pending'
+    }
+
+    // Geri bildirim: misafir yalnızca kendi uid'si ile başlayan kimlikle yeni mesaj bırakır (sahip okur / siler)
+    match /users/{owner}/feedback/{id} {
+      allow create: if request.auth != null
+        && id.matches(request.auth.uid + '_.*')
+        && request.resource.data.keys().hasOnly(['gid', 'name', 'text', 'at', 'read'])
+        && request.resource.data.gid == request.auth.uid
+        && request.resource.data.read == false
         && request.resource.data.name is string && request.resource.data.name.size() < 80
-        && request.resource.data.email is string && request.resource.data.email.size() < 120
-        && exists(/databases/$(database)/documents/users/$(owner)/invites/$(request.resource.data.code));
+        && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 1000
+        && exists(/databases/$(database)/documents/users/$(owner)/members/$(request.auth.uid))
+        && (get(/databases/$(database)/documents/users/$(owner)/members/$(request.auth.uid)).data.expires == null
+            || get(/databases/$(database)/documents/users/$(owner)/members/$(request.auth.uid)).data.expires > request.time);
     }
 
     // Onaylı üye kaydı: misafir yalnızca kendi kaydını okur

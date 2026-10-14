@@ -1,21 +1,21 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261014b";
-import * as S from "./store.js?v=20261014b";
-import * as Prim from "./primary.js?v=20261014b";
-import * as Denetim from "./denetim.js?v=20261014b";
-import * as Kaza from "./kaza.js?v=20261014b";
-import * as Konusma from "./konusma.js?v=20261014b";
-import * as Genel from "./genel.js?v=20261014b";
-import * as Rapor from "./rapor.js?v=20261014b";
-import * as Verim from "./verim.js?v=20261014b";
-import * as Isbasi from "./isbasi.js?v=20261014b";
-import * as Guest from "./guest.js?v=20261014b";
-import * as Yontem from "./yontem.js?v=20261014b";
-import * as Tatil from "./tatil.js?v=20261014b";
-import * as Gorev from "./gorev.js?v=20261014b";
-import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261014b";
-import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261014b";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261014c";
+import * as S from "./store.js?v=20261014c";
+import * as Prim from "./primary.js?v=20261014c";
+import * as Denetim from "./denetim.js?v=20261014c";
+import * as Kaza from "./kaza.js?v=20261014c";
+import * as Konusma from "./konusma.js?v=20261014c";
+import * as Genel from "./genel.js?v=20261014c";
+import * as Rapor from "./rapor.js?v=20261014c";
+import * as Verim from "./verim.js?v=20261014c";
+import * as Isbasi from "./isbasi.js?v=20261014c";
+import * as Guest from "./guest.js?v=20261014c";
+import * as Yontem from "./yontem.js?v=20261014c";
+import * as Tatil from "./tatil.js?v=20261014c";
+import * as Gorev from "./gorev.js?v=20261014c";
+import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261014c";
+import { num, c2, katsayi, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261014c";
 
-const VERSION = "1.6.0";
+const VERSION = "1.6.1";
 const st = { factories: [], years: [], fid: null, year: null, page: "genel", profile: {}, lastSync: new Date() };
 
 const GROUPS = [
@@ -68,7 +68,7 @@ async function doSignOut() {
   K.key = ""; await signOut(auth);
 }
 const LINK = Guest.linkInfo();
-let unwatchG = null, guestTimer = null, unwatchReq = null, unwatchInb = null;
+let unwatchG = null, guestTimer = null, unwatchReq = null, unwatchInb = null, unwatchFb = null;
 try { navigator.serviceWorker?.register("./sw.js"); } catch {}
 function showOnly(which) { // "login" | "app" | "none"
   $("login").classList.toggle("hide", which !== "login");
@@ -91,7 +91,7 @@ async function startGuest(owner, user) {
   Guest.hideRequest(); Guest.storeOwner(owner);
   S.setOwner(owner, m.factories || []);
   Guest.setGuestCtx({ owner, uid: user.uid, name: m.name, ntfy: m.ntfy || null });
-  GUEST.on = true; GUEST.name = m.name; GUEST.uid = user.uid; st.role = "guest"; st.guest = { uid: user.uid, name: m.name, email: m.email, member: m };
+  GUEST.on = true; GUEST.name = m.name; GUEST.uid = user.uid; st.role = "guest"; st.guest = { uid: user.uid, name: m.name, email: m.unit || m.email || "", member: m };
   showOnly("app"); document.body.classList.add("is-guest");
   unwatchG?.(); clearInterval(guestTimer);
   const check = mm => { if (!Guest.isLive(mm)) guestOut(mm ? "Erişim süreniz doldu." : "Erişiminiz yetkili kullanıcı tarafından kaldırıldı."); };
@@ -134,6 +134,12 @@ onAuthStateChanged(auth, async user => {
       const r = list[list.length - 1], msg = `${r.byName} · ${r.deptName}: ${r.no}. denetim ${r.kind === "review" ? "tamamlanmasını istiyor" : "kaydedildi"}.`;
       toast(msg); Guest.notify("HSE Verim · Misafir denetimi", msg, `${location.pathname}?denetim=${[r.fid, r.year, r.month, r.dept].join(".")}`);
       if (st.page === "genel") render(); else if (st.page === "denetim") Denetim.reload();
+    });
+    unwatchFb?.(); st.fb = []; let fbFirst = true;
+    unwatchFb = Guest.watchFeedback(user.uid, list => {
+      const before = (st.fb || []).filter(x => !x.read).length; st.fb = list; const now = list.filter(x => !x.read).length;
+      if (!fbFirst && now > before) { const r = list.find(x => !x.read); toast(`${r.name}: yeni geri bildirim.`); Guest.notify("HSE Verim · Geri bildirim", `${r.name}: ${r.text.slice(0, 100)}`, location.pathname); }
+      fbFirst = false; drawNav();
     });
     if (LINK?.type === "audit") { Guest.clearLink(); openAudit(LINK); }
     if (LINK?.type === "approve") { Guest.clearLink(); Guest.approvalDialog(user.uid, LINK.gid, st.all, () => { if (st.page === "ayarlar") render(); }); }
@@ -180,10 +186,13 @@ $("menuBtn").onclick = () => toggleMenu();
 $("ov").onclick = () => toggleMenu(false);
 function go(p) { st.page = PAGES.find(x => x[0] === p && !x[3]) && !(st.role === "guest" && p === "kurulum") ? p : "genel"; toggleMenu(false); render(); }
 function drawNav() {
+  const un = (st.fb || []).filter(x => !x.read).length, env = ic('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>');
+  const fbItem = st.role === "guest" ? `<a href="#" data-fb>${env}Geri Bildirim Gönder</a>` : `<a href="#" data-fb>${env}Mesaj Kutusu${un ? '<small style="margin-left:auto;font:italic 600 12px Manrope,system-ui,sans-serif;color:#F5B700">Mesajınız var</small>' : ""}</a>`;
   $("nav").innerHTML = `<div class="brand"><div class="logo"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8.2-7 10-4-1.8-7-5.5-7-10V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg></div><div><b>HSE Verim Modülü</b><small>Performans Takip</small></div></div>`
     + GROUPS.map(([t, items]) => `<div class="grp"><div class="t">${t}</div>` + items.filter(i => !(st.role === "guest" && i[0] === "kurulum")).map(([k, n, d, soon]) =>
-      `<a href="#${k}" class="${st.page === k ? "on" : ""} ${soon ? "soon" : ""}">${ic(d)}${n}${soon ? ' <small style="margin-left:auto;font-size:10px">yakında</small>' : ""}</a>`).join("") + `</div>`).join("")
+      `<a href="#${k}" class="${st.page === k ? "on" : ""} ${soon ? "soon" : ""}">${ic(d)}${n}${soon ? ' <small style="margin-left:auto;font-size:10px">yakında</small>' : ""}</a>`).join("") + (t === "RAPOR" ? fbItem : "") + `</div>`).join("")
     + `<div class="goal"><b>Hedef: Sıfır Zarar</b><span>Güvenli çalış. Ölç. Geliştir.</span><div class="dots"><i style="background:#17A06F"></i><i style="background:#2A82C4"></i><i style="background:#F5B700"></i><i style="background:#D6382E"></i></div></div>`;
+  $("nav").querySelector("[data-fb]")?.addEventListener("click", e => { e.preventDefault(); toggleMenu(false); if (st.role === "guest") Guest.feedbackDialog(); else Guest.inboxDialog(Guest.ownerUid(), st.fb || [], () => drawNav()); });
 }
 async function render() {
   drawNav();

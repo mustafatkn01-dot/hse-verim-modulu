@@ -20,6 +20,12 @@ Fabrika adı iki programda aynı olmalıdır (büyük/küçük harf ve Türkçe 
 
 ## Sürüm notları
 
+### 1.6.1
+- Misafir kayıt ekranı: e-posta kaldırıldı, "Bölüm / Görev" zorunlu alan eklendi (* işaretli); onay kartında ad düzenlenebilir.
+- Geri bildirim: misafir menüsünde "Geri Bildirim Gönder", sahip menüsünde "Mesaj Kutusu" ("Mesajınız var" uyarısı).
+- İSG Denetim: başlık altında açık kalan / denetlenmeyen bölüm hatırlatması, tatil günü işareti, kategoriler varsayılan kapalı.
+- firestore.rules güncellendi (unit alanı, feedback koleksiyonu): Firebase Konsolu'nda yayınlanmalıdır.
+
 ### 1.6.0
 - **Haftalık denetim düzeni (Adım A):** Denetimler tarihine göre haftaya bağlanır (Pzt–Paz, ISO hafta no). Kayıt kartında "1. Denetim · 42. hafta", tarih alanında hafta bilgisi görünür.
 - **Yeni denetim kilidi:** Bu haftanın denetimi tamamlandıysa "Denetimi Başlat" pasiftir ve başlatılabileceği Pazartesi yazar; yeni haftada otomatik aktif olur. Hafta içinde yeni bulgu için "Yeniden aç" kullanılır.

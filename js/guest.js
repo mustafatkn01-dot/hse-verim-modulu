@@ -1,10 +1,10 @@
-// Misafir kullanıcı: davet bağlantısı → ad/e-posta ile onay isteği → sahibin onayı (süresiz / 24 saat) → fabrika bazlı erişim
+// Misafir kullanıcı: davet bağlantısı → ad / bölüm ile onay isteği → sahibin onayı (süresiz / 24 saat) → fabrika bazlı erişim
 // Veri yolları (hepsi sahibin hesabı altında):
 //   users/{sahip}/invites/{kod}        davet (e-posta ayarı kopyası)
-//   users/{sahip}/guestReqs/{misafirUid}  onay isteği {gid, code, name, email, status, at}
-//   users/{sahip}/members/{misafirUid}    onaylı üye {name, email, factories[], mode, expires|null}
-import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously } from "./firebase.js?v=20261014b";
-import { esc, toast, confirmBox } from "./ui.js?v=20261014b";
+//   users/{sahip}/guestReqs/{misafirUid}  onay isteği {gid, code, name, unit, status, at}
+//   users/{sahip}/members/{misafirUid}    onaylı üye {name, unit, factories[], mode, expires|null}
+import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously } from "./firebase.js?v=20261014c";
+import { esc, toast, confirmBox } from "./ui.js?v=20261014c";
 
 const Q = new URLSearchParams(location.search);
 export const linkInfo = () => {
@@ -47,29 +47,30 @@ const boxHtml = inner => `<div class="box"><div class="stripe" style="border-rad
 // owner/code: bağlantıdan veya daha önce kaydedilenden gelir. onApproved: onaylanınca çağrılır.
 export function showRequest({ owner, code, note = "" }, onApproved) {
   const s = screen(), prev = (() => { try { return JSON.parse(localStorage.getItem("hse_gname") || "{}"); } catch { return {}; } })();
-  s.innerHTML = boxHtml(`<div class="muted" style="line-height:1.55;margin-bottom:10px">Yetkili kullanıcının gönderdiği bağlantıyla geldiniz. Adınızı ve e-postanızı yazıp <b>Onay Gönder</b>'e basın; yetkili kullanıcı onayladığında bu ekran otomatik olarak açılır. Şifre gerekmez.</div>
+  s.innerHTML = boxHtml(`<div class="muted" style="line-height:1.55;margin-bottom:10px">Yetkili kullanıcının gönderdiği bağlantıyla geldiniz. Bilgilerinizi yazıp <b>Onay Gönder</b>'e basın. Yetkili kullanıcı onaylayınca bu ekran otomatik açılır.<br>Denetim kayıtlarınız bu adla tutulur.</div>
     ${note ? `<div class="warn" style="margin-bottom:10px">${esc(note)}</div>` : ""}
-    <label>Ad Soyad</label><input id="gName" autocomplete="name" value="${esc(prev.n || "")}" required>
-    <label>E-posta</label><input id="gMail" type="email" autocomplete="email" value="${esc(prev.e || "")}" required>
+    <label>Ad Soyad <span style="color:#D6382E">*</span></label><input id="gName" autocomplete="name" value="${esc(prev.n || "")}" required>
+    <label>Bölüm / Görev <span style="color:#D6382E">*</span></label><input id="gUnit" autocomplete="organization-title" placeholder="Örn. Matbaa / Operatör" value="${esc(prev.u || "")}" required>
+    <div class="muted" style="font-size:12.5px"><span style="color:#D6382E">*</span> Zorunlu alan</div>
     <div class="err" id="gErr"></div>
     <div class="row"><button type="button" id="gSend">Onay Gönder</button></div>`);
   const err = t => { document.getElementById("gErr").textContent = t; };
   document.getElementById("gSend").onclick = async () => {
-    const name = document.getElementById("gName").value.trim(), email = document.getElementById("gMail").value.trim();
+    const name = document.getElementById("gName").value.trim(), unit = document.getElementById("gUnit").value.trim();
     if (name.length < 3) return err("Ad soyadınızı yazın.");
-    if (!/^\S+@\S+\.\S+$/.test(email)) return err("Geçerli bir e-posta yazın.");
+    if (unit.length < 2) return err("Bölüm veya görevinizi yazın.");
     err(""); sending = true; document.getElementById("gSend").disabled = true;
     try {
       if (!auth.currentUser) await signInAnonymously(auth);
       const gid = auth.currentUser.uid;
       const inv = await getDoc(doc(db, `users/${owner}/invites/${code}`));
       if (!inv.exists()) throw new Error("Davet bağlantısı geçersiz veya yenilenmiş. Yetkili kullanıcıdan yeni bağlantı isteyin.");
-      const body = { gid, code, name, email, status: "pending", at: Date.now() };
+      const body = { gid, code, name, unit, status: "pending", at: Date.now() };
       await setDoc(REQ(owner, gid), body); // tam değiştirme: eski karar alanları (decidedAt) temizlenir
-      try { localStorage.setItem("hse_gname", JSON.stringify({ n: name, e: email })); } catch {}
+      try { localStorage.setItem("hse_gname", JSON.stringify({ n: name, u: unit })); } catch {}
       storeOwner(owner);
       const link = `${location.origin}${location.pathname}?onay=${gid}`;
-      const [m1, m2] = await Promise.all([sendMail(inv.data().emailjs, { guest_name: name, guest_email: email, approve_link: link }), sendPush(inv.data().ntfy, { name, email, link })]);
+      const [m1, m2] = await Promise.all([sendMail(inv.data().emailjs, { guest_name: name, guest_unit: unit, guest_email: "", approve_link: link }), sendPush(inv.data().ntfy, { name, unit, link })]);
       const sent = m1 || m2, tried = !!(inv.data().ntfy || inv.data().emailjs);
       sending = false; waiting({ owner, code, gid, sent, tried }, onApproved);
     } catch (e) { sending = false; document.getElementById("gSend").disabled = false; err(e.code === "auth/admin-restricted-operation" || e.code === "auth/operation-not-allowed" ? "Misafir girişi Firebase'de kapalı. Yetkili kullanıcı: Konsol → Authentication → Sign-in method → Anonim girişi etkinleştirin." : (e.message || String(e))); }
@@ -93,7 +94,7 @@ async function pushRaw(topic, { title, message, click, priority = 4, tags = ["bu
     return r.ok;
   } catch { return false; }
 }
-const sendPush = (topic, { name, email, link }) => pushRaw(topic, { title: "HSE Verim · Misafir onay isteği", message: `${name} (${email}) erişim istiyor. Onaylamak için dokunun.`, click: link });
+const sendPush = (topic, { name, unit, link }) => pushRaw(topic, { title: "HSE Verim · Misafir onay isteği", message: `${name} (${unit}) erişim istiyor. Onaylamak için dokunun.`, click: link });
 
 // Onay bekleme ekranı: istek durumunu canlı izler
 export function waiting({ owner, gid, code, sent, tried }, onApproved) {
@@ -191,7 +192,7 @@ export async function approvalDialog(ownerUid, gid, factories, done) {
   if (!req) { m.innerHTML = `<div class="mbox" style="gap:14px"><h2>Misafir isteği bulunamadı</h2><div class="muted">İstek silinmiş olabilir veya başka bir hesapla giriş yapmış olabilirsiniz.</div><div class="row" style="justify-content:flex-end"><button class="sec" data-x>Kapat</button></div></div>`; document.body.appendChild(m); m.querySelector("[data-x]").onclick = close; return; }
   const done0 = req.status !== "pending";
   m.innerHTML = `<div class="mbox" role="dialog" aria-modal="true" style="gap:14px"><h2>Misafir erişim isteği</h2>
-    <div style="line-height:1.6"><b style="font-size:17px">${esc(req.name)}</b><br><span class="muted">${esc(req.email)} · ${ago(req.at)}</span></div>
+    <div style="line-height:1.6"><div class="row" style="gap:8px;flex-wrap:nowrap" id="gNmRow"><b style="font-size:17px" id="gNm">${esc(req.name)}</b><button type="button" class="sm sec" id="gNmEd" aria-label="Adı düzenle" title="Adı düzenle" style="flex:0 0 32px;width:32px;height:32px;min-height:0;padding:0;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg></button></div><span class="muted">${esc(req.unit || req.email || "")} · ${ago(req.at)}</span></div>
     ${done0 ? `<div class="warn">Bu istek zaten işlendi: ${req.status === "approved" ? "onaylandı" : "reddedildi"}. İsterseniz yeniden onay verebilirsiniz.</div>` : ""}
     <div class="col1" style="gap:8px"><span class="hd">ERİŞİM VERİLECEK FABRİKA</span>
       ${factories.length > 1 ? `<select id="gFac" class="inp" style="font-weight:600">${factories.map(f => `<option value="${f.id}">${esc(f.name)}</option>`).join("")}</select>`
@@ -199,17 +200,22 @@ export async function approvalDialog(ownerUid, gid, factories, done) {
     <div class="muted" style="font-size:12.5px;line-height:1.5">Misafir; veri girişi yapar, İSG denetimini yalnızca kaydeder (tamamlama, silme, kurulum ve ayarlar yetkisi yoktur), raporları görür ve PDF alabilir.</div>
     <div class="col1" style="gap:8px"><button data-ok="perm">Süresiz onay</button><button class="sec" data-ok="24h">24 saatlik onay</button><button class="sec" data-ok="no" style="color:#B3261E;border-color:#B3261E">İptal (reddet)</button></div></div>`;
   document.body.appendChild(m);
+  m.querySelector("#gNmEd")?.addEventListener("click", () => {
+    const row = m.querySelector("#gNmRow"); if (row.querySelector("input")) return;
+    row.innerHTML = `<input id="gNmI" class="inp" value="${esc(req.name)}" maxlength="60" style="flex:1;min-width:0;font-weight:700">`; row.querySelector("input").focus(); row.querySelector("input").select();
+  });
   m.querySelectorAll("[data-ok]").forEach(b => b.onclick = async () => {
-    const mode = b.dataset.ok; m.querySelectorAll("button").forEach(x => (x.disabled = true));
+    const mode = b.dataset.ok, nm = (m.querySelector("#gNmI")?.value || req.name).trim();
+    if (mode !== "no" && nm.length < 3) { toast("Ad soyadı en az 3 karakter olmalı."); return; } m.querySelectorAll("button").forEach(x => (x.disabled = true));
     try {
       if (mode === "no") { await updateDoc(REQ(ownerUid, gid), { status: "rejected", decidedAt: Date.now() }); toast("İstek reddedildi."); }
       else {
         const sel = m.querySelector("#gFac"), fs = sel ? [sel.value] : factories.slice(0, 1).map(f => f.id);
         if (!fs.length) { toast("Fabrika bulunamadı."); m.querySelectorAll("button").forEach(x => (x.disabled = false)); return; }
         const cg = await getDoc(doc(db, `users/${ownerUid}/meta/guestcfg`)).catch(() => null);
-        await setDoc(MEM(ownerUid, gid), { ntfy: cg?.exists() ? cg.data().ntfy || null : null, name: req.name, email: req.email, factories: fs, mode, expires: mode === "24h" ? new Date(Date.now() + 864e5) : null, createdAt: Date.now() });
+        await setDoc(MEM(ownerUid, gid), { ntfy: cg?.exists() ? cg.data().ntfy || null : null, name: nm, unit: req.unit || "", factories: fs, mode, expires: mode === "24h" ? new Date(Date.now() + 864e5) : null, createdAt: Date.now() });
         await updateDoc(REQ(ownerUid, gid), { status: "approved", decidedAt: Date.now() });
-        toast(`${req.name} için ${mode === "24h" ? "24 saatlik" : "süresiz"} erişim onaylandı.`);
+        toast(`${nm} için ${mode === "24h" ? "24 saatlik" : "süresiz"} erişim onaylandı.`);
       }
       close(); done?.();
     } catch (e) { toast("Kaydedilemedi: " + (e.message || e)); m.querySelectorAll("button").forEach(x => (x.disabled = false)); }
@@ -230,19 +236,19 @@ export async function renderSettings(box, { ownerUid, factories, onChange }) {
   const inv = invs[0], link = inv ? `${location.origin}${location.pathname}?misafir=${ownerUid}.${inv.id}` : "";
   const fname = ids => (ids || []).map(i => factories.find(f => f.id === i)?.name || "—").join(", ");
   const pend = reqs.filter(r => r.status === "pending").sort((a, b) => b.at - a.at);
-  box.innerHTML = `<div><h2>Misafir Kullanıcılar</h2><div class="muted" style="font-size:13px;line-height:1.5">Saha yardımcınıza veya denetim yapacak yetkiliye bağlantıyı gönderin. Adını ve e-postasını yazıp <b>Onay Gönder</b>'e basar; siz Süresiz veya 24 saatlik onay verirsiniz. Misafir fabrika bazlı yetkilendirilir.</div></div>
+  box.innerHTML = `<div><h2>Misafir Kullanıcılar</h2><div class="muted" style="font-size:13px;line-height:1.5">Saha yardımcınıza veya denetim yapacak yetkiliye bağlantıyı gönderin. Adını ve bölümünü yazıp <b>Onay Gönder</b>'e basar; siz Süresiz veya 24 saatlik onay verirsiniz. Misafir fabrika bazlı yetkilendirilir.</div></div>
     <div class="col1" style="gap:8px"><span class="hd">DAVET BAĞLANTISI</span>
       ${inv ? `<div class="row" style="flex-wrap:nowrap;gap:10px;align-items:stretch"><input class="inp" id="gLink" readonly value="${esc(link)}" onfocus="this.select()" style="flex:1;min-width:0"><button class="sm" id="gClose" aria-label="Davet bağlantısını kapat" title="Davet bağlantısını kapat" style="flex:0 0 32px;width:32px;height:32px;min-height:0;align-self:center;padding:0;background:#B3261E;border-color:#B3261E;color:#fff;font-size:26px;font-weight:400;line-height:1;display:grid;place-items:center;margin-right:6px">×</button></div><div class="row"><button class="sm" id="gCopy">Kopyala</button><button class="sm sec" id="gShare">Paylaş</button><button class="sm sec" id="gRegen">Bağlantıyı yenile</button></div>
         <div class="muted" style="font-size:12.5px">“Yenile” eski bağlantıyı geçersiz kılar, kırmızı × bağlantıyı kapatır (onaylı misafirler etkilenmez).</div>` : `<div><button id="gMake">Davet bağlantısı oluştur</button></div>`}</div>
-    ${pend.length ? `<div class="col1" style="gap:8px"><span class="hd">ONAY BEKLEYEN İSTEKLER (${pend.length})</span>${pend.map(r => `<div class="it" style="gap:10px;flex-wrap:wrap"><div class="grow"><b>${esc(r.name)}</b><div class="muted" style="font-size:12.5px">${esc(r.email)} · ${ago(r.at)}</div></div><button class="sm" data-rv="${r.id}">İncele ve onayla</button></div>`).join("")}</div>` : ""}
+    ${pend.length ? `<div class="col1" style="gap:8px"><span class="hd">ONAY BEKLEYEN İSTEKLER (${pend.length})</span>${pend.map(r => `<div class="it" style="gap:10px;flex-wrap:wrap"><div class="grow"><b>${esc(r.name)}</b><div class="muted" style="font-size:12.5px">${esc(r.unit || r.email || "")} · ${ago(r.at)}</div></div><button class="sm" data-rv="${r.id}">İncele ve onayla</button></div>`).join("")}</div>` : ""}
     <div class="col1" style="gap:8px"><span class="hd">MİSAFİRLER (${mems.length})</span>
-      ${mems.map(m => { const live = isLive(m); return `<div class="it" style="gap:10px;flex-wrap:wrap"><div class="grow"><b>${esc(m.name)}</b> <span class="tag" style="${live ? "" : "background:#FADAD7;color:#8E1B16"}">${esc(leftText(m))}</span><div class="muted" style="font-size:12.5px">${esc(m.email)} · ${esc(fname(m.factories))}</div></div>
+      ${mems.map(m => { const live = isLive(m); return `<div class="it" style="gap:10px;flex-wrap:wrap"><div class="grow"><b>${esc(m.name)}</b> <span class="tag" style="${live ? "" : "background:#FADAD7;color:#8E1B16"}">${esc(leftText(m))}</span><div class="muted" style="font-size:12.5px">${esc(m.unit || m.email || "")} · ${esc(fname(m.factories))}</div></div>
         <div class="row" style="gap:6px"><button class="sm sec" data-perm="${m.id}">Süresiz yap</button><button class="sm sec" data-h24="${m.id}">24 saat</button><button class="sm sec" data-fac="${m.id}">Fabrikalar</button><button class="sm sec" data-rm="${m.id}" style="color:#B3261E;border-color:#B3261E">Erişimi kaldır</button></div></div>`; }).join("") || '<span class="muted">Henüz onaylı misafir yok.</span>'}</div>
     <details ${cfg.ntfy ? "" : "open"}><summary style="cursor:pointer;font-weight:700">Telefon bildirimi (önerilen, ücretsiz)</summary><div class="col1" style="gap:8px;margin-top:10px">
       <div class="muted" style="font-size:12.5px;line-height:1.6">Misafir “Onay Gönder”e bastığında telefonunuza anında bildirim gelir; uygulama kapalı olsa bile. Bildirime dokununca onay ekranı açılır.<br><b>1.</b> Telefonunuza <b>ntfy</b> uygulamasını kurun (Play Store / App Store).<br><b>2.</b> Aşağıdan “Bildirim kodu oluştur”a basın.<br><b>3.</b> ntfy'de <b>+</b> ile aşağıdaki kodu abone olun (sunucu: ntfy.sh).<br><b>4.</b> “Test bildirimi gönder” ile deneyin.</div>
       ${cfg.ntfy ? `<input class="inp" id="gTopic" readonly value="${esc(cfg.ntfy)}" onfocus="this.select()"><div class="row"><button class="sm" id="gTest">Test bildirimi gönder</button><button class="sm sec" id="gTopicCopy">Kodu kopyala</button><button class="sm sec" id="gTopicNew">Kodu yenile</button><button class="sm sec" id="gTopicOff">Kapat</button></div>` : `<div><button class="sm" id="gTopicNew">Bildirim kodu oluştur</button></div>`}</div></details>
     <details><summary style="cursor:pointer;font-weight:700">E-posta bildirimi (isteğe bağlı)</summary><div class="col1" style="gap:8px;margin-top:10px">
-      <div class="muted" style="font-size:12.5px;line-height:1.55">Ücretsiz <b>EmailJS</b> hesabıyla e-posta da gönderilebilir. Service ID, Template ID ve Public Key'i girin. Şablonda <code>{{guest_name}}</code>, <code>{{guest_email}}</code> ve <code>{{approve_link}}</code> değişkenleri kullanılır. Boş bırakırsanız e-posta gitmez.</div>
+      <div class="muted" style="font-size:12.5px;line-height:1.55">Ücretsiz <b>EmailJS</b> hesabıyla e-posta da gönderilebilir. Service ID, Template ID ve Public Key'i girin. Şablonda <code>{{guest_name}}</code>, <code>{{guest_unit}}</code> ve <code>{{approve_link}}</code> değişkenleri kullanılır. Boş bırakırsanız e-posta gitmez.</div>
       <input class="inp" id="gSvc" placeholder="Service ID" value="${esc(cfg.service || "")}"><input class="inp" id="gTpl" placeholder="Template ID" value="${esc(cfg.template || "")}"><input class="inp" id="gKey" placeholder="Public Key" value="${esc(cfg.key || "")}">
       <div><button class="sm" id="gCfg">Kaydet</button></div></div></details>`;
   const q = s => box.querySelector(s), refresh = () => { renderSettings(box, { ownerUid, factories, onChange }); onChange?.(); };
@@ -270,7 +276,7 @@ export async function renderSettings(box, { ownerUid, factories, onChange }) {
   q("#gTopicNew") && (q("#gTopicNew").onclick = async () => { if (!cfg.ntfy || await confirmBox("Yeni kod oluşturulsun mu?", "Yeni kod oluşturulunca ntfy'de yeniden abone olmanız gerekir.", "Oluştur")) setTopic("hse-" + rnd() + rnd()); });
   q("#gTopicOff") && (q("#gTopicOff").onclick = () => setTopic(null));
   q("#gTopicCopy") && (q("#gTopicCopy").onclick = async () => { try { await navigator.clipboard.writeText(cfg.ntfy); toast("Kod kopyalandı."); } catch { q("#gTopic").select(); } });
-  q("#gTest") && (q("#gTest").onclick = async () => { const ok = await sendPush(cfg.ntfy, { name: "Test Kullanıcı", email: "test@ornek.com", link: location.origin + location.pathname }); toast(ok ? "Test bildirimi gönderildi; telefonunuza gelmesi gerekir." : "Gönderilemedi; internet bağlantısını kontrol edin."); });
+  q("#gTest") && (q("#gTest").onclick = async () => { const ok = await sendPush(cfg.ntfy, { name: "Test Kullanıcı", unit: "Test Bölümü", link: location.origin + location.pathname }); toast(ok ? "Test bildirimi gönderildi; telefonunuza gelmesi gerekir." : "Gönderilemedi; internet bağlantısını kontrol edin."); });
   box.querySelectorAll("[data-rv]").forEach(b => b.onclick = () => approvalDialog(ownerUid, b.dataset.rv, factories, refresh));
   box.querySelectorAll("[data-perm]").forEach(b => b.onclick = async () => { await updateDoc(MEM(ownerUid, b.dataset.perm), { mode: "perm", expires: null }); toast("Erişim süresiz yapıldı."); refresh(); });
   box.querySelectorAll("[data-h24]").forEach(b => b.onclick = async () => { await updateDoc(MEM(ownerUid, b.dataset.h24), { mode: "24h", expires: new Date(Date.now() + 864e5) }); toast("Erişim 24 saat uzatıldı."); refresh(); });
@@ -284,3 +290,38 @@ export async function renderSettings(box, { ownerUid, factories, onChange }) {
   });
 }
 export const ownerUid = () => auth.currentUser?.uid;
+
+// ---------------- Geri bildirim (misafir → sahip) ----------------
+const modal = html => { const m = document.createElement("div"); m.className = "mod"; m.innerHTML = `<div class="mbox" role="dialog" aria-modal="true" style="gap:14px">${html}</div>`; document.body.appendChild(m); m.addEventListener("mousedown", e => { if (e.target === m) m.remove(); }); return m; };
+export function feedbackDialog() {
+  const m = modal(`<h2>Geri Bildirim</h2><div class="muted" style="font-size:13.5px;line-height:1.5">Gözlem, öneri veya sorununuzu yazın; yetkili kullanıcıya iletilir.</div>
+    <textarea id="fbTxt" class="inp" rows="5" maxlength="1000" placeholder="Mesajınız" style="height:auto;resize:vertical"></textarea>
+    <div class="row" style="justify-content:flex-end;gap:8px"><button class="sec" data-x>Vazgeç</button><button data-s>Gönder</button></div>`);
+  m.querySelector("[data-x]").onclick = () => m.remove();
+  const t = m.querySelector("#fbTxt"); t.focus();
+  m.querySelector("[data-s]").onclick = async e => {
+    const text = t.value.trim(); if (!text) { toast("Mesaj yazın."); return; }
+    e.target.disabled = true;
+    try {
+      if (!GC.owner || !GC.uid) throw new Error("oturum yok");
+      await setDoc(doc(db, `users/${GC.owner}/feedback/${GC.uid}_${Date.now().toString(36)}`), { gid: GC.uid, name: GC.name || "", text, at: Date.now(), read: false });
+    } catch (er) { e.target.disabled = false; toast("Gönderilemedi: " + (er.message || er)); return; }
+    pushRaw(GC.ntfy, { title: "HSE Verim · Geri bildirim", message: `${GC.name}: ${text.slice(0, 140)}`, click: `${location.origin}${location.pathname}`, priority: 3, tags: ["speech_balloon"] });
+    m.remove(); toast("Geri bildiriminiz iletildi.");
+  };
+}
+export const watchFeedback = (ownerUid, cb) => onSnapshot(collection(db, `users/${ownerUid}/feedback`), snap => cb(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => b.at - a.at)), () => {});
+export async function inboxDialog(ownerUid, list, onChange) {
+  const un = list.filter(x => !x.read).length;
+  const paint = () => {
+    m.querySelector("#mbBody").innerHTML = list.map(x => `<div class="it" style="gap:10px;flex-direction:column;align-items:stretch"><div class="row" style="justify-content:space-between;flex-wrap:nowrap"><b>${esc(x.name || "Misafir")}${x.read ? "" : ' <span class="tag" style="background:#FBE9C6;color:#6B3F00">Yeni</span>'}</b><span class="muted" style="font-size:12.5px;flex:0 0 auto">${ago(x.at)}</span></div>
+      <div style="white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.55">${esc(x.text)}</div>
+      <div class="row" style="justify-content:flex-end"><button class="sm sec" data-d="${x.id}" style="color:#B3261E;border-color:#B3261E">Sil</button></div></div>`).join("") || '<span class="muted">Henüz mesaj yok.</span>';
+    m.querySelectorAll("[data-d]").forEach(b => b.onclick = async () => { await deleteDoc(doc(db, `users/${ownerUid}/feedback/${b.dataset.d}`)).catch(() => {}); list = list.filter(x => x.id !== b.dataset.d); paint(); onChange?.(); });
+  };
+  const m = modal(`<h2>Mesaj Kutusu</h2><div class="muted" style="font-size:13.5px">${un ? `<b>${un} adet</b> geri bildirim mesajınız var.` : (list.length ? "Tüm mesajlar okundu." : "Yeni mesaj yok.")}</div>
+    <div class="col1" style="gap:8px;max-height:55vh;overflow:auto" id="mbBody"></div><div class="row" style="justify-content:flex-end"><button class="sec" data-x>Kapat</button></div>`);
+  m.querySelector("[data-x]").onclick = () => m.remove();
+  paint();
+  await Promise.all(list.filter(x => !x.read).map(x => updateDoc(doc(db, `users/${ownerUid}/feedback/${x.id}`), { read: true }).catch(() => {})));
+}
