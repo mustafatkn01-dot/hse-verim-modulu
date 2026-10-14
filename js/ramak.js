@@ -1,11 +1,11 @@
 // Ramak Kala bildirimleri: ay bazında kayıt, bildiren bölümün bonus kademesi, misafir kaydı için yetkili onayı
 // Koleksiyon "ramak": her bildirim ayrı kayıt. status: approved (yetkili kaydı / onaylı) | pending (misafir, onay bekliyor) | rejected
-import * as S from "./store.js?v=20261014v";
-import * as Guest from "./guest.js?v=20261014v";
-import * as Gorev from "./gorev.js?v=20261014v";
-import { esc, toast, pickDate, fmtTarih, compressImage, showPhoto, confirmBox, GUEST, guestLock, roText } from "./ui.js?v=20261014v";
-import { CATS } from "./isgcats.js?v=20261014v";
-import { calcIsg, katsayi, bandOf, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261014v";
+import * as S from "./store.js?v=20261014w";
+import * as Guest from "./guest.js?v=20261014w";
+import * as Gorev from "./gorev.js?v=20261014w";
+import { esc, toast, pickDate, fmtTarih, compressImage, showPhoto, confirmBox, GUEST, guestLock, roText } from "./ui.js?v=20261014w";
+import { CATS } from "./isgcats.js?v=20261014w";
+import { calcIsg, katsayi, bandOf, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261014w";
 
 export const COLL = "ramak";
 export const TIER = ["Yok", "Ayda 1", "2 Haftada 1", "Haftalık"];
@@ -42,16 +42,17 @@ export async function syncBonus(fid, year, month, setup, recs) {
 
 // ---- Bildirim ekranı ----
 // ctx: { st, setup, month, dept, recs } → eklenen kayıt veya null
-export function openForm({ st, setup, month, dept = "", recs = [] }) {
+export function openForm({ st, setup, month, dept = "", recs = [], edit = null }) {
   return new Promise(res => {
-    const owner = !GUEST.on, f = { src: "b", ph: [], d: "", busy: false };
+    const owner = !GUEST.on, f = { src: edit?.src || "b", ph: [...(edit?.photos || [])], d: "", busy: false }, orig = new Set((edit?.photos || []).map(p => p.id));
+    if (edit) dept = edit.dept || "";
     const ms = `${st.year}-${pad(month)}-01`, me = iso(new Date(+st.year, +month, 0)), td = iso(new Date());
-    f.d = td >= ms && td <= me ? td : me;
+    f.d = edit?.d || (td >= ms && td <= me ? td : me);
     const maxD = td < me ? (td < ms ? ms : td) : me;
     const m = document.createElement("div"); m.className = "mod";
     m.innerHTML = `<div class="mbox rk" role="dialog" aria-modal="true" aria-labelledby="rkT">
-      <h2 id="rkT">Ramak Kala Bildirimi</h2>
-      <div class="muted" style="font-size:13px;line-height:1.5">${owner ? "Kayıt hemen listeye eklenir." : "Kayıt yetkili onayından sonra puana sayılır."}</div>
+      <h2 id="rkT">${edit ? "Ramak Kala Bildirimini Düzenle" : "Ramak Kala Bildirimi"}</h2>
+      <div class="muted" style="font-size:13px;line-height:1.5">${edit ? "Değişiklik kaydedilince listede güncellenir." : owner ? "Kayıt hemen listeye eklenir." : "Kayıt yetkili onayından sonra puana sayılır."}</div>
       <div class="f"><label for="rkSrc">KAYNAK</label><select id="rkSrc" class="inp"><option value="b">Bölümden bildirim (puanlı)</option><option value="s">Saha gözlemi (puansız, yalnızca takip)</option></select></div>
       <div class="two" id="rkB"><div class="f"><label for="rkD">BİLDİREN BÖLÜM <span class="req">*</span></label><select id="rkD" class="inp"><option value="">Seçin</option>${setup.rows.map(r => `<option value="${esc(r.id)}" ${r.id === dept ? "selected" : ""}>${esc(r.name)}</option>`).join("")}</select></div>
         <div class="f"><label for="rkW">BİLDİREN KİŞİ <span class="req">*</span></label><input id="rkW" class="inp" placeholder="Ad Soyad" autocomplete="off" maxlength="80"></div></div>
@@ -64,7 +65,8 @@ export function openForm({ st, setup, month, dept = "", recs = [] }) {
       <div class="row" style="justify-content:flex-end;flex-wrap:nowrap"><button class="sec" id="rkC">İptal</button><button id="rkS">Kaydet</button></div></div>`;
     document.body.appendChild(m);
     const q = s => m.querySelector(s), done = v => { m.remove(); res(v); };
-    const cnt = counts(recs);
+    const cnt = counts(recs.filter(r => !edit || r.id !== edit.id));
+    if (edit) { q("#rkW").value = edit.who || ""; q("#rkP").value = edit.place || ""; q("#rkX").value = edit.txt || ""; q("#rkO").value = edit.tip || ""; q("#rkPh").innerHTML = f.ph.map(p => `<img src="${p.t}" alt="Fotoğraf">`).join(""); }
     const eff = () => {
       const e = q("#rkE");
       if (f.src === "s") { e.className = "eff no"; e.innerHTML = "Saha gözlemi puana etki etmez. Kayıt takip için listeye girer."; return; }
@@ -87,7 +89,7 @@ export function openForm({ st, setup, month, dept = "", recs = [] }) {
       }
       q("#rkPh").innerHTML = f.ph.map(p => `<img src="${p.t}" alt="Seçilen fotoğraf">`).join("");
     };
-    const cancel = () => { f.ph.forEach(p => S.deletePhoto(st.fid, st.year, p.id).catch(() => { })); done(null); };
+    const cancel = () => { f.ph.filter(p => !orig.has(p.id)).forEach(p => S.deletePhoto(st.fid, st.year, p.id).catch(() => { })); done(null); };
     q("#rkC").onclick = cancel; m.addEventListener("mousedown", e => { if (e.target === m) cancel(); });
     q("#rkS").onclick = async () => {
       if (f.busy) return;
@@ -99,10 +101,12 @@ export function openForm({ st, setup, month, dept = "", recs = [] }) {
       f.busy = true; q("#rkS").disabled = true;
       try {
         let id;
-        if (owner) { id = `${pad(month)}_${eid()}`; Object.assign(rec, { status: "approved", by: "Yetkili" }); }
+        if (edit) { id = edit.id; const { id: _i, ...old } = edit; Object.assign(rec, { ...old, ...rec, at: edit.at }); f.ph.length || (rec.photos = []); }
+        else if (owner) { id = `${pad(month)}_${eid()}`; Object.assign(rec, { status: "approved", by: "Yetkili" }); }
         else { id = `${pad(month)}_${GUEST.uid}_${Date.now().toString(36)}`; Object.assign(rec, { status: "pending", guestUid: GUEST.uid, guestName: GUEST.name }); }
         await S.saveMonthDoc(st.fid, st.year, COLL, id, rec);
-        if (!owner) { const dn = setup.rows.find(r => r.id === rec.dept)?.name || "saha gözlemi"; Guest.pushOwner("HSE Verim · Ramak kala", `${GUEST.name} · ${dn}: ramak kala bildirimi ekledi, onayınızı bekliyor.`); }
+        if (edit) (edit.photos || []).filter(p => !f.ph.some(x => x.id === p.id)).forEach(p => S.deletePhoto(st.fid, st.year, p.id).catch(() => { }));
+        if (!owner && !edit) { const dn = setup.rows.find(r => r.id === rec.dept)?.name || "saha gözlemi"; Guest.pushOwner("HSE Verim · Ramak kala", `${GUEST.name} · ${dn}: ramak kala bildirimi ekledi, onayınızı bekliyor.`); }
         done({ id, ...rec });
       } catch (er) { f.busy = false; q("#rkS").disabled = false; q("#rkR").textContent = "Kaydedilemedi: " + (er.message || er); }
     };
@@ -152,6 +156,7 @@ function draw() {
     const mine = GUEST.on && r.guestUid === GUEST.uid, acts = [];
     if (!GUEST.on && !R.ro && r.status === "pending") acts.push(`<button class="sm" data-ra="ok|${r.id}">Onayla</button><button class="sm sec" data-ra="no|${r.id}">Reddet</button>`);
     if (!GUEST.on && r.status === "approved") acts.push(Gorev.chip(Gorev.noteKey("r", st.fid, st.year, R.month, r.dept || "saha", r.id, r.txt), { tip: "ramak", fab: st.factories?.find(f => f.id === st.fid)?.name || "", yil: +st.year, ay: R.month, tarih: r.d, bolum: r.src === "b" ? nm(r.dept) : "", kisi: r.who || "", yer: r.place || "", metin: r.txt, oneri: r.tip || "", url: location.origin + location.pathname + "#ramak" }));
+    if (!GUEST.on && !R.ro) acts.push(`<button class="sm sec" data-ra="edit|${r.id}">Düzenle</button>`);
     if (GUEST.on ? mine && r.status === "pending" : !R.ro) acts.push(`<button class="sm sec" data-ra="del|${r.id}" style="color:#B3261E;border-color:#B3261E">Sil</button>`);
     const who = r.src === "b" ? `Bildiren: <b>${esc(nm(r.dept))}</b> · ${esc(r.who)}` : "Saha gözlemi";
     return `<div class="rrec"><div class="rh"><b>${dmy(r.d)}</b><span class="muted" style="font-size:12.5px;text-align:right">${esc(r.by || r.guestName || "Misafir")}${r.guestName ? " (Misafir)" : ""}</span></div>
@@ -173,6 +178,10 @@ function draw() {
   v.querySelectorAll("[data-pv]").forEach(im => im.onclick = async () => { showPhoto(im.getAttribute("src")); const full = await S.getPhoto(st.fid, st.year, im.dataset.pv).catch(() => null); if (full) document.querySelector(".mod img")?.setAttribute("src", full); });
   v.querySelectorAll("[data-ra]").forEach(b => b.onclick = async () => {
     const [act, id] = b.dataset.ra.split("|"), r = R.recs.find(x => x.id === id); if (!r) return;
+    if (act === "edit") {
+      const e = await openForm({ st, setup: R.setup, month: R.month, recs: R.recs, edit: r }); if (!e) return;
+      R.recs = await load(st.fid, st.year, R.month).catch(() => R.recs); await syncBonus(st.fid, st.year, R.month, R.setup, R.recs); draw(); toast("Kayıt güncellendi."); return;
+    }
     try {
       if (act === "del") {
         if (!(await confirmBox("Kayıt silinsin mi?", "Kayıt ve fotoğrafları kalıcı olarak silinir; hiç yapılmamış gibi puandan da çıkar.", "Sil", true))) return;
