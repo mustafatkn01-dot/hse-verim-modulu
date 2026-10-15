@@ -1,11 +1,11 @@
 // Ramak Kala bildirimleri: ay bazında kayıt, bildiren bölümün bonus kademesi, misafir kaydı için yetkili onayı
 // Koleksiyon "ramak": her bildirim ayrı kayıt. status: approved (yetkili kaydı / onaylı) | pending (misafir, onay bekliyor) | rejected
-import * as S from "./store.js?v=20261015e";
-import * as Guest from "./guest.js?v=20261015e";
-import * as Gorev from "./gorev.js?v=20261015e";
-import { esc, toast, pickDate, fmtTarih, compressImage, showPhoto, confirmBox, GUEST, guestLock, roText } from "./ui.js?v=20261015e";
-import { CATS } from "./isgcats.js?v=20261015e";
-import { calcIsg, katsayi, bandOf, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261015e";
+import * as S from "./store.js?v=20261015f";
+import * as Guest from "./guest.js?v=20261015f";
+import * as Gorev from "./gorev.js?v=20261015f";
+import { esc, toast, pickDate, fmtTarih, compressImage, showPhoto, confirmBox, GUEST, guestLock, roText } from "./ui.js?v=20261015f";
+import { CATS } from "./isgcats.js?v=20261015f";
+import { calcIsg, katsayi, bandOf, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261015f";
 
 export const COLL = "ramak";
 export const TIER = ["Yok", "Ayda 1", "2 Haftada 1", "Haftalık"];

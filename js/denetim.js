@@ -1,12 +1,12 @@
 // İSG Denetim Listesi sayfası
-import * as Guest from "./guest.js?v=20261015e";
-import * as Gorev from "./gorev.js?v=20261015e";
-import * as S from "./store.js?v=20261015e";
-import * as Ramak from "./ramak.js?v=20261015e";
-import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261015e";
-import { CATS } from "./isgcats.js?v=20261015e";
-import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261015e";
-import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261015e";
+import * as Guest from "./guest.js?v=20261015f";
+import * as Gorev from "./gorev.js?v=20261015f";
+import * as S from "./store.js?v=20261015f";
+import * as Ramak from "./ramak.js?v=20261015f";
+import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261015f";
+import { CATS } from "./isgcats.js?v=20261015f";
+import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261015f";
+import { calcIsg, katsayi, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261015f";
 
 const COLL = "isg";
 const D = { key: "", setup: null, doc: null, dept: null, month: null, open: {}, ro: false, timer: null, saved: true, msg: "" };
@@ -82,7 +82,7 @@ function settle(doc, year, month) {
 }
 
 // Dışarıdan (canlı bildirim) yeniden yükleme: kullanıcı yazarken ezmez
-export function reload() { D.key = ""; if (D.v?.isConnected && D.ctx && D.saved) render(D.v, D.ctx); }
+export function reload() { if (D.v?.isConnected && D.ctx && D.saved) { D.force = true; render(D.v, D.ctx); } }
 export function focus(month, dept, by) { D.month = +month; D.dept = dept; D.key = ""; D.autoOpen = by || null; }
 
 export async function render(v, ctx) {
@@ -93,9 +93,11 @@ export async function render(v, ctx) {
   if (!D.month) D.month = defaultMonth(st.year);
   if (!setup.rows.find(r => r.id === D.dept)) D.dept = setup.rows[0].id;
   const key = [st.fid, st.year, D.month, D.dept].join("/");
-  if (D.key !== key) {
-    clearTimeout(D.timer);
+  if (D.key !== key || D.force) {
     const doc = await S.getMonthDoc(st.fid, st.year, COLL, `${pad(D.month)}_${D.dept}`);
+    // Yükleme sürerken kullanıcı aynı kayıtta yazmaya başladıysa eski veriyle ezme
+    if (D.force && D.key === key && !D.saved) { D.force = false; return; }
+    D.force = false;
     D.doc = doc ? { ...blank(st.year, D.month), ...doc, draft: { ...blank(st.year, D.month).draft, ...(doc.draft || {}) } } : blank(st.year, D.month, GUEST.on ? GUEST.name : ctx.st.profile?.name);
     D.hadClosed = !!(doc && doc.closedNos);
     D.gdoc = null; D.gdocs = []; D.gstatus = "draft"; D.gnote = "";
@@ -191,27 +193,32 @@ function paintWk() {
 function persist(now = false) {
   if (D.ro) return;
   D.saved = false; D.touched = true; setSv();
-  clearTimeout(D.timer);
+  // Başka bölüm/aya ait bekleyen kayıt varsa önce onu yaz (zamanlayıcı iptal edilip veri kaybolmasın)
+  if (D.timer && D.pend && D.pendKey !== D.key) { clearTimeout(D.timer); const o = D.pend; D.pend = null; o(); } else clearTimeout(D.timer);
+  const key = D.key, docRef = D.doc, hadClosed = D.hadClosed;
   const run = async () => {
-    const { st } = D.ctx, [f, y, m, d] = D.key.split("/");
+    const { st } = D.ctx, [f, y, m, d] = key.split("/"), mine = () => D.doc === docRef;
     if (GUEST.on) {
       try {
-        const g = { guestUid: GUEST.uid, guestName: GUEST.name, dept: d, month: +m, status: D.gstatus, draft: D.doc.draft, at: Date.now() };
+        const g = { guestUid: GUEST.uid, guestName: GUEST.name, dept: d, month: +m, status: D.gstatus, draft: docRef.draft, at: Date.now() };
         if (D.gnote) g.note = D.gnote;
-        await S.saveMonthDoc(f, y, "isgg", `${pad(+m)}_${d}_${GUEST.uid}`, g); D.saved = true;
-      } catch (e) { D.msg = "Kaydedilemedi: " + e.message; }
-      setSv(); return;
+        await S.saveMonthDoc(f, y, "isgg", `${pad(+m)}_${d}_${GUEST.uid}`, g); if (mine()) D.saved = true; return true;
+      } catch (e) { D.msg = "Kaydedilemedi: " + e.message; return false; } finally { setSv(); }
     }
     const p = D.setup.params || DEFAULT_PARAMS, row = D.setup.rows.find(r => r.id === d);
-    const result = D.doc.sessions.length ? Ramak.isgResult(D.doc, row, +m, p) : null;
-    try { const payload = { ...D.doc, result, dept: d, month: +m }, cn = D.doc.sessions.filter(x => x.closed).map(x => x.no);
-      if (!GUEST.on || D.hadClosed) payload.closedNos = cn; else delete payload.closedNos;
-      await S.saveMonthDoc(f, y, COLL, `${pad(+m)}_${d}`, payload); D.saved = true; } catch (e) { D.msg = "Kaydedilemedi: " + e.message; }
-    setSv(); if (now) loadWk(true);
+    const result = docRef.sessions.length ? Ramak.isgResult(docRef, row, +m, p) : null;
+    let ok = false; const slow = now ? setTimeout(() => toast("Bağlantı yavaş; kayıt gönderiliyor. Sayfayı kapatmayın."), 6000) : 0;
+    try { const payload = { ...docRef, result, dept: d, month: +m }, cn = docRef.sessions.filter(x => x.closed).map(x => x.no);
+      if (!GUEST.on || hadClosed) payload.closedNos = cn; else delete payload.closedNos;
+      await S.saveMonthDoc(f, y, COLL, `${pad(+m)}_${d}`, payload); if (mine()) { D.saved = true; D.msg = ""; } ok = true; } catch (e) { D.msg = "Kaydedilemedi: " + e.message; }
+    clearTimeout(slow); setSv(); if (now) loadWk(true); return ok;
   };
-  if (now) return run();
-  D.timer = setTimeout(run, 700);
+  if (now) { D.pend = null; return run(); }
+  D.pend = run; D.pendKey = key; D.timer = setTimeout(() => { D.pend = null; run(); }, 700);
 }
+// Sekme arka plana giderken / sayfa kapanırken bekleyen kaydı hemen yaz
+const flushPending = () => { if (D.pend) { clearTimeout(D.timer); const r = D.pend; D.pend = null; return r(); } };
+if (typeof document !== "undefined") { document.addEventListener("visibilitychange", () => { if (document.hidden) flushPending(); }); window.addEventListener("pagehide", () => flushPending()); }
 const svTxt = () => D.msg || (!D.touched ? "" : D.saved ? "Taslak kayıtlı" : "Kaydediliyor…");
 const setSv = () => { const e = document.getElementById("sv"); if (e) e.textContent = svTxt(); };
 
@@ -356,9 +363,9 @@ function draw() {
         ${GUEST.on || D.ro ? "" : `<button class="lnk" id="rkMan">${doc.bonusMan ? "Otomatik hesaba dön" : D.rkOpen ? "Kademe seçimini gizle" : "Kademeyi elle değiştir"}</button>`}</div>
       <div class="cd" style="padding:20px;gap:12px"><b style="font:600 16px Sora,sans-serif">${curNo}. Denetim · Kaydetmeden Önce</b>
         ${[["İşaretlenmeyen madde", c.unmarked], ["Açıklaması eksik uygunsuz madde", c.missing], ["Gerekçesi eksik Y.D. kategori", c.ydMissing], ["Tarih geçersiz (dönem dışı veya ileri tarih)", dateOk ? 0 : 1]].map(([t, n]) => `<div class="row sp"><span>${t}</span><span class="pill" style="min-width:34px;text-align:center;background:${n === 0 ? "#D9F1E6" : "#FADAD7"};color:${n === 0 ? "#0B6E4F" : "#B3261E"}">${n}</span></div>`).join("")}
-        <button class="go2" id="saveSess" ${canPart ? "" : "disabled"}>${GUEST.on ? "Taslağı Kaydet" : curNo + ". Denetimi Kaydet"}</button>
+        <button class="go2" id="saveSess" ${D.ro ? "disabled" : ""} style="${canPart ? "" : "opacity:.55"}">${GUEST.on ? "Taslağı Kaydet" : curNo + ". Denetimi Kaydet"}</button>
         ${GUEST.on ? `<button class="sec" id="askDone" style="height:44px;font-weight:700" ${canSave ? "" : "disabled"}>Tamamlanmasını İste</button>` : ""}
-        ${GUEST.on ? "" : `<button class="sec" id="doneSess" style="height:44px;font-weight:700" ${canSave ? "" : "disabled"}>Kaydet ve Denetimi Tamamla</button>`}
+        ${GUEST.on ? "" : `<button class="sec" id="doneSess" style="height:44px;font-weight:700;${canSave ? "" : "opacity:.55"}" ${D.ro ? "disabled" : ""}>Kaydet ve Denetimi Tamamla</button>`}
         <div class="muted" style="font-size:12.5px;line-height:1.5"><b>Kaydet:</b> işaretlediğiniz kadarını saklar, denetim açık kalır; sonra kaldığınız yerden devam edebilirsiniz (tüm maddelerin işaretlenmesi gerekmez). <b>Tamamla:</b> tüm maddeler işaretliyken denetimi kapatır. Yeni denetim, yeni hafta başlayınca “Denetimi Başlat” ile açılır.</div></div>
     </div></div></fieldset>`;
   if (!on) {
@@ -431,7 +438,7 @@ function bind(v, c) {
   on("[data-reopen]", async el => {
     const no = +el.dataset.reopen, t = doc.sessions.find(x => x.no === no); if (!t) return;
     if (doc.draft.on !== false && Object.keys(doc.draft.marks || {}).length && doc.draft.edit !== no) {
-      const { confirmBox } = await import("./ui.js?v=20261015e");
+      const { confirmBox } = await import("./ui.js?v=20261015f");
       if (!(await confirmBox(`${no}. denetim açılsın mı?`, "Şu an açık olan denetimde kaydedilmemiş değişiklikler varsa kaybolur. Önce “Kaydet”e basmanız önerilir.", "Yine de aç"))) return;
     }
     if (t.no === doc.sessions.length) t.closed = false;
@@ -449,7 +456,7 @@ function bind(v, c) {
   });
   const gAll = async () => (await S.listMonthDocs(st.fid, st.year, "isgg").catch(() => [])).filter(g => g.id.startsWith(`${pad(D.month)}_${D.dept}_`));
   on("[data-delsess]", async el => {
-    const { confirmBox } = await import("./ui.js?v=20261015e");
+    const { confirmBox } = await import("./ui.js?v=20261015f");
     const no = +el.dataset.delsess, ix = doc.sessions.findIndex(x => x.no === no); if (ix < 0) return;
     const gone = doc.sessions[ix], later = ix < doc.sessions.length - 1, all = await gAll(), gAp = all.filter(g => g.status === "approved" && g.no === gone.no);
     let mode = "all";
@@ -474,7 +481,7 @@ function bind(v, c) {
   });
   // Sahip: misafir taslağını tamamen sil (denetime ve rapora hiç girmez)
   const delG = async g => {
-    const { confirmBox } = await import("./ui.js?v=20261015e");
+    const { confirmBox } = await import("./ui.js?v=20261015f");
     if (!(await confirmBox("Misafir taslağı silinsin mi?", `${g.guestName} taslağı ve fotoğrafları kalıcı olarak silinir; denetime ve rapora hiç girmez. Misafir isterse yeniden yazabilir.`, "Evet, tamamen sil", true))) return false;
     Object.values(g.draft?.photos || {}).flat().forEach(p => S.deletePhoto(st.fid, st.year, p.id).catch(() => {}));
     await S.deleteMonthDoc(st.fid, st.year, "isgg", g.id); await Guest.inboxDelete(`${g.guestUid}_${st.fid}_${st.year}_${+g.month}_${g.dept}`);
@@ -485,20 +492,24 @@ function bind(v, c) {
   const holOK = async date => {
     if (!date || GUEST.on || D.okHol?.has(date)) return true;
     const h = tatilMap(await tatilYukle(st.fid, st.year).catch(() => null)).get(date); if (!h || h.yarim) return true;
-    const { confirmBox } = await import("./ui.js?v=20261015e");
+    const { confirmBox } = await import("./ui.js?v=20261015f");
     if (!(await confirmBox("İzin / tatil günü", `${fmtTarih(date)} tarihi "${h.ad}" olarak izinli/tatil işaretli. Yine de bu tarihle denetim yapılsın mı?`, "Evet, kabul et"))) return false;
     (D.okHol ||= new Set()).add(date); return true;
   };
   const dOk = d.date && +d.date.slice(0, 4) === +st.year && +d.date.slice(5, 7) === D.month && d.date <= iso(new Date());
   const doSave = async close => {
-    if (D.ro || !dOk || c.missing || c.ydMissing || !c.curMarked || (close && !c.canSave)) return;
+    if (D.ro) return;
+    const why = !dOk ? "Denetim tarihi geçersiz (dönem dışı veya ileri tarih)." : !c.curMarked ? "Önce en az bir madde işaretleyin." : c.missing ? `${c.missing} uygunsuz maddenin açıklaması eksik.` : c.ydMissing ? `${c.ydMissing} Y.D. kategorinin gerekçesi eksik.` : close && !c.canSave ? `Tamamlamak için ${c.unmarked} madde daha işaretlenmeli.` : "";
+    if (why) { toast(why); return; }
     if (!(await holOK(d.date))) return;
+    const btn = document.getElementById(close ? "doneSess" : "saveSess"); if (btn) { btn.disabled = true; btn.textContent = "Kaydediliyor…"; }
     const rec = makeRec(c, d);
     let no;
     if (d.edit != null) { const ix = doc.sessions.findIndex(x => x.no === d.edit); no = d.edit; doc.sessions[ix] = { ...doc.sessions[ix], ...rec }; }
     else { no = doc.sessions.length + 1; doc.sessions.push({ no, ...rec, closed: false }); d.edit = no; }
     if (close) { doc.sessions.find(x => x.no === no).closed = true; doc.draft = emptyDraft(defaultDate(st.year, D.month), false); }
-    await persist(true); draw();
+    const okSave = await persist(true); draw();
+    if (okSave === false) { toast("Kaydedilemedi, bağlantıyı kontrol edip tekrar deneyin."); return; }
     toast(close ? `${no}. denetim tamamlandı. ${monOf(d.date) === monOf(iso(new Date())) ? "Yeni denetim, yeni hafta başlayınca açılır." : "Yeni denetim için “Denetimi Başlat”a basın."}` : `${no}. denetim kaydedildi; açık kaldı, kaldığınız yerden devam edebilirsiniz.`);
   };
   const guestSave = async review => {
