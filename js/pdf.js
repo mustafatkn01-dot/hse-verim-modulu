@@ -1,6 +1,19 @@
 // Ortak PDF yardımcıları: kâğıt boyutu (A4/A3) + sayfa düzeni (dikey/yatay) penceresi
-import { esc } from "./ui.js?v=20261015g";
+import { esc } from "./ui.js?v=20261015h";
 
+// "Paylaş" seçildiyse savePdf dosyayı indirmek yerine paylaşma penceresi açar
+const PDF = { share: false };
+const canShare = () => { try { return !!(navigator.canShare && navigator.share && navigator.canShare({ files: [new File([""], "a.pdf", { type: "application/pdf" })] })); } catch { return false; } };
+// PDF hazır penceresi: paylaşma ekranı yalnızca yeni bir dokunuşla açılabildiği için ayrı bir adım
+function shareReady(blob, name) {
+  const m = document.createElement("div"), file = new File([blob], name, { type: "application/pdf" }); m.className = "mod";
+  m.innerHTML = `<div class="mbox" role="dialog" aria-modal="true" style="gap:14px"><h2>PDF hazır</h2><div class="muted" style="line-height:1.5;word-break:break-word">${esc(name)}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><button data-sh style="height:46px">Paylaş</button><button class="sec" data-dl style="height:46px">İndir</button></div><button class="sec" data-x style="height:46px">Kapat</button></div>`;
+  document.body.appendChild(m);
+  m.querySelector("[data-x]").onclick = () => m.remove();
+  m.querySelector("[data-dl]").onclick = () => { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 800); };
+  m.querySelector("[data-sh]").onclick = async () => { try { await navigator.share({ files: [file], title: name.replace(/\.pdf$/i, "") }); m.remove(); } catch (e) { if (e?.name !== "AbortError") { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click(); } } };
+}
 export function askFormat({ title = "PDF indir", text = "", defOrient = "portrait", hint = "", pics = 0, fileOnly = false, scopes = null } = {}) {
   return new Promise(res => {
     const o = { size: "A4", orient: defOrient, pics: false, scope: scopes ? scopes[0][0] : "all" };
@@ -14,7 +27,8 @@ export function askFormat({ title = "PDF indir", text = "", defOrient = "portrai
         ${hint ? `<span class="muted" style="font-size:12.5px">${esc(hint)}</span>` : ""}</div>
       ${pics ? `<label class="row" style="gap:10px;flex-wrap:nowrap;font-weight:600;cursor:pointer"><input type="checkbox" data-pics style="width:20px;height:20px"> Resimleri ekle (${pics} adet · her açıklamanın altında yaklaşık 6 cm)</label>` : ""}
       ${fileOnly ? "" : `<div class="muted" style="font-size:12.5px;line-height:1.5">Yazdırma önizlemesi açılır; oradan doğrudan yazdırabilir veya hedef olarak "PDF olarak kaydet" seçebilirsiniz. Ölçek ve kenar boşlukları "Varsayılan" kalsın.</div>`}
-      <div class="row" style="justify-content:flex-end"><button class="sec" data-no>İptal</button>${fileOnly ? `<button data-file>PDF indir</button>` : `<button class="sec" data-file title="Yazdırmadan doğrudan PDF dosyası olarak indir">Dosya olarak indir</button><button data-yes>Önizleme ve yazdır</button>`}</div></div>`;
+      <div class="col1" style="gap:10px"><div style="display:grid;grid-template-columns:${canShare() ? "1fr 1fr" : "1fr"};gap:10px"><button ${fileOnly ? "" : 'class="sec"'} data-file style="height:46px" title="Yazdırmadan doğrudan PDF dosyası olarak indir">PDF indir</button>${canShare() ? `<button class="sec" data-share style="height:46px" title="Dosyayı kaydetmeden WhatsApp, e-posta vb. ile paylaş">Paylaş</button>` : ""}</div>
+        ${fileOnly ? "" : `<button data-yes style="height:46px">Önizleme ve yazdır</button>`}<button class="sec" data-no style="height:46px">İptal</button></div></div>`;
     document.body.appendChild(m);
     const paint = () => m.querySelectorAll("[data-k]").forEach(b => { const on = o[b.dataset.k] === b.dataset.v; b.style.background = on ? "var(--sel)" : ""; b.style.color = on ? "#fff" : ""; b.setAttribute("aria-pressed", on); });
     m.querySelectorAll("[data-k]").forEach(b => b.onclick = () => { o[b.dataset.k] = b.dataset.v; paint(); });
@@ -24,8 +38,9 @@ export function askFormat({ title = "PDF indir", text = "", defOrient = "portrai
     m.addEventListener("mousedown", e => { if (e.target === m) done(null); });
     const pc = m.querySelector("[data-pics]");
     const sc = m.querySelector("#pScope"), gv = () => ({ ...o, pics: !!pc?.checked, scope: sc ? sc.value : "all" });
-    const yb = m.querySelector("[data-yes]"); if (yb) yb.onclick = () => done({ ...gv(), file: false });
-    m.querySelector("[data-file]").onclick = () => done({ ...gv(), file: true });
+    const yb = m.querySelector("[data-yes]"); if (yb) yb.onclick = () => { PDF.share = false; done({ ...gv(), file: false }); };
+    m.querySelector("[data-file]").onclick = () => { PDF.share = false; done({ ...gv(), file: true }); };
+    const sb = m.querySelector("[data-share]"); if (sb) sb.onclick = () => { PDF.share = true; done({ ...gv(), file: true, share: true }); };
   });
 }
 
@@ -87,6 +102,7 @@ export async function savePdf(el, { size, orient, name, margin = 28, scale, sing
   }
   if (pageNo) { const tot = doc.getNumberOfPages(), fc = document.createElement("canvas"), g = fc.getContext("2d"), hs = 4; fc.width = 120 * hs; fc.height = 14 * hs;
     for (let i = 1; i <= tot; i++) { g.fillStyle = "#fff"; g.fillRect(0, 0, fc.width, fc.height); g.fillStyle = "#546964"; g.font = `600 ${8.5 * hs}px Manrope,system-ui,sans-serif`; g.textAlign = "center"; g.fillText(`Sayfa ${i}/${tot}`, fc.width / 2, 10 * hs); doc.setPage(i); doc.addImage(fc.toDataURL("image/png"), "PNG", (pw - 120) / 2, ph - margin + 4, 120, 14); } }
+  if (PDF.share) { PDF.share = false; shareReady(doc.output("blob"), name); return; }
   doc.save(name);
 }
 
