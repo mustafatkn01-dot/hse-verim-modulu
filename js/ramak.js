@@ -1,11 +1,11 @@
 // Ramak Kala bildirimleri: ay bazında kayıt, bildiren bölümün bonus kademesi, misafir kaydı için yetkili onayı
 // Koleksiyon "ramak": her bildirim ayrı kayıt. status: approved (yetkili kaydı / onaylı) | pending (misafir, onay bekliyor) | rejected
-import * as S from "./store.js?v=20261015c";
-import * as Guest from "./guest.js?v=20261015c";
-import * as Gorev from "./gorev.js?v=20261015c";
-import { esc, toast, pickDate, fmtTarih, compressImage, showPhoto, confirmBox, GUEST, guestLock, roText } from "./ui.js?v=20261015c";
-import { CATS } from "./isgcats.js?v=20261015c";
-import { calcIsg, katsayi, bandOf, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261015c";
+import * as S from "./store.js?v=20261015d";
+import * as Guest from "./guest.js?v=20261015d";
+import * as Gorev from "./gorev.js?v=20261015d";
+import { esc, toast, pickDate, fmtTarih, compressImage, showPhoto, confirmBox, GUEST, guestLock, roText } from "./ui.js?v=20261015d";
+import { CATS } from "./isgcats.js?v=20261015d";
+import { calcIsg, katsayi, bandOf, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261015d";
 
 export const COLL = "ramak";
 export const TIER = ["Yok", "Ayda 1", "2 Haftada 1", "Haftalık"];
@@ -43,17 +43,17 @@ export async function syncBonus(fid, year, month, setup, recs) {
 
 // Açılır liste: işletim sisteminin ayrı seçim penceresi yerine, kutunun hemen altında açılan liste
 const CHV = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
-function ddHtml(id, opts, val, label) {
-  const cur = opts.find(o => o[0] === val) || opts[0];
-  return `<div class="dd" data-dd="${id}"><input type="hidden" id="${id}" value="${esc(val)}"><button type="button" class="inp dd-b" aria-haspopup="listbox" aria-expanded="false" aria-label="${esc(label)}"><span>${esc(cur[1])}</span>${CHV}</button>
+function ddHtml(id, opts, val, label, ph = "") {
+  const cur = opts.find(o => o[0] === val);
+  return `<div class="dd" data-dd="${id}"><input type="hidden" id="${id}" value="${esc(val)}"><button type="button" class="inp dd-b" aria-haspopup="listbox" aria-expanded="false" aria-label="${esc(label)}"><span${cur ? "" : ' class="dd-ph"'}>${esc(cur ? cur[1] : ph)}</span>${CHV}</button>
     <div class="dd-l" role="listbox" hidden>${opts.map(o => `<button type="button" role="option" class="dd-o${o[0] === val ? " on" : ""}" data-v="${esc(o[0])}">${esc(o[1])}</button>`).join("")}</div></div>`;
 }
 function ddBind(root, onPick) {
   root.querySelectorAll(".dd").forEach(d => {
     const b = d.querySelector(".dd-b"), l = d.querySelector(".dd-l"), h = d.querySelector("input");
-    const set = (v, fire) => { h.value = v; d.querySelectorAll(".dd-o").forEach(o => { const on = o.dataset.v === v; o.classList.toggle("on", on); if (on) b.firstElementChild.textContent = o.textContent; }); if (fire) onPick(d.dataset.dd, v); };
+    const set = (v, fire) => { h.value = v; d.querySelectorAll(".dd-o").forEach(o => { const on = o.dataset.v === v; o.classList.toggle("on", on); if (on) { b.firstElementChild.textContent = o.textContent; b.firstElementChild.classList.remove("dd-ph"); } }); if (fire) onPick(d.dataset.dd, v); };
     d._set = set;
-    b.onclick = () => { const o = l.hidden; root.querySelectorAll(".dd-l").forEach(x => { x.hidden = true; }); root.querySelectorAll(".dd-b").forEach(x => x.setAttribute("aria-expanded", "false")); l.hidden = !o; b.setAttribute("aria-expanded", String(o)); if (o) l.scrollIntoView({ block: "nearest" }); };
+    b.onclick = () => { const o = l.hidden; root.querySelectorAll(".dd-l").forEach(x => { x.hidden = true; }); root.querySelectorAll(".dd-b").forEach(x => x.setAttribute("aria-expanded", "false")); l.hidden = !o; b.setAttribute("aria-expanded", String(o)); };
     l.querySelectorAll(".dd-o").forEach(o => o.onclick = () => { set(o.dataset.v, true); l.hidden = true; b.setAttribute("aria-expanded", "false"); });
   });
 }
@@ -62,7 +62,7 @@ function ddBind(root, onPick) {
 // ctx: { st, setup, month, dept, recs } → eklenen kayıt veya null
 export function openForm({ st, setup, month, dept = "", recs = [], edit = null }) {
   return new Promise(res => {
-    const owner = !GUEST.on, f = { src: edit?.src || "b", ph: [...(edit?.photos || [])], d: "", busy: false }, orig = new Set((edit?.photos || []).map(p => p.id));
+    const owner = !GUEST.on, f = { src: edit?.src || "", ph: [...(edit?.photos || [])], d: "", busy: false }, orig = new Set((edit?.photos || []).map(p => p.id));
     if (edit) dept = edit.dept || "";
     const ms = `${st.year}-${pad(month)}-01`, me = iso(new Date(+st.year, +month, 0)), td = iso(new Date());
     f.d = edit?.d || (td >= ms && td <= me ? td : me);
@@ -71,8 +71,8 @@ export function openForm({ st, setup, month, dept = "", recs = [], edit = null }
     m.innerHTML = `<div class="mbox rk" role="dialog" aria-modal="true" aria-labelledby="rkT">
       <h2 id="rkT">${edit ? "Ramak Kala Bildirimini Düzenle" : "Ramak Kala Bildirimi"}</h2>
       <div class="muted" style="font-size:13px;line-height:1.5">${edit ? "Değişiklik kaydedilince listede güncellenir." : owner ? "Kayıt hemen listeye eklenir." : "Kayıt yetkili onayından sonra puana sayılır."}</div>
-      <div class="f"><label>KAYNAK</label>${ddHtml("rkSrc", [["b", "Bölümden bildirim (puanlı)"], ["s", "Saha gözlemi (puansız, yalnızca takip)"]], f.src, "Kaynak")}</div>
-      <div class="two" id="rkB"><div class="f"><label>BİLDİREN BÖLÜM <span class="req">*</span></label>${ddHtml("rkD", [["", "Seçin"], ...setup.rows.map(r => [r.id, r.name])], dept, "Bildiren bölüm")}</div>
+      <div class="f"><label>KAYNAK</label>${ddHtml("rkSrc", [["b", "Bölümden bildirim (puanlı)"], ["s", "Saha gözlemi (puansız, yalnızca takip)"]], f.src, "Kaynak", "Lütfen bildirim kaynağını seçin")}</div>
+      <div class="two" id="rkB"><div class="f"><label>BİLDİREN BÖLÜM <span class="req">*</span></label>${ddHtml("rkD", setup.rows.map(r => [r.id, r.name]), dept, "Bildiren bölüm", "Lütfen bildiren bölümü seçin")}</div>
         <div class="f"><label for="rkW">BİLDİREN KİŞİ <span class="req">*</span></label><input id="rkW" class="inp" placeholder="Ad Soyad" autocomplete="off" maxlength="80"></div></div>
       <div class="two"><div class="f"><label>TARİH <span class="req">*</span></label><button type="button" class="inp" id="rkT2" style="display:flex;align-items:center;justify-content:space-between;text-align:left"><span id="rkTt">${fmtTarih(f.d)}</span></button></div>
         <div class="f"><label for="rkP">OLAY YERİ / MAKİNE</label><input id="rkP" class="inp" placeholder="Örn. Pres 3 yanı" autocomplete="off" maxlength="120"></div></div>
@@ -87,6 +87,7 @@ export function openForm({ st, setup, month, dept = "", recs = [], edit = null }
     if (edit) { q("#rkW").value = edit.who || ""; q("#rkP").value = edit.place || ""; q("#rkX").value = edit.txt || ""; q("#rkO").value = edit.tip || ""; q("#rkPh").innerHTML = f.ph.map(p => `<img src="${p.t}" alt="Fotoğraf">`).join(""); }
     const eff = () => {
       const e = q("#rkE");
+      if (!f.src) { e.className = "eff"; e.innerHTML = "Önce bildirim kaynağını seçin."; return; }
       if (f.src === "s") { e.className = "eff no"; e.innerHTML = "Saha gözlemi puana etki etmez. Kayıt takip için listeye girer."; return; }
       const d = q("#rkD").value; if (!d) { e.className = "eff"; e.innerHTML = "Bildiren bölümü seçtiğinizde puana etkisi burada görünür."; return; }
       const row = setup.rows.find(r => r.id === d), p = setup.params || DEFAULT_PARAMS, v = [0, +p.isg.r1, +p.isg.r2, +p.isg.r3], n0 = cnt[d] || 0, n1 = n0 + (owner ? 1 : 0), k0 = tierIdx(n0), k1 = tierIdx(n1);
@@ -94,7 +95,7 @@ export function openForm({ st, setup, month, dept = "", recs = [], edit = null }
       e.innerHTML = owner ? `<b>${esc(row.name)}</b>: bu ayki bildirim ${n0} → <b>${n1}</b>. Kademe: <b>${TIER[k1]}</b> (+${v[k1]} puan${k1 !== k0 ? `, şu an +${v[k0]}` : ""}).`
         : `<b>${esc(row.name)}</b> için bu kayıt yetkili onayından sonra sayılır. Şu an ${n0} onaylı bildirim, kademe <b>${TIER[k0]}</b>.`;
     };
-    const sync = () => { q("#rkB").style.display = f.src === "s" ? "none" : ""; eff(); };
+    const sync = () => { q("#rkB").style.display = f.src === "b" ? "" : "none"; eff(); };
     ddBind(m, (id, v) => { if (id === "rkSrc") { f.src = v; sync(); } else eff(); });
     q("#rkT2").onclick = async () => { const r = await pickDate({ title: "Tarih", min: ms, max: maxD, a: f.d, view: ms }); if (r?.a) { f.d = r.a; q("#rkTt").textContent = fmtTarih(f.d); } };
     q("#rkF").onchange = q("#rkFc").onchange = async e => {
@@ -110,7 +111,7 @@ export function openForm({ st, setup, month, dept = "", recs = [], edit = null }
     q("#rkC").onclick = cancel; m.addEventListener("mousedown", e => { if (e.target === m) cancel(); });
     q("#rkS").onclick = async () => {
       if (f.busy) return;
-      const need = [], b = f.src === "b";
+      const need = [], b = f.src === "b"; if (!f.src) need.push("kaynak");
       if (b) { if (!q("#rkD").value) need.push("bildiren bölüm"); if (!q("#rkW").value.trim()) need.push("bildiren kişi"); }
       if (!q("#rkX").value.trim()) need.push("açıklama");
       if (need.length) { q("#rkR").textContent = "Eksik alan: " + need.join(", ") + "."; return; }
