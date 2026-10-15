@@ -1,13 +1,14 @@
 // Ortak PDF yardımcıları: kâğıt boyutu (A4/A3) + sayfa düzeni (dikey/yatay) penceresi
-import { esc } from "./ui.js?v=20261015i";
+import { esc } from "./ui.js?v=20261015j";
 
 // "Paylaş" seçildiyse savePdf dosyayı indirmek yerine paylaşma penceresi açar
 const PDF = { share: false };
+const XI = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
 const canShare = () => { try { return !!(navigator.canShare && navigator.share && navigator.canShare({ files: [new File([""], "a.pdf", { type: "application/pdf" })] })); } catch { return false; } };
 // PDF hazır penceresi: paylaşma ekranı yalnızca yeni bir dokunuşla açılabildiği için ayrı bir adım
 function shareReady(blob, name) {
   const m = document.createElement("div"), file = new File([blob], name, { type: "application/pdf" }); m.className = "mod";
-  m.innerHTML = `<div class="mbox" role="dialog" aria-modal="true" style="gap:14px"><h2>PDF hazır</h2><div class="muted" style="line-height:1.5;word-break:break-word">${esc(name)}</div>
+  m.innerHTML = `<div class="mbox" role="dialog" aria-modal="true" style="gap:14px;position:relative"><button type="button" class="mx" data-x aria-label="Kapat">${XI}</button><h2 style="padding-right:56px">PDF hazır</h2><div class="muted" style="line-height:1.5;word-break:break-word">${esc(name)}</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><button data-sh style="height:46px">Paylaş</button><button class="sec" data-dl style="height:46px">İndir</button></div><button class="sec" data-x style="height:46px">Kapat</button></div>`;
   document.body.appendChild(m);
   m.querySelector("[data-x]").onclick = () => m.remove();
@@ -19,7 +20,7 @@ export function askFormat({ title = "PDF indir", text = "", defOrient = "portrai
     const o = { size: "A4", orient: defOrient, pics: false, scope: scopes ? scopes[0][0] : "all" };
     const m = document.createElement("div"); m.className = "mod";
     const seg = (k, items) => items.map(([v, t]) => `<button class="sec" data-k="${k}" data-v="${v}" style="flex:1;height:44px;border-radius:10px;font-weight:700">${t}</button>`).join("");
-    m.innerHTML = `<div class="mbox" role="dialog" aria-modal="true" style="gap:16px"><h2>${esc(title)}</h2>
+    m.innerHTML = `<div class="mbox" role="dialog" aria-modal="true" style="gap:16px;position:relative"><button type="button" class="mx" data-no aria-label="Kapat">${XI}</button><h2 style="padding-right:56px">${esc(title)}</h2>
       <div class="muted" style="line-height:1.5">${esc(text)}</div>
       ${scopes ? `<div class="col1" style="gap:6px"><label class="hd" for="pScope">RAPOR İÇERİĞİ (İSG AÇIKLAMALARI)</label><select id="pScope" style="font-weight:700">${scopes.map(([v, t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join("")}</select></div>` : ""}
       <div class="col1" style="gap:8px"><span class="hd">KÂĞIT BOYUTU</span><div class="row" style="gap:8px;flex-wrap:nowrap">${seg("size", [["A4", "A4"], ["A3", "A3"]])}</div></div>
@@ -34,7 +35,7 @@ export function askFormat({ title = "PDF indir", text = "", defOrient = "portrai
     m.querySelectorAll("[data-k]").forEach(b => b.onclick = () => { o[b.dataset.k] = b.dataset.v; paint(); });
     paint();
     const done = v => { m.remove(); res(v); };
-    m.querySelector("[data-no]").onclick = () => done(null);
+    m.querySelectorAll("[data-no]").forEach(b => b.onclick = () => done(null));
     m.addEventListener("mousedown", e => { if (e.target === m) done(null); });
     const pc = m.querySelector("[data-pics]");
     const sc = m.querySelector("#pScope"), gv = () => ({ ...o, pics: !!pc?.checked, scope: sc ? sc.value : "all" });
@@ -49,7 +50,7 @@ export function askFormat({ title = "PDF indir", text = "", defOrient = "portrai
 export function printCurrent({ size, orient, name, header = "" }) {
   const stl = document.createElement("style");
   const hs = header.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-  stl.textContent = `@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{size:${size} ${orient};margin:${header ? "17mm" : "10mm"} 10mm 14mm;@bottom-center{content:"Sayfa " counter(page) "/" counter(pages);font:600 9.5px Manrope,system-ui,sans-serif;color:#546964}${header ? `@top-left{content:"${hs}";font:700 9.5px Manrope,system-ui,sans-serif;letter-spacing:.6px;color:#546964;vertical-align:bottom;padding-bottom:3mm;border-bottom:1.5px solid #0B2230}` : ""}}}`;
+  stl.textContent = `@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{size:${size} ${orient};margin:${header ? "17mm" : "10mm"} 10mm 16mm;@bottom-center{content:"Sayfa " counter(page) "/" counter(pages);font:600 9px Manrope,system-ui,sans-serif;color:#546964;vertical-align:middle;padding-top:1mm}${header ? `@top-left{content:"${hs}";font:700 9.5px Manrope,system-ui,sans-serif;letter-spacing:.6px;color:#546964;vertical-align:bottom;padding-bottom:3mm;border-bottom:1.5px solid #0B2230}` : ""}}}`;
   document.head.appendChild(stl);
   const clean = () => { stl.remove(); window.removeEventListener("afterprint", clean); };
   window.addEventListener("afterprint", clean);
