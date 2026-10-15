@@ -1,8 +1,9 @@
 // (ramak kala kayıtları islendi:"ramak" ile yazılır: görev takibin eski sürümleri bunları almaz, yalnızca yeni sürüm olay sayfasına ekler)
 // Görev takip programı köprüsü (mtisggorev). HSE Verim yalnızca küçük kayıtlar bırakır ve durumu okur;
 // görev/kaza kayıtlarını görev programı kendisi oluşturur. Bağlantı yoksa özellik uyarı kartıyla kapalı kalır.
-import { GOREV_CFG } from "./gorev-config.js?v=20261015a";
-import { esc, toast } from "./ui.js?v=20261015a";
+import { GOREV_CFG } from "./gorev-config.js?v=20261015b";
+import * as S from "./store.js?v=20261015b";
+import { esc, toast } from "./ui.js?v=20261015b";
 
 const CFG = GOREV_CFG || null, CDN = "https://www.gstatic.com/firebasejs/10.14.1/";
 let F = null, auth = null, db = null, user = null, err = "", fabs = null, started = false, offs = [], loaded = false;
@@ -87,8 +88,10 @@ export function warn(kind, x = {}) {
   m.addEventListener("mousedown", e => { if (e.target === m) m.remove(); });
 }
 
+// Fotoğrafı görev takibin ana görsel boyutuna (en çok 1000 px, JPEG) küçültür
+const shrink = src => new Promise(res => { const im = new Image(); im.onload = () => { const r = Math.min(1, 1000 / Math.max(im.width, im.height)), c = document.createElement("canvas"); c.width = Math.round(im.width * r); c.height = Math.round(im.height * r); c.getContext("2d").drawImage(im, 0, 0, c.width, c.height); res(c.toDataURL("image/jpeg", .72)); }; im.onerror = () => res(""); im.src = src; });
 async function add(key) {
-  const p = pend.get(key); if (!p) return;
+  let p = pend.get(key); if (!p) return;
   if (!CFG) return warn("yok");
   if (!F) await init();
   let s = state(); if (s === "bekle") { await sleep(800); s = state(); }
@@ -97,6 +100,10 @@ async function add(key) {
   for (let i = 0; i < 20 && fabs === null; i++) await sleep(150);
   if (fabs === null) return warn("hata");
   if (!fabs.some(n => norm(n) === norm(p.fab))) return warn("fab", { hse: p.fab, liste: fabs });
+  if (p.fotoId) { // ramak kala: ilk fotoğraf olay kaydının ana görseli olur
+    const { fotoId, fotoFid, fotoYil, ...rest } = p; p = rest;
+    try { const full = await S.getPhoto(fotoFid, fotoYil, fotoId); const g = full ? await shrink(full) : ""; if (g && g.length < 900000) p = { ...p, foto: g }; } catch { }
+  }
   try { await F.set(R("hseGelen/" + key), { ...p, ...(p.tip === "ramak" ? { islendi: "ramak" } : {}), at: Date.now() }); } catch (e) { return warn("hata"); }
   if (p.tip === "ramak") { // görev takip aynı olayı zaten kayıtlı bulursa uyar
     const off = onChange(() => { if (durum.get(key)?.mevcut) { off(); clearTimeout(tm); toast("Bu ramak kala görev takipte zaten kayıtlı. İkinci kayıt açılmadı, mevcut kayıt bağlandı."); } });

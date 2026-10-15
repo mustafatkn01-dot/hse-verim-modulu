@@ -1,11 +1,11 @@
 // Ramak Kala bildirimleri: ay bazında kayıt, bildiren bölümün bonus kademesi, misafir kaydı için yetkili onayı
 // Koleksiyon "ramak": her bildirim ayrı kayıt. status: approved (yetkili kaydı / onaylı) | pending (misafir, onay bekliyor) | rejected
-import * as S from "./store.js?v=20261015a";
-import * as Guest from "./guest.js?v=20261015a";
-import * as Gorev from "./gorev.js?v=20261015a";
-import { esc, toast, pickDate, fmtTarih, compressImage, showPhoto, confirmBox, GUEST, guestLock, roText } from "./ui.js?v=20261015a";
-import { CATS } from "./isgcats.js?v=20261015a";
-import { calcIsg, katsayi, bandOf, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261015a";
+import * as S from "./store.js?v=20261015b";
+import * as Guest from "./guest.js?v=20261015b";
+import * as Gorev from "./gorev.js?v=20261015b";
+import { esc, toast, pickDate, fmtTarih, compressImage, showPhoto, confirmBox, GUEST, guestLock, roText } from "./ui.js?v=20261015b";
+import { CATS } from "./isgcats.js?v=20261015b";
+import { calcIsg, katsayi, bandOf, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261015b";
 
 export const COLL = "ramak";
 export const TIER = ["Yok", "Ayda 1", "2 Haftada 1", "Haftalık"];
@@ -155,7 +155,7 @@ function draw() {
     const stc = r.status === "pending" ? `<span class="chip wait">Onay bekliyor · puan sayılmadı</span>` : r.status === "rejected" ? `<span class="chip rej">Reddedildi</span>` : "";
     const mine = GUEST.on && r.guestUid === GUEST.uid, acts = [];
     if (!GUEST.on && !R.ro && r.status === "pending") acts.push(`<button class="sm" data-ra="ok|${r.id}">Onayla</button><button class="sm sec" data-ra="no|${r.id}">Reddet</button>`);
-    if (!GUEST.on && r.status === "approved") acts.push(Gorev.chip(Gorev.noteKey("r", st.fid, st.year, R.month, r.dept || "saha", r.id, r.txt), { tip: "ramak", fab: st.factories?.find(f => f.id === st.fid)?.name || "", yil: +st.year, ay: R.month, tarih: r.d, bolum: r.src === "b" ? nm(r.dept) : "", kisi: r.who || "", yer: r.place || "", metin: r.txt, oneri: r.tip || "", url: location.origin + location.pathname + "#ramak" }));
+    if (!GUEST.on && r.status === "approved") acts.push(Gorev.chip(Gorev.noteKey("r", st.fid, st.year, R.month, r.dept || "saha", r.id, r.txt), { tip: "ramak", fab: st.factories?.find(f => f.id === st.fid)?.name || "", yil: +st.year, ay: R.month, tarih: r.d, bolum: r.src === "b" ? nm(r.dept) : "", kisi: r.who || "", yer: r.place || "", metin: r.txt, oneri: r.tip || "", ...(r.photos?.[0]?.id ? { fotoId: r.photos[0].id, fotoFid: st.fid, fotoYil: st.year } : {}), url: location.origin + location.pathname + "#ramak" }));
     if (!GUEST.on && !R.ro) acts.push(`<button class="sm sec" data-ra="edit|${r.id}">Düzenle</button>`);
     if (GUEST.on ? mine && r.status === "pending" : !R.ro) acts.push(`<button class="sm sec" data-ra="del|${r.id}" style="color:#B3261E;border-color:#B3261E">Sil</button>`);
     const who = r.src === "b" ? `Bildiren: <b>${esc(nm(r.dept))}</b> · ${esc(r.who)}` : "Saha gözlemi";
