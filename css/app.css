@@ -309,5 +309,5 @@ body,html{background:#fff!important}#app{display:block!important}.pg{padding:0!i
 .tot{padding:12px 0 0;border-top:2px solid var(--line);font-weight:800}
 
 /* Pencere kapatma: sağ üst, kırmızı zemin, beyaz büyük çarpı */
-.mx{position:absolute;top:12px;right:12px;width:44px;height:44px;min-height:0;padding:0;border-radius:12px;border:0;background:#D6382E;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.mx{position:absolute;top:12px;right:12px;width:35px;height:35px;min-height:0;padding:0;border-radius:12px;border:0;background:#D6382E;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer}
 .mx:hover,.mx:active{background:#B3261E}

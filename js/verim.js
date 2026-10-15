@@ -1,10 +1,10 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261015j";
-import { esc } from "./ui.js?v=20261015j";
-import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi } from "./scoring.js?v=20261015j";
-import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261015j";
-import { CATS } from "./isgcats.js?v=20261015j";
-import * as Gorev from "./gorev.js?v=20261015j";
+import * as S from "./store.js?v=20261015k";
+import { esc } from "./ui.js?v=20261015k";
+import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi } from "./scoring.js?v=20261015k";
+import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261015k";
+import { CATS } from "./isgcats.js?v=20261015k";
+import * as Gorev from "./gorev.js?v=20261015k";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -97,7 +97,7 @@ function draw() {
   const t0 = 30, H = 2.4;
 
   const bars = rows.map((r, i) => { const x = vals[i]; return `<div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:330px">
-    <div style="font-size:14px;font-weight:800;margin-bottom:4px">${x === null ? "–" : f1(x)}</div>
+    <div style="font-size:14px;font-weight:800;margin-bottom:4px;position:relative;z-index:2;-webkit-text-stroke:3px var(--card);paint-order:stroke fill">${x === null ? "–" : f1(x)}</div>
     <div style="width:42%;max-width:40px;height:${x === null ? 3 : Math.round(x * H)}px;background:${band(x).fill};border-radius:8px 8px 2px 2px"></div>
     <div style="height:30px;line-height:30px;font-size:12.5px;font-weight:600;color:var(--muted);white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis">${esc(r.name)}</div></div>`; }).join("");
 
@@ -128,8 +128,9 @@ function draw() {
 
   const gc = "100px repeat(5,1fr) 110px";
   const E = { h: parseFloat(String(p.esik?.h ?? "90").replace(",", ".")) || 90, o: parseFloat(String(p.esik?.o ?? "50").replace(",", ".")) || 50, i: parseFloat(String(p.esik?.i ?? "75").replace(",", ".")) || 75 };
-  // Eşik çizgileri: hedef (yeşil) ve kritik (kırmızı) kalın düz, ara eşik gri kesik; etiketler kalın
-  const line = (v0, lab) => { const k = v0 === E.h ? ["#0B6E4F", "2px solid #0B6E4F", 800] : v0 === E.o ? ["#D6382E", "2px solid #D6382E", 800] : ["var(--muted)", "1px dashed #B5C5BF", 700]; return `<div style="position:absolute;left:34px;right:0;bottom:${t0 + v0 * H}px;border-top:${k[1]}"></div><div style="position:absolute;left:0;bottom:${t0 + v0 * H - 8}px;width:30px;text-align:right;font-size:12.5px;font-weight:${k[2]};color:${k[0]}">${lab}</div>`; };
+  // Puan çizgileri: hepsi aynı ince ve soluk stil; hedef/kritik yalnızca renk tonuyla ayrışır, etiketler hepsinde aynı boyut ve kalınlıkta
+  const GL = [...new Set([25, E.o, E.i, E.h, 100])].sort((a, z) => a - z);
+  const line = (v0, lab) => { const c = v0 === E.h ? ["#0B6E4F", "rgba(11,110,79,.4)"] : v0 === E.o ? ["#D6382E", "rgba(214,56,46,.4)"] : ["var(--muted)", "#D5DFDB"]; return `<div style="position:absolute;left:34px;right:0;bottom:${t0 + v0 * H}px;border-top:1px solid ${c[1]}"></div><div style="position:absolute;left:0;bottom:${t0 + v0 * H - 8}px;width:30px;text-align:right;font-size:12px;font-weight:700;color:${c[0]}">${lab}</div>`; };
   V.v.innerHTML = `
   <div class="col1" style="gap:6px"><h1 class="ttl">Verim Tablosu</h1>
     <div class="sub">Aylık, çeyreklik (3-6-9 aylık, kümülatif) ve yıllık verimi sütun grafik ve tablo olarak görün. Dönemi ve göstergeyi seçin, grafik ile tablo birlikte güncellenir. Veriler aylık giriş sayfalarında kaydedilen sonuçlardan gelir.</div></div>
@@ -145,7 +146,7 @@ function draw() {
         <button data-pdf class="sec" style="height:40px;padding:0 16px;border-radius:10px;font-weight:700;white-space:nowrap">PDF indir</button></div></div>
     ${partial ? `<div class="warn">Kısmi dönem: ${cur.idx.length} aydan ${have} tanesi için veri var. Değerler mevcut aylar üzerinden hesaplandı.</div>` : ""}
     <div style="overflow-x:auto"><div style="min-width:${Math.max(260, rows.length * 70 + 40)}px;position:relative;height:330px">
-      ${line(E.i, E.i)}${line(E.o, E.o)}${line(E.h, E.h)}
+      ${GL.map(v => line(v, v)).join("")}
       <div style="position:absolute;left:34px;right:0;top:0;bottom:0;display:flex;gap:10px">${bars}</div></div></div>
     <div class="row" style="gap:14px;font-size:12.5px;color:var(--muted)">${[["Mükemmel", "≥ 90"], ["İyi", "75-89"], ["Orta", "50-74"], ["Kritik", "< 50"]].map(([n, r]) => `<span class="row" style="gap:6px;flex-wrap:nowrap"><span style="width:12px;height:12px;border-radius:3px;background:${BAND[n].fill}"></span>${n} ${r}</span>`).join("")}</div>
     ${notes.length ? `<div style="border-top:1px solid var(--line);padding-top:16px;display:flex;flex-direction:column;gap:8px"><div style="font-weight:800;font-size:13px;letter-spacing:.8px;color:var(--muted)">AÇIKLAMA</div>${notes.map((t, i) => `<div style="display:flex;gap:10px;line-height:1.55"><span style="flex:0 0 22px;font-weight:800;color:#0B6E4F">${i + 1}.</span><span>${esc(t)}</span></div>`).join("")}</div>` : ""}
@@ -285,10 +286,10 @@ async function printSheet(info, { size, orient, pics = false, file = false, scop
   const NONE = `<div style="color:#546964">Bu dönem için girilmiş açıklama yok.</div>`;
   // Parçalar: head (her sayfada tekrarlanır), partial/chart/legend (yalnız 1. sayfa), foot (son sayfa)
   const parts = (ch, z) => { const s = (ch - 60) / 100;
-    const eh = parseFloat(String(info.esik.h ?? "90").replace(",", ".")) || 90, eo = parseFloat(String(info.esik.o ?? "50").replace(",", ".")) || 50, ei = parseFloat(String(info.esik.i ?? "75").replace(",", ".")) || 75;
-    const line = (v, l) => { const k = v === eh ? ["#0B6E4F", "2px solid #0B6E4F", 800] : v === eo ? ["#D6382E", "2px solid #D6382E", 800] : ["#6A7E79", "1px dashed #B5C5BF", 700]; return `<div style="position:absolute;left:30px;right:0;bottom:${30 + v * s}px;border-top:${k[1]}"></div><div style="position:absolute;left:0;bottom:${30 + v * s - 8}px;width:26px;text-align:right;font-size:12px;font-weight:${k[2]};color:${k[0]}">${l}</div>`; };
+    const eh = parseFloat(String(info.esik.h ?? "90").replace(",", ".")) || 90, eo = parseFloat(String(info.esik.o ?? "50").replace(",", ".")) || 50, ei = parseFloat(String(info.esik.i ?? "75").replace(",", ".")) || 75, GL = [...new Set([25, eo, ei, eh, 100])].sort((a, z) => a - z);
+    const line = (v, l) => { const c = v === eh ? ["#0B6E4F", "rgba(11,110,79,.4)"] : v === eo ? ["#D6382E", "rgba(214,56,46,.4)"] : ["#6A7E79", "#D5DFDB"]; return `<div style="position:absolute;left:30px;right:0;bottom:${30 + v * s}px;border-top:1px solid ${c[1]}"></div><div style="position:absolute;left:0;bottom:${30 + v * s - 8}px;width:26px;text-align:right;font-size:11.5px;font-weight:700;color:${c[0]}">${l}</div>`; };
     const bars = info.names.map((nm, i) => { const x = info.vals[i], b = info.bandOf(x); return `<div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:${ch}px">
-      <div style="font-size:${fs + 1}px;font-weight:800;margin-bottom:4px">${x === null ? "–" : f1(x)}</div>
+      <div style="font-size:${fs + 1}px;font-weight:800;margin-bottom:4px;position:relative;z-index:2;-webkit-text-stroke:3px #fff;paint-order:stroke fill">${x === null ? "–" : f1(x)}</div>
       <div style="width:42%;max-width:36px;height:${x === null ? 3 : Math.max(3, Math.round(x * s))}px;background:${b.fill};border-radius:7px 7px 2px 2px"></div>
       <div style="height:30px;line-height:30px;font-size:${fs - 0.5}px;font-weight:600;color:#3E534E;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis">${esc(nm)}</div></div>`; }).join("");
     return {
@@ -296,7 +297,7 @@ async function printSheet(info, { size, orient, pics = false, file = false, scop
       <div><div style="font:700 11px Manrope;letter-spacing:1px;color:#546964">${esc(info.fname)}</div><div style="font:700 22px Sora,sans-serif;margin-top:4px">${esc(info.title)}</div><div style="color:#546964;margin-top:2px;display:flex;gap:28px;white-space:nowrap"><span>${esc(info.plabel)}</span><span>Oluşturma tarihi: ${ds}</span></div></div>
       <div style="display:flex;align-items:center;gap:10px;white-space:nowrap"><span style="color:#546964">Tesis ortalaması</span><b style="font:700 26px Sora,sans-serif">${info.av === null ? "–" : f1(info.av)}</b><span style="font-size:12px;font-weight:800;padding:4px 12px;border-radius:999px;background:${info.ab.bg};color:${info.ab.c}">${esc(info.abn)}</span></div></div>`,
       first: `${info.partial ? `<div style="padding:8px 12px;border-radius:8px;background:#FBE9C6;color:#5A3300;font-weight:600">${esc(info.partial)}</div>` : ""}
-    <div style="position:relative;height:${ch}px"><div style="position:absolute;inset:0">${line(ei, ei)}${line(eo, eo)}${line(eh, eh)}</div><div style="position:absolute;left:30px;right:0;top:0;bottom:0;display:flex;gap:${gap}px">${bars}</div></div>
+    <div style="position:relative;height:${ch}px"><div style="position:absolute;inset:0">${GL.map(v => line(v, v)).join("")}</div><div style="position:absolute;left:30px;right:0;top:0;bottom:0;display:flex;gap:${gap}px">${bars}</div></div>
     <div style="display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:#546964">${[["Mükemmel", `≥ ${num(info.esik.m)}`], ["İyi", `${num(info.esik.i)}-${num(info.esik.m) - 1}`], ["Orta", `${num(info.esik.o)}-${num(info.esik.i) - 1}`], ["Kritik", `< ${num(info.esik.o)}`]].map(([k, r]) => `<span style="display:flex;align-items:center;gap:6px"><span style="width:11px;height:11px;border-radius:3px;background:${BAND[k].fill}"></span>${k} ${r}</span>`).join("")}</div>`,
       foot: "" }; };
   const wrap = (inner, z, extra = "", pg = "") => `<div class="ppg" style="width:${cw}px;zoom:${z};${extra}${FONT}">${inner}${pg ? `<div style="position:absolute;left:0;right:0;bottom:0;text-align:center;font-size:11px;color:#6A7E79">${pg}</div>` : ""}</div>`;
