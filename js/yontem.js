@@ -1,9 +1,9 @@
 // Kurulum sayfasındaki katlanabilir "Hesaplama Yöntemi" kartı (parametrelerden canlı; PDF indirilebilir)
-import { dotCss } from "./tatil.js?v=20261015d";
-import { esc, noticeBox } from "./ui.js?v=20261015d";
-import { num, c2, empCoef, RISK, DEFAULT_PARAMS } from "./scoring.js?v=20261015d";
-import { T as KAZA } from "./kaza.js?v=20261015d";
-import { askFormat, savePdf, printCurrent } from "./pdf.js?v=20261015d";
+import { dotCss } from "./tatil.js?v=20261015e";
+import { esc, noticeBox } from "./ui.js?v=20261015e";
+import { num, c2, empCoef, RISK, DEFAULT_PARAMS } from "./scoring.js?v=20261015e";
+import { T as KAZA } from "./kaza.js?v=20261015e";
+import { askFormat, savePdf, printCurrent } from "./pdf.js?v=20261015e";
 
 const Y = { open: false };
 export const reset = () => { Y.open = false; };
@@ -50,7 +50,7 @@ export function mount(el, getParams, meta = {}) {
       <div class="row" style="gap:8px;flex-wrap:nowrap;flex:0 0 auto"><button class="sec" data-y="pdf" style="height:40px">PDF indir</button>
         <button class="sec" data-y="tg" aria-expanded="${Y.open}" aria-label="${Y.open ? "Kartı kapat" : "Kartı aç"}" style="width:40px;height:40px;padding:0;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(${Y.open ? 180 : 0}deg)"><path d="M6 9l6 6 6-6"/></svg></button></div></div>
       ${Y.open ? `<div class="col1" style="gap:18px;border-top:1px solid var(--line);padding-top:18px">${body(getParams())}</div>` : ""}</div>`;
-    el.querySelector('[data-y="tg"]').onclick = () => { Y.open = !Y.open; draw(); };
+    { const hd = el.querySelector('[data-y="tg"]').closest(".row.sp"); hd.style.cursor = "pointer"; hd.onclick = e => { if (e.target.closest('[data-y="pdf"]')) return; Y.open = !Y.open; draw(); }; }
     el.querySelector('[data-y="pdf"]').onclick = async () => {
       const o = await askFormat({ title: "Hesaplama yöntemini PDF indir", text: "Programın skoru nasıl hesapladığını anlatan özet. Birden fazla sayfa olabilir.", defOrient: "portrait" });
       if (!o) return;

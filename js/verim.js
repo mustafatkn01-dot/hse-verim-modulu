@@ -1,10 +1,10 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261015d";
-import { esc } from "./ui.js?v=20261015d";
-import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi } from "./scoring.js?v=20261015d";
-import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261015d";
-import { CATS } from "./isgcats.js?v=20261015d";
-import * as Gorev from "./gorev.js?v=20261015d";
+import * as S from "./store.js?v=20261015e";
+import { esc } from "./ui.js?v=20261015e";
+import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi } from "./scoring.js?v=20261015e";
+import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261015e";
+import { CATS } from "./isgcats.js?v=20261015e";
+import * as Gorev from "./gorev.js?v=20261015e";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -18,6 +18,7 @@ const rng = (a, z) => Array.from({ length: z - a + 1 }, (_, i) => a + i);
 const f1 = n => n.toFixed(1).replace(".", ",");
 const pad = n => String(n).padStart(2, "0");
 const avg = (arr, idx) => { const v = idx.map(i => arr[i]).filter(x => x !== null && x !== undefined); return v.length ? v.reduce((a, c) => a + c, 0) / v.length : null; };
+export const reset = () => { if (V.op) V.op = {}; if (V.cmp) V.cmp.open = false; };
 const V = { p: "m", sel: null, metric: 4, key: "", data: null };
 
 export async function load(st, setup) {
@@ -175,15 +176,16 @@ function draw() {
     const body = document.createElement("div"); body.style.cssText = "display:flex;flex-direction:column;gap:14px";
     [...box.children].filter(c => c !== head).forEach(c => body.appendChild(c)); box.appendChild(body);
     const ch = document.createElement("span"); ch.style.cssText = "font-size:18px;margin-left:8px;color:var(--muted)";
+    const chHost = head.querySelector("h2") || clickEl;
     const sync = () => { body.style.display = OP[key] ? "flex" : "none"; ch.textContent = OP[key] ? "▴" : "▾"; clickEl.setAttribute("aria-expanded", !!OP[key]); };
-    clickEl.appendChild(ch); clickEl.style.cursor = "pointer"; clickEl.setAttribute("role", "button"); clickEl.tabIndex = 0;
+    chHost.appendChild(ch); clickEl.style.cursor = "pointer"; clickEl.setAttribute("role", "button"); clickEl.tabIndex = 0;
     const tg = () => { OP[key] = !OP[key]; sync(); };
-    clickEl.onclick = tg; clickEl.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); tg(); } };
+    clickEl.onclick = e => { if (e.target.closest("button,a,input,select")) return; tg(); }; clickEl.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); tg(); } };
     sync();
   };
   const ds = V.v.querySelector("[data-detslot]"); ds.innerHTML = detHtml;
   fold(ds.firstElementChild, ds.firstElementChild?.firstElementChild, "det", ds.firstElementChild?.firstElementChild);
-  [...V.v.querySelectorAll(":scope > .cd")].forEach(c => { const h = c.querySelector(":scope > .row.sp"), t = h?.querySelector("h2")?.textContent || ""; if (/^Tablo ·/.test(t)) fold(c, h, "tbl", h.querySelector("h2")); else if (/^Tüm Dönemler/.test(t)) fold(c, h, "all", h.querySelector("h2")); });
+  [...V.v.querySelectorAll(":scope > .cd")].forEach(c => { const h = c.querySelector(":scope > .row.sp"), t = h?.querySelector("h2")?.textContent || ""; if (/^Tablo ·/.test(t)) fold(c, h, "tbl", h); else if (/^Tüm Dönemler/.test(t)) fold(c, h, "all", h); });
 
   // ---- İSG Denetim · aylık kıyas (son 2/3 ay) ----
   {

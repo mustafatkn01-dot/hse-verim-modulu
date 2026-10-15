@@ -1,11 +1,11 @@
 // Aylık HSE Raporu · kayıtlı verilerden otomatik grafik + açıklama
-import * as S from "./store.js?v=20261015d";
-import { esc } from "./ui.js?v=20261015d";
-import * as Gorev from "./gorev.js?v=20261015d";
-import * as T from "./tatil.js?v=20261015d";
-import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261015d";
-import { CATS } from "./isgcats.js?v=20261015d";
-import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261015d";
+import * as S from "./store.js?v=20261015e";
+import { esc } from "./ui.js?v=20261015e";
+import * as Gorev from "./gorev.js?v=20261015e";
+import * as T from "./tatil.js?v=20261015e";
+import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261015e";
+import { CATS } from "./isgcats.js?v=20261015e";
+import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261015e";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -16,6 +16,7 @@ const CCOL = ["#2A82C4", "#17A06F", "#D6382E", "#F5B700", "#2A82C4", "#8A6FD1", 
 const pad = n => String(n).padStart(2, "0");
 const f1 = n => n.toFixed(1).replace(".", ",");
 const fin = x => (typeof x === "number" && isFinite(x) ? x : null);
+export const reset = () => { R.plOpen = false; };
 const R = { plOpen: false, month: null, per: "m", key: "", pics: false, ph: {}, off: new Set(), vert: new Set() };
 const PER = { m: "Aylık", q: "3 Aylık (Ç1)", h: "6 Aylık (Ç2)", n: "9 Aylık (Ç3)", y: "Yıllık" };
 const PN = { q: "1. çeyrek · Ocak-Mart", h: "2. çeyrek · Ocak-Haziran (kümülatif)", n: "3. çeyrek · Ocak-Eylül (kümülatif)", y: "Ocak-Aralık" };
@@ -250,7 +251,7 @@ function draw(v, st, setup, data) {
   v.querySelectorAll("[data-vt]").forEach(b => b.onclick = () => { if (b.dataset.to === "v") R.vert.add(b.dataset.vt); else R.vert.delete(b.dataset.vt); draw(v, st, setup, data); });
   const rp = document.getElementById("rPic"); if (rp) rp.onchange = e => { R.pics = e.target.checked; draw(v, st, setup, data); };
   if (R.pics) hydrate(v, st);
-  const pb = v.querySelector("[data-pl]"); if (pb) pb.onclick = () => { R.plOpen = !R.plOpen; draw(v, st, setup, data); };
+  const pb = v.querySelector("[data-pl]"); if (pb) { const hd = pb.parentElement; hd.style.cursor = "pointer"; hd.onclick = () => { R.plOpen = !R.plOpen; draw(v, st, setup, data); }; }
   document.getElementById("rPer").onchange = e => { R.per = e.target.value; draw(v, st, setup, data); };
   const ay = document.getElementById("rAy"); if (ay) ay.onchange = e => { R.month = +e.target.value; draw(v, st, setup, data); };
   document.getElementById("rPdf").onclick = async () => {

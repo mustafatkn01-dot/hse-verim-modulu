@@ -1,13 +1,14 @@
 // Eğitim Konuşması · Aylık Giriş
-import * as S from "./store.js?v=20261015d";
-import { esc, ic, toast, noteEditor, guestLock, roText, GUEST } from "./ui.js?v=20261015d";
-import * as Guest from "./guest.js?v=20261015d";
-import * as K from "./kayit.js?v=20261015d";
-import { katsayi, nAt, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261015d";
+import * as S from "./store.js?v=20261015e";
+import { esc, ic, toast, noteEditor, guestLock, roText, GUEST } from "./ui.js?v=20261015e";
+import * as Guest from "./guest.js?v=20261015e";
+import * as K from "./kayit.js?v=20261015e";
+import { katsayi, nAt, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261015e";
 
 const COLL = "konusma";
 const BAND = { Mükemmel: ["#17A06F", "#0B6E4F", "#D9F1E6"], İyi: ["#2A82C4", "#145F96", "#DCEAF7"], Orta: ["#E8A512", "#6B3F00", "#FBE9C6"], Kritik: ["#D6382E", "#B3261E", "#FADAD7"] };
 const pad = n => String(n).padStart(2, "0");
+export const reset = () => { D.kOpen = false; };
 const D = { key: "", month: null, rows: {}, g: [], kOpen: false, exists: false, saved: true, timer: null, msg: "" };
 const f1 = n => n.toFixed(1).replace(".", ",");
 

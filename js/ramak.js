@@ -1,11 +1,11 @@
 // Ramak Kala bildirimleri: ay bazında kayıt, bildiren bölümün bonus kademesi, misafir kaydı için yetkili onayı
 // Koleksiyon "ramak": her bildirim ayrı kayıt. status: approved (yetkili kaydı / onaylı) | pending (misafir, onay bekliyor) | rejected
-import * as S from "./store.js?v=20261015d";
-import * as Guest from "./guest.js?v=20261015d";
-import * as Gorev from "./gorev.js?v=20261015d";
-import { esc, toast, pickDate, fmtTarih, compressImage, showPhoto, confirmBox, GUEST, guestLock, roText } from "./ui.js?v=20261015d";
-import { CATS } from "./isgcats.js?v=20261015d";
-import { calcIsg, katsayi, bandOf, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261015d";
+import * as S from "./store.js?v=20261015e";
+import * as Guest from "./guest.js?v=20261015e";
+import * as Gorev from "./gorev.js?v=20261015e";
+import { esc, toast, pickDate, fmtTarih, compressImage, showPhoto, confirmBox, GUEST, guestLock, roText } from "./ui.js?v=20261015e";
+import { CATS } from "./isgcats.js?v=20261015e";
+import { calcIsg, katsayi, bandOf, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261015e";
 
 export const COLL = "ramak";
 export const TIER = ["Yok", "Ayda 1", "2 Haftada 1", "Haftalık"];
@@ -133,7 +133,8 @@ export function openForm({ st, setup, month, dept = "", recs = [], edit = null }
 }
 
 // ---- Sayfa ----
-const R = { key: "", month: null, recs: [], setup: null, open: false, ctx: null, v: null };
+export const reset = () => { R.open = false; R.bo = false; };
+const R = { key: "", month: null, recs: [], setup: null, open: false, bo: false, ctx: null, v: null };
 export function focus(month) { R.month = +month; R.key = ""; }
 const dmy = s => (s ? fmtTarih(s) : "");
 const nm = id => R.setup.rows.find(r => r.id === id)?.name || "—";
@@ -163,8 +164,9 @@ function draw() {
     <div class="cd tile"><span class="hd">BU AY BİLDİRİM</span><b>${ok.length}</b></div>
     <div class="cd tile"><span class="hd">PUANLI</span><b>${ok.filter(r => r.src === "b").length}</b></div>
     <div class="cd tile"><span class="hd">ONAY BEKLEYEN</span><b>${wait}</b></div></div>
-  <div class="cd"><div><h2>Bölüm Bazında Bonus</h2><div class="muted" style="font-size:13px;line-height:1.5">Yalnızca onaylı “Bölümden bildirim” kayıtları sayılır. Kademe: 1 bildirim → Ayda 1 (+${vals[1]}), 2-3 → 2 Haftada 1 (+${vals[2]}), 4 ve üzeri → Haftalık (+${vals[3]}).</div></div>
-    <div class="blist">${R.setup.rows.map(r => { const n = c[r.id] || 0, k = tierIdx(n); return `<div class="brow"><b>${esc(r.name)}</b><span class="n">${n}</span><span class="kp k${k}"><span>${TIER[k]}</span><span>${vals[k] ? "+" + vals[k] : "0"} puan</span></span></div>`; }).join("")}</div></div>
+  <div class="cd" style="gap:12px"><button type="button" id="rkBo" aria-expanded="${R.bo}" style="display:flex;align-items:center;gap:12px;width:100%;min-height:40px;height:auto;padding:0;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer"><span style="flex:1;min-width:0"><h2 style="margin:0">Bölüm Bazında Bonus</h2><span class="muted" style="font-size:13px;display:block;margin-top:4px;font-weight:600">${R.setup.rows.length} bölüm</span></span><span style="flex:0 0 40px;width:40px;height:40px;border-radius:12px;border:1.5px solid var(--gd);color:var(--gd);box-sizing:border-box;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(${R.bo ? 180 : 0}deg)"><path d="M6 9l6 6 6-6"/></svg></span></button>
+    ${R.bo ? `<div class="muted" style="font-size:13px;line-height:1.5">Yalnızca onaylı “Bölümden bildirim” kayıtları sayılır. Kademe: 1 bildirim → Ayda 1 (+${vals[1]}), 2-3 → 2 Haftada 1 (+${vals[2]}), 4 ve üzeri → Haftalık (+${vals[3]}).</div>
+    <div class="blist">${R.setup.rows.map(r => { const n = c[r.id] || 0, k = tierIdx(n); return `<div class="brow"><b>${esc(r.name)}</b><span class="n">${n}</span><span class="kp k${k}"><span>${TIER[k]}</span><span>${vals[k] ? "+" + vals[k] : "0"} puan</span></span></div>`; }).join("")}</div>` : ""}</div>
   <div class="cd" style="gap:12px"><button type="button" id="rkTg" aria-expanded="${R.open}" style="display:flex;align-items:center;gap:12px;width:100%;min-height:40px;height:auto;padding:0;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer"><span style="flex:1;min-width:0"><h2 style="margin:0">Bu Ayın Kayıtları</h2>
     <span class="muted" style="font-size:13px;display:block;margin-top:4px;font-weight:600">${vis.length} kayıt${wait && !GUEST.on ? ' · <i style="color:#B26A00">' + wait + " onay bekliyor</i>" : ""}</span></span>
     <span style="flex:0 0 40px;width:40px;height:40px;border-radius:12px;border:1.5px solid var(--gd);color:var(--gd);box-sizing:border-box;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(${R.open ? 180 : 0}deg)"><path d="M6 9l6 6 6-6"/></svg></span></button>
@@ -184,6 +186,7 @@ function draw() {
       <div class="rchips"><div class="chips">${pts}${stc}</div>${gv}</div>${acts.length ? `<div class="racts">${acts.join("")}</div>` : ""}</div>`;
   }).join("") || '<span class="muted">Bu ay henüz kayıt yok.</span>'}</div>` : ""}</div>`;
   v.querySelector("#rkAy").onchange = e => { R.month = +e.target.value; render(R.v, R.ctx); };
+  v.querySelector("#rkBo").onclick = () => { R.bo = !R.bo; draw(); };
   v.querySelector("#rkTg").onclick = () => { R.open = !R.open; draw(); };
   const add = v.querySelector("#rkAdd");
   if (add) add.onclick = async () => {

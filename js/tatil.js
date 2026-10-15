@@ -1,6 +1,6 @@
 // Tatil takvimi ve haftalık denetim planı (yalnızca gösterim; puanı etkilemez)
-import * as S from "./store.js?v=20261015d";
-import { esc, modal, toast, noticeBox, pickDate, fmtTarih } from "./ui.js?v=20261015d";
+import * as S from "./store.js?v=20261015e";
+import { esc, modal, toast, noticeBox, pickDate, fmtTarih } from "./ui.js?v=20261015e";
 
 const pad = n => String(n).padStart(2, "0");
 const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -142,8 +142,9 @@ export async function mount(el, st, ro) {
       if (!r) return;
       for (const [f, v] of [[D1, r.a], [E1, r.z !== r.a ? r.z : ""]]) { f.dataset.v = v; f.classList.toggle("ph", !v); f.firstElementChild.textContent = v ? fmtTarih(v) : "Tarih seç"; } });
     const sv = async fn => { try { await yaz(st.fid, st.year, fn(JSON.parse(JSON.stringify(d)))); } catch (e) { noticeBox("Kaydedilemedi", e.message); } draw(); };
+    const th = el.querySelector('[data-tk="tg"]')?.parentElement; if (th) { th.style.cursor = "pointer"; th.onclick = () => { OPEN.v = !OPEN.v; draw(); }; }
     el.querySelectorAll("[data-tk]").forEach(b => b.onclick = e => { e.preventDefault(); const k = b.dataset.tk, dd = b.dataset.d;
-      if (k === "tg") { OPEN.v = !OPEN.v; return draw(); }
+      if (k === "tg") return;
       if (k === "rm") { const zz = b.dataset.z || dd; sv(x => { const o = (x.ozel || []).filter(z => z.d < dd || z.d > zz); if (o.length !== (x.ozel || []).length) x.ozel = o; else x.kaldir = [...(x.kaldir || []), dd]; if ((x.ozel || []).length === 0) delete x.ozel; return x; }); }
       if (k === "reset") sv(x => { x.kaldir = (x.kaldir || []).filter(z => !z.startsWith(y)); return x; });
       if (k === "undo") sv(x => { delete x.karar[dd]; return x; });

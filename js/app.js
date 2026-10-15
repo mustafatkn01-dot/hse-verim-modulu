@@ -1,20 +1,20 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261015d";
-import * as S from "./store.js?v=20261015d";
-import * as Prim from "./primary.js?v=20261015d";
-import * as Denetim from "./denetim.js?v=20261015d";
-import * as Kaza from "./kaza.js?v=20261015d";
-import * as Konusma from "./konusma.js?v=20261015d";
-import * as Ramak from "./ramak.js?v=20261015d";
-import * as Genel from "./genel.js?v=20261015d";
-import * as Rapor from "./rapor.js?v=20261015d";
-import * as Verim from "./verim.js?v=20261015d";
-import * as Isbasi from "./isbasi.js?v=20261015d";
-import * as Guest from "./guest.js?v=20261015d";
-import * as Yontem from "./yontem.js?v=20261015d";
-import * as Tatil from "./tatil.js?v=20261015d";
-import * as Gorev from "./gorev.js?v=20261015d";
-import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261015d";
-import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261015d";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261015e";
+import * as S from "./store.js?v=20261015e";
+import * as Prim from "./primary.js?v=20261015e";
+import * as Denetim from "./denetim.js?v=20261015e";
+import * as Kaza from "./kaza.js?v=20261015e";
+import * as Konusma from "./konusma.js?v=20261015e";
+import * as Ramak from "./ramak.js?v=20261015e";
+import * as Genel from "./genel.js?v=20261015e";
+import * as Rapor from "./rapor.js?v=20261015e";
+import * as Verim from "./verim.js?v=20261015e";
+import * as Isbasi from "./isbasi.js?v=20261015e";
+import * as Guest from "./guest.js?v=20261015e";
+import * as Yontem from "./yontem.js?v=20261015e";
+import * as Tatil from "./tatil.js?v=20261015e";
+import * as Gorev from "./gorev.js?v=20261015e";
+import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261015e";
+import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261015e";
 
 const VERSION = "1.6.6";
 const st = { factories: [], years: [], fid: null, year: null, page: "genel", profile: {}, lastSync: new Date() };
@@ -199,7 +199,9 @@ window.addEventListener("hashchange", () => auth.currentUser && go(location.hash
 const toggleMenu = o => { $("side").classList.toggle("open", o); $("ov").classList.toggle("show", o ?? $("side").classList.contains("open")); };
 $("menuBtn").onclick = () => toggleMenu();
 $("ov").onclick = () => toggleMenu(false);
-function go(p) { st.page = PAGES.find(x => x[0] === p && !x[3]) && !(st.role === "guest" && p === "kurulum") ? p : "genel"; toggleMenu(false); render(); }
+const resetOpen = () => { for (const M of [Denetim, Kaza, Konusma, Isbasi, Ramak, Genel, Rapor, Verim, Tatil, Yontem]) M.reset?.(); };
+let lastPage = null;
+function go(p) { const np = PAGES.find(x => x[0] === p && !x[3]) ? p : "genel"; if (np !== lastPage) { resetOpen(); lastPage = np; } st.page = PAGES.find(x => x[0] === p && !x[3]) && !(st.role === "guest" && p === "kurulum") ? p : "genel"; toggleMenu(false); render(); }
 function drawNav() {
   const un = (st.fb || []).filter(x => !x.read).length, env = ic('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>');
   const fbItem = st.role === "guest" ? `<a href="#" data-fb>${env}Geri Bildirim Gönder</a>` : `<a href="#" data-fb>${env}Mesaj Kutusu${un ? '<small style="margin-left:auto;font:italic 600 12px Manrope,system-ui,sans-serif;color:#F5B700">Mesajınız var</small>' : ""}</a>`;

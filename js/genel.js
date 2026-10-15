@@ -1,11 +1,11 @@
 // Genel Bakış · yıllık özet panosu (gerçek verilerden)
-import * as S from "./store.js?v=20261015d";
-import { esc, noticeBox } from "./ui.js?v=20261015d";
-import { CATS } from "./isgcats.js?v=20261015d";
-import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261015d";
-import { load } from "./verim.js?v=20261015d";
-import * as T from "./tatil.js?v=20261015d";
-import * as Gorev from "./gorev.js?v=20261015d";
+import * as S from "./store.js?v=20261015e";
+import { esc, noticeBox } from "./ui.js?v=20261015e";
+import { CATS } from "./isgcats.js?v=20261015e";
+import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261015e";
+import { load } from "./verim.js?v=20261015e";
+import * as T from "./tatil.js?v=20261015e";
+import * as Gorev from "./gorev.js?v=20261015e";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -19,6 +19,7 @@ const f1 = n => n.toFixed(1).replace(".", ",");
 const pad = n => String(n).padStart(2, "0");
 const iso0 = (() => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; })();
 const G = { cmp: null, key: "", pw: "10", fo: false, po: false };
+export const reset = () => { G.fo = false; G.po = false; };
 const avgOf = a => { const v = a.filter(x => x !== null && x !== undefined); return v.length ? v.reduce((s, c) => s + c, 0) / v.length : null; };
 
 export async function render(v, ctx) {
