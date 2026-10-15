@@ -1,10 +1,10 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261015h";
-import { esc } from "./ui.js?v=20261015h";
-import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi } from "./scoring.js?v=20261015h";
-import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261015h";
-import { CATS } from "./isgcats.js?v=20261015h";
-import * as Gorev from "./gorev.js?v=20261015h";
+import * as S from "./store.js?v=20261015i";
+import { esc } from "./ui.js?v=20261015i";
+import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi } from "./scoring.js?v=20261015i";
+import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261015i";
+import { CATS } from "./isgcats.js?v=20261015i";
+import * as Gorev from "./gorev.js?v=20261015i";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -240,10 +240,15 @@ function draw() {
 function pdfDialog(info) {
   const n = info.names.length;
     const dm = d => (d ? `${d.slice(8, 10)}.${d.slice(5, 7)}` : "");
-  const sess = new Map(); info.details.filter(g => g.mod === "İSG Denetim").forEach(g => g.items.forEach(it => Object.values(it.by || {}).forEach(b => { const k = `${b.m}_${b.no}`, e = sess.get(k) || { m: b.m, no: b.no, ds: [] }; if (b.date) e.ds.push(b.date); sess.set(k, e); })));
-  const sl = [...sess.values()].sort((a, z) => a.m - z.m || a.no - z.no).map(e => { const ds = e.ds.sort(), rg = ds.length ? (ds[0] === ds[ds.length - 1] ? dm(ds[0]) : `${dm(ds[0])}–${dm(ds[ds.length - 1])}`) : ""; return { k: `${e.m}_${e.no}`, m: e.m, no: e.no, label: `${sess.size > 0 && new Set([...sess.values()].map(x => x.m)).size > 1 ? MS[e.m] + " · " : ""}${e.no}. Denetim${rg ? " · " + rg : ""}` }; });
+  // Denetimler bölümlere göre farklı sırada numaralanabildiği için ("1. denetim" bir bölümde geçen hafta, başka bölümde bu hafta olabilir) rapor kapsamı HAFTA bazlıdır
+  const addD = (t, n) => { const d = new Date(+t.slice(0, 4), +t.slice(5, 7) - 1, +t.slice(8, 10)); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+  const monOf = t => { const g = new Date(+t.slice(0, 4), +t.slice(5, 7) - 1, +t.slice(8, 10)).getDay(); return addD(t, g === 0 ? -6 : 1 - g); };
+  const wkNo = t => { const m = monOf(t), d = new Date(+m.slice(0, 4), +m.slice(5, 7) - 1, +m.slice(8, 10) + 3), j4 = new Date(d.getFullYear(), 0, 4); return 1 + Math.round(((d - j4) / 864e5 - 3 + ((j4.getDay() + 6) % 7)) / 7); };
+  info.wkOf = b => (b.date ? monOf(b.date) : `${b.m}_${b.no}`);
+  const sess = new Map(); info.details.filter(g => g.mod === "İSG Denetim").forEach(g => g.items.forEach(it => Object.values(it.by || {}).forEach(b => { const k = info.wkOf(b), e = sess.get(k) || { k, ds: [] }; if (b.date) e.ds.push(b.date); sess.set(k, e); })));
+  const sl = [...sess.values()].sort((a, z) => String(a.k).localeCompare(String(z.k))).map(e => { const ds = e.ds.sort(), rg = ds.length ? (ds[0] === ds[ds.length - 1] ? dm(ds[0]) : `${dm(ds[0])}–${dm(ds[ds.length - 1])}`) : ""; return { k: e.k, label: ds.length ? `${wkNo(ds[0])}. hafta${rg ? " · " + rg : ""}` : "Tarihsiz denetimler" }; });
   info.sess = sl;
-  const scopes = sl.length ? [["all", sl.length > 1 ? "Tüm denetimler (denetim bazlı)" : sl[0].label], ...(sl.length > 1 ? [["last:" + sl[sl.length - 1].k, "Son denetim · " + sl[sl.length - 1].label], ...sl.map(x => ["s:" + x.k, x.label])] : [])] : null;
+  const scopes = sl.length ? [["all", sl.length > 1 ? "Tüm haftalar (hafta bazlı)" : sl[0].label], ...(sl.length > 1 ? [["last:" + sl[sl.length - 1].k, "Son hafta · " + sl[sl.length - 1].label], ...sl.map(x => ["s:" + x.k, x.label])] : [])] : null;
   askFormat({ title: "PDF indir", text: `${info.title} · ${info.plabel}. Grafik ve açıklamalar; yöneticinize göndermek için hazırlanır (resimsiz tek sayfa).`, defOrient: n > 7 ? "landscape" : "portrait", hint: n > 7 ? `${n} bölüm olduğu için yatay düzen önerilir.` : "Az sayıda bölümde dikey düzen yeterlidir.", scopes, pics: info.details.reduce((a, g) => a + g.items.reduce((b, it) => b + (it.pics?.length || 0), 0), 0) }).then(o => o && printSheet(info, o));
 }
 
@@ -263,7 +268,7 @@ async function printSheet(info, { size, orient, pics = false, file = false, scop
   const sl = info.sess || [], sc = scope || "all";
   if (sl.length) {
     const want = sc === "all" ? sl : sl.filter(x => sc === "s:" + x.k || sc === "last:" + x.k);
-    DET = info.details.flatMap(g => g.mod !== "İSG Denetim" ? [g] : want.map(w => ({ mod: g.mod, sub: w.label, items: g.items.filter(it => it.by?.[w.no] && it.by[w.no].m === w.m).map(it => ({ ...it, pics: it.by[w.no].pics, extra: "", done: done(it.by[w.no].gk), mon: "" })) })).filter(x => x.items.length));
+    DET = info.details.flatMap(g => g.mod !== "İSG Denetim" ? [g] : want.map(w => ({ mod: g.mod, sub: w.label, items: g.items.flatMap(it => Object.values(it.by || {}).filter(b => info.wkOf(b) === w.k).map(b => ({ ...it, pics: b.pics, extra: "", done: done(b.gk), mon: "" }))) })).filter(x => x.items.length));
   }
   const usePics = pics && DET.some(g => g.items.some(i => i.pics?.length)), PH = {};
   if (usePics) await Promise.all(DET.flatMap(g => g.items.flatMap(i => i.pics || [])).map(async p => { try { PH[p.id] = await S.getPhoto(info.fid, info.year, p.id); } catch { } }));
