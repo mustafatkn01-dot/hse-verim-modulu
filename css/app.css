@@ -296,3 +296,14 @@ body,html{background:#fff!important}#app{display:block!important}.pg{padding:0!i
 .dd-o.on{background:var(--calc);font-weight:700}
 .racts>button:last-child:nth-child(odd){grid-column:1/-1}
 .dd-b .dd-ph{font-size:12.5px;font-style:italic;color:var(--muted)}
+
+/* Ramak dönem özeti */
+.seg2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.seg2 button{height:40px}.seg2 .on{background:#0B2230;color:#fff;border-color:#0B2230}
+.yr{display:flex;flex-direction:column;background:transparent;border-radius:0}
+.yrow,.mrow,.tot{display:grid;grid-template-columns:minmax(0,1fr) 36px 112px 22px;gap:8px;align-items:center}
+.yrow{padding:12px 0;border-top:1px solid var(--line);cursor:pointer}.yrow.nx{cursor:default}
+.yrow b{line-height:1.25}.yrow .n,.mrow .n,.tot .n{text-align:center;font-weight:700}
+.yrow .kp{white-space:nowrap;min-width:0;padding:6px 8px;gap:6px;font-size:12.5px}
+.mrow{padding:8px 0 8px 14px;border-top:1px dashed var(--line);font-size:13.5px;cursor:pointer}
+.sm2{font-size:12.5px;font-weight:700;text-align:right;white-space:nowrap}
+.tot{padding:12px 0 0;border-top:2px solid var(--line);font-weight:800}

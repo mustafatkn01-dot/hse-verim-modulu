@@ -1,11 +1,12 @@
 // Ramak Kala bildirimleri: ay bazında kayıt, bildiren bölümün bonus kademesi, misafir kaydı için yetkili onayı
 // Koleksiyon "ramak": her bildirim ayrı kayıt. status: approved (yetkili kaydı / onaylı) | pending (misafir, onay bekliyor) | rejected
-import * as S from "./store.js?v=20261015f";
-import * as Guest from "./guest.js?v=20261015f";
-import * as Gorev from "./gorev.js?v=20261015f";
-import { esc, toast, pickDate, fmtTarih, compressImage, showPhoto, confirmBox, GUEST, guestLock, roText } from "./ui.js?v=20261015f";
-import { CATS } from "./isgcats.js?v=20261015f";
-import { calcIsg, katsayi, bandOf, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261015f";
+import * as S from "./store.js?v=20261015g";
+import * as Guest from "./guest.js?v=20261015g";
+import * as Gorev from "./gorev.js?v=20261015g";
+import { esc, toast, pickDate, fmtTarih, compressImage, showPhoto, confirmBox, GUEST, guestLock, roText } from "./ui.js?v=20261015g";
+import { CATS } from "./isgcats.js?v=20261015g";
+import { calcIsg, katsayi, bandOf, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261015g";
+import { askFormat, savePdf } from "./pdf.js?v=20261015g";
 
 export const COLL = "ramak";
 export const TIER = ["Yok", "Ayda 1", "2 Haftada 1", "Haftalık"];
@@ -133,11 +134,55 @@ export function openForm({ st, setup, month, dept = "", recs = [], edit = null }
 }
 
 // ---- Sayfa ----
-export const reset = () => { R.open = false; R.bo = false; };
-const R = { key: "", month: null, recs: [], setup: null, open: false, bo: false, ctx: null, v: null };
+export const reset = () => { R.open = false; R.bo = false; R.sum.open = false; R.sum.exp = null; };
+const R = { key: "", month: null, recs: [], setup: null, open: false, bo: false, sum: { open: false, mode: "yil", exp: null, rows: null, isg: null, key: "" }, ctx: null, v: null };
 export function focus(month) { R.month = +month; R.key = ""; }
 const dmy = s => (s ? fmtTarih(s) : "");
 const nm = id => R.setup.rows.find(r => r.id === id)?.name || "—";
+
+
+// ---- Dönem özeti (yıllık görünüm) ----
+const KSH = ["Yok", "Ayda 1", "2 Haftada 1", "Haftalık"];
+// Seçili yılın tüm ramak kayıtları + denetim kayıtları (elle seçilen kademe için), bir kez yüklenir
+async function sumLoad(st) {
+  const key = st.fid + "/" + st.year; if (R.sum.key === key && R.sum.rows) return;
+  const [rows, isg] = await Promise.all([S.listMonthDocs(st.fid, st.year, COLL).catch(() => []), S.listMonthDocs(st.fid, st.year, "isg").catch(() => [])]);
+  R.sum.rows = rows; R.sum.isg = isg; R.sum.key = key;
+}
+// bölüm × ay tablosu: { n[dept][m], pt[dept][m], idx[dept][m] }, güncel ay canlı kayıtlardan alınır
+function sumCalc(p) {
+  const vals = [0, +p.isg.r1, +p.isg.r2, +p.isg.r3], all = (R.sum.rows || []).filter(x => +x.month !== R.month).concat(R.recs);
+  const n = {}, pt = {}, ix = {}; let saha = 0, wait = 0, okAll = 0;
+  R.setup.rows.forEach(r => { n[r.id] = {}; pt[r.id] = {}; ix[r.id] = {}; });
+  for (let m = 1; m <= 12; m++) {
+    const c = counts(all.filter(x => +x.month === m));
+    R.setup.rows.forEach(r => { const doc = (R.sum.isg || []).find(d => d.id === `${pad(m)}_${r.id}`), k = doc && isMan(doc) ? (doc.bonus || 0) : tierIdx(c[r.id] || 0); n[r.id][m] = c[r.id] || 0; ix[r.id][m] = k; pt[r.id][m] = n[r.id][m] || doc && isMan(doc) ? vals[k] : 0; });
+  }
+  all.forEach(x => { if (x.status === "pending") wait++; else if (x.status === "approved") { okAll++; if (x.src !== "b") saha++; } });
+  return { n, pt, ix, saha, wait, okAll, vals };
+}
+const sumCsv = (st, T) => {
+  const rows = [[`${st.factories?.find(f => f.id === st.fid)?.name || ""} · Ramak Kala Dönem Özeti · ${st.year}`], [], ["Bölüm", "Ay", "Puanlı bildirim", "Kademe", "Puan"]];
+  R.setup.rows.forEach(r => { for (let m = 1; m <= 12; m++) if (T.n[r.id][m] || T.pt[r.id][m]) rows.push([r.name, MONTHS[m - 1], T.n[r.id][m], KSH[T.ix[r.id][m]], T.pt[r.id][m]]); });
+  rows.push([], ["Toplam", "", R.setup.rows.reduce((a, r) => a + sumTot(T, r.id).n, 0), "", R.setup.rows.reduce((a, r) => a + sumTot(T, r.id).pt, 0)], ["Saha gözlemi (puansız)", "", T.saha]);
+  const cell = x => { const t = x === null || x === undefined ? "" : String(x); return /[;"\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
+  const blob = new Blob(["\ufeff" + rows.map(r => r.map(cell).join(";")).join("\r\n")], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `Ramak_Kala_Ozeti_${st.year}.csv`; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+};
+const sumTot = (T, id, m) => { let n = 0, pt = 0; for (let k = 1; k <= 12; k++) if (!m || k === m) { n += T.n[id][k]; pt += T.pt[id][k]; } return { n, pt }; };
+async function sumPdf(st, T) {
+  const o = await askFormat({ title: "Ramak kala özetini PDF indir", text: "Bölüm ve ay bazında bildirim sayısı ile bonus puanlar.", defOrient: "landscape", fileOnly: true }); if (!o) return;
+  const fn = st.factories?.find(f => f.id === st.fid)?.name || "", W = (o.orient === "landscape" ? 1123 : 794) - 76, b = document.createElement("div");
+  b.style.cssText = `position:fixed;left:-99999px;top:0;width:${W}px;background:#fff;color:#10201C;display:flex;flex-direction:column;gap:14px;font-family:Manrope,system-ui,sans-serif`;
+  const th = "padding:6px 4px;text-align:center;font-size:11px;color:#546964;border-bottom:2px solid #0B2230", td = "padding:7px 4px;text-align:center;font-size:12px;border-bottom:1px solid #D9E3DF";
+  b.innerHTML = `<div><h1 class="ttl" style="margin:0">Ramak Kala Dönem Özeti · ${esc(String(st.year))}</h1><div class="sub">${esc(fn)} · HSE Verim Modülü</div></div>
+   <table style="width:100%;border-collapse:collapse"><thead><tr><th style="${th};text-align:left">Bölüm</th>${MONTHS.map(m => `<th style="${th}">${m.slice(0, 3)}</th>`).join("")}<th style="${th}">Bildirim</th><th style="${th}">Puan</th></tr></thead><tbody>
+   ${R.setup.rows.map(r => { const t = sumTot(T, r.id); return `<tr><td style="${td};text-align:left;font-weight:700">${esc(r.name)}</td>${MONTHS.map((_, i) => `<td style="${td}">${T.n[r.id][i + 1] || ""}</td>`).join("")}<td style="${td};font-weight:700">${t.n}</td><td style="${td};font-weight:700">${t.pt ? "+" + t.pt : 0}</td></tr>`; }).join("")}
+   <tr><td style="${td};text-align:left;font-weight:800">Toplam</td>${MONTHS.map((_, i) => { const x = R.setup.rows.reduce((a, r) => a + T.n[r.id][i + 1], 0); return `<td style="${td};font-weight:800">${x || ""}</td>`; }).join("")}<td style="${td};font-weight:800">${R.setup.rows.reduce((a, r) => a + sumTot(T, r.id).n, 0)}</td><td style="${td};font-weight:800">+${R.setup.rows.reduce((a, r) => a + sumTot(T, r.id).pt, 0)}</td></tr></tbody></table>
+   <div class="muted" style="font-size:12px;line-height:1.6">Yalnızca onaylı “Bölümden bildirim” kayıtları puana girer. Kademe: 1 bildirim → Ayda 1 (+${T.vals[1]}), 2-3 → 2 Haftada 1 (+${T.vals[2]}), 4 ve üzeri → Haftalık (+${T.vals[3]}). Saha gözlemi (puansız): ${T.saha}.</div>`;
+  document.body.appendChild(b);
+  try { await savePdf(b, { size: o.size, orient: o.orient, name: `Ramak Kala Özeti ${st.year} (${o.size}).pdf`, margin: 28.5 * (o.size === "A3" ? 1.4142 : 1), scale: o.size === "A3" ? 3 : 2.5, header: `${fn} · Ramak Kala Dönem Özeti`, pageNo: true }); } catch (e) { toast("PDF üretilemedi: " + e.message); } finally { b.remove(); }
+}
 
 export async function render(v, ctx) {
   const { st } = ctx;
@@ -153,6 +198,21 @@ function draw() {
   const { st } = R.ctx, v = R.v, p = R.setup.params || DEFAULT_PARAMS, vals = [0, +p.isg.r1, +p.isg.r2, +p.isg.r3], c = counts(R.recs);
   const vis = R.recs.filter(r => !GUEST.on || r.status === "approved" || r.guestUid === GUEST.uid).slice().sort((a, b) => String(b.d).localeCompare(String(a.d)) || (b.at || 0) - (a.at || 0));
   const ok = R.recs.filter(r => r.status === "approved"), wait = R.recs.filter(r => r.status === "pending").length;
+  const T = !GUEST.on && R.sum.open && R.sum.rows ? sumCalc(p) : null, yr = R.sum.mode === "yil", SM = R.sum;
+  const tp = k => `<span class="kp k${k} sp1"><span>${KSH[k]}</span></span>`;
+  const sumBody = !T ? (R.sum.open ? '<div class="muted">Yükleniyor…</div>' : "") : (() => {
+    const gm = r => yr ? sumTot(T, r.id) : sumTot(T, r.id, R.month);
+    const lines = R.setup.rows.map(r => { const t = gm(r), k = yr ? tierIdx(0) : T.ix[r.id][R.month], ex = yr && SM.exp === r.id;
+      const head = `<div class="yrow${yr ? "" : " nx"}" ${yr ? `data-sx="${r.id}"` : ""}><b>${esc(r.name)}</b><span class="n">${t.n}</span>${yr ? `<span class="sm2">${t.pt ? "+" + t.pt : "0"} puan</span><span style="display:flex;justify-content:center;transform:rotate(${ex ? 90 : 0}deg)">›</span>` : `<span class="kp k${k}"><span>${KSH[k]}</span><span>${t.pt ? "+" + t.pt : "0"}</span></span><span></span>`}</div>`;
+      const mons = ex ? [...Array(12)].map((_, i) => i + 1).filter(m => T.n[r.id][m] || T.pt[r.id][m]).map(m => `<div class="mrow" data-sm="${m}"><span>${MONTHS[m - 1]}</span><span class="n">${T.n[r.id][m]}</span><span class="sm2">${KSH[T.ix[r.id][m]]} · ${T.pt[r.id][m] ? "+" + T.pt[r.id][m] : 0}</span><span style="display:flex;justify-content:center">›</span></div>`).join("") || '<div class="mrow muted"><span>Bu yıl bildirim yok</span></div>' : "";
+      return head + mons; }).join("");
+    const tn = R.setup.rows.reduce((a, r) => a + gm(r).n, 0), tpt = R.setup.rows.reduce((a, r) => a + gm(r).pt, 0);
+    return `<div class="seg2"><button type="button" class="${yr ? "sec" : "on"}" data-sm2="ay">Bu ay</button><button type="button" class="${yr ? "on" : "sec"}" data-sm2="yil">Yıl · ${esc(String(st.year))}</button></div>
+    <div class="yr">${lines}</div><div class="tot"><span>Toplam</span><span class="n">${tn}</span><span class="sm2">+${tpt} puan</span><span></span></div>
+    <div class="muted" style="font-size:12.5px">Saha gözlemi (puansız): ${T.saha} · Onay bekleyen: ${T.wait}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><button type="button" class="sec" id="rkCsv">Özeti indir (CSV)</button><button type="button" id="rkPdf">Özeti paylaş (PDF)</button></div>`; })();
+  const sumHead = T ? `${T.okAll} bildirim · ${R.setup.rows.reduce((a, r) => a + sumTot(T, r.id).n, 0)} puanlı` : "Yıl ve ay bazında bildirim ve puan özeti";
+  const sumCard = GUEST.on ? "" : `<div class="cd" style="gap:12px"><button type="button" id="rkSm" aria-expanded="${SM.open}" style="display:flex;align-items:center;gap:12px;width:100%;min-height:40px;height:auto;padding:0;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer"><span style="flex:1;min-width:0"><h2 style="margin:0">Dönem Özeti</h2><span class="muted" style="font-size:13px;display:block;margin-top:4px;font-weight:600">${SM.open ? esc(String(st.year)) + " · " : ""}${sumHead}</span></span><span style="flex:0 0 40px;width:40px;height:40px;border-radius:12px;border:1.5px solid var(--gd);color:var(--gd);box-sizing:border-box;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(${SM.open ? 180 : 0}deg)"><path d="M6 9l6 6 6-6"/></svg></span></button>${sumBody}</div>`;
   v.innerHTML = `
   <div><div class="hd" style="letter-spacing:.8px">AYLIK VERİ GİRİŞİ</div><h1 class="ttl">Ramak Kala Bildirimleri</h1>
     <div class="sub">Bölümlerden gelen ramak kala bildirimlerini ekleyin. Bildirimi yapan bölüm, ay içindeki bildirim sayısına göre bonus puan alır. Saha gözlemi puan getirmez, yalnızca takip edilir.</div></div>
@@ -167,6 +227,7 @@ function draw() {
   <div class="cd" style="gap:12px"><button type="button" id="rkBo" aria-expanded="${R.bo}" style="display:flex;align-items:center;gap:12px;width:100%;min-height:40px;height:auto;padding:0;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer"><span style="flex:1;min-width:0"><h2 style="margin:0">Bölüm Bazında Bonus</h2><span class="muted" style="font-size:13px;display:block;margin-top:4px;font-weight:600">${R.setup.rows.length} bölüm</span></span><span style="flex:0 0 40px;width:40px;height:40px;border-radius:12px;border:1.5px solid var(--gd);color:var(--gd);box-sizing:border-box;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(${R.bo ? 180 : 0}deg)"><path d="M6 9l6 6 6-6"/></svg></span></button>
     ${R.bo ? `<div class="muted" style="font-size:13px;line-height:1.5">Yalnızca onaylı “Bölümden bildirim” kayıtları sayılır. Kademe: 1 bildirim → Ayda 1 (+${vals[1]}), 2-3 → 2 Haftada 1 (+${vals[2]}), 4 ve üzeri → Haftalık (+${vals[3]}).</div>
     <div class="blist">${R.setup.rows.map(r => { const n = c[r.id] || 0, k = tierIdx(n); return `<div class="brow"><b>${esc(r.name)}</b><span class="n">${n}</span><span class="kp k${k}"><span>${TIER[k]}</span><span>${vals[k] ? "+" + vals[k] : "0"} puan</span></span></div>`; }).join("")}</div>` : ""}</div>
+  ${sumCard}
   <div class="cd" style="gap:12px"><button type="button" id="rkTg" aria-expanded="${R.open}" style="display:flex;align-items:center;gap:12px;width:100%;min-height:40px;height:auto;padding:0;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer"><span style="flex:1;min-width:0"><h2 style="margin:0">Bu Ayın Kayıtları</h2>
     <span class="muted" style="font-size:13px;display:block;margin-top:4px;font-weight:600">${vis.length} kayıt${wait && !GUEST.on ? ' · <i style="color:#B26A00">' + wait + " onay bekliyor</i>" : ""}</span></span>
     <span style="flex:0 0 40px;width:40px;height:40px;border-radius:12px;border:1.5px solid var(--gd);color:var(--gd);box-sizing:border-box;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(${R.open ? 180 : 0}deg)"><path d="M6 9l6 6 6-6"/></svg></span></button>
@@ -186,6 +247,15 @@ function draw() {
       <div class="rchips"><div class="chips">${pts}${stc}</div>${gv}</div>${acts.length ? `<div class="racts">${acts.join("")}</div>` : ""}</div>`;
   }).join("") || '<span class="muted">Bu ay henüz kayıt yok.</span>'}</div>` : ""}</div>`;
   v.querySelector("#rkAy").onchange = e => { R.month = +e.target.value; render(R.v, R.ctx); };
+  const smb = v.querySelector("#rkSm");
+  if (smb) {
+    smb.onclick = async () => { R.sum.open = !R.sum.open; draw(); if (R.sum.open && (!R.sum.rows || R.sum.key !== R.ctx.st.fid + "/" + R.ctx.st.year)) { await sumLoad(R.ctx.st); if (R.sum.open) draw(); } };
+    v.querySelectorAll("[data-sm2]").forEach(b => b.onclick = () => { R.sum.mode = b.dataset.sm2; R.sum.exp = null; draw(); });
+    v.querySelectorAll("[data-sx]").forEach(b => b.onclick = () => { R.sum.exp = R.sum.exp === b.dataset.sx ? null : b.dataset.sx; draw(); });
+    v.querySelectorAll("[data-sm]").forEach(b => b.onclick = async () => { R.month = +b.dataset.sm; R.open = true; await render(R.v, R.ctx); document.getElementById("rkTg")?.scrollIntoView({ block: "start", behavior: "smooth" }); });
+    v.querySelector("#rkCsv")?.addEventListener("click", () => sumCsv(R.ctx.st, sumCalc(R.setup.params || DEFAULT_PARAMS)));
+    v.querySelector("#rkPdf")?.addEventListener("click", () => sumPdf(R.ctx.st, sumCalc(R.setup.params || DEFAULT_PARAMS)));
+  }
   v.querySelector("#rkBo").onclick = () => { R.bo = !R.bo; draw(); };
   v.querySelector("#rkTg").onclick = () => { R.open = !R.open; draw(); };
   const add = v.querySelector("#rkAdd");
