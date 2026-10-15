@@ -1,11 +1,11 @@
 // Ramak Kala bildirimleri: ay bazında kayıt, bildiren bölümün bonus kademesi, misafir kaydı için yetkili onayı
 // Koleksiyon "ramak": her bildirim ayrı kayıt. status: approved (yetkili kaydı / onaylı) | pending (misafir, onay bekliyor) | rejected
-import * as S from "./store.js?v=20261015b";
-import * as Guest from "./guest.js?v=20261015b";
-import * as Gorev from "./gorev.js?v=20261015b";
-import { esc, toast, pickDate, fmtTarih, compressImage, showPhoto, confirmBox, GUEST, guestLock, roText } from "./ui.js?v=20261015b";
-import { CATS } from "./isgcats.js?v=20261015b";
-import { calcIsg, katsayi, bandOf, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261015b";
+import * as S from "./store.js?v=20261015c";
+import * as Guest from "./guest.js?v=20261015c";
+import * as Gorev from "./gorev.js?v=20261015c";
+import { esc, toast, pickDate, fmtTarih, compressImage, showPhoto, confirmBox, GUEST, guestLock, roText } from "./ui.js?v=20261015c";
+import { CATS } from "./isgcats.js?v=20261015c";
+import { calcIsg, katsayi, bandOf, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261015c";
 
 export const COLL = "ramak";
 export const TIER = ["Yok", "Ayda 1", "2 Haftada 1", "Haftalık"];
@@ -40,6 +40,24 @@ export async function syncBonus(fid, year, month, setup, recs) {
   }
 }
 
+
+// Açılır liste: işletim sisteminin ayrı seçim penceresi yerine, kutunun hemen altında açılan liste
+const CHV = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+function ddHtml(id, opts, val, label) {
+  const cur = opts.find(o => o[0] === val) || opts[0];
+  return `<div class="dd" data-dd="${id}"><input type="hidden" id="${id}" value="${esc(val)}"><button type="button" class="inp dd-b" aria-haspopup="listbox" aria-expanded="false" aria-label="${esc(label)}"><span>${esc(cur[1])}</span>${CHV}</button>
+    <div class="dd-l" role="listbox" hidden>${opts.map(o => `<button type="button" role="option" class="dd-o${o[0] === val ? " on" : ""}" data-v="${esc(o[0])}">${esc(o[1])}</button>`).join("")}</div></div>`;
+}
+function ddBind(root, onPick) {
+  root.querySelectorAll(".dd").forEach(d => {
+    const b = d.querySelector(".dd-b"), l = d.querySelector(".dd-l"), h = d.querySelector("input");
+    const set = (v, fire) => { h.value = v; d.querySelectorAll(".dd-o").forEach(o => { const on = o.dataset.v === v; o.classList.toggle("on", on); if (on) b.firstElementChild.textContent = o.textContent; }); if (fire) onPick(d.dataset.dd, v); };
+    d._set = set;
+    b.onclick = () => { const o = l.hidden; root.querySelectorAll(".dd-l").forEach(x => { x.hidden = true; }); root.querySelectorAll(".dd-b").forEach(x => x.setAttribute("aria-expanded", "false")); l.hidden = !o; b.setAttribute("aria-expanded", String(o)); if (o) l.scrollIntoView({ block: "nearest" }); };
+    l.querySelectorAll(".dd-o").forEach(o => o.onclick = () => { set(o.dataset.v, true); l.hidden = true; b.setAttribute("aria-expanded", "false"); });
+  });
+}
+
 // ---- Bildirim ekranı ----
 // ctx: { st, setup, month, dept, recs } → eklenen kayıt veya null
 export function openForm({ st, setup, month, dept = "", recs = [], edit = null }) {
@@ -53,8 +71,8 @@ export function openForm({ st, setup, month, dept = "", recs = [], edit = null }
     m.innerHTML = `<div class="mbox rk" role="dialog" aria-modal="true" aria-labelledby="rkT">
       <h2 id="rkT">${edit ? "Ramak Kala Bildirimini Düzenle" : "Ramak Kala Bildirimi"}</h2>
       <div class="muted" style="font-size:13px;line-height:1.5">${edit ? "Değişiklik kaydedilince listede güncellenir." : owner ? "Kayıt hemen listeye eklenir." : "Kayıt yetkili onayından sonra puana sayılır."}</div>
-      <div class="f"><label for="rkSrc">KAYNAK</label><select id="rkSrc" class="inp"><option value="b">Bölümden bildirim (puanlı)</option><option value="s">Saha gözlemi (puansız, yalnızca takip)</option></select></div>
-      <div class="two" id="rkB"><div class="f"><label for="rkD">BİLDİREN BÖLÜM <span class="req">*</span></label><select id="rkD" class="inp"><option value="">Seçin</option>${setup.rows.map(r => `<option value="${esc(r.id)}" ${r.id === dept ? "selected" : ""}>${esc(r.name)}</option>`).join("")}</select></div>
+      <div class="f"><label>KAYNAK</label>${ddHtml("rkSrc", [["b", "Bölümden bildirim (puanlı)"], ["s", "Saha gözlemi (puansız, yalnızca takip)"]], f.src, "Kaynak")}</div>
+      <div class="two" id="rkB"><div class="f"><label>BİLDİREN BÖLÜM <span class="req">*</span></label>${ddHtml("rkD", [["", "Seçin"], ...setup.rows.map(r => [r.id, r.name])], dept, "Bildiren bölüm")}</div>
         <div class="f"><label for="rkW">BİLDİREN KİŞİ <span class="req">*</span></label><input id="rkW" class="inp" placeholder="Ad Soyad" autocomplete="off" maxlength="80"></div></div>
       <div class="two"><div class="f"><label>TARİH <span class="req">*</span></label><button type="button" class="inp" id="rkT2" style="display:flex;align-items:center;justify-content:space-between;text-align:left"><span id="rkTt">${fmtTarih(f.d)}</span></button></div>
         <div class="f"><label for="rkP">OLAY YERİ / MAKİNE</label><input id="rkP" class="inp" placeholder="Örn. Pres 3 yanı" autocomplete="off" maxlength="120"></div></div>
@@ -76,9 +94,8 @@ export function openForm({ st, setup, month, dept = "", recs = [], edit = null }
       e.innerHTML = owner ? `<b>${esc(row.name)}</b>: bu ayki bildirim ${n0} → <b>${n1}</b>. Kademe: <b>${TIER[k1]}</b> (+${v[k1]} puan${k1 !== k0 ? `, şu an +${v[k0]}` : ""}).`
         : `<b>${esc(row.name)}</b> için bu kayıt yetkili onayından sonra sayılır. Şu an ${n0} onaylı bildirim, kademe <b>${TIER[k0]}</b>.`;
     };
-    const sync = () => { q("#rkSrc").value = f.src; q("#rkB").style.display = f.src === "s" ? "none" : ""; eff(); };
-    q("#rkSrc").onchange = e => { f.src = e.target.value; sync(); };
-    q("#rkD").onchange = eff;
+    const sync = () => { q("#rkB").style.display = f.src === "s" ? "none" : ""; eff(); };
+    ddBind(m, (id, v) => { if (id === "rkSrc") { f.src = v; sync(); } else eff(); });
     q("#rkT2").onclick = async () => { const r = await pickDate({ title: "Tarih", min: ms, max: maxD, a: f.d, view: ms }); if (r?.a) { f.d = r.a; q("#rkTt").textContent = fmtTarih(f.d); } };
     q("#rkF").onchange = q("#rkFc").onchange = async e => {
       const files = [...e.target.files]; e.target.value = ""; q("#rkR").textContent = files.length ? "Fotoğraf hazırlanıyor…" : "";
@@ -153,9 +170,9 @@ function draw() {
     ${R.open ? `<div>${vis.map(r => {
     const pts = r.src === "b" ? (r.status === "approved" ? `<span class="chip pts">Puanlı · ${esc(nm(r.dept))}</span>` : "") : `<span class="chip">Saha gözlemi · puan yok</span>`;
     const stc = r.status === "pending" ? `<span class="chip wait">Onay bekliyor · puan sayılmadı</span>` : r.status === "rejected" ? `<span class="chip rej">Reddedildi</span>` : "";
-    const mine = GUEST.on && r.guestUid === GUEST.uid, acts = [];
+    let gv = ""; const mine = GUEST.on && r.guestUid === GUEST.uid, acts = [];
     if (!GUEST.on && !R.ro && r.status === "pending") acts.push(`<button class="sm" data-ra="ok|${r.id}">Onayla</button><button class="sm sec" data-ra="no|${r.id}">Reddet</button>`);
-    if (!GUEST.on && r.status === "approved") acts.push(Gorev.chip(Gorev.noteKey("r", st.fid, st.year, R.month, r.dept || "saha", r.id, r.txt), { tip: "ramak", fab: st.factories?.find(f => f.id === st.fid)?.name || "", yil: +st.year, ay: R.month, tarih: r.d, bolum: r.src === "b" ? nm(r.dept) : "", kisi: r.who || "", yer: r.place || "", metin: r.txt, oneri: r.tip || "", ...(r.photos?.[0]?.id ? { fotoId: r.photos[0].id, fotoFid: st.fid, fotoYil: st.year } : {}), url: location.origin + location.pathname + "#ramak" }));
+    if (!GUEST.on && r.status === "approved") gv = Gorev.chip(Gorev.noteKey("r", st.fid, st.year, R.month, r.dept || "saha", r.id, r.txt), { tip: "ramak", fab: st.factories?.find(f => f.id === st.fid)?.name || "", yil: +st.year, ay: R.month, tarih: r.d, bolum: r.src === "b" ? nm(r.dept) : "", kisi: r.who || "", yer: r.place || "", metin: r.txt, oneri: r.tip || "", ...(r.photos?.[0]?.id ? { fotoId: r.photos[0].id, fotoFid: st.fid, fotoYil: st.year } : {}), url: location.origin + location.pathname + "#ramak" });
     if (!GUEST.on && !R.ro) acts.push(`<button class="sm sec" data-ra="edit|${r.id}">Düzenle</button>`);
     if (GUEST.on ? mine && r.status === "pending" : !R.ro) acts.push(`<button class="sm sec" data-ra="del|${r.id}" style="color:#B3261E;border-color:#B3261E">Sil</button>`);
     const who = r.src === "b" ? `Bildiren: <b>${esc(nm(r.dept))}</b> · ${esc(r.who)}` : "Saha gözlemi";
@@ -163,7 +180,7 @@ function draw() {
       <div class="muted" style="font-size:13px">${who}${r.place ? " · " + esc(r.place) : ""}</div>
       <div class="rt">${esc(r.txt)}${r.tip ? ` <i>Öneri: ${esc(r.tip)}</i>` : ""}</div>
       ${r.photos?.length ? `<div class="rphs">${r.photos.map(ph => `<img src="${ph.t}" data-pv="${ph.id}" alt="Fotoğraf">`).join("")}</div>` : ""}
-      <div class="chips">${pts}${stc}</div>${acts.length ? `<div class="row" style="gap:8px">${acts.join("")}</div>` : ""}</div>`;
+      <div class="rchips"><div class="chips">${pts}${stc}</div>${gv}</div>${acts.length ? `<div class="racts">${acts.join("")}</div>` : ""}</div>`;
   }).join("") || '<span class="muted">Bu ay henüz kayıt yok.</span>'}</div>` : ""}</div>`;
   v.querySelector("#rkAy").onchange = e => { R.month = +e.target.value; render(R.v, R.ctx); };
   v.querySelector("#rkTg").onclick = () => { R.open = !R.open; draw(); };

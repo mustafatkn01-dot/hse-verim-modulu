@@ -281,3 +281,17 @@ body,html{background:#fff!important}#app{display:block!important}.pg{padding:0!i
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
 .tile{padding:14px!important;gap:6px!important;min-width:0}.tile b{font:700 28px Sora,sans-serif}.tile .hd{font-size:11px;letter-spacing:.6px}
 @media (max-width:420px){.tile b{font-size:24px}}
+.rchips{display:flex;align-items:center;justify-content:space-between;gap:8px 10px;flex-wrap:wrap}
+.rchips:empty{display:none}
+.rchips .gk{margin-left:auto!important;flex:0 0 auto!important}
+.racts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.racts button{width:100%}
+.dd{position:relative}
+.dd-b{display:flex!important;align-items:center;justify-content:space-between;gap:8px;text-align:left;cursor:pointer;font-weight:400}
+.dd-b span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dd-l{margin-top:6px;border:1px solid var(--inl);border-radius:10px;background:var(--card);max-height:220px;overflow:auto}
+.dd-l[hidden]{display:none}
+.dd-o{display:block;width:100%;height:auto;min-height:44px;padding:10px 12px;border:0;border-top:1px solid var(--line);border-radius:0;background:transparent;color:var(--text);text-align:left;font-weight:400;font-size:14.5px}
+.dd-o:first-child{border-top:0}
+.dd-o.on{background:var(--calc);font-weight:700}
+.racts>button:last-child:nth-child(odd){grid-column:1/-1}
