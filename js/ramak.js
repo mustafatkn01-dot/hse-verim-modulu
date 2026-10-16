@@ -1,12 +1,12 @@
 // Ramak Kala bildirimleri: ay bazında kayıt, bildiren bölümün bonus kademesi, misafir kaydı için yetkili onayı
 // Koleksiyon "ramak": her bildirim ayrı kayıt. status: approved (yetkili kaydı / onaylı) | pending (misafir, onay bekliyor) | rejected
-import * as S from "./store.js?v=20261016g";
-import * as Guest from "./guest.js?v=20261016g";
-import * as Gorev from "./gorev.js?v=20261016g";
-import { esc, toast, pickDate, fmtTarih, compressImage, showPhoto, confirmBox, GUEST, guestLock, roText } from "./ui.js?v=20261016g";
-import { CATS } from "./isgcats.js?v=20261016g";
-import { calcIsg, katsayi, bandOf, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261016g";
-import { askFormat, savePdf } from "./pdf.js?v=20261016g";
+import * as S from "./store.js?v=20261016h";
+import * as Guest from "./guest.js?v=20261016h";
+import * as Gorev from "./gorev.js?v=20261016h";
+import { esc, toast, pickDate, fmtTarih, compressImage, showPhoto, confirmBox, GUEST, guestLock, roText } from "./ui.js?v=20261016h";
+import { CATS } from "./isgcats.js?v=20261016h";
+import { calcIsg, katsayi, bandOf, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261016h";
+import { askFormat, savePdf } from "./pdf.js?v=20261016h";
 
 export const COLL = "ramak";
 export const TIER = ["Yok", "Ayda 1", "2 Haftada 1", "Haftalık"];
@@ -193,22 +193,24 @@ export async function render(v, ctx) {
   R.recs = await load(st.fid, st.year, R.month).catch(() => []);
   R.ro = String(st.year) !== String(st.active) || guestLock(st.year, R.month);
   draw();
+  // Dönem Özeti verisini arka planda hazırla; kart açıldığında bekletmesin
+  if (!GUEST.on) sumLoad(st).then(() => { if (R.sum.open && R.ctx === ctx) draw(); }).catch(() => {});
 }
 function draw() {
   const { st } = R.ctx, v = R.v, p = R.setup.params || DEFAULT_PARAMS, vals = [0, +p.isg.r1, +p.isg.r2, +p.isg.r3], c = counts(R.recs);
   const vis = R.recs.filter(r => !GUEST.on || r.status === "approved" || r.guestUid === GUEST.uid).slice().sort((a, b) => String(b.d).localeCompare(String(a.d)) || (b.at || 0) - (a.at || 0));
   const ok = R.recs.filter(r => r.status === "approved"), wait = R.recs.filter(r => r.status === "pending").length;
-  const T = !GUEST.on && R.sum.open && R.sum.rows ? sumCalc(p) : null, yr = R.sum.mode === "yil", SM = R.sum;
+  const T = !GUEST.on && R.sum.open && R.sum.rows && R.sum.key === st.fid + "/" + st.year ? sumCalc(p) : null, yr = R.sum.mode === "yil", SM = R.sum;
   const tp = k => `<span class="kp k${k} sp1"><span>${KSH[k]}</span></span>`;
   const sumBody = !T ? (R.sum.open ? '<div class="muted">Yükleniyor…</div>' : "") : (() => {
     const gm = r => yr ? sumTot(T, r.id) : sumTot(T, r.id, R.month);
     const lines = R.setup.rows.map(r => { const t = gm(r), k = yr ? tierIdx(0) : T.ix[r.id][R.month], ex = yr && SM.exp === r.id;
-      const head = `<div class="yrow${yr ? "" : " nx"}" ${yr ? `data-sx="${r.id}"` : ""}><b>${esc(r.name)}</b><span class="n">${t.n}</span>${yr ? `<span class="sm2">${t.pt ? "+" + t.pt : "0"} puan</span><span style="display:flex;justify-content:center;transform:rotate(${ex ? 90 : 0}deg)">›</span>` : `<span class="kp k${k}"><span>${KSH[k]}</span><span>${t.pt ? "+" + t.pt : "0"}</span></span><span></span>`}</div>`;
+      const head = `<div class="yrow${yr ? "" : " nox"}" ${yr ? `data-sx="${r.id}"` : ""}><b>${esc(r.name)}</b><span class="n">${t.n}</span>${yr ? `<span class="sm2">${t.pt ? "+" + t.pt : "0"} puan</span><span style="display:flex;justify-content:center;transform:rotate(${ex ? 90 : 0}deg)">›</span>` : `<span class="kp k${k}"><span>${KSH[k]}</span><span>${t.pt ? "+" + t.pt : "0"}</span></span><span></span>`}</div>`;
       const mons = ex ? [...Array(12)].map((_, i) => i + 1).filter(m => T.n[r.id][m] || T.pt[r.id][m]).map(m => `<div class="mrow" data-sm="${m}"><span>${MONTHS[m - 1]}</span><span class="n">${T.n[r.id][m]}</span><span class="sm2">${KSH[T.ix[r.id][m]]} · ${T.pt[r.id][m] ? "+" + T.pt[r.id][m] : 0}</span><span style="display:flex;justify-content:center">›</span></div>`).join("") || '<div class="mrow muted"><span>Bu yıl bildirim yok</span></div>' : "";
       return head + mons; }).join("");
     const tn = R.setup.rows.reduce((a, r) => a + gm(r).n, 0), tpt = R.setup.rows.reduce((a, r) => a + gm(r).pt, 0);
     return `<div class="seg2"><button type="button" class="${yr ? "sec" : "on"}" data-sm2="ay">Bu ay</button><button type="button" class="${yr ? "on" : "sec"}" data-sm2="yil">Yıl · ${esc(String(st.year))}</button></div>
-    <div class="yr">${lines}</div><div class="tot"><span>Toplam</span><span class="n">${tn}</span><span class="sm2">+${tpt} puan</span><span></span></div>
+    <div class="yrl">${lines}</div><div class="tot"><span>Toplam</span><span class="n">${tn}</span><span class="sm2">+${tpt} puan</span><span></span></div>
     <div class="muted" style="font-size:12.5px">Saha gözlemi (puansız): ${T.saha} · Onay bekleyen: ${T.wait}</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><button type="button" class="sec" id="rkCsv">Özeti indir (CSV)</button><button type="button" id="rkPdf">Özeti paylaş (PDF)</button></div>`; })();
   const sumHead = T ? `${T.okAll} bildirim · ${R.setup.rows.reduce((a, r) => a + sumTot(T, r.id).n, 0)} puanlı` : "Yıl ve ay bazında bildirim ve puan özeti";

@@ -279,7 +279,7 @@ body,html{background:#fff!important}#app{display:block!important}.pg{padding:0!i
 .mbox.rk .eff.no{background:var(--calc);border-color:var(--line);color:var(--calct)}
 @media (max-width:420px){.mbox.rk .two{grid-template-columns:1fr}}
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-.tile{padding:14px!important;gap:6px!important;min-width:0}.tile b{font:700 28px Sora,sans-serif}.tile .hd{font-size:11px;letter-spacing:.6px}
+.tile{padding:14px!important;gap:6px!important;min-width:0;display:flex;flex-direction:column}.tile b{margin-top:auto}.tile b{font:700 28px Sora,sans-serif}.tile .hd{font-size:11px;letter-spacing:.6px}
 @media (max-width:420px){.tile b{font-size:24px}}
 .rchips{display:flex;align-items:center;justify-content:space-between;gap:8px 10px;flex-wrap:wrap}
 .rchips:empty{display:none}
@@ -299,9 +299,9 @@ body,html{background:#fff!important}#app{display:block!important}.pg{padding:0!i
 
 /* Ramak dönem özeti */
 .seg2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.seg2 button{height:40px}.seg2 .on{background:#0B2230;color:#fff;border-color:#0B2230}
-.yr{display:flex;flex-direction:column;background:transparent;border-radius:0}
+.yrl{display:flex;flex-direction:column}
 .yrow,.mrow,.tot{display:grid;grid-template-columns:minmax(0,1fr) 36px 112px 22px;gap:8px;align-items:center}
-.yrow{padding:12px 0;border-top:1px solid var(--line);cursor:pointer}.yrow.nx{cursor:default}
+.yrow{padding:12px 0;border-top:1px solid var(--line);cursor:pointer}.yrow.nox{cursor:default}
 .yrow b{line-height:1.25}.yrow .n,.mrow .n,.tot .n{text-align:center;font-weight:700}
 .yrow .kp{white-space:nowrap;min-width:0;padding:6px 8px;gap:6px;font-size:12.5px}
 .mrow{padding:8px 0 8px 14px;border-top:1px dashed var(--line);font-size:13.5px;cursor:pointer}
