@@ -1,20 +1,21 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261015k";
-import * as S from "./store.js?v=20261015k";
-import * as Prim from "./primary.js?v=20261015k";
-import * as Denetim from "./denetim.js?v=20261015k";
-import * as Kaza from "./kaza.js?v=20261015k";
-import * as Konusma from "./konusma.js?v=20261015k";
-import * as Ramak from "./ramak.js?v=20261015k";
-import * as Genel from "./genel.js?v=20261015k";
-import * as Rapor from "./rapor.js?v=20261015k";
-import * as Verim from "./verim.js?v=20261015k";
-import * as Isbasi from "./isbasi.js?v=20261015k";
-import * as Guest from "./guest.js?v=20261015k";
-import * as Yontem from "./yontem.js?v=20261015k";
-import * as Tatil from "./tatil.js?v=20261015k";
-import * as Gorev from "./gorev.js?v=20261015k";
-import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261015k";
-import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261015k";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261016a";
+import * as S from "./store.js?v=20261016a";
+import * as Prim from "./primary.js?v=20261016a";
+import * as Denetim from "./denetim.js?v=20261016a";
+import * as Kaza from "./kaza.js?v=20261016a";
+import * as Konusma from "./konusma.js?v=20261016a";
+import * as Ramak from "./ramak.js?v=20261016a";
+import * as Genel from "./genel.js?v=20261016a";
+import * as Rapor from "./rapor.js?v=20261016a";
+import * as Verim from "./verim.js?v=20261016a";
+import * as Isbasi from "./isbasi.js?v=20261016a";
+import * as Guest from "./guest.js?v=20261016a";
+import * as Yontem from "./yontem.js?v=20261016a";
+import * as Tatil from "./tatil.js?v=20261016a";
+import * as Gorev from "./gorev.js?v=20261016a";
+import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261016a";
+import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261016a";
+const PEND_META = { isbasig: ["isbasi", "İşbaşı Eğitim"], konusmag: ["konusma", "Eğitim Konuşması"], kazag: ["kaza", "İş Kazası"] };
 
 const VERSION = "1.6.6";
 const st = { factories: [], years: [], fid: null, year: null, page: "genel", profile: {}, lastSync: new Date() };
@@ -202,17 +203,48 @@ $("ov").onclick = () => toggleMenu(false);
 const resetOpen = () => { for (const M of [Denetim, Kaza, Konusma, Isbasi, Ramak, Genel, Rapor, Verim, Tatil, Yontem]) M.reset?.(); };
 let lastPage = null;
 function go(p) { const np = PAGES.find(x => x[0] === p && !x[3]) ? p : "genel"; if (np !== lastPage) { resetOpen(); lastPage = np; } st.page = PAGES.find(x => x[0] === p && !x[3]) && !(st.role === "guest" && p === "kurulum") ? p : "genel"; toggleMenu(false); render(); }
+// ---------- Onay bekleyen misafir kayıtları (işbaşı · konuşma · kaza) ----------
+let pendKey = "", pendOff = [], pendSeen = {}, pendFirst = {};
+function pendRecalc() {
+  const list = []; Object.entries(st.pendBy || {}).forEach(([c, a]) => a.forEach(x => list.push({ ...x, coll: c })));
+  st.pend = { list, n: { isbasi: 0, konusma: 0, kaza: 0, ...Object.fromEntries(Object.entries(PEND_META).map(([c, m]) => [m[0], (st.pendBy?.[c] || []).length])) } };
+}
+function ensurePend() {
+  if (st.role !== "owner" || !st.fid || !st.year) return;
+  const key = st.fid + "/" + st.year; if (key === pendKey) return;
+  pendOff.forEach(f => f?.()); pendOff = []; pendKey = key; st.pendBy = {}; pendSeen = {}; pendFirst = {};
+  Object.keys(PEND_META).forEach(c => {
+    pendOff.push(S.watchColl(st.fid, st.year, c, rows => {
+      const pend = rows.filter(x => x.status === "pending"); st.pendBy[c] = pend;
+      const fresh = pend.filter(x => !pendSeen[c + x.id]); pend.forEach(x => { pendSeen[c + x.id] = 1; });
+      pendRecalc(); drawNav();
+      if (!pendFirst[c]) { pendFirst[c] = 1; if (fresh.length && !pendNoteDone) { pendNoteDone = 1; toast(`${fresh.length} misafir kaydı onay bekliyor.`); } }
+      else if (fresh.length) { const m = PEND_META[c][1], x = fresh[fresh.length - 1], msg = `${x.guestName || "Misafir"} · ${m}: onayınızı bekliyor.`; toast(msg); Guest.notify("HSE Verim · " + m, msg, location.pathname + "#" + PEND_META[c][0]); }
+      if (st.page === "genel") render(); else if (st.page === PEND_META[c][0] && !document.querySelector(".mod")) render();
+    }));
+  });
+}
+let pendNoteDone = 0;
+async function pendBoxHTML() {
+  const L = st.pend?.list || []; if (!L.length) return "";
+  let rows = {}; try { (await S.getSetup(st.fid, st.year))?.rows?.forEach(r => { rows[r.id] = r.name; }); } catch {}
+  const MN = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
+  const txt = x => x.coll === "isbasig" ? `${x.g ?? 0} giriş / ${x.e ?? 0} eğitim` : x.coll === "konusmag" ? `${x.min} dk` : "kaza kaydı";
+  return `<div class="cd" style="gap:12px"><div><h2>Onay bekleyen misafir kayıtları (${L.length})</h2><div class="muted" style="font-size:13px">Onaylanana kadar verim hesabına katılmaz.</div></div>
+    <div class="col1" style="gap:8px">${L.sort((a, b) => (b.at || 0) - (a.at || 0)).map(x => `<div class="it" style="gap:10px;flex-wrap:wrap"><div class="grow"><b>${esc(rows[x.dept] || "—")}</b> <span class="tag" style="background:#FBE9C6;color:#6B3F00">${PEND_META[x.coll][1]}</span>
+      <div class="muted" style="font-size:12.5px">${esc(txt(x))} · ${MN[(+x.month || 1) - 1]} · ${esc(x.guestName || "Misafir")}</div></div><button class="sm" data-pg="${PEND_META[x.coll][0]}" data-pm="${+x.month || ""}">Aç</button></div>`).join("")}</div></div>`;
+}
 function drawNav() {
   const un = (st.fb || []).filter(x => !x.read).length, env = ic('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>');
   const fbItem = st.role === "guest" ? `<a href="#" data-fb>${env}Geri Bildirim Gönder</a>` : `<a href="#" data-fb>${env}Mesaj Kutusu${un ? '<small style="margin-left:auto;font:italic 600 12px Manrope,system-ui,sans-serif;color:#F5B700">Mesajınız var</small>' : ""}</a>`;
   $("nav").innerHTML = `<div class="brand"><div class="logo"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8.2-7 10-4-1.8-7-5.5-7-10V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg></div><div><b>HSE Verim Modülü</b><small>Performans Takip</small></div></div>`
     + GROUPS.map(([t, items]) => `<div class="grp"><div class="t">${t}</div>` + items.filter(i => !(st.role === "guest" && i[0] === "kurulum")).map(([k, n, d, soon]) =>
-      `<a href="#${k}" class="${st.page === k ? "on" : ""} ${soon ? "soon" : ""}">${ic(d)}${n}${soon ? ' <small style="margin-left:auto;font-size:10px">yakında</small>' : ""}</a>`).join("") + (t === "RAPOR" ? fbItem : "") + `</div>`).join("")
+      `<a href="#${k}" class="${st.page === k ? "on" : ""} ${soon ? "soon" : ""}">${ic(d)}${n}${soon ? ' <small style="margin-left:auto;font-size:10px">yakında</small>' : ""}${st.role === "owner" && st.pend?.n?.[k] ? `<small style="margin-left:auto;background:#F5B700;color:#3B2B00;border-radius:10px;padding:1px 8px;font:700 11px Manrope,system-ui,sans-serif">${st.pend.n[k]}</small>` : ""}</a>`).join("") + (t === "RAPOR" ? fbItem : "") + `</div>`).join("")
     + `<div class="goal"><b>Hedef: Sıfır Zarar</b><span>Güvenli çalış. Ölç. Geliştir.</span><div class="dots"><i style="background:#17A06F"></i><i style="background:#2A82C4"></i><i style="background:#F5B700"></i><i style="background:#D6382E"></i></div></div>`;
   $("nav").querySelector("[data-fb]")?.addEventListener("click", e => { e.preventDefault(); toggleMenu(false); if (st.role === "guest") Guest.feedbackDialog(); else Guest.inboxDialog(Guest.ownerUid(), st.fb || [], () => drawNav()); });
 }
 async function render() {
-  drawNav();
+  ensurePend(); drawNav();
   const v = $("view");
   if (st.page === "ayarlar") return st.role === "guest" ? pageGuestAyarlar(v) : pageAyarlar(v);
   if (!st.fid || !st.year) {
@@ -228,7 +260,12 @@ async function render() {
   if (st.page === "kaza") return Kaza.render(v, { st });
   if (st.page === "denetim") return Denetim.render(v, { st });
   await Genel.render(v, { st });
-  if (st.role === "owner") { const b = document.createElement("div"); b.id = "inboxBox"; v.prepend(b); Guest.renderInbox(b, { ownerUid: auth.currentUser.uid, onOpen: openAudit }); }
+  if (st.role === "owner") {
+    const b = document.createElement("div"); b.id = "inboxBox"; v.prepend(b); Guest.renderInbox(b, { ownerUid: auth.currentUser.uid, onOpen: openAudit });
+    const h = await pendBoxHTML();
+    if (h) { const p = document.createElement("div"); p.id = "pendBox"; p.innerHTML = h; v.prepend(p);
+      p.querySelectorAll("[data-pg]").forEach(btn => btn.onclick = () => { st.jumpMonth = btn.dataset.pm ? +btn.dataset.pm : null; if (location.hash === "#" + btn.dataset.pg) go(btn.dataset.pg); else location.hash = btn.dataset.pg; }); }
+  }
 }
 async function openAudit(a) {
   if (st.factories.find(f => f.id === a.fid)) {

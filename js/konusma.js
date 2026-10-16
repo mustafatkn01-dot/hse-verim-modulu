@@ -1,9 +1,9 @@
 // Eğitim Konuşması · Aylık Giriş
-import * as S from "./store.js?v=20261015k";
-import { esc, ic, toast, noteEditor, guestLock, roText, GUEST } from "./ui.js?v=20261015k";
-import * as Guest from "./guest.js?v=20261015k";
-import * as K from "./kayit.js?v=20261015k";
-import { katsayi, nAt, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261015k";
+import * as S from "./store.js?v=20261016a";
+import { esc, ic, toast, noteEditor, guestLock, roText, GUEST } from "./ui.js?v=20261016a";
+import * as Guest from "./guest.js?v=20261016a";
+import * as K from "./kayit.js?v=20261016a";
+import { katsayi, nAt, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261016a";
 
 const COLL = "konusma";
 const BAND = { Mükemmel: ["#17A06F", "#0B6E4F", "#D9F1E6"], İyi: ["#2A82C4", "#145F96", "#DCEAF7"], Orta: ["#E8A512", "#6B3F00", "#FBE9C6"], Kritik: ["#D6382E", "#B3261E", "#FADAD7"] };
@@ -25,6 +25,7 @@ export async function render(v, ctx) {
   const { st } = ctx;
   const setup = await S.getSetup(st.fid, st.year);
   if (!setup?.rows?.length) { v.innerHTML = `<div class="cd"><h2>Önce bölümleri tanımlayın</h2><p class="sub">Eğitim konuşması girişi için Kurulum ve Kayıtlar sayfasında en az bir bölüm kaydedilmeli.</p><div><a href="#kurulum"><button>Kurulum'a git</button></a></div></div>`; return; }
+  if (st.jumpMonth) { D.month = +st.jumpMonth; st.jumpMonth = null; }
   if (!D.month) { const n = new Date(); D.month = +st.year === n.getFullYear() ? n.getMonth() + 1 : 1; }
   const key = [st.fid, st.year, D.month].join("/");
   if (D.key !== key) {
@@ -35,6 +36,7 @@ export async function render(v, ctx) {
     Object.values(D.rows).forEach(x => { if (!x.log) x.log = String(x.min ?? "").trim() !== "" ? [{ id: "L0", d: "", min: String(x.min).trim() }] : []; });
   }
   D.g = await K.loadGuest(st.fid, st.year, "konusma", D.month);
+  if (!GUEST.on && D.g.some(x => x.status === "pending")) D.kOpen = true;
   D.ctx = ctx; D.v = v; D.setup = setup; D.ro = String(st.year) !== String(st.active) || guestLock(st.year, D.month);
   draw();
 }
@@ -73,11 +75,20 @@ function persist(now = false) {
 const setSv = () => { const e = document.getElementById("sv"); if (e) e.textContent = D.msg || (D.saved ? (D.exists ? "Kayıtlı" : "Bu ay henüz kaydedilmedi") : "Kaydediliyor…"); };
 const $ = id => document.getElementById(id);
 
+// Çakışma: aynı bölümde aynı gün başka konuşma kaydı varsa
+function conflictOf(x) {
+  if (!x.d) return null;
+  const own = rowOf(x.dept).log.filter(y => y.d === x.d), gs = D.g.filter(y => y.dept === x.dept && y.id !== x.id && y.status === "approved" && y.d === x.d), pend = D.g.filter(y => y.dept === x.dept && y.id !== x.id && y.status === "pending" && y.d === x.d);
+  const all = [...own, ...gs, ...pend]; if (!all.length) return null;
+  const dk = all.reduce((t, y) => t + (K.isNum(y.min) ? K.toNum(y.min) : 0), 0);
+  return { txt: `Aynı gün başka kayıt var: ${dk} dk · Misafir: ${x.min} dk`, own: own.map(y => [x.dept, y.id]), gs,
+    warn: "Aynı günkü mevcut yetkili ve onaylı misafir kayıtları toplamdan çıkarılır; yalnızca bu misafir kaydı geçerli olur." };
+}
 function items() {
   const nm = id => D.setup.rows.find(r => r.id === id)?.name || "—", out = [];
   D.setup.rows.forEach(r => rowOf(r.id).log.forEach(x => out.push({ key: `o:${r.id}:${x.id}`, dept: nm(r.id), text: K.isNum(x.min) ? `${x.min} dk` : "geçersiz", d: x.d, who: x.id === "L0" ? "Önceki kayıt" : "Yetkili", st: "own", del: !GUEST.on && !D.ro })));
   D.g.forEach(x => { const mine = GUEST.on && x.guestUid === GUEST.uid; if (GUEST.on && !mine && x.status !== "approved") return;
-    out.push({ key: `g:${x.id}`, dept: nm(x.dept), text: `${x.min} dk`, d: x.d, who: x.guestName || "Misafir", st: x.status, appr: !GUEST.on && !D.ro && x.status === "pending", del: GUEST.on ? mine && x.status === "pending" : !D.ro }); });
+    out.push({ key: `g:${x.id}`, dept: nm(x.dept), text: `${x.min} dk`, d: x.d, who: x.guestName || "Misafir", st: x.status, appr: !GUEST.on && !D.ro && x.status === "pending", conf: x.status === "pending" && !GUEST.on ? conflictOf(x)?.txt : "", addLbl: "Ayrı kayıt ekle", del: GUEST.on ? mine && x.status === "pending" : !D.ro }); });
   return out;
 }
 function draw() {
@@ -136,7 +147,12 @@ function draw() {
     try {
       if (key.startsWith("o:")) { if (!(await K.confirmBox("Kayıt silinsin mi?", "Bu kayıt aylık toplamdan çıkarılır.", "Sil", true))) return; const [, id, eid] = key.split(":"); rowOf(id).log = rowOf(id).log.filter(x => x.id !== eid); re(); return; }
       const gk = key.slice(2), g = D.g.find(x => x.id === gk); if (!g) return;
-      if (act === "del") { if (!(await K.confirmBox("Kayıt silinsin mi?", "Bu kayıt kalıcı olarak silinir.", "Sil", true))) return; await S.deleteMonthDoc(fid, year, "konusmag", gk); }
+      if (act === "use") {
+        const c = conflictOf(g) || { own: [], gs: [], warn: "Mevcut kayıt bulunamadı; yalnızca bu kayıt onaylanır." }; if (!(await K.confirmBox("Misafirinkini kullan?", c.warn, "Evet, değiştir", true))) return;
+        c.own.forEach(([id, eid]) => { rowOf(id).log = rowOf(id).log.filter(x => x.id !== eid); });
+        for (const o of c.gs) { const { id: _o, ...r0 } = o; await S.saveMonthDoc(fid, year, "konusmag", o.id, { ...r0, status: "rejected" }); }
+        const { id: _i, ...rest } = g; await S.saveMonthDoc(fid, year, "konusmag", gk, { ...rest, status: "approved" });
+      } else if (act === "del") { if (!(await K.confirmBox("Kayıt silinsin mi?", "Bu kayıt kalıcı olarak silinir.", "Sil", true))) return; await S.deleteMonthDoc(fid, year, "konusmag", gk); }
       else { const { id: _i, ...rest } = g; await S.saveMonthDoc(fid, year, "konusmag", gk, { ...rest, status: act === "ok" ? "approved" : "rejected" }); }
       D.g = await K.loadGuest(fid, year, "konusma", D.month); draw(); persist(true);
     } catch (e) { toast("İşlem yapılamadı: " + (e.message || e)); }
