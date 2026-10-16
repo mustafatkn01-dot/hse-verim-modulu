@@ -7,6 +7,15 @@ export function empCoef(n) {
   return v >= 26 ? .30 : v >= 21 ? .25 : v >= 16 ? .20 : v >= 11 ? .15 : v >= 6 ? .10 : .05;
 }
 // Çalışan sayısı aylıktır: r.n tabandır (yıl başından), r.nm = { "11": "24" } o aydan itibaren geçerli yeni sayıdır
+// Eğitim konuşması: Ekim 2026'dan itibaren, ay kapandığında (ayın son gününden sonra) kaydı olmayan ama hedefi olan bölüm 0 sayılır
+export const KONUSMA_BASLANGIC = [2026, 10];
+export function konusmaKapali(year, month) {
+  const y = +year, m = +month; if (!y || !(m >= 1 && m <= 12)) return false;
+  if (y * 12 + m < KONUSMA_BASLANGIC[0] * 12 + KONUSMA_BASLANGIC[1]) return false;
+  return Date.now() >= new Date(y, m, 1).getTime();
+}
+export const konusmaSifir = (x, year, month) => !!x && (x.pct === null || x.pct === undefined) && +x.goal > 0 && konusmaKapali(year, month);
+export const konusmaPct = (x, year, month) => !x ? null : (x.pct !== null && x.pct !== undefined ? x.pct : konusmaSifir(x, year, month) ? 0 : null);
 export const nAt = (r, m) => { const nm = r.nm || {}; let b = 0; Object.keys(nm).forEach(k => { if (+k <= +m && +k > b) b = +k; }); return b && m ? nm[b] : r.n; };
 export const katsayi = (r, m) => 1 + (empCoef(nAt(r, m)) - .05) + ((RISK[r.risk] ?? .05) - .05);
 export const ztfRamp = (r, p) => Math.min(1, num(r.ztf) + num({ Düşük: p.ramp.dusuk, Orta: p.ramp.orta, Yüksek: p.ramp.yuksek }[r.ramp] ?? 0));

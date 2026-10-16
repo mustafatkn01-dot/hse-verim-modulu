@@ -1,11 +1,11 @@
 // Aylık HSE Raporu · kayıtlı verilerden otomatik grafik + açıklama
-import * as S from "./store.js?v=20261016h";
-import { esc } from "./ui.js?v=20261016h";
-import * as Gorev from "./gorev.js?v=20261016h";
-import * as T from "./tatil.js?v=20261016h";
-import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261016h";
-import { CATS } from "./isgcats.js?v=20261016h";
-import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261016h";
+import * as S from "./store.js?v=20261016i";
+import { esc } from "./ui.js?v=20261016i";
+import * as Gorev from "./gorev.js?v=20261016i";
+import * as T from "./tatil.js?v=20261016i";
+import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261016i";
+import { CATS } from "./isgcats.js?v=20261016i";
+import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num, konusmaPct, konusmaSifir } from "./scoring.js?v=20261016i";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -93,7 +93,7 @@ function draw(v, st, setup, data) {
     if (kz?.result || kn?.result || ib?.result) monthsWith.add(mi);
     rows.forEach(r => {
       const a = fin(kz?.result?.per?.[r.id]?.verim); if (a !== null) mv.kaza[r.id].push(a);
-      const b = fin(kn?.result?.per?.[r.id]?.pct); if (b !== null) mv.konusma[r.id].push(b);
+      const b = fin(konusmaPct(kn?.result?.per?.[r.id], st.year, mi)); if (b !== null) mv.konusma[r.id].push(b);
       const x = ib?.result?.per?.[r.id]; if (x?.state === "ok" && fin(x.verim) !== null) mv.isbasi[r.id].push(x.verim);
       const d = data.ig[`${mm}_${r.id}`];
       const cc = d && d.sessions?.length ? calcIsg({ cats: CATS, sessions: d.sessions, draft: { marks: {}, notes: {}, ydNotes: {} }, freqOv: d.freq || {}, bonusIdx: d.bonus || 0, F: katsayi(r, +mm), p }) : null;
@@ -145,8 +145,8 @@ function draw(v, st, setup, data) {
     const mm = pad(mi), kz = data.kz[mm], kn = data.kn[mm], ib = data.ib[mm];
     if (kz?.result) { kAny = true; kT += kz.result.total || 0; kL += kz.result.lost || 0;
       rows.forEach(r => { const x = kz.result.per?.[r.id]; if (x?.count > 0) { const n = (kz.rows?.[r.id]?.note || "").trim(); nk.push(`${mpre(mi)}${n ? noteTxt(r, n) : `<i>Açıklama girilmemiş</i> <b>— ${esc(r.name)}</b>`} <span class="muted" style="white-space:nowrap">· ${x.count} olay · verim ${f1(x.verim)}</span>`); } }); }
-    if (kn?.result) { knAny = true; cnCnt += kn.result.counted || 0; cnHit += kn.result.hit || 0;
-      rows.forEach(r => { const x = fin(kn.result.per?.[r.id]?.pct); if (x !== null && bn(x) !== "Mükemmel" && bn(x) !== "İyi") { const n = (kn.rows?.[r.id]?.note || "").trim(); nn.push(`${mpre(mi)}${n ? noteTxt(r, n) : `<i>Açıklama girilmemiş</i> <b>— ${esc(r.name)}</b>`} <span class="muted" style="white-space:nowrap">· verim ${f1(x)}</span>`); } }); }
+    if (kn?.result) { knAny = true; cnCnt += (kn.result.counted || 0) + rows.filter(r => konusmaSifir(kn.result.per?.[r.id], st.year, mi)).length; cnHit += kn.result.hit || 0;
+      rows.forEach(r => { const x = fin(konusmaPct(kn.result.per?.[r.id], st.year, mi)); if (x !== null && bn(x) !== "Mükemmel" && bn(x) !== "İyi") { const n = (kn.rows?.[r.id]?.note || "").trim(); nn.push(`${mpre(mi)}${n ? noteTxt(r, n) : `<i>Açıklama girilmemiş</i> <b>— ${esc(r.name)}</b>`} <span class="muted" style="white-space:nowrap">· verim ${f1(x)}</span>`); } }); }
     if (ib?.result) { ibAny = true; hired += ib.result.hired || 0; trained += ib.result.trained || 0; oos += ib.result.outOfScope || 0;
       rows.forEach(r => {
         const x = ib.result.per?.[r.id]; if (x?.state !== "ok") return;

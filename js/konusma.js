@@ -1,9 +1,9 @@
 // Eğitim Konuşması · Aylık Giriş
-import * as S from "./store.js?v=20261016h";
-import { esc, ic, toast, noteEditor, guestLock, roText, GUEST } from "./ui.js?v=20261016h";
-import * as Guest from "./guest.js?v=20261016h";
-import * as K from "./kayit.js?v=20261016h";
-import { katsayi, nAt, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261016h";
+import * as S from "./store.js?v=20261016i";
+import { esc, ic, toast, noteEditor, guestLock, roText, GUEST } from "./ui.js?v=20261016i";
+import * as Guest from "./guest.js?v=20261016i";
+import * as K from "./kayit.js?v=20261016i";
+import { katsayi, nAt, bandOf, num, MONTHS, DEFAULT_PARAMS, konusmaKapali } from "./scoring.js?v=20261016i";
 
 const COLL = "konusma";
 const BAND = { Mükemmel: ["#17A06F", "#0B6E4F", "#D9F1E6"], İyi: ["#2A82C4", "#145F96", "#DCEAF7"], Orta: ["#E8A512", "#6B3F00", "#FBE9C6"], Kritik: ["#D6382E", "#B3261E", "#FADAD7"] };
@@ -51,7 +51,8 @@ function summary() {
   D.setup.rows.forEach(r => {
     const x = calcKonusma(tm(r.id), nAt(r, D.month), target(), katsayi(r, D.month));
     out[r.id] = { ...x, F: +katsayi(r, D.month).toFixed(2) };
-    if (x.has) { vs += x.pct; cnt++; tot += x.min; if (x.pct >= 100) hit++; }
+    if (!x.has && x.goal > 0 && konusmaKapali(D.ctx.st.year, D.month)) { out[r.id].zero = true; out[r.id].pct = 0; cnt++; }
+    else if (x.has) { vs += x.pct; cnt++; tot += x.min; if (x.pct >= 100) hit++; }
   });
   return { per: out, avg: cnt ? vs / cnt : null, cnt, hit, tot };
 }
@@ -64,7 +65,7 @@ function persist(now = false) {
     const rows = {}; D.setup.rows.forEach(r => { rows[r.id] = { ...rowOf(r.id), min: tm(r.id) }; });
     try {
       await S.saveMonthDoc(f, y, COLL, pad(+m), { rows, month: +m, result: { avg: s.avg === null ? null : +s.avg.toFixed(2), band: s.avg === null ? null : bandOf(s.avg, p), total: s.tot, hit: s.hit, counted: s.cnt,
-        per: Object.fromEntries(Object.entries(s.per).map(([k, x]) => [k, { goal: +x.goal.toFixed(1), min: x.min, pct: x.pct === null ? null : +x.pct.toFixed(2), F: x.F }])) } });
+        per: Object.fromEntries(Object.entries(s.per).map(([k, x]) => [k, { goal: +x.goal.toFixed(1), min: x.min, pct: x.pct === null || x.zero ? null : +x.pct.toFixed(2), F: x.F }])) } });
       D.saved = true; D.exists = true; D.msg = "";
     } catch (e) { D.msg = "Kaydedilemedi: " + e.message; }
     setSv();
@@ -94,7 +95,7 @@ function items() {
 function draw() {
   const { st } = D.ctx, v = D.v, p = D.setup.params || DEFAULT_PARAMS, s = summary(), T = target();
   const sb = s.avg === null ? null : BAND[bandOf(s.avg, p)];
-  const lows = D.setup.rows.filter(r => { const x = s.per[r.id]; return x.has && x.pct < num(p.esik.i); });
+  const lows = D.setup.rows.filter(r => { const x = s.per[r.id]; return (x.has || x.zero) && x.pct < num(p.esik.i); });
   v.innerHTML = `
   <div class="row sp"><div><h1 class="ttl">Eğitim Konuşması · Aylık Giriş</h1>
     <div class="sub">Bölümde o ay yapılan eğitim konuşmalarını ekleyin. Verim, hedef süreye oranla otomatik hesaplanır.</div>
@@ -107,16 +108,16 @@ function draw() {
     <div class="cd" style="flex:1 1 220px;padding:20px;gap:8px"><span class="hd" style="letter-spacing:.8px">TOPLAM SÜRE (DK)</span><b style="font:700 32px Sora,sans-serif">${Math.round(s.tot)}</b></div>
     <div class="cd" style="flex:1 1 220px;padding:20px;gap:8px"><span class="hd" style="letter-spacing:.8px">HEDEFE ULAŞAN BÖLÜM</span><b style="font:700 32px Sora,sans-serif">${s.hit} / ${s.cnt}</b></div></div>
   <fieldset class="fs" ${D.ro ? "disabled" : ""}><div class="cd"><div><h2>Bölüm Bazında Konuşma Süresi</h2>
-    <div class="muted" style="font-size:13px;line-height:1.5">O ay yapılan eğitim konuşmalarını + düğmesiyle ekleyin. Hedef süre = çalışan sayısı × ${T} dk × bölüm katsayısı. Aylık toplam eklenen kayıtların toplamıdır; kayıt yoksa bölüm hesaba katılmaz.</div></div>
+    <div class="muted" style="font-size:13px;line-height:1.5">O ay yapılan eğitim konuşmalarını + düğmesiyle ekleyin. Hedef süre = çalışan sayısı × ${T} dk × bölüm katsayısı. Aylık toplam eklenen kayıtların toplamıdır. ${+st.year * 12 + D.month >= 2026 * 12 + 10 ? "Ay kapandığında kaydı olmayan bölüm 0 olarak değerlendirilir." : "Kayıt yoksa bölüm hesaba katılmaz."}</div></div>
     <div class="tbl"><div class="tin" style="min-width:820px">
       <div class="cg"><span class="hd">Bölüm</span><span class="hd">Çalışan</span><span class="hd">Katsayı</span><span class="hd">Hedef (dk)</span><span class="hd">Gerçekleşen (dk)</span><span class="hd">Hedefe oran</span><span class="hd">Verim</span></div>
       ${D.setup.rows.map(r => {
-        const x = s.per[r.id], row = rowOf(r.id), band = x.has ? bandOf(x.pct, p) : null, b = band ? BAND[band] : ["#D5E0DC", "#4A5C57", "#EEF2F0"];
+        const x = s.per[r.id], row = rowOf(r.id), band = x.has || x.zero ? bandOf(x.pct, p) : null, b = band ? BAND[band] : ["#D5E0DC", "#4A5C57", "#EEF2F0"];
         const bad = false;
         return `<div class="cg" style="padding:8px 0;border-top:1px solid var(--line)"><b>${esc(r.name)}</b><span>${esc(nAt(r, D.month))}</span><span class="muted" style="font-weight:600">×${x.F.toFixed(2).replace(".", ",")}</span><b>${Math.round(x.goal)}</b>
           <div class="row" style="gap:8px;flex-wrap:nowrap"><b style="min-width:34px">${tm(r.id) === "" ? "–" : esc(tm(r.id))}</b><button type="button" class="sm sec" data-add="${r.id}" aria-label="Süre ekle" title="Süre ekle" ${D.ro ? "disabled" : ""} style="flex:0 0 36px;width:36px;height:36px;min-height:0;padding:0;font-size:20px;line-height:1">+</button></div>
-          <div style="height:12px;border-radius:99px;background:var(--calc);overflow:hidden"><div style="height:12px;border-radius:99px;width:${x.has ? x.pct : 0}%;background:${b[0]}"></div></div>
-          <div class="row" style="gap:8px;flex-wrap:nowrap"><b style="min-width:42px">${x.has ? f1(x.pct) : "–"}</b><span class="pill" style="background:${b[2]};color:${b[1]}">${band || (bad ? "Geçersiz" : "Veri yok")}</span></div></div>`;
+          <div style="height:12px;border-radius:99px;background:var(--calc);overflow:hidden"><div style="height:12px;border-radius:99px;width:${x.has || x.zero ? x.pct : 0}%;background:${b[0]}"></div></div>
+          <div class="row" style="gap:8px;flex-wrap:nowrap"><b style="min-width:42px">${x.has || x.zero ? f1(x.pct) : "–"}</b><span class="pill" style="background:${b[2]};color:${b[1]}">${x.zero ? "Kayıt yok" : band || (bad ? "Geçersiz" : "Veri yok")}</span></div></div>`;
       }).join("")}</div></div>
     <div class="muted" style="font-size:12.5px">Çalışan sayısı ve katsayı Kurulum sayfasından gelir, burada değiştirilemez. Hedef süre Kurulum › Parametreler'den değiştirilir.</div></div>
   <div class="cd"><h2>Hedefe Ulaşılamayan Bölümler İçin Açıklama</h2>

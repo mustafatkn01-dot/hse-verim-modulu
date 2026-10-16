@@ -1,10 +1,10 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261016h";
-import { esc } from "./ui.js?v=20261016h";
-import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi } from "./scoring.js?v=20261016h";
-import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261016h";
-import { CATS } from "./isgcats.js?v=20261016h";
-import * as Gorev from "./gorev.js?v=20261016h";
+import * as S from "./store.js?v=20261016i";
+import { esc } from "./ui.js?v=20261016i";
+import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi, konusmaPct } from "./scoring.js?v=20261016i";
+import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261016i";
+import { CATS } from "./isgcats.js?v=20261016i";
+import * as Gorev from "./gorev.js?v=20261016i";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -35,14 +35,14 @@ export async function load(st, setup) {
       if (d.sessions?.length && row) { try { sc = +calcIsg({ cats: CATS, sessions: d.sessions, draft: { marks: {}, notes: {}, ydNotes: {} }, freqOv: d.freq || {}, bonusIdx: d.bonus || 0, F: katsayi(row, m + 1), p: setup.params || DEFAULT_PARAMS }).score.toFixed(2); } catch { } }
       out[id][m][3] = sc; return;
     }
-    rows.forEach(r => { const x = d.result.per?.[r.id]; if (x) out[r.id][m][k] = num0(pick(x)); });
+    rows.forEach(r => { const x = d.result.per?.[r.id]; if (x) out[r.id][m][k] = num0(pick(x, m)); });
   });
-  put(kz, 0, x => x.verim); put(kn, 1, x => x.pct); put(ib, 2, x => (x.state === "ok" ? x.verim : null)); put(ig, 3);
+  put(kz, 0, x => x.verim); put(kn, 1, (x, m) => konusmaPct(x, st.year, m + 1)); put(ib, 2, x => (x.state === "ok" ? x.verim : null)); put(ig, 3);
   // Kullanıcının girdiği açıklamalar (bölüm · ay · modül)
   const p = setup.params || DEFAULT_PARAMS, notes = [], mOf = d => parseInt(String(d.id).slice(0, 2), 10) - 1, low = x => x !== null && ["Orta", "Kritik"].includes(bandOf(x, p));
   const nt = (d, id) => String(d.rows?.[id]?.note || "").trim();
   kz.forEach(d => rows.forEach(r => { const x = d.result?.per?.[r.id], t = nt(d, r.id); if (x?.count > 0 && t) notes.push({ m: mOf(d), k: 0, id: r.id, t, x: `${x.count} olay` }); }));
-  kn.forEach(d => rows.forEach(r => { const x = num0(d.result?.per?.[r.id]?.pct), t = nt(d, r.id); if (low(x) && t) notes.push({ m: mOf(d), k: 1, id: r.id, t, x: `verim ${f1(x)}` }); }));
+  kn.forEach(d => rows.forEach(r => { const x = num0(konusmaPct(d.result?.per?.[r.id], st.year, mOf(d) + 1)), t = nt(d, r.id); if (low(x) && t) notes.push({ m: mOf(d), k: 1, id: r.id, t, x: `verim ${f1(x)}` }); }));
   ib.forEach(d => rows.forEach(r => { const x = d.result?.per?.[r.id], t = nt(d, r.id); if (x?.state === "ok" && x.verim < 99.995 && t) notes.push({ m: mOf(d), k: 2, id: r.id, t, x: `verim ${f1(x.verim)}` }); }));
   ig.forEach(d => { const id = String(d.id).slice(3); if (!out[id] || !d.sessions?.length) return; const items = {};
     // Her bulgu (madde içindeki her ayrı not) ayrı satır olur; fotoğrafları kendi notuna bağlıdır
