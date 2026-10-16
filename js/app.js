@@ -1,20 +1,20 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261016b";
-import * as S from "./store.js?v=20261016b";
-import * as Prim from "./primary.js?v=20261016b";
-import * as Denetim from "./denetim.js?v=20261016b";
-import * as Kaza from "./kaza.js?v=20261016b";
-import * as Konusma from "./konusma.js?v=20261016b";
-import * as Ramak from "./ramak.js?v=20261016b";
-import * as Genel from "./genel.js?v=20261016b";
-import * as Rapor from "./rapor.js?v=20261016b";
-import * as Verim from "./verim.js?v=20261016b";
-import * as Isbasi from "./isbasi.js?v=20261016b";
-import * as Guest from "./guest.js?v=20261016b";
-import * as Yontem from "./yontem.js?v=20261016b";
-import * as Tatil from "./tatil.js?v=20261016b";
-import * as Gorev from "./gorev.js?v=20261016b";
-import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261016b";
-import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261016b";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261016c";
+import * as S from "./store.js?v=20261016c";
+import * as Prim from "./primary.js?v=20261016c";
+import * as Denetim from "./denetim.js?v=20261016c";
+import * as Kaza from "./kaza.js?v=20261016c";
+import * as Konusma from "./konusma.js?v=20261016c";
+import * as Ramak from "./ramak.js?v=20261016c";
+import * as Genel from "./genel.js?v=20261016c";
+import * as Rapor from "./rapor.js?v=20261016c";
+import * as Verim from "./verim.js?v=20261016c";
+import * as Isbasi from "./isbasi.js?v=20261016c";
+import * as Guest from "./guest.js?v=20261016c";
+import * as Yontem from "./yontem.js?v=20261016c";
+import * as Tatil from "./tatil.js?v=20261016c";
+import * as Gorev from "./gorev.js?v=20261016c";
+import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261016c";
+import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261016c";
 const PEND_META = { isbasig: ["isbasi", "İşbaşı Eğitim"], konusmag: ["konusma", "Eğitim Konuşması"], kazag: ["kaza", "İş Kazası"] };
 
 const VERSION = "1.6.6";
@@ -243,7 +243,9 @@ function drawNav() {
     + `<div class="goal"><b>Hedef: Sıfır Zarar</b><span>Güvenli çalış. Ölç. Geliştir.</span><div class="dots"><i style="background:#17A06F"></i><i style="background:#2A82C4"></i><i style="background:#F5B700"></i><i style="background:#D6382E"></i></div></div>`;
   $("nav").querySelector("[data-fb]")?.addEventListener("click", e => { e.preventDefault(); toggleMenu(false); if (st.role === "guest") Guest.feedbackDialog(); else Guest.inboxDialog(Guest.ownerUid(), st.fb || [], () => drawNav()); });
 }
+let renderTok = 0;
 async function render() {
+  const tok = ++renderTok;
   ensurePend(); drawNav();
   const v = $("view");
   if (st.page === "ayarlar") return st.role === "guest" ? pageGuestAyarlar(v) : pageAyarlar(v);
@@ -260,9 +262,13 @@ async function render() {
   if (st.page === "kaza") return Kaza.render(v, { st });
   if (st.page === "denetim") return Denetim.render(v, { st });
   await Genel.render(v, { st });
+  if (tok !== renderTok) return; // daha yeni bir çizim başladı; kutuları ikinci kez ekleme
   if (st.role === "owner") {
+    v.querySelectorAll("#inboxBox,#pendBox").forEach(x => x.remove());
     const b = document.createElement("div"); b.id = "inboxBox"; v.prepend(b); Guest.renderInbox(b, { ownerUid: auth.currentUser.uid, onOpen: openAudit });
     const h = await pendBoxHTML();
+    if (tok !== renderTok) return;
+    v.querySelectorAll("#pendBox").forEach(x => x.remove());
     if (h) { const p = document.createElement("div"); p.id = "pendBox"; p.innerHTML = h; v.prepend(p);
       p.querySelectorAll("[data-pg]").forEach(btn => btn.onclick = () => { st.jumpMonth = btn.dataset.pm ? +btn.dataset.pm : null; if (location.hash === "#" + btn.dataset.pg) go(btn.dataset.pg); else location.hash = btn.dataset.pg; }); }
   }
