@@ -1,11 +1,11 @@
 // Aylık HSE Raporu · kayıtlı verilerden otomatik grafik + açıklama
-import * as S from "./store.js?v=20261016e";
-import { esc } from "./ui.js?v=20261016e";
-import * as Gorev from "./gorev.js?v=20261016e";
-import * as T from "./tatil.js?v=20261016e";
-import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261016e";
-import { CATS } from "./isgcats.js?v=20261016e";
-import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261016e";
+import * as S from "./store.js?v=20261016f";
+import { esc } from "./ui.js?v=20261016f";
+import * as Gorev from "./gorev.js?v=20261016f";
+import * as T from "./tatil.js?v=20261016f";
+import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261016f";
+import { CATS } from "./isgcats.js?v=20261016f";
+import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261016f";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -224,12 +224,13 @@ function draw(v, st, setup, data) {
     <div class="col1 plc" ${R.plOpen ? "" : "hidden"} style="gap:14px;border-top:1px solid var(--line);padding-top:14px">${planBody}</div></div>` : "";
   const inc = ["Genel verim", "Modül verimleri", ...TITLE.filter((_, i) => modHas[i]), ...(anyIsg ? ["İSG bulgu dağılımı"] : []), ...(u0?.total ? ["Denetim planı"] : []), ...(gs ? ["Görev takibi"] : []), plabel];
   const incKeys = inc.filter(t => t !== plabel), incAllOff = incKeys.length > 0 && incKeys.every(t => R.off.has(t));
+  const incOn = incKeys.filter(t => !R.off.has(t)), scopeTxt = !incOn.length ? "" : incOn.length === incKeys.length ? "Genel HSE performans değerlendirmesi" : "Kapsam: " + incOn.join(", ");
   const first1 = tv.length ? (R.vert.has("g1") ? vbars(rank.map(r => ({ name: r.name, v: total[r.id], label: { t: bn(total[r.id]), band: bn(total[r.id]) } })), hedef) : `<div class="col1" style="gap:10px">${rank.map(r => bar(r.name, total[r.id], 0, { t: bn(total[r.id]), band: bn(total[r.id]) }, false, 72, hedef)).join("")}</div>`) : `<div class="muted">Bu dönem için henüz kayıtlı veri yok.</div>`;
   const hLeg = tv.length ? `<div class="muted" style="display:flex;align-items:center;gap:8px;font-size:12.5px"><span style="width:18px;border-top:2px solid #0B6E4F"></span>Hedef ${hedef}</div>` : "";
 
   v.innerHTML = `
   <div class="row sp"><div class="col1" style="gap:6px"><h1 class="ttl">${multi ? PER[R.per] : "Aylık"} HSE Raporu</h1>
-    <div class="sub">${esc(fname)} · ${plabel} · ${rows.length} bölüm · grafikler ve açıklamalar kayıtlı verilerden otomatik hazırlanır</div></div>
+    <div class="sub">${esc(fname)} · ${plabel} · ${rows.length} bölüm${scopeTxt ? " · " + esc(scopeTxt) : ""}</div></div>
     <div class="row noprint" style="gap:12px"><select id="rPer" class="inp" style="width:auto;min-width:150px;font-weight:600">${Object.entries(PER).map(([k, n]) => `<option value="${k}" ${k === R.per ? "selected" : ""}>${n}</option>`).join("")}</select>
       ${multi ? "" : `<select id="rAy" class="inp" style="width:auto;min-width:150px;font-weight:600">${MONTHS.map((n, i) => `<option value="${i + 1}" ${i + 1 === m ? "selected" : ""}>${n} ${y}</option>`).join("")}</select>`}
       ${phIds.size ? `<label class="row" style="gap:8px;flex-wrap:nowrap;font-weight:600;cursor:pointer"><input type="checkbox" id="rPic" ${R.pics ? "checked" : ""} style="width:20px;height:20px"> Resimleri ekle (${phIds.size})</label>` : ""}
