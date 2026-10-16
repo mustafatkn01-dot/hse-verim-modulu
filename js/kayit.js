@@ -1,6 +1,6 @@
 // Eğitim Konuşması ve İşbaşı Eğitim için "kayıt ekleme" yardımcıları: aylık toplam = sahip kayıtları + onaylı misafir kayıtları
-import * as S from "./store.js?v=20261016a";
-import { esc, ic, toast, pickDate, fmtTarih, GUEST, confirmBox } from "./ui.js?v=20261016a";
+import * as S from "./store.js?v=20261016b";
+import { esc, ic, toast, pickDate, fmtTarih, GUEST, confirmBox } from "./ui.js?v=20261016b";
 
 const pad = n => String(n).padStart(2, "0");
 const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -47,6 +47,23 @@ export function addDialog({ title, sub, fields, year, month }) {
   });
 }
 
+// Reddederken isteğe bağlı not penceresi → metin ("" olabilir) | null (vazgeçildi)
+export function noteDialog() {
+  return new Promise(res => {
+    const m = document.createElement("div"); m.className = "mod";
+    m.innerHTML = `<div class="mbox" role="dialog" aria-modal="true" style="gap:14px"><h2>Kayıt reddedilsin mi?</h2>
+      <div class="muted" style="font-size:13.5px;line-height:1.5">Misafir bu notu kaydının altında görür. Not yazmak isteğe bağlıdır.</div>
+      <textarea class="inp" id="kN" rows="4" maxlength="300" placeholder="Örn. Eğitim evrakı gelmedi; imzalı listeyi gönderin." style="height:auto;resize:vertical"></textarea>
+      <div class="row" style="justify-content:flex-end;gap:8px"><button class="sec" data-x>Vazgeç</button><button data-s style="background:#B3261E;border-color:#B3261E">Reddet</button></div></div>`;
+    document.body.appendChild(m);
+    const done = v => { m.remove(); res(v); };
+    m.querySelector("[data-x]").onclick = () => done(null);
+    m.addEventListener("mousedown", e => { if (e.target === m) done(null); });
+    m.querySelector("[data-s]").onclick = () => done(m.querySelector("#kN").value.trim());
+    m.querySelector("#kN").focus();
+  });
+}
+
 // Açılır "Bu Ayın Kayıtları" kartı (varsayılan kapalı). items: { key, dept, text, d, who, st: own|approved|pending|rejected, del, appr }
 export function listCard(items, open, owner) {
   const pend = items.filter(x => x.st === "pending").length;
@@ -54,7 +71,7 @@ export function listCard(items, open, owner) {
   const rows = items.slice().sort((a, b) => ord[a.st] - ord[b.st] || String(b.d).localeCompare(String(a.d))).map(x => {
     const tag = x.st === "pending" ? '<span class="tag" style="background:#FBE9C6;color:#6B3F00">Onay bekliyor</span>' : x.st === "rejected" ? '<span class="tag" style="background:#FADAD7;color:#8E1B16">Reddedildi</span>' : "";
     const btn = (a, t, cl = "") => `<button class="sm sec" data-ka="${a}" data-kk="${x.key}" style="${cl}">${t}</button>`;
-    return `<div class="it" style="gap:10px;flex-wrap:wrap"><div class="grow"><b>${esc(x.dept)}</b> ${tag}<div class="muted" style="font-size:12.5px">${esc(x.text)}${x.d ? " · " + fmtTarih(x.d) : ""} · ${esc(x.who)}</div></div>
+    return `<div class="it" style="gap:10px;flex-wrap:wrap"><div class="grow"><b>${esc(x.dept)}</b> ${tag}<div class="muted" style="font-size:12.5px">${esc(x.text)}${x.d ? " · " + fmtTarih(x.d) : ""} · ${esc(x.who)}</div>${x.note ? `<div style="font-size:12.5px;margin-top:4px;color:#8E1B16;font-weight:600">Yetkili notu: ${esc(x.note)}</div>` : ""}</div>
       ${x.conf && x.appr ? `<div style="flex:1 1 100%;background:#FBE9C6;color:#5B3A00;border-radius:10px;padding:9px 12px;font-size:12.5px;line-height:1.5;font-weight:600">⚠ Çakışma · ${esc(x.conf)}</div>` : ""}
       <div class="row" style="gap:6px;flex-wrap:wrap">${x.appr && x.conf ? btn("use", "Misafirinkini kullan", "background:#0B6E4F;color:#fff;border-color:#0B6E4F") + btn("ok", x.addLbl || "Toplama ekle") + btn("no", "Reddet", "color:#B3261E;border-color:#B3261E") : x.appr ? btn("ok", "Onayla", "background:#0B6E4F;color:#fff;border-color:#0B6E4F") + btn("no", "Reddet", "color:#B3261E;border-color:#B3261E") : ""}${x.del ? btn("del", "Sil", "color:#B3261E;border-color:#B3261E") : ""}</div></div>`;
   }).join("") || '<span class="muted">Bu ay henüz kayıt yok.</span>';

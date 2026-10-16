@@ -1,9 +1,9 @@
 // Eğitim Konuşması · Aylık Giriş
-import * as S from "./store.js?v=20261016a";
-import { esc, ic, toast, noteEditor, guestLock, roText, GUEST } from "./ui.js?v=20261016a";
-import * as Guest from "./guest.js?v=20261016a";
-import * as K from "./kayit.js?v=20261016a";
-import { katsayi, nAt, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261016a";
+import * as S from "./store.js?v=20261016b";
+import { esc, ic, toast, noteEditor, guestLock, roText, GUEST } from "./ui.js?v=20261016b";
+import * as Guest from "./guest.js?v=20261016b";
+import * as K from "./kayit.js?v=20261016b";
+import { katsayi, nAt, bandOf, num, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261016b";
 
 const COLL = "konusma";
 const BAND = { Mükemmel: ["#17A06F", "#0B6E4F", "#D9F1E6"], İyi: ["#2A82C4", "#145F96", "#DCEAF7"], Orta: ["#E8A512", "#6B3F00", "#FBE9C6"], Kritik: ["#D6382E", "#B3261E", "#FADAD7"] };
@@ -88,7 +88,7 @@ function items() {
   const nm = id => D.setup.rows.find(r => r.id === id)?.name || "—", out = [];
   D.setup.rows.forEach(r => rowOf(r.id).log.forEach(x => out.push({ key: `o:${r.id}:${x.id}`, dept: nm(r.id), text: K.isNum(x.min) ? `${x.min} dk` : "geçersiz", d: x.d, who: x.id === "L0" ? "Önceki kayıt" : "Yetkili", st: "own", del: !GUEST.on && !D.ro })));
   D.g.forEach(x => { const mine = GUEST.on && x.guestUid === GUEST.uid; if (GUEST.on && !mine && x.status !== "approved") return;
-    out.push({ key: `g:${x.id}`, dept: nm(x.dept), text: `${x.min} dk`, d: x.d, who: x.guestName || "Misafir", st: x.status, appr: !GUEST.on && !D.ro && x.status === "pending", conf: x.status === "pending" && !GUEST.on ? conflictOf(x)?.txt : "", addLbl: "Ayrı kayıt ekle", del: GUEST.on ? mine && x.status === "pending" : !D.ro }); });
+    out.push({ key: `g:${x.id}`, dept: nm(x.dept), text: `${x.min} dk`, d: x.d, who: x.guestName || "Misafir", st: x.status, note: x.status === "rejected" ? x.ownerNote || "" : "", appr: !GUEST.on && !D.ro && x.status === "pending", conf: x.status === "pending" && !GUEST.on ? conflictOf(x)?.txt : "", addLbl: "Ayrı kayıt ekle", del: GUEST.on ? mine && x.status === "pending" : !D.ro }); });
   return out;
 }
 function draw() {
@@ -147,13 +147,14 @@ function draw() {
     try {
       if (key.startsWith("o:")) { if (!(await K.confirmBox("Kayıt silinsin mi?", "Bu kayıt aylık toplamdan çıkarılır.", "Sil", true))) return; const [, id, eid] = key.split(":"); rowOf(id).log = rowOf(id).log.filter(x => x.id !== eid); re(); return; }
       const gk = key.slice(2), g = D.g.find(x => x.id === gk); if (!g) return;
+      let note = ""; if (act === "no") { note = await K.noteDialog(); if (note === null) return; }
       if (act === "use") {
         const c = conflictOf(g) || { own: [], gs: [], warn: "Mevcut kayıt bulunamadı; yalnızca bu kayıt onaylanır." }; if (!(await K.confirmBox("Misafirinkini kullan?", c.warn, "Evet, değiştir", true))) return;
         c.own.forEach(([id, eid]) => { rowOf(id).log = rowOf(id).log.filter(x => x.id !== eid); });
         for (const o of c.gs) { const { id: _o, ...r0 } = o; await S.saveMonthDoc(fid, year, "konusmag", o.id, { ...r0, status: "rejected" }); }
         const { id: _i, ...rest } = g; await S.saveMonthDoc(fid, year, "konusmag", gk, { ...rest, status: "approved" });
       } else if (act === "del") { if (!(await K.confirmBox("Kayıt silinsin mi?", "Bu kayıt kalıcı olarak silinir.", "Sil", true))) return; await S.deleteMonthDoc(fid, year, "konusmag", gk); }
-      else { const { id: _i, ...rest } = g; await S.saveMonthDoc(fid, year, "konusmag", gk, { ...rest, status: act === "ok" ? "approved" : "rejected" }); }
+      else { const { id: _i, ...rest } = g; await S.saveMonthDoc(fid, year, "konusmag", gk, { ...rest, status: act === "ok" ? "approved" : "rejected", ...(act === "no" ? { ownerNote: note } : {}) }); }
       D.g = await K.loadGuest(fid, year, "konusma", D.month); draw(); persist(true);
     } catch (e) { toast("İşlem yapılamadı: " + (e.message || e)); }
   });
