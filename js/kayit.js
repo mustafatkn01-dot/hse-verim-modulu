@@ -1,6 +1,6 @@
 // Eğitim Konuşması ve İşbaşı Eğitim için "kayıt ekleme" yardımcıları: aylık toplam = sahip kayıtları + onaylı misafir kayıtları
-import * as S from "./store.js?v=20261016c";
-import { esc, ic, toast, pickDate, fmtTarih, GUEST, confirmBox } from "./ui.js?v=20261016c";
+import * as S from "./store.js?v=20261016d";
+import { esc, ic, toast, pickDate, fmtTarih, GUEST, confirmBox } from "./ui.js?v=20261016d";
 
 const pad = n => String(n).padStart(2, "0");
 const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -73,7 +73,7 @@ export function listCard(items, open, owner) {
     const btn = (a, t, cl = "") => `<button class="sm sec" data-ka="${a}" data-kk="${x.key}" style="${cl}">${t}</button>`;
     return `<div class="it" style="gap:10px;flex-wrap:wrap"><div class="grow"><b>${esc(x.dept)}</b> ${tag}<div class="muted" style="font-size:12.5px">${esc(x.text)}${x.d ? " · " + fmtTarih(x.d) : ""} · ${esc(x.who)}</div>${x.note ? `<div style="font-size:12.5px;margin-top:4px;color:#8E1B16;font-weight:600">Yetkili notu: ${esc(x.note)}</div>` : ""}</div>
       ${x.conf && x.appr ? `<div style="flex:1 1 100%;background:#FBE9C6;color:#5B3A00;border-radius:10px;padding:9px 12px;font-size:12.5px;line-height:1.5;font-weight:600">⚠ Çakışma · ${esc(x.conf)}</div>` : ""}
-      <div class="row" style="gap:6px;flex-wrap:wrap">${x.appr && x.conf ? btn("use", "Misafirinkini kullan", "background:#0B6E4F;color:#fff;border-color:#0B6E4F") + btn("ok", x.addLbl || "Toplama ekle") + btn("no", "Reddet", "color:#B3261E;border-color:#B3261E") : x.appr ? btn("ok", "Onayla", "background:#0B6E4F;color:#fff;border-color:#0B6E4F") + btn("no", "Reddet", "color:#B3261E;border-color:#B3261E") : ""}${x.del ? btn("del", "Sil", "color:#B3261E;border-color:#B3261E") : ""}</div></div>`;
+      <div class="row" style="gap:6px;flex-wrap:wrap">${x.appr && x.conf && !x.info ? btn("use", "Misafirinkini kullan", "background:#0B6E4F;color:#fff;border-color:#0B6E4F") + btn("ok", x.addLbl || "Toplama ekle") + btn("no", "Reddet", "color:#B3261E;border-color:#B3261E") : x.appr ? btn("ok", "Onayla", "background:#0B6E4F;color:#fff;border-color:#0B6E4F") + btn("no", "Reddet", "color:#B3261E;border-color:#B3261E") : ""}${x.del ? btn("del", "Sil", "color:#B3261E;border-color:#B3261E") : ""}</div></div>`;
   }).join("") || '<span class="muted">Bu ay henüz kayıt yok.</span>';
   return `<div class="cd" style="gap:12px"><button type="button" id="kTg" aria-expanded="${open}" style="display:flex;align-items:center;gap:12px;width:100%;min-height:40px;height:auto;padding:0;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer"><span style="flex:1;min-width:0"><h2 style="margin:0">Bu Ayın Kayıtları</h2>
     <span class="muted" style="font-size:13px;display:block;margin-top:4px;font-weight:600">${items.length} kayıt${pend && owner ? ' · <i style="color:#B26A00">' + pend + " onay bekliyor</i>" : ""}</span></span>

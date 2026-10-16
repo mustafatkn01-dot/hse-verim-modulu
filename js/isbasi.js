@@ -1,9 +1,9 @@
 // İşbaşı Eğitim · Aylık Giriş
-import * as S from "./store.js?v=20261016c";
-import { esc, ic, toast, noteEditor, guestLock, roText, GUEST } from "./ui.js?v=20261016c";
-import * as Guest from "./guest.js?v=20261016c";
-import * as K from "./kayit.js?v=20261016c";
-import { katsayi, ztfRamp, bandOf, num, c2, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261016c";
+import * as S from "./store.js?v=20261016d";
+import { esc, ic, toast, noteEditor, guestLock, roText, GUEST } from "./ui.js?v=20261016d";
+import * as Guest from "./guest.js?v=20261016d";
+import * as K from "./kayit.js?v=20261016d";
+import { katsayi, ztfRamp, bandOf, num, c2, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261016d";
 
 const COLL = "isbasi";
 const BAND = { Mükemmel: ["#17A06F", "#0B6E4F", "#D9F1E6"], İyi: ["#2A82C4", "#145F96", "#DCEAF7"], Orta: ["#E8A512", "#6B3F00", "#FBE9C6"], Kritik: ["#D6382E", "#B3261E", "#FADAD7"] };
@@ -91,6 +91,12 @@ function conflictOf(x) {
   const own = rowOf(x.dept).log, gs = D.g.filter(y => y.dept === x.dept && y.id !== x.id && y.status === "approved"), pend = D.g.filter(y => y.dept === x.dept && y.id !== x.id && y.status === "pending");
   const all = [...own, ...gs, ...pend]; if (!all.length) return null;
   const sum = k => all.reduce((t, y) => t + (K.isInt(y[k]) ? +y[k] : 0), 0), g = sum("g"), e = sum("e");
+  // Tamamlayıcı eğitim (işe giriş 0, yalnızca eğitim): önceki girişlere ait eğitimdir; toplam işe girişi aşmıyorsa çakışma değildir
+  const gg = K.isInt(x.g) ? +x.g : 0, ee = K.isInt(x.e) ? +x.e : 0;
+  if (gg === 0 && ee > 0) {
+    if (e + ee <= g) return null;
+    return { info: true, txt: `Toplam eğitim (${e + ee}) işe girişi (${g}) aşıyor; onaylarsanız bölüm "Geçersiz" görünür`, own: [], gs: [], warn: "" };
+  }
   const mevcut = g === 0 && e === 0 ? "yok (0 giriş / 0 eğitim)" : `${g} giriş / ${e} eğitim`;
   return { txt: `Mevcut kayıt: ${mevcut} · Misafir: ${K.isInt(x.g) ? x.g : 0} giriş / ${K.isInt(x.e) ? x.e : 0} eğitim`, own: own.map(y => [x.dept, y.id]), gs,
     warn: "Bu bölümdeki mevcut yetkili ve onaylı misafir kayıtları aylık toplamdan çıkarılır; yalnızca bu misafir kaydı geçerli olur." };
@@ -99,7 +105,7 @@ function items() {
   const nm = id => D.setup.rows.find(r => r.id === id)?.name || "—", out = [], tx = x => `${K.isInt(x.g) ? x.g : 0} giriş · ${K.isInt(x.e) ? x.e : 0} eğitim`;
   D.setup.rows.forEach(r => rowOf(r.id).log.forEach(x => out.push({ key: `o:${r.id}:${x.id}`, dept: nm(r.id), text: tx(x), d: x.d, who: x.id === "L0" ? "Önceki kayıt" : "Yetkili", st: "own", del: !GUEST.on && !D.ro })));
   D.g.forEach(x => { const mine = GUEST.on && x.guestUid === GUEST.uid; if (GUEST.on && !mine && x.status !== "approved") return;
-    out.push({ key: `g:${x.id}`, dept: nm(x.dept), text: tx(x), d: x.d, who: x.guestName || "Misafir", st: x.status, note: x.status === "rejected" ? x.ownerNote || "" : "", appr: !GUEST.on && !D.ro && x.status === "pending", conf: x.status === "pending" && !GUEST.on ? conflictOf(x)?.txt : "", del: GUEST.on ? mine && x.status === "pending" : !D.ro }); });
+    out.push({ key: `g:${x.id}`, dept: nm(x.dept), text: tx(x), d: x.d, who: x.guestName || "Misafir", st: x.status, note: x.status === "rejected" ? x.ownerNote || "" : "", appr: !GUEST.on && !D.ro && x.status === "pending", conf: x.status === "pending" && !GUEST.on ? conflictOf(x)?.txt : "", info: x.status === "pending" && !GUEST.on ? !!conflictOf(x)?.info : false, del: GUEST.on ? mine && x.status === "pending" : !D.ro }); });
   return out;
 }
 function draw() {
@@ -143,7 +149,7 @@ function draw() {
   if (GUEST.on) v.querySelectorAll("[data-note]").forEach(b => { b.disabled = true; });
   v.querySelectorAll("[data-add]").forEach(b => b.onclick = async () => {
     const id = b.dataset.add, name = D.setup.rows.find(r => r.id === id).name;
-    const a = await K.addDialog({ title: `İşbaşı eğitim ekle · ${name}`, sub: GUEST.on ? "Kaydınız yetkili onayından sonra aylık toplama eklenir." : "Ay toplamına eklenir. Giriş yoksa 0 yazın.", year: D.ctx.st.year, month: D.month,
+    const a = await K.addDialog({ title: `İşbaşı eğitim ekle · ${name}`, sub: (GUEST.on ? "Kaydınız yetkili onayından sonra aylık toplama eklenir." : "Ay toplamına eklenir.") + " Daha önce girilen kişilerin eğitimini tamamlıyorsanız işe girişe 0, eğitime yeni verilen sayıyı yazın. Giriş yoksa ikisine de 0 yazın.", year: D.ctx.st.year, month: D.month,
       fields: [{ k: "g", label: "İŞE GİRİŞ (KİŞİ)", ph: "0", ok: K.isInt, err: "İşe giriş sayısını tam sayı yazın (yoksa 0)." }, { k: "e", label: "EĞİTİM VERİLEN (KİŞİ)", ph: "0", ok: K.isInt, err: "Eğitim verilen sayısını tam sayı yazın (yoksa 0)." }] });
     if (!a) return;
     if (!GUEST.on) { rowOf(id).log.push({ id: K.eid(), d: a.d, g: a.g, e: a.e }); re(); return; }
