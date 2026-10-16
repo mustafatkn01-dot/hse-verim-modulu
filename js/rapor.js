@@ -1,11 +1,11 @@
 // Aylık HSE Raporu · kayıtlı verilerden otomatik grafik + açıklama
-import * as S from "./store.js?v=20261016d";
-import { esc } from "./ui.js?v=20261016d";
-import * as Gorev from "./gorev.js?v=20261016d";
-import * as T from "./tatil.js?v=20261016d";
-import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261016d";
-import { CATS } from "./isgcats.js?v=20261016d";
-import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261016d";
+import * as S from "./store.js?v=20261016e";
+import { esc } from "./ui.js?v=20261016e";
+import * as Gorev from "./gorev.js?v=20261016e";
+import * as T from "./tatil.js?v=20261016e";
+import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261016e";
+import { CATS } from "./isgcats.js?v=20261016e";
+import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261016e";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -223,6 +223,7 @@ function draw(v, st, setup, data) {
     <button class="sec noprint" data-pl aria-expanded="${R.plOpen}" aria-label="${R.plOpen ? "Kartı kapat" : "Kartı aç"}" style="width:40px;height:40px;padding:0;flex:0 0 40px;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(${R.plOpen ? 180 : 0}deg)"><path d="M6 9l6 6 6-6"/></svg></button></div>
     <div class="col1 plc" ${R.plOpen ? "" : "hidden"} style="gap:14px;border-top:1px solid var(--line);padding-top:14px">${planBody}</div></div>` : "";
   const inc = ["Genel verim", "Modül verimleri", ...TITLE.filter((_, i) => modHas[i]), ...(anyIsg ? ["İSG bulgu dağılımı"] : []), ...(u0?.total ? ["Denetim planı"] : []), ...(gs ? ["Görev takibi"] : []), plabel];
+  const incKeys = inc.filter(t => t !== plabel), incAllOff = incKeys.length > 0 && incKeys.every(t => R.off.has(t));
   const first1 = tv.length ? (R.vert.has("g1") ? vbars(rank.map(r => ({ name: r.name, v: total[r.id], label: { t: bn(total[r.id]), band: bn(total[r.id]) } })), hedef) : `<div class="col1" style="gap:10px">${rank.map(r => bar(r.name, total[r.id], 0, { t: bn(total[r.id]), band: bn(total[r.id]) }, false, 72, hedef)).join("")}</div>`) : `<div class="muted">Bu dönem için henüz kayıtlı veri yok.</div>`;
   const hLeg = tv.length ? `<div class="muted" style="display:flex;align-items:center;gap:8px;font-size:12.5px"><span style="width:18px;border-top:2px solid #0B6E4F"></span>Hedef ${hedef}</div>` : "";
 
@@ -235,9 +236,11 @@ function draw(v, st, setup, data) {
       <button id="rPdf" style="height:44px;padding:0 20px;border-radius:12px;background:#0B6E4F;color:#fff;font-weight:700">PDF indir</button></div></div>
   ${partial ? `<div class="warn">Kısmi dönem: ${ms.length} aydan ${monthsWith.size} tanesi için veri var. Değerler mevcut aylar üzerinden hesaplandı.</div>` : ""}
   ${anyData ? "" : `<div class="warn">${plabel} için kayıtlı veri bulunamadı. Başka bir ay seçin veya aylık giriş sayfalarından veri kaydedin.</div>`}
-  <div class="cd" style="flex-direction:row;flex-wrap:wrap;gap:12px;align-items:center;padding:14px 18px"><span style="font-weight:700">Rapora dahil:</span>${inc.map(t => t === plabel ? `<span style="display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:#D9F1E6;color:#0B6E4F;font-weight:700;font-size:13px">&#10003; ${esc(t)}</span>`
+  <div class="cd" style="gap:12px;padding:14px 18px"><div class="row sp" style="flex-wrap:nowrap;align-items:center"><span style="font-weight:700">Rapora dahil:</span>
+    <button type="button" id="incClr" class="sec noprint" style="display:flex;align-items:center;gap:6px;height:34px;min-height:0;padding:0 12px;border-radius:999px;font-size:13px;font-weight:700" title="${incAllOff ? "Tümünü rapora ekle" : "Tüm seçimleri temizle"}">${incAllOff ? "&#10003; Tümünü seç" : "&#10005; Temizle"}</button></div>
+    <div class="row" style="gap:12px;flex-wrap:wrap">${inc.map(t => t === plabel ? `<span style="display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:#D9F1E6;color:#0B6E4F;font-weight:700;font-size:13px">&#10003; ${esc(t)}</span>`
     : R.off.has(t) ? `<button class="incb noprint" data-inc="${esc(t)}" aria-pressed="false" title="Rapora eklemek için dokunun" style="display:flex;align-items:center;gap:8px;padding:6px 12px;height:auto;min-height:0;border-radius:999px;background:#fff;color:#10201C;border:1px solid #C3D1CC;font-weight:600;font-size:13px">${esc(t)}</button>`
-    : `<button class="incb" data-inc="${esc(t)}" aria-pressed="true" title="Rapordan çıkarmak için dokunun" style="display:flex;align-items:center;gap:8px;padding:6px 12px;height:auto;min-height:0;border-radius:999px;background:#D9F1E6;color:#0B6E4F;border:1px solid #D9F1E6;font-weight:700;font-size:13px">&#10003; ${esc(t)}</button>`).join("")}</div>
+    : `<button class="incb" data-inc="${esc(t)}" aria-pressed="true" title="Rapordan çıkarmak için dokunun" style="display:flex;align-items:center;gap:8px;padding:6px 12px;height:auto;min-height:0;border-radius:999px;background:#D9F1E6;color:#0B6E4F;border:1px solid #D9F1E6;font-weight:700;font-size:13px">&#10003; ${esc(t)}</button>`).join("")}</div></div>
   ${!R.off.has("Genel verim") ? card("Grafik 1 · Bölüm HSE Verimi (Genel)", `${plabel} · tesis ortalaması ${avg === null ? "–" : f1(avg)} · hedef ${hedef}: ${hitN}/${tv.length} bölüm`, first1 + hLeg + (anyData ? notesBox(c1) : ""), "g1") : ""}
   ${anyData && !R.off.has("Modül verimleri") ? card("Grafik 2 · Modül Verimleri", `Ağırlıklı toplam ${wTot === null ? "–" : f1(wTot)} · ağırlıklar ${W.join(" / ")}`, (R.vert.has("g2") ? g2v : `<div class="col1" style="gap:10px">${g2}</div>`) + notesBox(c2), "g2") : ""}
   ${anyData && !R.off.has(TITLE[0]) ? modCard("kaza", 0, "Grafik 3 · İş Kazası Verimi", `${plabel} · kaza ceza puanı × bölüm katsayısı`, nk, "g3") : ""}
@@ -247,6 +250,7 @@ function draw(v, st, setup, data) {
   ${R.off.has("İSG bulgu dağılımı") ? "" : g6}${R.off.has(TITLE[3]) ? "" : scope}
   ${planCard}${gorevCard}${gNote}
   <div class="muted noprint" style="font-size:13px;line-height:1.6">Dönem raporlarında bölüm değerleri, verisi olan ayların ortalamasıdır (kümülatif: Ç1 Ocak-Mart, Ç2 Ocak-Haziran, Ç3 Ocak-Eylül). Açıklamalar, aylık giriş sayfalarında yazılan notlardan derlenir (İSG için "Uygunsuz" işaretli maddelerin notları). Metni değiştirmek için ilgili kaydı güncelleyin; rapor kendiliğinden yenilenir. PDF için tarayıcının yazdırma penceresinde "PDF olarak kaydet" seçin.</div>`;
+  v.querySelector("#incClr")?.addEventListener("click", () => { incKeys.forEach(k => incAllOff ? R.off.delete(k) : R.off.add(k)); draw(v, st, setup, data); });
   v.querySelectorAll("[data-inc]").forEach(b => b.onclick = () => { const k = b.dataset.inc; R.off.has(k) ? R.off.delete(k) : R.off.add(k); draw(v, st, setup, data); });
   v.querySelectorAll("[data-vt]").forEach(b => b.onclick = () => { if (b.dataset.to === "v") R.vert.add(b.dataset.vt); else R.vert.delete(b.dataset.vt); draw(v, st, setup, data); });
   const rp = document.getElementById("rPic"); if (rp) rp.onchange = e => { R.pics = e.target.checked; draw(v, st, setup, data); };

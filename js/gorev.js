@@ -1,9 +1,9 @@
 // (ramak kala kayıtları islendi:"ramak" ile yazılır: görev takibin eski sürümleri bunları almaz, yalnızca yeni sürüm olay sayfasına ekler)
 // Görev takip programı köprüsü (mtisggorev). HSE Verim yalnızca küçük kayıtlar bırakır ve durumu okur;
 // görev/kaza kayıtlarını görev programı kendisi oluşturur. Bağlantı yoksa özellik uyarı kartıyla kapalı kalır.
-import { GOREV_CFG } from "./gorev-config.js?v=20261016d";
-import * as S from "./store.js?v=20261016d";
-import { esc, toast } from "./ui.js?v=20261016d";
+import { GOREV_CFG } from "./gorev-config.js?v=20261016e";
+import * as S from "./store.js?v=20261016e";
+import { esc, toast } from "./ui.js?v=20261016e";
 
 const CFG = GOREV_CFG || null, CDN = "https://www.gstatic.com/firebasejs/10.14.1/";
 let F = null, auth = null, db = null, user = null, err = "", fabs = null, started = false, offs = [], loaded = false;
