@@ -1,5 +1,5 @@
 // Ortak PDF yardımcıları: kâğıt boyutu (A4/A3) + sayfa düzeni (dikey/yatay) penceresi
-import { esc } from "./ui.js?v=20261016f";
+import { esc } from "./ui.js?v=20261016g";
 
 // "Paylaş" seçildiyse savePdf dosyayı indirmek yerine paylaşma penceresi açar
 const PDF = { share: false };
@@ -11,7 +11,8 @@ function shareReady(blob, name) {
   m.innerHTML = `<div class="mbox" role="dialog" aria-modal="true" style="gap:14px;position:relative"><button type="button" class="mx" data-x aria-label="Kapat">${XI}</button><h2 style="padding-right:56px">PDF hazır</h2><div class="muted" style="line-height:1.5;word-break:break-word">${esc(name)}</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><button data-sh style="height:46px">Paylaş</button><button class="sec" data-dl style="height:46px">İndir</button></div><button class="sec" data-x style="height:46px">Kapat</button></div>`;
   document.body.appendChild(m);
-  m.querySelector("[data-x]").onclick = () => m.remove();
+  m.querySelectorAll("[data-x]").forEach(b => b.onclick = () => m.remove());
+  m.addEventListener("mousedown", e => { if (e.target === m) m.remove(); });
   m.querySelector("[data-dl]").onclick = () => { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 800); };
   m.querySelector("[data-sh]").onclick = async () => { try { await navigator.share({ files: [file], title: name.replace(/\.pdf$/i, "") }); m.remove(); } catch (e) { if (e?.name !== "AbortError") { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click(); } } };
 }
