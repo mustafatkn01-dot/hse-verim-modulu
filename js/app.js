@@ -1,20 +1,20 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261017b";
-import * as S from "./store.js?v=20261017b";
-import * as Prim from "./primary.js?v=20261017b";
-import * as Denetim from "./denetim.js?v=20261017b";
-import * as Kaza from "./kaza.js?v=20261017b";
-import * as Konusma from "./konusma.js?v=20261017b";
-import * as Ramak from "./ramak.js?v=20261017b";
-import * as Genel from "./genel.js?v=20261017b";
-import * as Rapor from "./rapor.js?v=20261017b";
-import * as Verim from "./verim.js?v=20261017b";
-import * as Isbasi from "./isbasi.js?v=20261017b";
-import * as Guest from "./guest.js?v=20261017b";
-import * as Yontem from "./yontem.js?v=20261017b";
-import * as Tatil from "./tatil.js?v=20261017b";
-import * as Gorev from "./gorev.js?v=20261017b";
-import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261017b";
-import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261017b";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261017c";
+import * as S from "./store.js?v=20261017c";
+import * as Prim from "./primary.js?v=20261017c";
+import * as Denetim from "./denetim.js?v=20261017c";
+import * as Kaza from "./kaza.js?v=20261017c";
+import * as Konusma from "./konusma.js?v=20261017c";
+import * as Ramak from "./ramak.js?v=20261017c";
+import * as Genel from "./genel.js?v=20261017c";
+import * as Rapor from "./rapor.js?v=20261017c";
+import * as Verim from "./verim.js?v=20261017c";
+import * as Isbasi from "./isbasi.js?v=20261017c";
+import * as Guest from "./guest.js?v=20261017c";
+import * as Yontem from "./yontem.js?v=20261017c";
+import * as Tatil from "./tatil.js?v=20261017c";
+import * as Gorev from "./gorev.js?v=20261017c";
+import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261017c";
+import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261017c";
 const PEND_META = { isbasig: ["isbasi", "İşbaşı Eğitim"], konusmag: ["konusma", "Eğitim Konuşması"], kazag: ["kaza", "İş Kazası"] };
 
 const VERSION = "1.6.6";
@@ -413,8 +413,14 @@ function drawKurulum(v) {
     const errs = validateK();
     const box = $("kerr"); box.classList.toggle("hide", !errs.length); box.innerHTML = errs.join("<br>");
     if (errs.length) return;
-    try { const saved = kSave(); await S.saveSetup(st.fid, st.year, { rows: saved, params: K.params }); K.rows = kLoad(saved); drawKurulum(v); toast("Kurulum kaydedildi"); }
-    catch (e) { toast("Kaydedilemedi: " + e.message); }
+    const btn = $("saveK"); if (btn.dataset.busy) return;
+    const label = btn.textContent; btn.dataset.busy = "1"; btn.disabled = true; btn.textContent = "Kaydediliyor…";
+    const slow = setTimeout(() => toast("Bağlantı yavaş; kayıt gönderiliyor. Sayfayı kapatmayın."), 4000);
+    try {
+      const saved = kSave(); await S.saveSetup(st.fid, st.year, { rows: saved, params: K.params }); clearTimeout(slow);
+      K.rows = kLoad(saved); drawKurulum(v); toast("Kurulum kaydedildi");
+      const b2 = $("saveK"); if (b2) { b2.textContent = "✓ Kaydedildi"; setTimeout(() => { const b3 = $("saveK"); if (b3 && b3.textContent === "✓ Kaydedildi") b3.textContent = label; }, 2500); }
+    } catch (e) { clearTimeout(slow); toast("Kaydedilemedi: " + e.message); btn.disabled = false; btn.textContent = label; delete btn.dataset.busy; }
   };
 }
 function validateK() {
