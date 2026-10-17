@@ -1,12 +1,12 @@
 // Ramak Kala bildirimleri: ay bazında kayıt, bildiren bölümün bonus kademesi, misafir kaydı için yetkili onayı
 // Koleksiyon "ramak": her bildirim ayrı kayıt. status: approved (yetkili kaydı / onaylı) | pending (misafir, onay bekliyor) | rejected
-import * as S from "./store.js?v=20261017a";
-import * as Guest from "./guest.js?v=20261017a";
-import * as Gorev from "./gorev.js?v=20261017a";
-import { esc, toast, pickDate, fmtTarih, compressImage, showPhoto, confirmBox, GUEST, guestLock, roText } from "./ui.js?v=20261017a";
-import { CATS } from "./isgcats.js?v=20261017a";
-import { calcIsg, katsayi, bandOf, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261017a";
-import { askFormat, savePdf } from "./pdf.js?v=20261017a";
+import * as S from "./store.js?v=20261017b";
+import * as Guest from "./guest.js?v=20261017b";
+import * as Gorev from "./gorev.js?v=20261017b";
+import { esc, toast, pickDate, fmtTarih, compressImage, showPhoto, confirmBox, GUEST, guestLock, roText } from "./ui.js?v=20261017b";
+import { CATS } from "./isgcats.js?v=20261017b";
+import { calcIsg, katsayi, bandOf, surecVar, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261017b";
+import { askFormat, savePdf } from "./pdf.js?v=20261017b";
 
 export const COLL = "ramak";
 export const TIER = ["Yok", "Ayda 1", "2 Haftada 1", "Haftalık"];
@@ -23,8 +23,8 @@ export function counts(recs) { const c = {}; recs.forEach(r => { if (r.src === "
 // Eski kayıtlarda elle seçilmiş (>0) kademe, elle sayılır; "bonusMan" yoksa bunu çıkarırız
 export const isMan = doc => doc?.bonusMan === true || (doc?.bonusMan === undefined && (doc?.bonus || 0) > 0);
 
-export function isgResult(doc, row, m, p) {
-  const c = calcIsg({ cats: CATS, sessions: doc.sessions, draft: { marks: {}, notes: {}, ydNotes: {} }, freqOv: doc.freq, bonusIdx: doc.bonus, F: katsayi(row, +m), p });
+export function isgResult(doc, row, m, p, year) {
+  const c = calcIsg({ cats: CATS, sessions: doc.sessions, draft: { marks: {}, notes: {}, ydNotes: {} }, freqOv: doc.freq, bonusIdx: doc.bonus, F: katsayi(row, +m), p, yog: surecVar(year, m) });
   return { score: +c.score.toFixed(2), penalty: +c.penalty.toFixed(2), bonus: c.bonus, den: c.den, total: c.total, ydPct: c.ydPct, band: bandOf(c.score, p), F: +katsayi(row, +m).toFixed(2), sessions: doc.sessions.length };
 }
 // Kayıtlar değişince, elle seçilmemiş bölüm-ay denetim kayıtlarının bonusunu ve sonucunu günceller (sahip)
@@ -36,7 +36,7 @@ export async function syncBonus(fid, year, month, setup, recs) {
     if (!doc || !doc.sessions?.length || isMan(doc)) continue;
     const idx = tierIdx(c[row.id] || 0);
     if ((doc.bonus || 0) === idx && doc.bonusMan === false) continue;
-    const nd = { ...doc, bonus: idx, bonusMan: false }; nd.result = isgResult(nd, row, month, p);
+    const nd = { ...doc, bonus: idx, bonusMan: false }; nd.result = isgResult(nd, row, month, p, year);
     await S.saveMonthDoc(fid, year, "isg", id, nd).catch(() => { });
   }
 }

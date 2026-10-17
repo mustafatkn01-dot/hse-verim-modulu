@@ -72,7 +72,7 @@ export const bandOf = (sc, p) => {
  * Ceza = 100 × Σ(sıklık·ağırlık) / (azami × toplam ağırlık) × F   (Y.D. kategori: ceza 0, payda sabit)
  * Skor = min(100, max(0, 100 − ceza) + bonus)
  */
-export function calcIsg({ cats, sessions, draft, freqOv, bonusIdx, F, p }) {
+export function calcIsg({ cats, sessions, draft, freqOv, bonusIdx, F, p, yog = false }) {
   const azami = Math.max(1, num(p.isg.azami) || 3);
   const bonusVals = [0, num(p.isg.r1), num(p.isg.r2), num(p.isg.r3)];
   let numer = 0, den = 0, total = 0, nCount = 0, totalItems = 0, unmarked = 0, missing = 0, ydMissing = 0, curFails = 0, curMarked = false;
@@ -98,10 +98,15 @@ export function calcIsg({ cats, sessions, draft, freqOv, bonusIdx, F, p }) {
     const catCount = catDays.size + (curFailed > 0 && !catDays.has(curDay) ? 1 : 0); // aynı gün yapılan denetimler tek sayılır
     let auto = Math.min(azami, mf(catCount));
     if (c.w === 3 && catCount > 0) auto = Math.min(azami, Math.max(2, auto));
+    // Yoğunluk (yog: süreç başlangıç ayından itibaren): bir denetim gününde bu kategoride 3 veya daha fazla bulgu varsa sıklık 1 basamak artar (en fazla azami)
+    const byDay = {}; sessions.forEach((x, i) => Object.keys(x.fails).forEach(k => { if (k.startsWith(`c${ci}i`)) { const d = dayOf(x, i); byDay[d] = (byDay[d] || 0) + Math.max(1, (x.fails[k] || []).length); } }));
+    items.forEach(it => { if (it.isX) byDay[curDay] = (byDay[curDay] || 0) + Math.max(1, (draft.notes[it.id] || []).filter(t => String(t).trim()).length); });
+    const maxDay = Math.max(0, ...Object.values(byDay)), heavy = !!yog && catCount > 0 && maxDay >= 3;
+    if (heavy) auto = Math.min(azami, auto + 1);
     const ov = freqOv[ci];
     const freq = !hasFreq ? null : (ov !== undefined ? ov : auto);
     if (hasFreq) { numer += freq * c.w; den += c.w; }
-    return { items, hasFreq, catCount, auto, freq, allYD, hasOverride: ov !== undefined, marked: items.filter(x => x.mk).length, nItems: items.length };
+    return { items, hasFreq, catCount, auto, freq, heavy, maxDay, allYD, hasOverride: ov !== undefined, marked: items.filter(x => x.mk).length, nItems: items.length };
   });
   const penalty = total > 0 ? (100 * numer / (azami * total)) * F : 0;
   const bonus = bonusVals[bonusIdx] || 0;

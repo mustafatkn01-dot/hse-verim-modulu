@@ -1,11 +1,11 @@
 // Genel Bakış · yıllık özet panosu (gerçek verilerden)
-import * as S from "./store.js?v=20261017a";
-import { esc, noticeBox } from "./ui.js?v=20261017a";
-import { CATS } from "./isgcats.js?v=20261017a";
-import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261017a";
-import { load } from "./verim.js?v=20261017a";
-import * as T from "./tatil.js?v=20261017a";
-import * as Gorev from "./gorev.js?v=20261017a";
+import * as S from "./store.js?v=20261017b";
+import { esc, noticeBox } from "./ui.js?v=20261017b";
+import { CATS } from "./isgcats.js?v=20261017b";
+import { bandOf, calcIsg, katsayi, surecVar, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261017b";
+import { load } from "./verim.js?v=20261017b";
+import * as T from "./tatil.js?v=20261017b";
+import * as Gorev from "./gorev.js?v=20261017b";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -50,7 +50,7 @@ export async function render(v, ctx) {
   const docs = hm >= 0 ? await Promise.all(rows.map(r => S.getMonthDoc(st.fid, st.year, "isg", `${pad(hm + 1)}_${r.id}`))) : [];
   const heat = rows.map((r, i) => {
     const d = docs[i]; if (!d?.sessions?.length) return { r, f: null };
-    const c = calcIsg({ cats: CATS, sessions: d.sessions, draft: { marks: {}, notes: {}, ydNotes: {} }, freqOv: d.freq || {}, bonusIdx: d.bonus || 0, F: katsayi(r, hm + 1), p });
+    const c = calcIsg({ cats: CATS, sessions: d.sessions, draft: { marks: {}, notes: {}, ydNotes: {} }, freqOv: d.freq || {}, bonusIdx: d.bonus || 0, F: katsayi(r, hm + 1), p, yog: surecVar(st.year, hm + 1) });
     return { r, f: c.catInfo.map(x => x.freq) };
   });
 

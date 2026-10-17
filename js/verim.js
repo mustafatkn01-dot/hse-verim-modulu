@@ -1,10 +1,10 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261017a";
-import { esc } from "./ui.js?v=20261017a";
-import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi, konusmaPct } from "./scoring.js?v=20261017a";
-import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261017a";
-import { CATS } from "./isgcats.js?v=20261017a";
-import * as Gorev from "./gorev.js?v=20261017a";
+import * as S from "./store.js?v=20261017b";
+import { esc } from "./ui.js?v=20261017b";
+import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261017b";
+import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261017b";
+import { CATS } from "./isgcats.js?v=20261017b";
+import * as Gorev from "./gorev.js?v=20261017b";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -32,7 +32,7 @@ export async function load(st, setup) {
       const id = String(d.id).slice(3), row = rows.find(r => r.id === id); if (!out[id]) return;
       // Skor, kayıtlı denetimlerden güncel ağırlıklarla yeniden hesaplanır (kategori ağırlığı değişirse eski kayıtlar da güncellenir)
       let sc = num0(d.result.score);
-      if (d.sessions?.length && row) { try { sc = +calcIsg({ cats: CATS, sessions: d.sessions, draft: { marks: {}, notes: {}, ydNotes: {} }, freqOv: d.freq || {}, bonusIdx: d.bonus || 0, F: katsayi(row, m + 1), p: setup.params || DEFAULT_PARAMS }).score.toFixed(2); } catch { } }
+      if (d.sessions?.length && row) { try { sc = +calcIsg({ cats: CATS, sessions: d.sessions, draft: { marks: {}, notes: {}, ydNotes: {} }, freqOv: d.freq || {}, bonusIdx: d.bonus || 0, F: katsayi(row, m + 1), p: setup.params || DEFAULT_PARAMS, yog: surecVar(st.year, m + 1) }).score.toFixed(2); } catch { } }
       out[id][m][3] = sc; return;
     }
     rows.forEach(r => { const x = d.result.per?.[r.id]; if (x) out[r.id][m][k] = num0(pick(x, m)); });

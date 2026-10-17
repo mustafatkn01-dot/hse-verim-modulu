@@ -1,11 +1,11 @@
 // Aylık HSE Raporu · kayıtlı verilerden otomatik grafik + açıklama
-import * as S from "./store.js?v=20261017a";
-import { esc } from "./ui.js?v=20261017a";
-import * as Gorev from "./gorev.js?v=20261017a";
-import * as T from "./tatil.js?v=20261017a";
-import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261017a";
-import { CATS } from "./isgcats.js?v=20261017a";
-import { bandOf, calcIsg, katsayi, DEFAULT_PARAMS, MONTHS, num, konusmaPct, konusmaSifir } from "./scoring.js?v=20261017a";
+import * as S from "./store.js?v=20261017b";
+import { esc } from "./ui.js?v=20261017b";
+import * as Gorev from "./gorev.js?v=20261017b";
+import * as T from "./tatil.js?v=20261017b";
+import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261017b";
+import { CATS } from "./isgcats.js?v=20261017b";
+import { bandOf, calcIsg, katsayi, surecVar, DEFAULT_PARAMS, MONTHS, num, konusmaPct, konusmaSifir } from "./scoring.js?v=20261017b";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -96,7 +96,7 @@ function draw(v, st, setup, data) {
       const b = fin(konusmaPct(kn?.result?.per?.[r.id], st.year, mi)); if (b !== null) mv.konusma[r.id].push(b);
       const x = ib?.result?.per?.[r.id]; if (x?.state === "ok" && fin(x.verim) !== null) mv.isbasi[r.id].push(x.verim);
       const d = data.ig[`${mm}_${r.id}`];
-      const cc = d && d.sessions?.length ? calcIsg({ cats: CATS, sessions: d.sessions, draft: { marks: {}, notes: {}, ydNotes: {} }, freqOv: d.freq || {}, bonusIdx: d.bonus || 0, F: katsayi(r, +mm), p }) : null;
+      const cc = d && d.sessions?.length ? calcIsg({ cats: CATS, sessions: d.sessions, draft: { marks: {}, notes: {}, ydNotes: {} }, freqOv: d.freq || {}, bonusIdx: d.bonus || 0, F: katsayi(r, +mm), p, yog: surecVar(st.year, +mm) }) : null;
       const sc = cc ? fin(+cc.score.toFixed(2)) : fin(d?.result?.score);
       if (sc !== null) { mv.isg[r.id].push(sc); monthsWith.add(mi); }
       if (cc) isgList.push({ mi, r, d, c: cc });
