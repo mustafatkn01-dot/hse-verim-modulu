@@ -1,20 +1,20 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261016j";
-import * as S from "./store.js?v=20261016j";
-import * as Prim from "./primary.js?v=20261016j";
-import * as Denetim from "./denetim.js?v=20261016j";
-import * as Kaza from "./kaza.js?v=20261016j";
-import * as Konusma from "./konusma.js?v=20261016j";
-import * as Ramak from "./ramak.js?v=20261016j";
-import * as Genel from "./genel.js?v=20261016j";
-import * as Rapor from "./rapor.js?v=20261016j";
-import * as Verim from "./verim.js?v=20261016j";
-import * as Isbasi from "./isbasi.js?v=20261016j";
-import * as Guest from "./guest.js?v=20261016j";
-import * as Yontem from "./yontem.js?v=20261016j";
-import * as Tatil from "./tatil.js?v=20261016j";
-import * as Gorev from "./gorev.js?v=20261016j";
-import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261016j";
-import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261016j";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261017a";
+import * as S from "./store.js?v=20261017a";
+import * as Prim from "./primary.js?v=20261017a";
+import * as Denetim from "./denetim.js?v=20261017a";
+import * as Kaza from "./kaza.js?v=20261017a";
+import * as Konusma from "./konusma.js?v=20261017a";
+import * as Ramak from "./ramak.js?v=20261017a";
+import * as Genel from "./genel.js?v=20261017a";
+import * as Rapor from "./rapor.js?v=20261017a";
+import * as Verim from "./verim.js?v=20261017a";
+import * as Isbasi from "./isbasi.js?v=20261017a";
+import * as Guest from "./guest.js?v=20261017a";
+import * as Yontem from "./yontem.js?v=20261017a";
+import * as Tatil from "./tatil.js?v=20261017a";
+import * as Gorev from "./gorev.js?v=20261017a";
+import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261017a";
+import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261017a";
 const PEND_META = { isbasig: ["isbasi", "İşbaşı Eğitim"], konusmag: ["konusma", "Eğitim Konuşması"], kazag: ["kaza", "İş Kazası"] };
 
 const VERSION = "1.6.6";
@@ -229,7 +229,7 @@ async function pendBoxHTML() {
   const L = st.pend?.list || []; if (!L.length) return "";
   let rows = {}; try { (await S.getSetup(st.fid, st.year))?.rows?.forEach(r => { rows[r.id] = r.name; }); } catch {}
   const MN = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
-  const txt = x => x.coll === "isbasig" ? `${x.g ?? 0} giriş / ${x.e ?? 0} eğitim` : x.coll === "konusmag" ? `${x.min} dk` : "kaza kaydı";
+  const txt = x => x.coll === "isbasig" ? `${x.g ?? 0} giriş / ${x.e ?? 0} eğitim` + (/^\d{4}-\d{2}-\d{2}$/.test(x.hd || "") && x.hd !== x.d ? ` · işe başlama ${+x.hd.slice(8)} ${MN[+x.hd.slice(5, 7) - 1].slice(0, 3)}` : "") : x.coll === "konusmag" ? `${x.min} dk` : "kaza kaydı";
   return `<div class="cd" style="gap:12px"><div><h2>Onay bekleyen misafir kayıtları (${L.length})</h2><div class="muted" style="font-size:13px">Onaylanana kadar verim hesabına katılmaz.</div></div>
     <div class="col1" style="gap:8px">${L.sort((a, b) => (b.at || 0) - (a.at || 0)).map(x => `<div class="it" style="gap:10px;flex-wrap:wrap"><div class="grow"><b>${esc(rows[x.dept] || "—")}</b> <span class="tag" style="background:#FBE9C6;color:#6B3F00">${PEND_META[x.coll][1]}</span>
       <div class="muted" style="font-size:12.5px">${esc(txt(x))} · ${MN[(+x.month || 1) - 1]} · ${esc(x.guestName || "Misafir")}</div></div><button class="sm" data-pg="${PEND_META[x.coll][0]}" data-pm="${+x.month || ""}">Aç</button></div>`).join("")}</div></div>`;
@@ -306,8 +306,8 @@ const HELP = {
     [["1,0", "personel 3+ ay kalıcı"], ["0,6", "1-3 ay içinde ayrıldı"], ["0,2", "ilk 1 ayda ayrıldı"]]],
   ramp: ["Hızlı artış (Ramp)", "Çalışma sezonuna göre bölüm içindeki çalışan sayısı artış hızını ifade eder. Seçilen düzey, ZTF değerine tolerans olarak eklenir.",
     [["Düşük", "tolerans 0"], ["Orta", "tolerans +0,05"], ["Yüksek", "tolerans +0,10"]]],
-  ztf: ["ZTF · Eğitim zamanlama", "İşe başlama eğitimlerinin planlanan günde verilmesini ifade eder. Eğitim geciktikçe her gün için eğitim performansında kayıp oluşur.",
-    [["1,0", "1-5 iş günü"], ["0,8", "6. gün"], ["0,6", "7. gün"], ["0,4", "8. gün"], ["0,2", "9. gün"], ["0", "10+ gün veya eğitim verilmedi"]]],
+  ztf: ["ZTF · Eğitim zamanlama", "İşe başlama eğitiminin hedef süre (5 gün) içinde verilmesini ifade eder. Süreç başlangıç ayından itibaren işbaşı kayıtlarındaki işe başlama ve eğitim tarihlerinden hesaplanır; bu sütundaki değer yalnızca tarihi olmayan kayıtlar ve eski aylar için kullanılır.",
+    [["1,0", "1-5 gün"], ["0,8", "6. gün"], ["0,6", "7. gün"], ["0,4", "8. gün"], ["0,2", "9. gün"], ["0", "10+ gün veya eğitim verilmedi"]]],
   ztfr: ["ZTF (ramp toleranslı) · hesaplanan", "ZTF değerine ramp toleransı eklenerek bulunur, en fazla 1,0 olur. Elle girilmez.", [["Formül", "min(1; ZTF + ramp toleransı)"]]],
   kat: ["Bölüm katsayısı · hesaplanan", "Çalışan sayısı ve risk skoruna göre bulunur. İSG denetim cezası bu katsayıyla çarpılır. Elle girilmez.", [["Formül", "1 + (çalışan katsayısı − 0,05) + (risk katsayısı − 0,05)"]]]
 };
@@ -340,7 +340,7 @@ async function pageKurulum(v) {
     K.key = key; K.help = null; K.dirty = false;
     K.cm = +st.year === new Date().getFullYear() ? new Date().getMonth() + 1 : 0;
     K.rows = kLoad(s?.rows?.length ? s.rows : [newRow(1)]);
-    K.params = JSON.parse(JSON.stringify({ ...DEFAULT_PARAMS, ...(s?.params || {}) })); K.params.esik = { ...DEFAULT_PARAMS.esik, ...(K.params.esik || {}) };
+    K.params = JSON.parse(JSON.stringify({ ...DEFAULT_PARAMS, ...(s?.params || {}) })); K.params.esik = { ...DEFAULT_PARAMS.esik, ...(K.params.esik || {}) }; K.params.egitim = { ...DEFAULT_PARAMS.egitim, ...(K.params.egitim || {}) };
   }
   drawKurulum(v);
 }
@@ -381,7 +381,8 @@ function drawKurulum(v) {
     <div class="cd"><h2>2 · Parametreler</h2><div class="params">
       <div class="col"><span class="hd">MODÜL AĞIRLIKLARI (%)</span>${pr("İş Kazası", "w.kaza", "İş Kazası ağırlığı")}${pr("Eğitim Konuşması", "w.konusma", "Eğitim Konuşması ağırlığı")}${pr("İşbaşı Eğitim", "w.isbasi", "İşbaşı Eğitim ağırlığı")}${pr("İSG Denetim", "w.isg", "İSG Denetim ağırlığı")}</div>
       <div class="col"><span class="hd">DURUM EŞİKLERİ (≥)</span>${pr("Mükemmel", "esik.m", "Mükemmel eşiği", '<i class="sw" style="background:#17A06F"></i>')}${pr("İyi", "esik.i", "İyi eşiği", '<i class="sw" style="background:#2A82C4"></i>')}${pr("Orta", "esik.o", "Orta eşiği", '<i class="sw" style="background:#F5B700"></i>')}${pr("Yıllık hedef", "esik.h", "Yıllık hedef", '<i class="sw" style="background:#fff;border:2px solid #0B6E4F;box-sizing:border-box"></i>')}</div>
-      <div class="col"><span class="hd">EĞİTİM</span>${pr("Hedef süre (dk/kişi/ay)", "egitim.hedef", "Hedef süre")}${pr("ZTF şiddeti (kZTF)", "egitim.kztf", "ZTF şiddeti")}${pr("TC şiddeti (kTC)", "egitim.ktc", "TC şiddeti")}<div class="muted" style="font-size:12px">1 = tam etki, 0 = etkisiz.</div></div>
+      <div class="col"><span class="hd">EĞİTİM</span>${pr("Hedef süre (dk/kişi/ay)", "egitim.hedef", "Hedef süre")}${pr("ZTF şiddeti (kZTF)", "egitim.kztf", "ZTF şiddeti")}${pr("TC şiddeti (kTC)", "egitim.ktc", "TC şiddeti")}<div class="muted" style="font-size:12px">1 = tam etki, 0 = etkisiz.</div>
+        <div class="pr"><span>Süreç başlangıç ayı</span><input class="pi" type="month" data-p="egitim.basla" aria-label="Süreç başlangıç ayı" value="${esc(p.egitim.basla || "2026-10")}"></div><div class="muted" style="font-size:12px">Eğitim konuşması ay kapanışı ve işbaşı tarih bazlı ZTF bu aydan itibaren geçerlidir.</div></div>
       <div class="col"><span class="hd">RAMP TOLERANSI (ZTF'YE EKLENİR)</span>${pr("Düşük", "ramp.dusuk", "Düşük ramp toleransı")}${pr("Orta", "ramp.orta", "Orta ramp toleransı")}${pr("Yüksek", "ramp.yuksek", "Yüksek ramp toleransı")}</div>
       <div class="col"><span class="hd">İSG DENETİMİ</span>${pr("Azami sıklık puanı", "isg.azami", "Azami sıklık puanı")}${pr("Ramak kala: ayda 1", "isg.r1", "Ayda 1 bonusu")}${pr("Ramak kala: 2 haftada 1", "isg.r2", "2 haftada 1 bonusu")}${pr("Ramak kala: haftalık", "isg.r3", "Haftalık bonusu")}</div>
     </div></div>

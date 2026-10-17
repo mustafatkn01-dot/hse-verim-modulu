@@ -1,9 +1,9 @@
 // Kurulum sayfasındaki katlanabilir "Hesaplama Yöntemi" kartı (parametrelerden canlı; PDF indirilebilir)
-import { dotCss } from "./tatil.js?v=20261016j";
-import { esc, noticeBox } from "./ui.js?v=20261016j";
-import { num, c2, empCoef, RISK, DEFAULT_PARAMS } from "./scoring.js?v=20261016j";
-import { T as KAZA } from "./kaza.js?v=20261016j";
-import { askFormat, savePdf, printCurrent } from "./pdf.js?v=20261016j";
+import { dotCss } from "./tatil.js?v=20261017a";
+import { esc, noticeBox } from "./ui.js?v=20261017a";
+import { num, c2, empCoef, RISK, DEFAULT_PARAMS } from "./scoring.js?v=20261017a";
+import { T as KAZA } from "./kaza.js?v=20261017a";
+import { askFormat, savePdf, printCurrent } from "./pdf.js?v=20261017a";
 
 const Y = { open: false };
 export const reset = () => { Y.open = false; };
@@ -21,7 +21,7 @@ export function body(p0) {
   const FORM = [
     ["İş Kazası", "Verim = 100 − Σ(adet × tür puanı) × F  (en az 0)", "Her kaza türüne göre puan götürür; büyük ve riskli bölümde bölüm katsayısı kadar ağır sayılır."],
     ["Eğitim Konuşması", `Verim = gerçekleşen dk ÷ (çalışan × ${f(num(p.egitim.hedef))} dk × F) × 100  (en fazla 100)`, "Hedef süre Parametreler'deki \"Hedef süre\" değeridir. Boş girilen bölüm hesaba katılmaz."],
-    ["İşbaşı Eğitim", "Verim = eğitim oranı × ZTF faktörü × TC faktörü", `Oran = eğitim verilen ÷ işe giren. ZTF eğitimin gecikmesini (şiddet ${f(num(p.egitim.kztf))}), TC kalıcılığı (şiddet ${f(num(p.egitim.ktc))}) yansıtır. İşe giriş yoksa modül hesaba girmez.`],
+    ["İşbaşı Eğitim", "Verim = eğitim oranı × ZTF faktörü × TC faktörü", `Oran = eğitim verilen ÷ işe giren. ZTF, kayıtlardaki işe başlama ve eğitim tarihlerinden kişi bazında hesaplanan eğitim gecikmesini (şiddet ${f(num(p.egitim.kztf))}), TC kalıcılığı (şiddet ${f(num(p.egitim.ktc))}) yansıtır. İşe giriş yoksa modül hesaba girmez.`],
     ["İSG Denetim", "Skor = min(100, 100 − ceza + ramak kala bonusu)", `Ceza = 100 × Σ(sıklık × kategori ağırlığı) ÷ (azami ${az} × Σ ağırlık) × F. Sıklık, uygunsuzluğun görüldüğü farklı gün sayısıdır (1 gün = 1, 2-3 gün = 2, 4+ gün = 3); aynı gün yapılan denetimler tek sayılır. Ramak kala bonusu: ayda 1 = ${f(num(p.isg.r1))}, 2 haftada 1 = ${f(num(p.isg.r2))}, haftada 1 = ${f(num(p.isg.r3))} puan.`]
   ];
   const BAND = [["Kritik", `${f(num(e.o))} altı`, "#FADAD7", "#B3261E"], ["Orta", `${f(num(e.o))} – ${f(num(e.i) - 1)}`, "#FBE9C6", "#6B3F00"], ["İyi", `${f(num(e.i))} – ${f(num(e.m) - 1)}`, "#DCEAF7", "#145F96"], ["Mükemmel", `${f(num(e.m))} ve üzeri`, "#D9F1E6", "#0B6E4F"]];

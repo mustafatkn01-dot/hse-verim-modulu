@@ -7,23 +7,50 @@ export function empCoef(n) {
   return v >= 26 ? .30 : v >= 21 ? .25 : v >= 16 ? .20 : v >= 11 ? .15 : v >= 6 ? .10 : .05;
 }
 // Çalışan sayısı aylıktır: r.n tabandır (yıl başından), r.nm = { "11": "24" } o aydan itibaren geçerli yeni sayıdır
-// Eğitim konuşması: Ekim 2026'dan itibaren, ay kapandığında (ayın son gününden sonra) kaydı olmayan ama hedefi olan bölüm 0 sayılır
-export const KONUSMA_BASLANGIC = [2026, 10];
+// Süreç başlangıç ayı (Kurulum › Eğitim): Eğitim Konuşması ay kapanışı ve İşbaşı tarih bazlı ZTF bu aydan itibaren geçerlidir. Varsayılan Ekim 2026.
+let SUREC = [2026, 10];
+export const setSurec = s => { const m = /^(\d{4})-(\d{1,2})$/.exec(String(s ?? "").trim()); SUREC = m && +m[2] >= 1 && +m[2] <= 12 ? [+m[1], +m[2]] : [2026, 10]; };
+export const surecVar = (year, month) => +year * 12 + +month >= SUREC[0] * 12 + SUREC[1];
+// Eğitim konuşması: süreç başladıktan sonra ay kapandığında (ayın son gününden sonra) kaydı olmayan ama hedefi olan bölüm 0 sayılır
 export function konusmaKapali(year, month) {
   const y = +year, m = +month; if (!y || !(m >= 1 && m <= 12)) return false;
-  if (y * 12 + m < KONUSMA_BASLANGIC[0] * 12 + KONUSMA_BASLANGIC[1]) return false;
+  if (!surecVar(y, m)) return false;
   return Date.now() >= new Date(y, m, 1).getTime();
 }
 export const konusmaSifir = (x, year, month) => !!x && (x.pct === null || x.pct === undefined) && +x.goal > 0 && konusmaKapali(year, month);
 export const konusmaPct = (x, year, month) => !x ? null : (x.pct !== null && x.pct !== undefined ? x.pct : konusmaSifir(x, year, month) ? 0 : null);
 export const nAt = (r, m) => { const nm = r.nm || {}; let b = 0; Object.keys(nm).forEach(k => { if (+k <= +m && +k > b) b = +k; }); return b && m ? nm[b] : r.n; };
 export const katsayi = (r, m) => 1 + (empCoef(nAt(r, m)) - .05) + ((RISK[r.risk] ?? .05) - .05);
+export const rampTol = (r, p) => num({ Düşük: p.ramp.dusuk, Orta: p.ramp.orta, Yüksek: p.ramp.yuksek }[r.ramp] ?? 0);
 export const ztfRamp = (r, p) => Math.min(1, num(r.ztf) + num({ Düşük: p.ramp.dusuk, Orta: p.ramp.orta, Yüksek: p.ramp.yuksek }[r.ramp] ?? 0));
+
+// ---------- İşbaşı eğitim: tarih bazlı ZTF ----------
+// Hedef süre 5 gün (cezasız); değerlendirme penceresi 10 gün (faktör 0'a düşer). Kişi, işe başlama + 10 gün hangi aya düşüyorsa o ayda değerlendirilir.
+const pad2 = n => String(n).padStart(2, "0");
+export const isoOk = s => /^\d{4}-\d{2}-\d{2}$/.test(String(s ?? ""));
+const dms = s => { const [y, m, d] = String(s).split("-").map(Number); return Date.UTC(y, m - 1, d); };
+export const gunFark = (a, b) => Math.round((dms(b) - dms(a)) / 864e5);
+export const addGun = (s, n) => { const t = new Date(dms(s) + n * 864e5); return `${t.getUTCFullYear()}-${pad2(t.getUTCMonth() + 1)}-${pad2(t.getUTCDate())}`; };
+export const ztfGun = n => (n <= 5 ? 1 : n >= 10 ? 0 : [0.8, 0.6, 0.4, 0.2][n - 6]);
+export const ayOf = s => String(s).slice(0, 7);
+// Değerlendirme ayı "YYYY-AA" (yıl sınırı aşılmaz: Aralık girişleri Aralık'ta değerlendirilir)
+export const degerAy = hd => { const a = ayOf(addGun(hd, 10)); return a.slice(0, 4) > hd.slice(0, 4) ? hd.slice(0, 4) + "-12" : a; };
+// Kaydın saklanacağı ay (1-12) ve bu ayın değerlendirmesine girip girmediği
+export const kayitAyi = (hd, d) => { const a = isoOk(hd) ? degerAy(hd) : ayOf(d), b = ayOf(d); return +(a > b ? a : b).slice(5, 7); };
+export const isbasiSayilir = (x, year, month) => !surecVar(year, month) || !isoOk(x.hd) || degerAy(x.hd) === `${year}-${pad2(month)}`;
+const isI = s => /^[0-9]+$/.test(String(s ?? "").trim());
+// Bölümün ay ZTF'si: eğitilen kişilerin faktörlerinin ortalaması (tarihi olmayan kayıtlar Kurulum ZTF'si ile). lines: sayılan kayıtlar
+export function isbasiZtf(lines, r, p, year, month) {
+  const fb = ztfRamp(r, p); if (!surecVar(year, month)) return fb;
+  const tol = rampTol(r, p); let w = 0, sum = 0;
+  lines.forEach(x => { const e = isI(x.e) ? +x.e : 0; if (!e) return; const f = isoOk(x.hd) && isoOk(x.d) ? Math.min(1, ztfGun(gunFark(x.hd, x.d)) + tol) : fb; w += e; sum += e * f; });
+  return w ? sum / w : fb;
+}
 
 export const DEFAULT_PARAMS = {
   w: { kaza: "40", konusma: "15", isbasi: "15", isg: "30" },
   esik: { m: "90", i: "75", o: "50", h: "90" },
-  egitim: { hedef: "10", kztf: "1", ktc: "1" },
+  egitim: { hedef: "10", kztf: "1", ktc: "1", basla: "2026-10" },
   ramp: { dusuk: "0", orta: "0,05", yuksek: "0,10" },
   isg: { azami: "3", r1: "5", r2: "10", r3: "15" }
 };

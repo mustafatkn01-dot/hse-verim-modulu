@@ -1,9 +1,9 @@
 // Eğitim Konuşması · Aylık Giriş
-import * as S from "./store.js?v=20261016j";
-import { esc, ic, toast, noteEditor, guestLock, roText, GUEST } from "./ui.js?v=20261016j";
-import * as Guest from "./guest.js?v=20261016j";
-import * as K from "./kayit.js?v=20261016j";
-import { katsayi, nAt, bandOf, num, MONTHS, DEFAULT_PARAMS, konusmaKapali } from "./scoring.js?v=20261016j";
+import * as S from "./store.js?v=20261017a";
+import { esc, ic, toast, noteEditor, guestLock, roText, GUEST } from "./ui.js?v=20261017a";
+import * as Guest from "./guest.js?v=20261017a";
+import * as K from "./kayit.js?v=20261017a";
+import { katsayi, nAt, bandOf, num, MONTHS, DEFAULT_PARAMS, konusmaKapali, surecVar } from "./scoring.js?v=20261017a";
 
 const COLL = "konusma";
 const BAND = { Mükemmel: ["#17A06F", "#0B6E4F", "#D9F1E6"], İyi: ["#2A82C4", "#145F96", "#DCEAF7"], Orta: ["#E8A512", "#6B3F00", "#FBE9C6"], Kritik: ["#D6382E", "#B3261E", "#FADAD7"] };
@@ -97,7 +97,7 @@ function draw() {
   const sb = s.avg === null ? null : BAND[bandOf(s.avg, p)];
   const lows = D.setup.rows.filter(r => { const x = s.per[r.id]; return (x.has || x.zero) && x.pct < num(p.esik.i); });
   // Ekim 2026 ve sonrası: kaydı olmayan (hedefi olan) bölüm sayısı → tek satır bilgi
-  const yeniKural = +st.year * 12 + D.month >= 2026 * 12 + 10, eksik = D.setup.rows.filter(r => s.per[r.id].zero || (!s.per[r.id].has && s.per[r.id].goal > 0)).length, kapali = konusmaKapali(st.year, D.month);
+  const yeniKural = surecVar(st.year, D.month), eksik = D.setup.rows.filter(r => s.per[r.id].zero || (!s.per[r.id].has && s.per[r.id].goal > 0)).length, kapali = konusmaKapali(st.year, D.month);
   const kayitUyari = yeniKural && eksik ? `<div style="margin-top:10px;font:italic 600 13.5px Manrope,system-ui,sans-serif;color:#B26A00;line-height:1.45">${eksik} bölümde ${kapali ? "kayıt yok; 0 olarak değerlendirildi." : "henüz kayıt yok; ay kapanınca 0 sayılır."}</div>` : "";
   v.innerHTML = `
   <div class="row sp"><div><h1 class="ttl">Eğitim Konuşması · Aylık Giriş</h1>
@@ -111,7 +111,7 @@ function draw() {
     <div class="cd" style="flex:1 1 220px;padding:20px;gap:8px"><span class="hd" style="letter-spacing:.8px">TOPLAM SÜRE (DK)</span><b style="font:700 32px Sora,sans-serif">${Math.round(s.tot)}</b></div>
     <div class="cd" style="flex:1 1 220px;padding:20px;gap:8px"><span class="hd" style="letter-spacing:.8px">HEDEFE ULAŞAN BÖLÜM</span><b style="font:700 32px Sora,sans-serif">${s.hit} / ${s.cnt}</b></div></div>
   <fieldset class="fs" ${D.ro ? "disabled" : ""}><div class="cd"><div><h2>Bölüm Bazında Konuşma Süresi</h2>
-    <div class="muted" style="font-size:13px;line-height:1.5">O ay yapılan eğitim konuşmalarını + düğmesiyle ekleyin. Hedef süre = çalışan sayısı × ${T} dk × bölüm katsayısı. Aylık toplam eklenen kayıtların toplamıdır. ${+st.year * 12 + D.month >= 2026 * 12 + 10 ? "Ay kapandığında kaydı olmayan bölüm 0 olarak değerlendirilir." : "Kayıt yoksa bölüm hesaba katılmaz."}</div>${kayitUyari}</div>
+    <div class="muted" style="font-size:13px;line-height:1.5">O ay yapılan eğitim konuşmalarını + düğmesiyle ekleyin. Hedef süre = çalışan sayısı × ${T} dk × bölüm katsayısı. Aylık toplam eklenen kayıtların toplamıdır. ${surecVar(st.year, D.month) ? "Ay kapandığında kaydı olmayan bölüm 0 olarak değerlendirilir." : "Kayıt yoksa bölüm hesaba katılmaz."}</div>${kayitUyari}</div>
     <div class="tbl"><div class="tin" style="min-width:820px">
       <div class="cg"><span class="hd">Bölüm</span><span class="hd">Çalışan</span><span class="hd">Katsayı</span><span class="hd">Hedef (dk)</span><span class="hd">Gerçekleşen (dk)</span><span class="hd">Hedefe oran</span><span class="hd">Verim</span></div>
       ${D.setup.rows.map(r => {

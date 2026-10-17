@@ -1,5 +1,6 @@
 // Veri katmanı: users/{uid}/factories/{fid}/years/{yıl}/setup/main
-import { auth, db, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, updateDoc, query, orderBy, serverTimestamp, onSnapshot } from "./firebase.js?v=20261016j";
+import { auth, db, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, updateDoc, query, orderBy, serverTimestamp, onSnapshot } from "./firebase.js?v=20261017a";
+import { setSurec } from "./scoring.js?v=20261017a";
 
 const uid = () => auth.currentUser.uid;
 // Veri sahibi: misafir kullanıcıda davet eden hesabın uid'si; kendi oturum/profil kayıtları ise her zaman kendi hesabında
@@ -51,6 +52,7 @@ export async function getSetup(fid, y) {
   const d = await getDoc(setupRef(fid, y));
   if (!d.exists()) return null;
   const data = d.data();
+  setSurec(data.params?.egitim?.basla);
   if (data.rows?.some(r => !r.id)) {
     data.rows = data.rows.map((r, i) => (r.id ? r : { ...r, id: `d${i}_${hash(String(r.name || ""))}` }));
     await setDoc(setupRef(fid, y), { ...data, updatedAt: serverTimestamp() }).catch(() => {});
