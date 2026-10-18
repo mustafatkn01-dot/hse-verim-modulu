@@ -1,11 +1,11 @@
 // Aylık HSE Raporu · kayıtlı verilerden otomatik grafik + açıklama
-import * as S from "./store.js?v=20261018a";
-import { esc } from "./ui.js?v=20261018a";
-import * as Gorev from "./gorev.js?v=20261018a";
-import * as T from "./tatil.js?v=20261018a";
-import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261018a";
-import { CATS } from "./isgcats.js?v=20261018a";
-import { bandOf, calcIsg, katsayi, surecVar, DEFAULT_PARAMS, MONTHS, num, konusmaPct, konusmaSifir } from "./scoring.js?v=20261018a";
+import * as S from "./store.js?v=20261018b";
+import { esc } from "./ui.js?v=20261018b";
+import * as Gorev from "./gorev.js?v=20261018b";
+import * as T from "./tatil.js?v=20261018b";
+import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261018b";
+import { CATS } from "./isgcats.js?v=20261018b";
+import { bandOf, calcIsg, katsayi, surecVar, DEFAULT_PARAMS, MONTHS, num, konusmaPct, konusmaSifir } from "./scoring.js?v=20261018b";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -40,9 +40,9 @@ export async function render(v, ctx) {
   draw(v, st, setup, data);
 }
 
-const bar = (name, v, w, label, thin, lw, hf) => {
+const bar = (name, v, w, label, thin, lw, hf, sub) => {
   const b = v === null ? NONE : BAND[label.band];
-  return `<div style="display:flex;align-items:center;gap:12px"><span style="width:96px;flex:0 0 96px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(name)}</span>
+  return `<div style="display:flex;align-items:center;gap:12px"><span style="width:96px;flex:0 0 96px;min-width:0;display:flex;flex-direction:column"><span style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(name)}</span>${sub === undefined ? "" : `<span ${sub.t ? `title="${esc(sub.title)}"` : ""} style="font-size:10.5px;font-weight:700;line-height:13px;height:13px;color:#8E1B16;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(sub.t || "")}</span>`}</span>
     <div style="flex:1;min-width:40px;position:relative"><div style="height:${thin ? 12 : 14}px;border-radius:999px;background:#E4ECE9;overflow:hidden"><div style="height:100%;border-radius:999px;width:${v === null ? 0 : Math.max(0, Math.min(100, v))}%;background:${b.fill}"></div></div>${hf ? `<span style="position:absolute;left:${hf}%;top:-3px;bottom:-3px;width:2px;margin-left:-1px;background:#0B6E4F"></span>` : ""}</div>
     <span style="width:44px;text-align:right;font-weight:700">${v === null ? "–" : f1(v)}</span>
     <span style="width:${lw || 76}px;flex:0 0 ${lw || 76}px;text-align:center;font-size:12px;font-weight:700;padding:3px 0;border-radius:999px;background:${label.bg || b.bg};color:${label.c || b.c}">${esc(label.t)}</span></div>`;
@@ -57,7 +57,7 @@ const vbars = (items, hf) => {
       ${items.map(i => { const b = i.v === null ? NONE : BAND[i.label.band], h = i.v === null ? 0 : Math.round(Math.max(0, Math.min(100, i.v)) * 2);
         return `<div style="flex:1;min-width:56px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end"><span style="font-weight:700;font-size:13px;margin-bottom:4px">${i.v === null ? "–" : f1(i.v)}</span><div style="width:min(46px,72%);height:${h}px;min-height:${i.v === null ? 0 : 3}px;border-radius:8px 8px 0 0;background:${b.fill}"></div></div>`; }).join("")}${hf ? `<span style="position:absolute;left:0;right:0;bottom:${Math.round(hf * 2)}px;border-top:2px solid #0B6E4F;pointer-events:none"></span>` : ""}</div>
     <div style="display:flex;gap:12px">${items.map(i => { const b = i.v === null ? NONE : BAND[i.label.band];
-      return `<div style="flex:1;min-width:56px;display:flex;flex-direction:column;align-items:center;gap:5px;text-align:center"><span style="font-size:12px;font-weight:600;line-height:1.25;word-break:break-word">${esc(i.name)}</span><span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:${i.label.bg || b.bg};color:${i.label.c || b.c}">${esc(i.label.t)}</span></div>`; }).join("")}</div></div></div>`;
+      return `<div style="flex:1;min-width:56px;display:flex;flex-direction:column;align-items:center;gap:5px;text-align:center"><span style="font-size:12px;font-weight:600;line-height:1.25;word-break:break-word">${esc(i.name)}</span>${i.sub === undefined ? "" : `<span ${i.sub.t ? `title="${esc(i.sub.title)}"` : ""} style="font-size:10.5px;font-weight:700;line-height:13px;min-height:13px;color:#8E1B16;text-align:center">${esc(i.sub.t || "")}</span>`}<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:${i.label.bg || b.bg};color:${i.label.c || b.c}">${esc(i.label.t)}</span></div>`; }).join("")}</div></div></div>`;
 };
 // Grafik görünümü seçici: yatay çubuk / dikey sütun (yazdırmada gizlenir, seçilen görünüm basılır)
 const toggle = id => { const v = R.vert.has(id), btn = (on, vt, title, svg) => `<button class="sec" data-vt="${id}" data-to="${vt}" title="${title}" aria-label="${title}" aria-pressed="${on}" style="height:30px;width:34px;min-width:0;padding:0;border-radius:8px;display:flex;align-items:center;justify-content:center;${on ? "background:#0B6E4F;color:#fff;border-color:#0B6E4F" : "background:#fff;color:#546964"}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">${svg}</svg></button>`;
@@ -86,6 +86,18 @@ function draw(v, st, setup, data) {
   const W = [num(p.w.kaza), num(p.w.konusma), num(p.w.isbasi), num(p.w.isg)];
   const avgOf = a => (a.length ? a.reduce((s, c) => s + c, 0) / a.length : null);
   const mpre = mi => (multi ? `<b>${MONTHS[mi - 1]}:</b> ` : "");
+  // Yıllık rapor: yıl içinde 20+ gün kayıplı, uzuv kaybı veya ölümlü kaza olan bölüm için bayrak (puanı etkilemez)
+  const FK = [[5, "Ölüm", "Ölümlü kaza"], [4, "Uzuv", "Uzuv kaybı"], [3, "20+ gün", "20+ gün kayıplı kaza"]];
+  const flags = {};
+  if (R.per === "y") rows.forEach(r => {
+    const ev = [];
+    ms.forEach(mi => { const c = data.kz[pad(mi)]?.rows?.[r.id]?.c || []; FK.forEach(([k, s, l]) => { if (+c[k] > 0) ev.push({ k, s, l, mi, n: +c[k] }); }); });
+    if (!ev.length) { flags[r.id] = { t: "" }; return; }
+    ev.sort((a, b) => b.k - a.k || a.mi - b.mi);
+    const e = ev[0], more = ev.length - 1;
+    flags[r.id] = { t: `⚑ ${e.s} · ${MONTHS[e.mi - 1].slice(0, 3)}${more ? " +" + more : ""}`, title: ev.map(x => `${MONTHS[x.mi - 1]}: ${x.l}${x.n > 1 ? " ×" + x.n : ""}`).join("; ") };
+  });
+  const sub = r => (R.per === "y" ? flags[r.id] : undefined);
   const mv = { kaza: {}, konusma: {}, isbasi: {}, isg: {} }, val = { kaza: {}, konusma: {}, isbasi: {}, isg: {} }, isgList = [], monthsWith = new Set();
   rows.forEach(r => { ["kaza", "konusma", "isbasi", "isg"].forEach(k => { mv[k][r.id] = []; }); });
   ms.forEach(mi => {
@@ -137,7 +149,7 @@ function draw(v, st, setup, data) {
   const g2 = KEYS.map((k, i) => (mavg[i] === null ? "" : bar(TITLE[i], mavg[i], 0, { band: bn(mavg[i]), t: "Ağırlık %" + W[i], c: "#2A3F3A", bg: "#E4ECE9" }, true))).join("");
 
   // modül kartları
-  const modBars = (k, vid) => vid && R.vert.has(vid) ? vbars(rows.map(r => { const x = val[k][r.id]; return { name: r.name, v: x, label: x === null ? { t: k === "isbasi" && !multi && data.ib[pad(m)]?.result?.per?.[r.id]?.state === "none" ? "Giriş yok" : k === "isg" ? "Denetim yok" : "Veri yok", band: "İyi" } : { t: bn(x), band: bn(x) } }; })) : `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(340px,100%),1fr));gap:10px 36px">${rows.map(r => { const x = val[k][r.id]; return bar(r.name, x, 0, x === null ? { t: k === "isbasi" && !multi && data.ib[pad(m)]?.result?.per?.[r.id]?.state === "none" ? "Giriş yok" : k === "isg" ? "Denetim yok" : "Veri yok", band: "İyi", ...NONE } : { t: bn(x), band: bn(x) }, true); }).join("")}</div>`;
+  const modBars = (k, vid) => vid && R.vert.has(vid) ? vbars(rows.map(r => { const x = val[k][r.id]; return { name: r.name, sub: k === "kaza" ? sub(r) : undefined, v: x, label: x === null ? { t: k === "isbasi" && !multi && data.ib[pad(m)]?.result?.per?.[r.id]?.state === "none" ? "Giriş yok" : k === "isg" ? "Denetim yok" : "Veri yok", band: "İyi" } : { t: bn(x), band: bn(x) } }; })) : `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(340px,100%),1fr));gap:10px 36px">${rows.map(r => { const x = val[k][r.id]; return bar(r.name, x, 0, x === null ? { t: k === "isbasi" && !multi && data.ib[pad(m)]?.result?.per?.[r.id]?.state === "none" ? "Giriş yok" : k === "isg" ? "Denetim yok" : "Veri yok", band: "İyi", ...NONE } : { t: bn(x), band: bn(x) }, true, undefined, undefined, k === "kaza" ? sub(r) : undefined); }).join("")}</div>`;
   const noteTxt = (r, n) => `${esc(n)} <b style="white-space:nowrap">— ${esc(r.name)}</b>`;
   const nk = [], nn = [], ni = [];
   let kT = 0, kL = 0, kAny = false, hired = 0, trained = 0, oos = 0, ibAny = false, cnCnt = 0, cnHit = 0, knAny = false;
@@ -225,7 +237,7 @@ function draw(v, st, setup, data) {
   const inc = ["Genel verim", "Modül verimleri", ...TITLE.filter((_, i) => modHas[i]), ...(anyIsg ? ["İSG bulgu dağılımı"] : []), ...(u0?.total ? ["Denetim planı"] : []), ...(gs ? ["Görev takibi"] : []), plabel];
   const incKeys = inc.filter(t => t !== plabel), incAllOff = incKeys.length > 0 && incKeys.every(t => R.off.has(t));
   const incOn = incKeys.filter(t => !R.off.has(t)), scopeTxt = !incOn.length ? "" : incOn.length === incKeys.length ? "Genel HSE performans değerlendirmesi" : "Kapsam: " + incOn.join(", ");
-  const first1 = tv.length ? (R.vert.has("g1") ? vbars(rank.map(r => ({ name: r.name, v: total[r.id], label: { t: bn(total[r.id]), band: bn(total[r.id]) } })), hedef) : `<div class="col1" style="gap:10px">${rank.map(r => bar(r.name, total[r.id], 0, { t: bn(total[r.id]), band: bn(total[r.id]) }, false, 72, hedef)).join("")}</div>`) : `<div class="muted">Bu dönem için henüz kayıtlı veri yok.</div>`;
+  const first1 = tv.length ? (R.vert.has("g1") ? vbars(rank.map(r => ({ name: r.name, sub: sub(r), v: total[r.id], label: { t: bn(total[r.id]), band: bn(total[r.id]) } })), hedef) : `<div class="col1" style="gap:10px">${rank.map(r => bar(r.name, total[r.id], 0, { t: bn(total[r.id]), band: bn(total[r.id]) }, false, 72, hedef, sub(r))).join("")}</div>`) : `<div class="muted">Bu dönem için henüz kayıtlı veri yok.</div>`;
   const hLeg = tv.length ? `<div class="muted" style="display:flex;align-items:center;gap:8px;font-size:12.5px"><span style="width:18px;border-top:2px solid #0B6E4F"></span>Hedef ${hedef}</div>` : "";
 
   v.innerHTML = `
