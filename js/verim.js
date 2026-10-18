@@ -1,10 +1,10 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261017c";
-import { esc } from "./ui.js?v=20261017c";
-import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261017c";
-import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261017c";
-import { CATS } from "./isgcats.js?v=20261017c";
-import * as Gorev from "./gorev.js?v=20261017c";
+import * as S from "./store.js?v=20261018a";
+import { esc } from "./ui.js?v=20261018a";
+import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261018a";
+import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261018a";
+import { CATS } from "./isgcats.js?v=20261018a";
+import * as Gorev from "./gorev.js?v=20261018a";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -97,7 +97,7 @@ function draw() {
   const t0 = 30, H = 2.4;
 
   const bars = rows.map((r, i) => { const x = vals[i]; return `<div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:330px">
-    <div style="font-size:14px;font-weight:800;margin-bottom:4px;position:relative;z-index:2;-webkit-text-stroke:3px var(--card);paint-order:stroke fill">${x === null ? "–" : f1(x)}</div>
+    <div style="font-size:14px;font-weight:800;margin-bottom:4px;position:relative;z-index:2;-webkit-text-stroke:3px var(--card);paint-order:stroke fill">${x === null ? (mk === 3 ? `<span style="font-size:10.5px;font-weight:700;line-height:1.1;display:block;text-align:center;color:var(--muted);-webkit-text-stroke:0">Denetim yok</span>` : "–") : f1(x)}</div>
     <div style="width:42%;max-width:40px;height:${x === null ? 3 : Math.round(x * H)}px;background:${band(x).fill};border-radius:8px 8px 2px 2px"></div>
     <div style="height:30px;line-height:30px;font-size:12.5px;font-weight:600;color:var(--muted);white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis">${esc(r.name)}</div></div>`; }).join("");
 

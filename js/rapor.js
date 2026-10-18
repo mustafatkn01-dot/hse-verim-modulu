@@ -1,11 +1,11 @@
 // Aylık HSE Raporu · kayıtlı verilerden otomatik grafik + açıklama
-import * as S from "./store.js?v=20261017c";
-import { esc } from "./ui.js?v=20261017c";
-import * as Gorev from "./gorev.js?v=20261017c";
-import * as T from "./tatil.js?v=20261017c";
-import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261017c";
-import { CATS } from "./isgcats.js?v=20261017c";
-import { bandOf, calcIsg, katsayi, surecVar, DEFAULT_PARAMS, MONTHS, num, konusmaPct, konusmaSifir } from "./scoring.js?v=20261017c";
+import * as S from "./store.js?v=20261018a";
+import { esc } from "./ui.js?v=20261018a";
+import * as Gorev from "./gorev.js?v=20261018a";
+import * as T from "./tatil.js?v=20261018a";
+import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261018a";
+import { CATS } from "./isgcats.js?v=20261018a";
+import { bandOf, calcIsg, katsayi, surecVar, DEFAULT_PARAMS, MONTHS, num, konusmaPct, konusmaSifir } from "./scoring.js?v=20261018a";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -137,7 +137,7 @@ function draw(v, st, setup, data) {
   const g2 = KEYS.map((k, i) => (mavg[i] === null ? "" : bar(TITLE[i], mavg[i], 0, { band: bn(mavg[i]), t: "Ağırlık %" + W[i], c: "#2A3F3A", bg: "#E4ECE9" }, true))).join("");
 
   // modül kartları
-  const modBars = (k, vid) => vid && R.vert.has(vid) ? vbars(rows.map(r => { const x = val[k][r.id]; return { name: r.name, v: x, label: x === null ? { t: k === "isbasi" && !multi && data.ib[pad(m)]?.result?.per?.[r.id]?.state === "none" ? "Giriş yok" : "Veri yok", band: "İyi" } : { t: bn(x), band: bn(x) } }; })) : `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(340px,100%),1fr));gap:10px 36px">${rows.map(r => { const x = val[k][r.id]; return bar(r.name, x, 0, x === null ? { t: k === "isbasi" && !multi && data.ib[pad(m)]?.result?.per?.[r.id]?.state === "none" ? "Giriş yok" : "Veri yok", band: "İyi", ...NONE } : { t: bn(x), band: bn(x) }, true); }).join("")}</div>`;
+  const modBars = (k, vid) => vid && R.vert.has(vid) ? vbars(rows.map(r => { const x = val[k][r.id]; return { name: r.name, v: x, label: x === null ? { t: k === "isbasi" && !multi && data.ib[pad(m)]?.result?.per?.[r.id]?.state === "none" ? "Giriş yok" : k === "isg" ? "Denetim yok" : "Veri yok", band: "İyi" } : { t: bn(x), band: bn(x) } }; })) : `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(340px,100%),1fr));gap:10px 36px">${rows.map(r => { const x = val[k][r.id]; return bar(r.name, x, 0, x === null ? { t: k === "isbasi" && !multi && data.ib[pad(m)]?.result?.per?.[r.id]?.state === "none" ? "Giriş yok" : k === "isg" ? "Denetim yok" : "Veri yok", band: "İyi", ...NONE } : { t: bn(x), band: bn(x) }, true); }).join("")}</div>`;
   const noteTxt = (r, n) => `${esc(n)} <b style="white-space:nowrap">— ${esc(r.name)}</b>`;
   const nk = [], nn = [], ni = [];
   let kT = 0, kL = 0, kAny = false, hired = 0, trained = 0, oos = 0, ibAny = false, cnCnt = 0, cnHit = 0, knAny = false;
