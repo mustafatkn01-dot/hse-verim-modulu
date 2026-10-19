@@ -1,11 +1,11 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261019f";
-import { esc } from "./ui.js?v=20261019f";
-import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261019f";
-import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261019f";
-import { CATS } from "./isgcats.js?v=20261019f";
-import * as Gorev from "./gorev.js?v=20261019f";
-import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261019f";
+import * as S from "./store.js?v=20261019g";
+import { esc } from "./ui.js?v=20261019g";
+import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261019g";
+import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261019g";
+import { CATS } from "./isgcats.js?v=20261019g";
+import * as Gorev from "./gorev.js?v=20261019g";
+import { auditAvg, lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261019g";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -93,11 +93,12 @@ function draw() {
   const cur = PER[V.p].items[V.sel], have = cur.idx.filter(i => hasM[i]).length, partial = have > 0 && have < cur.idx.length;
   const mk = V.metric, val = (id, k) => avg(series(id, k), cur.idx);
   const seg = on => (on ? "background:var(--sel);color:#fff;border-color:var(--sel)" : "background:var(--card);color:var(--text);border-color:var(--inl)");
-  // İSG · "Son hafta" sekmesi: seçili dönemin son denetim haftası; puanlar ay başından o haftanın sonuna kadar birikimlidir, yalnız o hafta denetlenen bölümler gösterilir
+  // İSG · "Son hafta" sekmesi: seçili dönemin son denetim haftası; "Dönem" denetimlerin ortalaması, "Son hafta" en son denetimin puanıdır
   const WD = V.data._i || [], wk = mk === 3 ? lastWeekKey(WD, cur.idx.map(i => i + 1)) : null, wmode = !!wk && V.wk;
   const wsc = wk ? weekScores(WD, rows, p, y, wk) : {}, wlab = wk ? weekLabel(WD, wk, y) : "";
   const crows = rows, plab = wmode ? wlab : PER[V.p].name(V.sel);
-  const vals = wmode ? crows.map(r => wsc[r.id] ?? null) : rows.map(r => val(r.id, mk)), ok = vals.filter(x => x !== null);
+  const iav = mk === 3 && !wmode ? auditAvg(WD, rows, p, y, cur.idx.map(i => i + 1)) : null;
+  const vals = wmode ? crows.map(r => wsc[r.id] ?? null) : iav ? rows.map(r => iav[r.id]?.avg ?? val(r.id, mk)) : rows.map(r => val(r.id, mk)), ok = vals.filter(x => x !== null);
   const av = ok.length ? ok.reduce((a, c) => a + c, 0) / ok.length : null, ab = band(av);
   const cell = x => (x === null ? { t: "–", bg: NONE.bg, c: NONE.c } : { t: f1(x), bg: band(x).bg, c: band(x).c });
   const t0 = 30, H = 2.4;
@@ -122,12 +123,13 @@ function draw() {
     }
     return notes;
   };
-  const notes = buildNotes(plab, crows.map(r => r.name), vals, av, !wmode && V.p === "m" && V.sel > 0, wmode);
-  if (wmode && notes.length) notes.push("Puanlar ay başından bu haftanın sonuna kadar yapılan denetimlerle hesaplanır; bu hafta denetlenmeyen bölümler grafikte \"Denetlenmedi\" olarak işaretlenir ve ortalamaya girmez.");
+  const notes = buildNotes(plab, crows.map(r => r.name), vals, av, !wmode && !iav && V.p === "m" && V.sel > 0, wmode);
+  if (iav && notes.length) notes.push("Puanlar, dönemde yapılan her denetimin puanının ortalamasıdır (denetim sayısı: " + rows.filter(r => iav[r.id]).map(r => r.name + " " + iav[r.id].n).join(", ") + "). Her denetimin puanı, o güne kadarki birikimli İSG skorudur.");
+  if (wmode && notes.length) notes.push("Puan, bu haftanın en son denetiminin puanıdır (denetim ekranındaki anlık İSG skoru); bu hafta denetlenmeyen bölümler grafikte \"Denetlenmedi\" olarak işaretlenir ve ortalamaya girmez.");
   // PDF: seçilen haftanın grafiği (ay başından o haftanın sonuna birikimli)
   const weekFor = k => { const sc = weekScores(WD, rows, p, y, k), cr = rows, vs = cr.map(r => sc[r.id] ?? null), vv = vs.filter(x => x !== null), a = vv.length ? vv.reduce((q, z) => q + z, 0) / vv.length : null, lab = weekLabel(WD, k, y), ns = buildNotes(lab, cr.map(r => r.name), vs, a, false, true);
-    if (ns.length) ns.push("Puanlar ay başından bu haftanın sonuna kadar yapılan denetimlerle hesaplanır; bu hafta denetlenmeyen bölümler grafikte \"Denetlenmedi\" olarak işaretlenir ve ortalamaya girmez.");
-    return { names: cr.map(r => r.name), vals: vs, av: a, ab: band(a), abn: bname(a), plabel: lab + " · birikimli", notes: ns, nullLabel: "Denetlenmedi" }; };
+    if (ns.length) ns.push("Puan, bu haftanın en son denetiminin puanıdır (denetim ekranındaki anlık İSG skoru); bu hafta denetlenmeyen bölümler grafikte \"Denetlenmedi\" olarak işaretlenir ve ortalamaya girmez.");
+    return { names: cr.map(r => r.name), vals: vs, av: a, ab: band(a), abn: bname(a), plabel: lab + " · son denetim", notes: ns, nullLabel: "Denetlenmedi" }; };
   const nonEmpty = rows.some(r => V.data[r.id].some(m => m.some(x => x !== null)));
 
   const heads = [], mr = rows.map(() => []);

@@ -1,6 +1,6 @@
 // İSG Denetim · hafta bazlı görünüm (ay içinde "o haftanın sonuna kadar" birikimli skor)
-import { calcIsg, katsayi, surecVar, DEFAULT_PARAMS } from "./scoring.js?v=20261019f";
-import { CATS } from "./isgcats.js?v=20261019f";
+import { calcIsg, katsayi, surecVar, DEFAULT_PARAMS } from "./scoring.js?v=20261019g";
+import { CATS } from "./isgcats.js?v=20261019g";
 
 const pad = n => String(n).padStart(2, "0");
 const dt = t => new Date(+t.slice(0, 4), +t.slice(5, 7) - 1, +t.slice(8, 10));
@@ -32,6 +32,24 @@ export function weekScores(docs, rows, params, year, key) {
     mine.sort((a, b) => b.m - a.m); const d = mine[0];
     const ss = (d.sessions || []).filter(s => !s?.date || s.date <= end);
     try { out[r.id] = +calcIsg({ cats: CATS, sessions: ss, draft: { marks: {}, notes: {}, ydNotes: {} }, freqOv: d.freq || {}, bonusIdx: d.bonus || 0, F: katsayi(r, d.m), p, yog: surecVar(year, d.m) }).score.toFixed(2); } catch { }
+  });
+  return out;
+}
+
+// Dönem görünümü: her bölümün seçili aylardaki TÜM denetimlerinin puan ortalaması.
+// Bir denetimin puanı = o denetim gününe kadar (ay başından) birikimli skor (denetim ekranındaki "Anlık İSG skoru"). Son denetim = resmi ay skoru.
+export function auditAvg(docs, rows, params, year, months) {
+  const out = {}, p = params || DEFAULT_PARAMS;
+  rows.forEach(r => {
+    const sc = [];
+    docs.filter(d => d.id === r.id && months.includes(d.m)).forEach(d => {
+      const all = d.sessions || []; if (!all.length) return;
+      const F = katsayi(r, d.m), yog = surecVar(year, d.m), dates = [...new Set(all.map(s => s?.date).filter(Boolean))].sort();
+      const run = (ss, last) => { try { return +calcIsg({ cats: CATS, sessions: ss, draft: { marks: {}, notes: {}, ydNotes: {} }, freqOv: last ? (d.freq || {}) : {}, bonusIdx: last ? (d.bonus || 0) : 0, F, p, yog }).score.toFixed(2); } catch { return null; } };
+      if (!dates.length) { const x = run(all, true); if (x !== null) sc.push(x); return; }
+      dates.forEach((dd, i) => { const x = run(all.filter(s => !s?.date || s.date <= dd), i === dates.length - 1); if (x !== null) sc.push(x); });
+    });
+    if (sc.length) out[r.id] = { avg: sc.reduce((a, c) => a + c, 0) / sc.length, n: sc.length };
   });
   return out;
 }
