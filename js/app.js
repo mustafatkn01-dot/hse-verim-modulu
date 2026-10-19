@@ -1,20 +1,20 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261019h";
-import * as S from "./store.js?v=20261019h";
-import * as Prim from "./primary.js?v=20261019h";
-import * as Denetim from "./denetim.js?v=20261019h";
-import * as Kaza from "./kaza.js?v=20261019h";
-import * as Konusma from "./konusma.js?v=20261019h";
-import * as Ramak from "./ramak.js?v=20261019h";
-import * as Genel from "./genel.js?v=20261019h";
-import * as Rapor from "./rapor.js?v=20261019h";
-import * as Verim from "./verim.js?v=20261019h";
-import * as Isbasi from "./isbasi.js?v=20261019h";
-import * as Guest from "./guest.js?v=20261019h";
-import * as Yontem from "./yontem.js?v=20261019h";
-import * as Tatil from "./tatil.js?v=20261019h";
-import * as Gorev from "./gorev.js?v=20261019h";
-import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261019h";
-import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261019h";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261019i";
+import * as S from "./store.js?v=20261019i";
+import * as Prim from "./primary.js?v=20261019i";
+import * as Denetim from "./denetim.js?v=20261019i";
+import * as Kaza from "./kaza.js?v=20261019i";
+import * as Konusma from "./konusma.js?v=20261019i";
+import * as Ramak from "./ramak.js?v=20261019i";
+import * as Genel from "./genel.js?v=20261019i";
+import * as Rapor from "./rapor.js?v=20261019i";
+import * as Verim from "./verim.js?v=20261019i";
+import * as Isbasi from "./isbasi.js?v=20261019i";
+import * as Guest from "./guest.js?v=20261019i";
+import * as Yontem from "./yontem.js?v=20261019i";
+import * as Tatil from "./tatil.js?v=20261019i";
+import * as Gorev from "./gorev.js?v=20261019i";
+import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261019i";
+import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261019i";
 const PEND_META = { isbasig: ["isbasi", "İşbaşı Eğitim"], konusmag: ["konusma", "Eğitim Konuşması"], kazag: ["kaza", "İş Kazası"] };
 
 const VERSION = "1.6.6";
@@ -417,7 +417,7 @@ function drawKurulum(v) {
     const label = btn.textContent; btn.dataset.busy = "1"; btn.disabled = true; btn.textContent = "Kaydediliyor…";
     const slow = setTimeout(() => toast("Bağlantı yavaş; kayıt gönderiliyor. Sayfayı kapatmayın."), 4000);
     try {
-      const saved = kSave(); await S.saveSetup(st.fid, st.year, { rows: saved, params: K.params }); clearTimeout(slow);
+      const saved = kSave(); await S.saveSetup(st.fid, st.year, { rows: saved, params: K.params }); clearTimeout(slow); Gorev.bolumleriYayinla?.().catch(() => { });
       K.rows = kLoad(saved); drawKurulum(v); toast("Kurulum kaydedildi");
       const b2 = $("saveK"); if (b2) { b2.textContent = "✓ Kaydedildi"; setTimeout(() => { const b3 = $("saveK"); if (b3 && b3.textContent === "✓ Kaydedildi") b3.textContent = label; }, 2500); }
     } catch (e) { clearTimeout(slow); toast("Kaydedilemedi: " + e.message); btn.disabled = false; btn.textContent = label; delete btn.dataset.busy; }

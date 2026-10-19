@@ -1,9 +1,9 @@
 // (ramak kala kayıtları islendi:"ramak" ile yazılır: görev takibin eski sürümleri bunları almaz, yalnızca yeni sürüm olay sayfasına ekler)
 // Görev takip programı köprüsü (mtisggorev). HSE Verim yalnızca küçük kayıtlar bırakır ve durumu okur;
 // görev/kaza kayıtlarını görev programı kendisi oluşturur. Bağlantı yoksa özellik uyarı kartıyla kapalı kalır.
-import { GOREV_CFG } from "./gorev-config.js?v=20261019h";
-import * as S from "./store.js?v=20261019h";
-import { esc, toast } from "./ui.js?v=20261019h";
+import { GOREV_CFG } from "./gorev-config.js?v=20261019i";
+import * as S from "./store.js?v=20261019i";
+import { esc, toast } from "./ui.js?v=20261019i";
 
 const CFG = GOREV_CFG || null, CDN = "https://www.gstatic.com/firebasejs/10.14.1/";
 let F = null, auth = null, db = null, user = null, err = "", fabs = null, started = false, offs = [], loaded = false;
@@ -33,9 +33,26 @@ function startW() {
   const map = (m, v) => { m.clear(); Object.keys(v || {}).forEach(k => m.set(k, v[k])); };
   offs.push(F.onValue(R("hseDurum"), s => { map(durum, s.val()); err = ""; loaded = true; fire(); }, bad));
   offs.push(F.onValue(R("hseGelen"), s => { map(gelen, s.val()); fire(); }, bad));
+  setTimeout(() => bolumleriYayinla().catch(() => { }), 1500);
   offs.push(F.onValue(R("settings/fabrikalar"), s => {
     const v = s.val(); fabs = Object.values(v || {}).map(x => x && x.name).filter(Boolean); fire();
   }, bad));
+}
+
+// ---- Bölüm listesini görev takibe yayınla (kayıt formundaki açılır liste ve bölüm grafikleri için) ----
+// isg/hseBolumler/{fabrikaId} = { fab, list: [bölüm adları], at }. Yalnızca bağlıysa çalışır; puanı etkilemez.
+const bolumSon = new Map();
+export async function bolumleriYayinla() {
+  if (!CFG || state() !== "hazir") return;
+  const fs = (await S.listFactories()).filter(f => !f.archived);
+  for (const f of fs) {
+    const ys = await S.listYears(f.id); if (!ys.length) continue;
+    const setup = await S.getSetup(f.id, ys[ys.length - 1]);
+    const list = [...new Set((setup?.rows || []).map(r => String(r.name || "").trim()).filter(Boolean))];
+    const sig = JSON.stringify([f.name, list]);
+    if (bolumSon.get(f.id) === sig) continue;
+    try { await F.set(R("hseBolumler/" + makeKey(f.id)), { fab: f.name, list, at: Date.now() }); bolumSon.set(f.id, sig); } catch { }
+  }
 }
 
 export async function init() {
