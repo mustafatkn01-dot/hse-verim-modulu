@@ -123,6 +123,10 @@ table.t{width:100%;border-collapse:collapse}
 .cd p{margin:0}
 .trash{background:var(--card);color:#B3261E;border:1px solid #E3B3AE;width:34px;padding:0;display:flex;align-items:center;justify-content:center}
 .mbox label{margin-top:10px}
+.mbox.pf{max-height:calc(100dvh - 24px);overflow-y:auto;padding:18px 18px calc(24px + env(safe-area-inset-bottom));gap:10px}
+.mbox.pf h2{font-size:20px;margin:0}
+.mbox.pf label{margin-top:0}
+.mbox.pf button:not(.mx){height:40px;font-size:14px}
 .mbox.ed{max-width:720px;padding:0;overflow:hidden;gap:0}
 .edh{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line);background:var(--calc)}
 .okb{flex:0 0 48px;width:48px;height:48px;padding:0;border-radius:14px;display:flex;align-items:center;justify-content:center}

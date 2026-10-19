@@ -1,11 +1,11 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261019g";
-import { esc } from "./ui.js?v=20261019g";
-import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261019g";
-import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261019g";
-import { CATS } from "./isgcats.js?v=20261019g";
-import * as Gorev from "./gorev.js?v=20261019g";
-import { auditAvg, lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261019g";
+import * as S from "./store.js?v=20261019h";
+import { esc } from "./ui.js?v=20261019h";
+import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261019h";
+import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261019h";
+import { CATS } from "./isgcats.js?v=20261019h";
+import * as Gorev from "./gorev.js?v=20261019h";
+import { auditAvg, lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261019h";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -273,7 +273,8 @@ function pdfDialog(info) {
   info.sess = sl;
   const scopes = sl.length ? [["all", sl.length > 1 ? "Tüm haftalar (hafta bazlı)" : sl[0].label], ...(sl.length > 1 ? [["last:" + sl[sl.length - 1].k, "Son hafta · " + sl[sl.length - 1].label], ...sl.map(x => ["s:" + x.k, x.label])] : [])] : null;
   if (scopes && info.wkKey) { const i = scopes.findIndex(x => x[0] === "last:" + info.wkKey); if (i > 0) scopes.unshift(scopes.splice(i, 1)[0]); }
-  askFormat({ title: "PDF indir", text: `${info.title} · ${info.plabel}. Grafik ve açıklamalar; yöneticinize göndermek için hazırlanır (resimsiz tek sayfa).`, defOrient: n > 7 ? "landscape" : "portrait", hint: n > 7 ? `${n} bölüm olduğu için yatay düzen önerilir.` : "Az sayıda bölümde dikey düzen yeterlidir.", scopes, pics: info.details.reduce((a, g) => a + g.items.reduce((b, it) => b + (it.pics?.length || 0), 0), 0) }).then(o => o && printSheet(info, o));
+  askFormat({ title: "PDF indir", text: `${info.title} · ${info.plabel}. Grafik ve açıklamalar; yöneticinize göndermek için hazırlanır (resimsiz tek sayfa).`, defOrient: n > 7 ? "landscape" : "portrait", hint: n > 7 ? `${n} bölüm olduğu için yatay düzen önerilir.` : "Az sayıda bölümde dikey düzen yeterlidir.", scopes, pics: info.details.reduce((a, g) => a + g.items.reduce((b, it) => b + (it.pics?.length || 0), 0), 0),
+    picsFor: scope => info.details.reduce((a, g) => a + (g.mod !== "İSG Denetim" ? g.items.reduce((b, it) => b + (it.pics?.length || 0), 0) : g.items.reduce((b, it) => b + Object.values(it.by || {}).filter(x => scope === "all" || info.wkOf(x) === scope.replace(/^(s|last):/, "")).reduce((c, x) => c + (x.pics?.length || 0), 0), 0)), 0) }).then(o => o && printSheet(info, o));
 }
 
 async function printSheet(info, { size, orient, pics = false, file = false, scope = "all" }) {

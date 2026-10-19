@@ -1,5 +1,5 @@
 // Ortak PDF yardımcıları: kâğıt boyutu (A4/A3) + sayfa düzeni (dikey/yatay) penceresi
-import { esc } from "./ui.js?v=20261019g";
+import { esc } from "./ui.js?v=20261019h";
 
 // "Paylaş" seçildiyse savePdf dosyayı indirmek yerine paylaşma penceresi açar
 const PDF = { share: false };
@@ -8,29 +8,29 @@ const canShare = () => { try { return !!(navigator.canShare && navigator.share &
 // PDF hazır penceresi: paylaşma ekranı yalnızca yeni bir dokunuşla açılabildiği için ayrı bir adım
 function shareReady(blob, name) {
   const m = document.createElement("div"), file = new File([blob], name, { type: "application/pdf" }); m.className = "mod";
-  m.innerHTML = `<div class="mbox" role="dialog" aria-modal="true" style="gap:14px;position:relative"><button type="button" class="mx" data-x aria-label="Kapat">${XI}</button><h2 style="padding-right:56px">PDF hazır</h2><div class="muted" style="line-height:1.5;word-break:break-word">${esc(name)}</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><button data-sh style="height:46px">Paylaş</button><button class="sec" data-dl style="height:46px">İndir</button></div><button class="sec" data-x style="height:46px">Kapat</button></div>`;
+  m.innerHTML = `<div class="mbox pf" role="dialog" aria-modal="true" style="position:relative"><button type="button" class="mx" data-x aria-label="Kapat">${XI}</button><h2 style="padding-right:56px">PDF hazır</h2><div class="muted" style="line-height:1.5;word-break:break-word">${esc(name)}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><button data-sh>Paylaş</button><button class="sec" data-dl>İndir</button></div><button class="sec" data-x>Kapat</button></div>`;
   document.body.appendChild(m);
   m.querySelectorAll("[data-x]").forEach(b => b.onclick = () => m.remove());
   m.addEventListener("mousedown", e => { if (e.target === m) m.remove(); });
   m.querySelector("[data-dl]").onclick = () => { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 800); };
   m.querySelector("[data-sh]").onclick = async () => { try { await navigator.share({ files: [file], title: name.replace(/\.pdf$/i, "") }); m.remove(); } catch (e) { if (e?.name !== "AbortError") { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click(); } } };
 }
-export function askFormat({ title = "PDF indir", text = "", defOrient = "portrait", hint = "", pics = 0, fileOnly = false, scopes = null } = {}) {
+export function askFormat({ title = "PDF indir", text = "", defOrient = "portrait", hint = "", pics = 0, picsFor = null, fileOnly = false, scopes = null } = {}) {
   return new Promise(res => {
     const o = { size: "A4", orient: defOrient, pics: false, scope: scopes ? scopes[0][0] : "all" };
     const m = document.createElement("div"); m.className = "mod";
-    const seg = (k, items) => items.map(([v, t]) => `<button class="sec" data-k="${k}" data-v="${v}" style="flex:1;height:44px;border-radius:10px;font-weight:700">${t}</button>`).join("");
-    m.innerHTML = `<div class="mbox" role="dialog" aria-modal="true" style="gap:16px;position:relative"><button type="button" class="mx" data-no aria-label="Kapat">${XI}</button><h2 style="padding-right:56px">${esc(title)}</h2>
+    const seg = (k, items) => items.map(([v, t]) => `<button class="sec" data-k="${k}" data-v="${v}" style="flex:1;height:38px;border-radius:10px;font-weight:700">${t}</button>`).join("");
+    m.innerHTML = `<div class="mbox pf" role="dialog" aria-modal="true" style="position:relative"><button type="button" class="mx" data-no aria-label="Kapat">${XI}</button><h2 style="padding-right:56px">${esc(title)}</h2>
       <div class="muted" style="line-height:1.5">${esc(text)}</div>
-      ${scopes ? `<div class="col1" style="gap:6px"><label class="hd" for="pScope">RAPOR İÇERİĞİ (İSG AÇIKLAMALARI)</label><select id="pScope" style="font-weight:700">${scopes.map(([v, t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join("")}</select></div>` : ""}
-      <div class="col1" style="gap:8px"><span class="hd">KÂĞIT BOYUTU</span><div class="row" style="gap:8px;flex-wrap:nowrap">${seg("size", [["A4", "A4"], ["A3", "A3"]])}</div></div>
-      <div class="col1" style="gap:8px"><span class="hd">SAYFA DÜZENİ</span><div class="row" style="gap:8px;flex-wrap:nowrap">${seg("orient", [["portrait", "Dikey"], ["landscape", "Yatay"]])}</div>
+      ${scopes ? `<div class="col1" style="gap:4px"><label class="hd" for="pScope">RAPOR İÇERİĞİ (İSG AÇIKLAMALARI)</label><select id="pScope" style="font-weight:700">${scopes.map(([v, t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join("")}</select></div>` : ""}
+      <div class="col1" style="gap:6px"><span class="hd">KÂĞIT BOYUTU</span><div class="row" style="gap:8px;flex-wrap:nowrap">${seg("size", [["A4", "A4"], ["A3", "A3"]])}</div></div>
+      <div class="col1" style="gap:6px"><span class="hd">SAYFA DÜZENİ</span><div class="row" style="gap:8px;flex-wrap:nowrap">${seg("orient", [["portrait", "Dikey"], ["landscape", "Yatay"]])}</div>
         ${hint ? `<span class="muted" style="font-size:12.5px">${esc(hint)}</span>` : ""}</div>
-      ${pics ? `<label class="row" style="gap:10px;flex-wrap:nowrap;font-weight:600;cursor:pointer"><input type="checkbox" data-pics style="width:20px;height:20px"> Resimleri ekle (${pics} adet · her açıklamanın altında yaklaşık 6 cm)</label>` : ""}
+      ${pics || picsFor ? `<label class="row" data-prow style="gap:10px;flex-wrap:nowrap;font-weight:600;cursor:pointer"><input type="checkbox" data-pics style="width:20px;height:20px"> <span>Resimleri ekle (<span data-pn>${pics}</span> adet · her açıklamanın altında yaklaşık 6 cm)</span></label>` : ""}
       ${fileOnly ? "" : `<div class="muted" style="font-size:12.5px;line-height:1.5">Yazdırma önizlemesi açılır; oradan doğrudan yazdırabilir veya hedef olarak "PDF olarak kaydet" seçebilirsiniz. Ölçek ve kenar boşlukları "Varsayılan" kalsın.</div>`}
-      <div class="col1" style="gap:10px"><div style="display:grid;grid-template-columns:${canShare() ? "1fr 1fr" : "1fr"};gap:10px"><button ${fileOnly ? "" : 'class="sec"'} data-file style="height:46px" title="Yazdırmadan doğrudan PDF dosyası olarak indir">PDF indir</button>${canShare() ? `<button class="sec" data-share style="height:46px" title="Dosyayı kaydetmeden WhatsApp, e-posta vb. ile paylaş">Paylaş</button>` : ""}</div>
-        ${fileOnly ? "" : `<button data-yes style="height:46px">Önizleme ve yazdır</button>`}<button class="sec" data-no style="height:46px">İptal</button></div></div>`;
+      <div class="col1" style="gap:8px"><div style="display:grid;grid-template-columns:${canShare() ? "1fr 1fr" : "1fr"};gap:8px"><button ${fileOnly ? "" : 'class="sec"'} data-file title="Yazdırmadan doğrudan PDF dosyası olarak indir">PDF indir</button>${canShare() ? `<button class="sec" data-share title="Dosyayı kaydetmeden WhatsApp, e-posta vb. ile paylaş">Paylaş</button>` : ""}</div>
+        ${fileOnly ? "" : `<button data-yes>Önizleme ve yazdır</button>`}<button class="sec" data-no>İptal</button></div></div>`;
     document.body.appendChild(m);
     const paint = () => m.querySelectorAll("[data-k]").forEach(b => { const on = o[b.dataset.k] === b.dataset.v; b.style.background = on ? "var(--sel)" : ""; b.style.color = on ? "#fff" : ""; b.setAttribute("aria-pressed", on); });
     m.querySelectorAll("[data-k]").forEach(b => b.onclick = () => { o[b.dataset.k] = b.dataset.v; paint(); });
@@ -39,7 +39,10 @@ export function askFormat({ title = "PDF indir", text = "", defOrient = "portrai
     m.querySelectorAll("[data-no]").forEach(b => b.onclick = () => done(null));
     m.addEventListener("mousedown", e => { if (e.target === m) done(null); });
     const pc = m.querySelector("[data-pics]");
-    const sc = m.querySelector("#pScope"), gv = () => ({ ...o, pics: !!pc?.checked, scope: sc ? sc.value : "all" });
+    const sc = m.querySelector("#pScope"), pr = m.querySelector("[data-prow]"), pn = m.querySelector("[data-pn]");
+    const upPics = () => { if (!picsFor || !pr) return; const n = picsFor(sc ? sc.value : "all"); pn.textContent = n; pr.style.display = n ? "" : "none"; if (!n && pc) pc.checked = false; };
+    if (sc) sc.onchange = upPics; upPics();
+    const gv = () => ({ ...o, pics: !!pc?.checked, scope: sc ? sc.value : "all" });
     const yb = m.querySelector("[data-yes]"); if (yb) yb.onclick = () => { PDF.share = false; done({ ...gv(), file: false }); };
     m.querySelector("[data-file]").onclick = () => { PDF.share = false; done({ ...gv(), file: true }); };
     const sb = m.querySelector("[data-share]"); if (sb) sb.onclick = () => { PDF.share = true; done({ ...gv(), file: true, share: true }); };
