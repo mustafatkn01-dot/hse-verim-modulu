@@ -1,9 +1,5 @@
 // Ortak PDF yardımcıları: kâğıt boyutu (A4/A3) + sayfa düzeni (dikey/yatay) penceresi
-<<<<<<< HEAD
-import { esc } from "./ui.js?v=20261019e";
-=======
-import { esc } from "./ui.js?v=20261019e";
->>>>>>> parent of 9019a1f (İSG Son hafta: yalnız o haftanın denetimleriyle skor (birikimli değil))
+import { esc } from "./ui.js?v=20261019f";
 
 // "Paylaş" seçildiyse savePdf dosyayı indirmek yerine paylaşma penceresi açar
 const PDF = { share: false };

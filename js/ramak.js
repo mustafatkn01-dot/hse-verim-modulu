@@ -1,22 +1,12 @@
 // Ramak Kala bildirimleri: ay bazında kayıt, bildiren bölümün bonus kademesi, misafir kaydı için yetkili onayı
 // Koleksiyon "ramak": her bildirim ayrı kayıt. status: approved (yetkili kaydı / onaylı) | pending (misafir, onay bekliyor) | rejected
-<<<<<<< HEAD
-import * as S from "./store.js?v=20261019e";
-import * as Guest from "./guest.js?v=20261019e";
-import * as Gorev from "./gorev.js?v=20261019e";
-import { esc, toast, pickDate, fmtTarih, compressImage, showPhoto, confirmBox, GUEST, guestLock, roText } from "./ui.js?v=20261019e";
-import { CATS } from "./isgcats.js?v=20261019e";
-import { calcIsg, katsayi, bandOf, surecVar, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261019e";
-import { askFormat, savePdf } from "./pdf.js?v=20261019e";
-=======
-import * as S from "./store.js?v=20261019e";
-import * as Guest from "./guest.js?v=20261019e";
-import * as Gorev from "./gorev.js?v=20261019e";
-import { esc, toast, pickDate, fmtTarih, compressImage, showPhoto, confirmBox, GUEST, guestLock, roText } from "./ui.js?v=20261019e";
-import { CATS } from "./isgcats.js?v=20261019e";
-import { calcIsg, katsayi, bandOf, surecVar, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261019e";
-import { askFormat, savePdf } from "./pdf.js?v=20261019e";
->>>>>>> parent of 9019a1f (İSG Son hafta: yalnız o haftanın denetimleriyle skor (birikimli değil))
+import * as S from "./store.js?v=20261019f";
+import * as Guest from "./guest.js?v=20261019f";
+import * as Gorev from "./gorev.js?v=20261019f";
+import { esc, toast, pickDate, fmtTarih, compressImage, showPhoto, confirmBox, GUEST, guestLock, roText } from "./ui.js?v=20261019f";
+import { CATS } from "./isgcats.js?v=20261019f";
+import { calcIsg, katsayi, bandOf, surecVar, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261019f";
+import { askFormat, savePdf } from "./pdf.js?v=20261019f";
 
 export const COLL = "ramak";
 export const TIER = ["Yok", "Ayda 1", "2 Haftada 1", "Haftalık"];

@@ -1,11 +1,6 @@
 // Eğitim Konuşması ve İşbaşı Eğitim için "kayıt ekleme" yardımcıları: aylık toplam = sahip kayıtları + onaylı misafir kayıtları
-<<<<<<< HEAD
-import * as S from "./store.js?v=20261019e";
-import { esc, ic, toast, pickDate, fmtTarih, GUEST, confirmBox } from "./ui.js?v=20261019e";
-=======
-import * as S from "./store.js?v=20261019e";
-import { esc, ic, toast, pickDate, fmtTarih, GUEST, confirmBox } from "./ui.js?v=20261019e";
->>>>>>> parent of 9019a1f (İSG Son hafta: yalnız o haftanın denetimleriyle skor (birikimli değil))
+import * as S from "./store.js?v=20261019f";
+import { esc, ic, toast, pickDate, fmtTarih, GUEST, confirmBox } from "./ui.js?v=20261019f";
 
 const pad = n => String(n).padStart(2, "0");
 const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;

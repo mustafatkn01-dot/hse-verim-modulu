@@ -3,13 +3,8 @@
 //   users/{sahip}/invites/{kod}        davet (e-posta ayarı kopyası)
 //   users/{sahip}/guestReqs/{misafirUid}  onay isteği {gid, code, name, unit, status, at}
 //   users/{sahip}/members/{misafirUid}    onaylı üye {name, unit, factories[], mode, expires|null}
-<<<<<<< HEAD
-import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously } from "./firebase.js?v=20261019e";
-import { esc, toast, confirmBox } from "./ui.js?v=20261019e";
-=======
-import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously } from "./firebase.js?v=20261019e";
-import { esc, toast, confirmBox } from "./ui.js?v=20261019e";
->>>>>>> parent of 9019a1f (İSG Son hafta: yalnız o haftanın denetimleriyle skor (birikimli değil))
+import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously } from "./firebase.js?v=20261019f";
+import { esc, toast, confirmBox } from "./ui.js?v=20261019f";
 
 const Q = new URLSearchParams(location.search);
 export const linkInfo = () => {

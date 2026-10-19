@@ -1,23 +1,12 @@
 // Aylık HSE Raporu · kayıtlı verilerden otomatik grafik + açıklama
-<<<<<<< HEAD
-import * as S from "./store.js?v=20261019e";
-import { esc } from "./ui.js?v=20261019e";
-import * as Gorev from "./gorev.js?v=20261019e";
-import * as T from "./tatil.js?v=20261019e";
-import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261019e";
-import { CATS } from "./isgcats.js?v=20261019e";
-import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261019e";
-import { bandOf, calcIsg, katsayi, surecVar, DEFAULT_PARAMS, MONTHS, num, konusmaPct, konusmaSifir } from "./scoring.js?v=20261019e";
-=======
-import * as S from "./store.js?v=20261019e";
-import { esc } from "./ui.js?v=20261019e";
-import * as Gorev from "./gorev.js?v=20261019e";
-import * as T from "./tatil.js?v=20261019e";
-import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261019e";
-import { CATS } from "./isgcats.js?v=20261019e";
-import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261019e";
-import { bandOf, calcIsg, katsayi, surecVar, DEFAULT_PARAMS, MONTHS, num, konusmaPct, konusmaSifir } from "./scoring.js?v=20261019e";
->>>>>>> parent of 9019a1f (İSG Son hafta: yalnız o haftanın denetimleriyle skor (birikimli değil))
+import * as S from "./store.js?v=20261019f";
+import { esc } from "./ui.js?v=20261019f";
+import * as Gorev from "./gorev.js?v=20261019f";
+import * as T from "./tatil.js?v=20261019f";
+import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261019f";
+import { CATS } from "./isgcats.js?v=20261019f";
+import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261019f";
+import { bandOf, calcIsg, katsayi, surecVar, DEFAULT_PARAMS, MONTHS, num, konusmaPct, konusmaSifir } from "./scoring.js?v=20261019f";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },

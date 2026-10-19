@@ -1,12 +1,6 @@
-<<<<<<< HEAD
-// İSG Denetim · hafta bazlı görünüm (yalnız o haftanın denetimleriyle hesaplanan skor)
-import { calcIsg, katsayi, surecVar, DEFAULT_PARAMS } from "./scoring.js?v=20261019e";
-import { CATS } from "./isgcats.js?v=20261019e";
-=======
 // İSG Denetim · hafta bazlı görünüm (ay içinde "o haftanın sonuna kadar" birikimli skor)
-import { calcIsg, katsayi, surecVar, DEFAULT_PARAMS } from "./scoring.js?v=20261019e";
-import { CATS } from "./isgcats.js?v=20261019e";
->>>>>>> parent of 9019a1f (İSG Son hafta: yalnız o haftanın denetimleriyle skor (birikimli değil))
+import { calcIsg, katsayi, surecVar, DEFAULT_PARAMS } from "./scoring.js?v=20261019f";
+import { CATS } from "./isgcats.js?v=20261019f";
 
 const pad = n => String(n).padStart(2, "0");
 const dt = t => new Date(+t.slice(0, 4), +t.slice(5, 7) - 1, +t.slice(8, 10));

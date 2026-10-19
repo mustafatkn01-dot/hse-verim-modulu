@@ -1,17 +1,9 @@
 // Kurulum sayfasındaki katlanabilir "Hesaplama Yöntemi" kartı (parametrelerden canlı; PDF indirilebilir)
-<<<<<<< HEAD
-import { dotCss } from "./tatil.js?v=20261019e";
-import { esc, noticeBox } from "./ui.js?v=20261019e";
-import { num, c2, empCoef, RISK, DEFAULT_PARAMS } from "./scoring.js?v=20261019e";
-import { T as KAZA } from "./kaza.js?v=20261019e";
-import { askFormat, savePdf, printCurrent } from "./pdf.js?v=20261019e";
-=======
-import { dotCss } from "./tatil.js?v=20261019e";
-import { esc, noticeBox } from "./ui.js?v=20261019e";
-import { num, c2, empCoef, RISK, DEFAULT_PARAMS } from "./scoring.js?v=20261019e";
-import { T as KAZA } from "./kaza.js?v=20261019e";
-import { askFormat, savePdf, printCurrent } from "./pdf.js?v=20261019e";
->>>>>>> parent of 9019a1f (İSG Son hafta: yalnız o haftanın denetimleriyle skor (birikimli değil))
+import { dotCss } from "./tatil.js?v=20261019f";
+import { esc, noticeBox } from "./ui.js?v=20261019f";
+import { num, c2, empCoef, RISK, DEFAULT_PARAMS } from "./scoring.js?v=20261019f";
+import { T as KAZA } from "./kaza.js?v=20261019f";
+import { askFormat, savePdf, printCurrent } from "./pdf.js?v=20261019f";
 
 const Y = { open: false };
 export const reset = () => { Y.open = false; };
