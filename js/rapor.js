@@ -1,12 +1,12 @@
 // Aylık HSE Raporu · kayıtlı verilerden otomatik grafik + açıklama
-import * as S from "./store.js?v=20261019a";
-import { esc } from "./ui.js?v=20261019a";
-import * as Gorev from "./gorev.js?v=20261019a";
-import * as T from "./tatil.js?v=20261019a";
-import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261019a";
-import { CATS } from "./isgcats.js?v=20261019a";
-import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261019a";
-import { bandOf, calcIsg, katsayi, surecVar, DEFAULT_PARAMS, MONTHS, num, konusmaPct, konusmaSifir } from "./scoring.js?v=20261019a";
+import * as S from "./store.js?v=20261019b";
+import { esc } from "./ui.js?v=20261019b";
+import * as Gorev from "./gorev.js?v=20261019b";
+import * as T from "./tatil.js?v=20261019b";
+import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261019b";
+import { CATS } from "./isgcats.js?v=20261019b";
+import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261019b";
+import { bandOf, calcIsg, katsayi, surecVar, DEFAULT_PARAMS, MONTHS, num, konusmaPct, konusmaSifir } from "./scoring.js?v=20261019b";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -154,7 +154,7 @@ function draw(v, st, setup, data) {
   const WD = rows.flatMap(r => ms.map(mi => { const d = data.ig[`${pad(mi)}_${r.id}`]; return d?.sessions?.length ? { m: mi, id: r.id, sessions: d.sessions, freq: d.freq, bonus: d.bonus } : null; })).filter(Boolean);
   const wk = lastWeekKey(WD, ms); R.wkOk = !!wk;
   const wmode = !!wk && R.wk, wsc = wmode ? weekScores(WD, rows, p, y, wk) : {}, wlab = wmode ? weekLabel(WD, wk, y) : "";
-  const modBars = (k, vid) => vid && R.vert.has(vid) ? vbars((k === "isg" && wmode ? rows.filter(r => wsc[r.id] !== undefined) : rows).map(r => { const x = k === "isg" && wmode ? wsc[r.id] : val[k][r.id]; return { name: r.name, sub: k === "kaza" ? sub(r) : undefined, v: x, label: x === null ? { t: k === "isbasi" && !multi && data.ib[pad(m)]?.result?.per?.[r.id]?.state === "none" ? "Giriş yok" : k === "isg" ? "Denetim yok" : "Veri yok", band: "İyi" } : { t: bn(x), band: bn(x) } }; })) : `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(340px,100%),1fr));gap:10px 36px">${(k === "isg" && wmode ? rows.filter(r => wsc[r.id] !== undefined) : rows).map(r => { const x = k === "isg" && wmode ? wsc[r.id] : val[k][r.id]; return bar(r.name, x, 0, x === null ? { t: k === "isbasi" && !multi && data.ib[pad(m)]?.result?.per?.[r.id]?.state === "none" ? "Giriş yok" : k === "isg" ? "Denetim yok" : "Veri yok", band: "İyi", ...NONE } : { t: bn(x), band: bn(x) }, true, undefined, undefined, k === "kaza" ? sub(r) : undefined); }).join("")}</div>`;
+  const modBars = (k, vid) => vid && R.vert.has(vid) ? vbars(rows.map(r => { const x = k === "isg" && wmode ? (wsc[r.id] ?? null) : val[k][r.id]; return { name: r.name, sub: k === "kaza" ? sub(r) : undefined, v: x, label: x === null ? { t: k === "isbasi" && !multi && data.ib[pad(m)]?.result?.per?.[r.id]?.state === "none" ? "Giriş yok" : k === "isg" ? (wmode ? "Denetlenmedi" : "Denetim yok") : "Veri yok", band: "İyi" } : { t: bn(x), band: bn(x) } }; })) : `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(340px,100%),1fr));gap:10px 36px">${rows.map(r => { const x = k === "isg" && wmode ? (wsc[r.id] ?? null) : val[k][r.id]; return bar(r.name, x, 0, x === null ? { t: k === "isbasi" && !multi && data.ib[pad(m)]?.result?.per?.[r.id]?.state === "none" ? "Giriş yok" : k === "isg" ? (wmode ? "Denetlenmedi" : "Denetim yok") : "Veri yok", band: "İyi", ...NONE } : { t: bn(x), band: bn(x) }, true, undefined, undefined, k === "kaza" ? sub(r) : undefined); }).join("")}</div>`;
   const noteTxt = (r, n) => `${esc(n)} <b style="white-space:nowrap">— ${esc(r.name)}</b>`;
   const nk = [], nn = [], ni = [];
   let kT = 0, kL = 0, kAny = false, hired = 0, trained = 0, oos = 0, ibAny = false, cnCnt = 0, cnHit = 0, knAny = false;
@@ -264,7 +264,7 @@ function draw(v, st, setup, data) {
   ${anyData && !R.off.has(TITLE[0]) ? modCard("kaza", 0, "Grafik 3 · İş Kazası Verimi", `${plabel} · kaza ceza puanı × bölüm katsayısı`, nk, "g3") : ""}
   ${anyData && !R.off.has(TITLE[1]) ? modCard("konusma", 1, "Grafik 4 · Eğitim Konuşması Verimi", `${plabel} · gerçekleşen süre / (kişi × hedef süre × katsayı)`, nn) : ""}
   ${anyData && !R.off.has(TITLE[2]) ? modCard("isbasi", 2, "Grafik 5 · İşbaşı Eğitim Verimi", `${plabel} · eğitim oranı × ZTF (gecikme) × TC (düzensizlik)`, ni) : ""}
-  ${anyData && modHas[3] && !R.off.has(TITLE[3]) ? card("İSG Denetim Verimi", wmode ? `${wlab} · ay başından haftanın sonuna birikimli; yalnız o hafta denetlenen bölümler` : `${plabel} · denetim sıklığı × kategori ağırlığı × bölüm katsayısı + ramak kala bonusu`, modBars("isg", "isg"), "isg") : ""}
+  ${anyData && modHas[3] && !R.off.has(TITLE[3]) ? card("İSG Denetim Verimi", wmode ? `${wlab} · ay başından haftanın sonuna birikimli; denetlenmeyen bölümler "Denetlenmedi"` : `${plabel} · denetim sıklığı × kategori ağırlığı × bölüm katsayısı + ramak kala bonusu`, modBars("isg", "isg"), "isg") : ""}
   ${R.off.has("İSG bulgu dağılımı") ? "" : g6}${R.off.has(TITLE[3]) ? "" : scope}
   ${planCard}${gorevCard}${gNote}
   <div class="muted noprint" style="font-size:13px;line-height:1.6">Dönem raporlarında bölüm değerleri, verisi olan ayların ortalamasıdır (kümülatif: Ç1 Ocak-Mart, Ç2 Ocak-Haziran, Ç3 Ocak-Eylül). Açıklamalar, aylık giriş sayfalarında yazılan notlardan derlenir (İSG için "Uygunsuz" işaretli maddelerin notları). Metni değiştirmek için ilgili kaydı güncelleyin; rapor kendiliğinden yenilenir. PDF için tarayıcının yazdırma penceresinde "PDF olarak kaydet" seçin.</div>`;

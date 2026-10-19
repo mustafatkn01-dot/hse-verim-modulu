@@ -1,11 +1,11 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261019a";
-import { esc } from "./ui.js?v=20261019a";
-import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261019a";
-import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261019a";
-import { CATS } from "./isgcats.js?v=20261019a";
-import * as Gorev from "./gorev.js?v=20261019a";
-import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261019a";
+import * as S from "./store.js?v=20261019b";
+import { esc } from "./ui.js?v=20261019b";
+import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261019b";
+import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261019b";
+import { CATS } from "./isgcats.js?v=20261019b";
+import * as Gorev from "./gorev.js?v=20261019b";
+import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261019b";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -96,18 +96,18 @@ function draw() {
   // İSG · "Son hafta" sekmesi: seçili dönemin son denetim haftası; puanlar ay başından o haftanın sonuna kadar birikimlidir, yalnız o hafta denetlenen bölümler gösterilir
   const WD = V.data._i || [], wk = mk === 3 ? lastWeekKey(WD, cur.idx.map(i => i + 1)) : null, wmode = !!wk && V.wk;
   const wsc = wk ? weekScores(WD, rows, p, y, wk) : {}, wlab = wk ? weekLabel(WD, wk, y) : "";
-  const crows = wmode ? rows.filter(r => wsc[r.id] !== undefined) : rows, plab = wmode ? wlab : PER[V.p].name(V.sel);
-  const vals = wmode ? crows.map(r => wsc[r.id]) : rows.map(r => val(r.id, mk)), ok = vals.filter(x => x !== null);
+  const crows = rows, plab = wmode ? wlab : PER[V.p].name(V.sel);
+  const vals = wmode ? crows.map(r => wsc[r.id] ?? null) : rows.map(r => val(r.id, mk)), ok = vals.filter(x => x !== null);
   const av = ok.length ? ok.reduce((a, c) => a + c, 0) / ok.length : null, ab = band(av);
   const cell = x => (x === null ? { t: "–", bg: NONE.bg, c: NONE.c } : { t: f1(x), bg: band(x).bg, c: band(x).c });
   const t0 = 30, H = 2.4;
 
   const bars = crows.map((r, i) => { const x = vals[i]; return `<div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:330px">
-    <div style="font-size:14px;font-weight:800;margin-bottom:4px;position:relative;z-index:2;-webkit-text-stroke:3px var(--card);paint-order:stroke fill">${x === null ? (mk === 3 ? `<span style="font-size:10.5px;font-weight:700;line-height:1.1;display:block;text-align:center;color:var(--muted);-webkit-text-stroke:0">Denetim yok</span>` : "–") : f1(x)}</div>
+    <div style="font-size:14px;font-weight:800;margin-bottom:4px;position:relative;z-index:2;-webkit-text-stroke:3px var(--card);paint-order:stroke fill">${x === null ? (mk === 3 ? `<span style="font-size:10.5px;font-weight:700;line-height:1.1;display:block;text-align:center;color:var(--muted);-webkit-text-stroke:0">${wmode ? "Denetlenmedi" : "Denetim yok"}</span>` : "–") : f1(x)}</div>
     <div style="width:42%;max-width:40px;height:${x === null ? 3 : Math.round(x * H)}px;background:${band(x).fill};border-radius:8px 8px 2px 2px"></div>
     <div style="height:30px;line-height:30px;font-size:12.5px;font-weight:600;color:var(--muted);white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis">${esc(r.name)}</div></div>`; }).join("");
 
-  const buildNotes = (lab, nms, vs, a, prev) => {
+  const buildNotes = (lab, nms, vs, a, prev, wk2) => {
     const e1 = vs.map((x, i) => [x, i]).filter(x => x[0] !== null).sort((q, z) => z[0] - q[0]), notes = [];
     if (e1.length) {
       const top = e1[0], low = e1[e1.length - 1], nm = i => nms[i];
@@ -117,16 +117,17 @@ function draw() {
       if (lo.length) notes.push(`Kritik seviyede: ${lo.join(", ")}. Öncelikli aksiyon gerekir.`);
       if (mid.length) notes.push(`Orta seviyede: ${mid.join(", ")}.`);
       if (!lo.length && !mid.length) notes.push(`Tüm bölümler "İyi" veya üzerinde.`);
+      if (wk2 && nms.some((_, i) => vs[i] === null)) notes.push(`Bu hafta denetlenmeyen bölümler: ${nms.filter((_, i) => vs[i] === null).join(", ")}.`);
       if (prev) { const pv = avg(rows.map(r => series(r.id, mk)[V.sel - 1]), rng(0, rows.length - 1)); if (pv !== null) notes.push(`Bir önceki aya göre ${a >= pv ? "artış" : "düşüş"}: ${f1(Math.abs(a - pv))} puan.`); }
     }
     return notes;
   };
-  const notes = buildNotes(plab, crows.map(r => r.name), vals, av, !wmode && V.p === "m" && V.sel > 0);
-  if (wmode && notes.length) notes.push("Puanlar ay başından bu haftanın sonuna kadar yapılan denetimlerle hesaplanır; bu hafta denetlenmeyen bölümler grafikte yer almaz.");
+  const notes = buildNotes(plab, crows.map(r => r.name), vals, av, !wmode && V.p === "m" && V.sel > 0, wmode);
+  if (wmode && notes.length) notes.push("Puanlar ay başından bu haftanın sonuna kadar yapılan denetimlerle hesaplanır; bu hafta denetlenmeyen bölümler grafikte \"Denetlenmedi\" olarak işaretlenir ve ortalamaya girmez.");
   // PDF: seçilen haftanın grafiği (yalnız o hafta denetlenen bölümler, ay başından o haftanın sonuna birikimli)
-  const weekFor = k => { const sc = weekScores(WD, rows, p, y, k), cr = rows.filter(r => sc[r.id] !== undefined), vs = cr.map(r => sc[r.id]), a = vs.length ? vs.reduce((q, z) => q + z, 0) / vs.length : null, lab = weekLabel(WD, k, y), ns = buildNotes(lab, cr.map(r => r.name), vs, a, false);
-    if (ns.length) ns.push("Puanlar ay başından bu haftanın sonuna kadar yapılan denetimlerle hesaplanır; bu hafta denetlenmeyen bölümler grafikte yer almaz.");
-    return { names: cr.map(r => r.name), vals: vs, av: a, ab: band(a), abn: bname(a), plabel: lab + " · birikimli", notes: ns }; };
+  const weekFor = k => { const sc = weekScores(WD, rows, p, y, k), cr = rows, vs = cr.map(r => sc[r.id] ?? null), vv = vs.filter(x => x !== null), a = vv.length ? vv.reduce((q, z) => q + z, 0) / vv.length : null, lab = weekLabel(WD, k, y), ns = buildNotes(lab, cr.map(r => r.name), vs, a, false, true);
+    if (ns.length) ns.push("Puanlar ay başından bu haftanın sonuna kadar yapılan denetimlerle hesaplanır; bu hafta denetlenmeyen bölümler grafikte \"Denetlenmedi\" olarak işaretlenir ve ortalamaya girmez.");
+    return { names: cr.map(r => r.name), vals: vs, av: a, ab: band(a), abn: bname(a), plabel: lab + " · birikimli", notes: ns, nullLabel: "Denetlenmedi" }; };
   const nonEmpty = rows.some(r => V.data[r.id].some(m => m.some(x => x !== null)));
 
   const heads = [], mr = rows.map(() => []);
@@ -187,7 +188,7 @@ function draw() {
   const details = [0, 1, 2, 3].map(k => ({ mod: MODN[k], items: sel.filter(n => n.k === k).map(n => ({ dept: rows[rowIx[n.id]].name, text: n.t, extra: n.x, pics: n.pics || [], by: n.by || null, mon: cur.idx.length > 1 ? MS[n.m] : "" })) })).filter(g => g.items.length);
   const detHtml = `<div style="border-top:1px solid var(--line);padding-top:16px;display:flex;flex-direction:column;gap:12px"><div style="font-weight:800;font-size:13px;letter-spacing:.8px;color:var(--muted)">BÖLÜM AÇIKLAMALARI <span style="font-weight:600;letter-spacing:0">· denetim ve eğitim kayıtlarında yazılanlar</span></div>
     ${details.length ? details.map(g => `<div class="col1" style="gap:6px">${mk === 4 ? `<div style="font-weight:800;color:#145F96">${g.mod}</div>` : ""}${g.items.map((a, i) => `<div style="display:flex;gap:10px;line-height:1.55"><span style="flex:0 0 22px;font-weight:800;color:#0B6E4F">${i + 1}.</span><span>${a.mon ? `<span class="muted">${a.mon} · </span>` : ""}<b>${esc(a.dept)}</b> — ${esc(a.text)} <span class="muted" style="white-space:nowrap">· ${esc(a.extra)}</span></span></div>`).join("")}</div>`).join("") : `<div class="muted">Bu dönem için girilmiş açıklama yok.</div>`}</div>`;
-  const info = { fid: st.fid, year: st.year, details, mk4: mk === 4, fname: st.factories.find(f => f.id === st.fid)?.name || "", title: `${MET[mk][0]} · Bölüm Karşılaştırması`, plabel: plab, av, abn: bname(av), ab, names: crows.map(r => r.name), vals, weekFor: wk ? weekFor : null, wkKey: wmode ? wk : null, bandOf: x => (x === null ? NONE : band(x)), notes, partial: partial && !wmode ? `Kısmi dönem: ${cur.idx.length} aydan ${have} tanesi için veri var. Değerler mevcut aylar üzerinden hesaplandı.` : "", esik: p.esik };
+  const info = { fid: st.fid, year: st.year, details, mk4: mk === 4, fname: st.factories.find(f => f.id === st.fid)?.name || "", title: `${MET[mk][0]} · Bölüm Karşılaştırması`, plabel: plab, av, abn: bname(av), ab, names: crows.map(r => r.name), vals, weekFor: wk ? weekFor : null, nullLabel: mk === 3 ? (wmode ? "Denetlenmedi" : "Denetim yok") : "", wkKey: wmode ? wk : null, bandOf: x => (x === null ? NONE : band(x)), notes, partial: partial && !wmode ? `Kısmi dönem: ${cur.idx.length} aydan ${have} tanesi için veri var. Değerler mevcut aylar üzerinden hesaplandı.` : "", esik: p.esik };
   // ---- Açılır kartlar (varsayılan kapalı) ----
   const OP = V.op || (V.op = {});
   const fold = (box, head, key, clickEl) => {
@@ -309,7 +310,7 @@ async function printSheet(info, { size, orient, pics = false, file = false, scop
     const eh = parseFloat(String(info.esik.h ?? "90").replace(",", ".")) || 90, eo = parseFloat(String(info.esik.o ?? "50").replace(",", ".")) || 50, ei = parseFloat(String(info.esik.i ?? "75").replace(",", ".")) || 75, GL = [...new Set([25, eo, ei, eh, 100])].sort((a, z) => a - z);
     const line = (v, l) => { const c = v === eh ? ["#0B6E4F", "rgba(11,110,79,.4)"] : v === eo ? ["#D6382E", "rgba(214,56,46,.4)"] : ["#6A7E79", "#D5DFDB"]; return `<div style="position:absolute;left:30px;right:0;bottom:${30 + v * s}px;border-top:1px solid ${c[1]}"></div><div style="position:absolute;left:0;bottom:${30 + v * s - 8}px;width:26px;text-align:right;font-size:11.5px;font-weight:700;color:${c[0]}">${l}</div>`; };
     const bars = info.names.map((nm, i) => { const x = info.vals[i], b = info.bandOf(x); return `<div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:${ch}px">
-      <div style="font-size:${fs + 1}px;font-weight:800;margin-bottom:4px;position:relative;z-index:2;-webkit-text-stroke:3px #fff;paint-order:stroke fill">${x === null ? "–" : f1(x)}</div>
+      <div style="font-size:${fs + 1}px;font-weight:800;margin-bottom:4px;position:relative;z-index:2;-webkit-text-stroke:3px #fff;paint-order:stroke fill">${x === null ? (info.nullLabel ? `<span style="font-size:${fs - 2}px;font-weight:700;color:#6A7E79;-webkit-text-stroke:0">${esc(info.nullLabel)}</span>` : "–") : f1(x)}</div>
       <div style="width:42%;max-width:36px;height:${x === null ? 3 : Math.max(3, Math.round(x * s))}px;background:${b.fill};border-radius:7px 7px 2px 2px"></div>
       <div style="height:30px;line-height:30px;font-size:${fs - 0.5}px;font-weight:600;color:#3E534E;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis">${esc(nm)}</div></div>`; }).join("");
     return {
