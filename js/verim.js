@@ -1,10 +1,11 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261018b";
-import { esc } from "./ui.js?v=20261018b";
-import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261018b";
-import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261018b";
-import { CATS } from "./isgcats.js?v=20261018b";
-import * as Gorev from "./gorev.js?v=20261018b";
+import * as S from "./store.js?v=20261019a";
+import { esc } from "./ui.js?v=20261019a";
+import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261019a";
+import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261019a";
+import { CATS } from "./isgcats.js?v=20261019a";
+import * as Gorev from "./gorev.js?v=20261019a";
+import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261019a";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -19,7 +20,7 @@ const f1 = n => n.toFixed(1).replace(".", ",");
 const pad = n => String(n).padStart(2, "0");
 const avg = (arr, idx) => { const v = idx.map(i => arr[i]).filter(x => x !== null && x !== undefined); return v.length ? v.reduce((a, c) => a + c, 0) / v.length : null; };
 export const reset = () => { if (V.op) V.op = {}; if (V.cmp) V.cmp.open = false; };
-const V = { p: "m", sel: null, metric: 4, key: "", data: null };
+const V = { p: "m", sel: null, metric: 4, key: "", data: null, wk: false };
 
 export async function load(st, setup) {
   const rows = setup.rows, out = {};
@@ -54,6 +55,7 @@ export async function load(st, setup) {
     Object.entries(items).forEach(([key, o]) => { const mm = /^c(\d+)i(\d+)$/.exec(key); if (!mm) return; const c = CATS[+mm[1]]; if (!c) return;
       [...o.list.entries()].forEach(([t, e]) => notes.push({ m: mOf(d), k: 3, id, t: `${c.name}: ${t || c.items[+mm[2]]}`, x: `${e.c} denetimde uygunsuz`, pics: e.pics, by: e.by })); }); });
   out._n = notes;
+  out._i = ig.map(d => ({ m: parseInt(String(d.id).slice(0, 2), 10), id: String(d.id).slice(3), sessions: d.sessions || [], freq: d.freq, bonus: d.bonus }));
   out._s = {}; ig.forEach(d => { const id = String(d.id).slice(3); (d.sessions || []).forEach(se => { if (se?.date) (out._s[id] ||= []).push(se.date); }); });
   return out;
 }
@@ -91,27 +93,40 @@ function draw() {
   const cur = PER[V.p].items[V.sel], have = cur.idx.filter(i => hasM[i]).length, partial = have > 0 && have < cur.idx.length;
   const mk = V.metric, val = (id, k) => avg(series(id, k), cur.idx);
   const seg = on => (on ? "background:var(--sel);color:#fff;border-color:var(--sel)" : "background:var(--card);color:var(--text);border-color:var(--inl)");
-  const vals = rows.map(r => val(r.id, mk)), ok = vals.filter(x => x !== null);
+  // İSG · "Son hafta" sekmesi: seçili dönemin son denetim haftası; puanlar ay başından o haftanın sonuna kadar birikimlidir, yalnız o hafta denetlenen bölümler gösterilir
+  const WD = V.data._i || [], wk = mk === 3 ? lastWeekKey(WD, cur.idx.map(i => i + 1)) : null, wmode = !!wk && V.wk;
+  const wsc = wk ? weekScores(WD, rows, p, y, wk) : {}, wlab = wk ? weekLabel(WD, wk, y) : "";
+  const crows = wmode ? rows.filter(r => wsc[r.id] !== undefined) : rows, plab = wmode ? wlab : PER[V.p].name(V.sel);
+  const vals = wmode ? crows.map(r => wsc[r.id]) : rows.map(r => val(r.id, mk)), ok = vals.filter(x => x !== null);
   const av = ok.length ? ok.reduce((a, c) => a + c, 0) / ok.length : null, ab = band(av);
   const cell = x => (x === null ? { t: "–", bg: NONE.bg, c: NONE.c } : { t: f1(x), bg: band(x).bg, c: band(x).c });
   const t0 = 30, H = 2.4;
 
-  const bars = rows.map((r, i) => { const x = vals[i]; return `<div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:330px">
+  const bars = crows.map((r, i) => { const x = vals[i]; return `<div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:330px">
     <div style="font-size:14px;font-weight:800;margin-bottom:4px;position:relative;z-index:2;-webkit-text-stroke:3px var(--card);paint-order:stroke fill">${x === null ? (mk === 3 ? `<span style="font-size:10.5px;font-weight:700;line-height:1.1;display:block;text-align:center;color:var(--muted);-webkit-text-stroke:0">Denetim yok</span>` : "–") : f1(x)}</div>
     <div style="width:42%;max-width:40px;height:${x === null ? 3 : Math.round(x * H)}px;background:${band(x).fill};border-radius:8px 8px 2px 2px"></div>
     <div style="height:30px;line-height:30px;font-size:12.5px;font-weight:600;color:var(--muted);white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis">${esc(r.name)}</div></div>`; }).join("");
 
-  const e1 = vals.map((x, i) => [x, i]).filter(x => x[0] !== null).sort((a, z) => z[0] - a[0]), notes = [];
-  if (e1.length) {
-    const top = e1[0], low = e1[e1.length - 1], nm = i => rows[i].name;
-    notes.push(`${PER[V.p].name(V.sel)} için ${MET[mk][0]} ortalaması ${f1(av)} (${bname(av)}).`);
-    notes.push(`En yüksek: ${nm(top[1])} (${f1(top[0])}); en düşük: ${nm(low[1])} (${f1(low[0])}).`);
-    const lo = e1.filter(x => bandOf(x[0], p) === "Kritik").map(x => nm(x[1])), mid = e1.filter(x => bandOf(x[0], p) === "Orta").map(x => nm(x[1]));
-    if (lo.length) notes.push(`Kritik seviyede: ${lo.join(", ")}. Öncelikli aksiyon gerekir.`);
-    if (mid.length) notes.push(`Orta seviyede: ${mid.join(", ")}.`);
-    if (!lo.length && !mid.length) notes.push(`Tüm bölümler "İyi" veya üzerinde.`);
-    if (V.p === "m" && V.sel > 0) { const pv = avg(rows.map(r => series(r.id, mk)[V.sel - 1]), rng(0, rows.length - 1)); if (pv !== null) notes.push(`Bir önceki aya göre ${av >= pv ? "artış" : "düşüş"}: ${f1(Math.abs(av - pv)).replace(",", ",")} puan.`); }
-  }
+  const buildNotes = (lab, nms, vs, a, prev) => {
+    const e1 = vs.map((x, i) => [x, i]).filter(x => x[0] !== null).sort((q, z) => z[0] - q[0]), notes = [];
+    if (e1.length) {
+      const top = e1[0], low = e1[e1.length - 1], nm = i => nms[i];
+      notes.push(`${lab} için ${MET[mk][0]} ortalaması ${f1(a)} (${bname(a)}).`);
+      notes.push(`En yüksek: ${nm(top[1])} (${f1(top[0])}); en düşük: ${nm(low[1])} (${f1(low[0])}).`);
+      const lo = e1.filter(x => bandOf(x[0], p) === "Kritik").map(x => nm(x[1])), mid = e1.filter(x => bandOf(x[0], p) === "Orta").map(x => nm(x[1]));
+      if (lo.length) notes.push(`Kritik seviyede: ${lo.join(", ")}. Öncelikli aksiyon gerekir.`);
+      if (mid.length) notes.push(`Orta seviyede: ${mid.join(", ")}.`);
+      if (!lo.length && !mid.length) notes.push(`Tüm bölümler "İyi" veya üzerinde.`);
+      if (prev) { const pv = avg(rows.map(r => series(r.id, mk)[V.sel - 1]), rng(0, rows.length - 1)); if (pv !== null) notes.push(`Bir önceki aya göre ${a >= pv ? "artış" : "düşüş"}: ${f1(Math.abs(a - pv))} puan.`); }
+    }
+    return notes;
+  };
+  const notes = buildNotes(plab, crows.map(r => r.name), vals, av, !wmode && V.p === "m" && V.sel > 0);
+  if (wmode && notes.length) notes.push("Puanlar ay başından bu haftanın sonuna kadar yapılan denetimlerle hesaplanır; bu hafta denetlenmeyen bölümler grafikte yer almaz.");
+  // PDF: seçilen haftanın grafiği (yalnız o hafta denetlenen bölümler, ay başından o haftanın sonuna birikimli)
+  const weekFor = k => { const sc = weekScores(WD, rows, p, y, k), cr = rows.filter(r => sc[r.id] !== undefined), vs = cr.map(r => sc[r.id]), a = vs.length ? vs.reduce((q, z) => q + z, 0) / vs.length : null, lab = weekLabel(WD, k, y), ns = buildNotes(lab, cr.map(r => r.name), vs, a, false);
+    if (ns.length) ns.push("Puanlar ay başından bu haftanın sonuna kadar yapılan denetimlerle hesaplanır; bu hafta denetlenmeyen bölümler grafikte yer almaz.");
+    return { names: cr.map(r => r.name), vals: vs, av: a, ab: band(a), abn: bname(a), plabel: lab + " · birikimli", notes: ns }; };
   const nonEmpty = rows.some(r => V.data[r.id].some(m => m.some(x => x !== null)));
 
   const heads = [], mr = rows.map(() => []);
@@ -131,6 +146,7 @@ function draw() {
   // Puan çizgileri: hepsi aynı ince ve soluk stil; hedef/kritik yalnızca renk tonuyla ayrışır, etiketler hepsinde aynı boyut ve kalınlıkta
   const GL = [...new Set([25, E.o, E.i, E.h, 100])].sort((a, z) => a - z);
   const line = (v0, lab) => { const c = v0 === E.h ? ["#0B6E4F", "rgba(11,110,79,.4)"] : v0 === E.o ? ["#D6382E", "rgba(214,56,46,.4)"] : ["var(--muted)", "#D5DFDB"]; return `<div style="position:absolute;left:34px;right:0;bottom:${t0 + v0 * H}px;border-top:1px solid ${c[1]}"></div><div style="position:absolute;left:0;bottom:${t0 + v0 * H - 8}px;width:30px;text-align:right;font-size:12px;font-weight:700;color:${c[0]}">${lab}</div>`; };
+  const wTab = wk ? `<span class="noprint" style="display:inline-flex;gap:4px;margin-left:12px;vertical-align:middle">${[[false, "Dönem"], [true, "Son hafta"]].map(([on, t]) => `<button class="sec" data-wk="${on ? 1 : 0}" aria-pressed="${wmode === on}" style="height:30px;min-width:0;padding:0 10px;border-radius:8px;font-size:12.5px;font-weight:700;${wmode === on ? "background:#0B6E4F;color:#fff;border-color:#0B6E4F" : "background:#fff;color:#546964"}">${t}</button>`).join("")}</span>` : "";
   V.v.innerHTML = `
   <div class="col1" style="gap:6px"><h1 class="ttl">Verim Tablosu</h1>
     <div class="sub">Aylık, çeyreklik (3-6-9 aylık, kümülatif) ve yıllık verimi sütun grafik ve tablo olarak görün. Dönemi ve göstergeyi seçin, grafik ile tablo birlikte güncellenir. Veriler aylık giriş sayfalarında kaydedilen sonuçlardan gelir.</div></div>
@@ -141,10 +157,10 @@ function draw() {
       <div class="col1" style="gap:6px;min-width:0"><label class="hd" for="vS">AY</label><select id="vS" style="font-weight:700" ${V.p === "m" ? "" : "disabled"}>${V.p === "m" ? PER.m.items.map((it, i) => `<option value="${i}" ${V.sel === i ? "selected" : ""}>${MF[i]}${hasM[i] ? "" : " (veri yok)"}</option>`).join("") : `<option>${PER[V.p].items[0].t}</option>`}</select></div></div>
     <div class="col1" style="gap:6px"><span class="hd">GÖSTERGE</span><div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">${MET.map((m, k) => `<button data-m="${k}" aria-pressed="${mk === k}" style="height:36px;padding:0 2px;border-radius:10px;border:1px solid;font-weight:700;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;${seg(mk === k)}">${m[1]}</button>`).join("")}</div></div></div>
   <div class="cd">
-    <div class="row sp"><div><h2>${MET[mk][0]} · Bölüm Karşılaştırması</h2><div class="muted" style="font-size:13px;margin-top:4px">${PER[V.p].name(V.sel)}</div></div>
+    <div class="row sp"><div><h2>${MET[mk][0]} · Bölüm Karşılaştırması${wTab}</h2><div class="muted" style="font-size:13px;margin-top:4px">${plab}</div></div>
       <div class="row" style="gap:10px;flex-wrap:nowrap"><span class="muted" style="font-size:13px">Tesis ortalaması</span><b style="font:700 22px Sora,sans-serif">${av === null ? "–" : f1(av)}</b><span class="pill" style="background:${ab.bg};color:${ab.c}">${bname(av)}</span>
         <button data-pdf class="sec" style="height:40px;padding:0 16px;border-radius:10px;font-weight:700;white-space:nowrap">PDF indir</button></div></div>
-    ${partial ? `<div class="warn">Kısmi dönem: ${cur.idx.length} aydan ${have} tanesi için veri var. Değerler mevcut aylar üzerinden hesaplandı.</div>` : ""}
+    ${partial && !wmode ? `<div class="warn">Kısmi dönem: ${cur.idx.length} aydan ${have} tanesi için veri var. Değerler mevcut aylar üzerinden hesaplandı.</div>` : ""}
     <div style="overflow-x:auto"><div style="min-width:${Math.max(260, rows.length * 70 + 40)}px;position:relative;height:330px">
       ${GL.map(v => line(v, v)).join("")}
       <div style="position:absolute;left:34px;right:0;top:0;bottom:0;display:flex;gap:10px">${bars}</div></div></div>
@@ -171,7 +187,7 @@ function draw() {
   const details = [0, 1, 2, 3].map(k => ({ mod: MODN[k], items: sel.filter(n => n.k === k).map(n => ({ dept: rows[rowIx[n.id]].name, text: n.t, extra: n.x, pics: n.pics || [], by: n.by || null, mon: cur.idx.length > 1 ? MS[n.m] : "" })) })).filter(g => g.items.length);
   const detHtml = `<div style="border-top:1px solid var(--line);padding-top:16px;display:flex;flex-direction:column;gap:12px"><div style="font-weight:800;font-size:13px;letter-spacing:.8px;color:var(--muted)">BÖLÜM AÇIKLAMALARI <span style="font-weight:600;letter-spacing:0">· denetim ve eğitim kayıtlarında yazılanlar</span></div>
     ${details.length ? details.map(g => `<div class="col1" style="gap:6px">${mk === 4 ? `<div style="font-weight:800;color:#145F96">${g.mod}</div>` : ""}${g.items.map((a, i) => `<div style="display:flex;gap:10px;line-height:1.55"><span style="flex:0 0 22px;font-weight:800;color:#0B6E4F">${i + 1}.</span><span>${a.mon ? `<span class="muted">${a.mon} · </span>` : ""}<b>${esc(a.dept)}</b> — ${esc(a.text)} <span class="muted" style="white-space:nowrap">· ${esc(a.extra)}</span></span></div>`).join("")}</div>`).join("") : `<div class="muted">Bu dönem için girilmiş açıklama yok.</div>`}</div>`;
-  const info = { fid: st.fid, year: st.year, details, mk4: mk === 4, fname: st.factories.find(f => f.id === st.fid)?.name || "", title: `${MET[mk][0]} · Bölüm Karşılaştırması`, plabel: PER[V.p].name(V.sel), av, abn: bname(av), ab, names: rows.map(r => r.name), vals, bandOf: x => (x === null ? NONE : band(x)), notes, partial: partial ? `Kısmi dönem: ${cur.idx.length} aydan ${have} tanesi için veri var. Değerler mevcut aylar üzerinden hesaplandı.` : "", esik: p.esik };
+  const info = { fid: st.fid, year: st.year, details, mk4: mk === 4, fname: st.factories.find(f => f.id === st.fid)?.name || "", title: `${MET[mk][0]} · Bölüm Karşılaştırması`, plabel: plab, av, abn: bname(av), ab, names: crows.map(r => r.name), vals, weekFor: wk ? weekFor : null, wkKey: wmode ? wk : null, bandOf: x => (x === null ? NONE : band(x)), notes, partial: partial && !wmode ? `Kısmi dönem: ${cur.idx.length} aydan ${have} tanesi için veri var. Değerler mevcut aylar üzerinden hesaplandı.` : "", esik: p.esik };
   // ---- Açılır kartlar (varsayılan kapalı) ----
   const OP = V.op || (V.op = {});
   const fold = (box, head, key, clickEl) => {
@@ -235,6 +251,7 @@ function draw() {
   const rd = () => draw();
   V.v.querySelector("#vP").onchange = e => { V.p = e.target.value; V.sel = null; rd(); };
   V.v.querySelector("#vS").onchange = e => { V.sel = +e.target.value; rd(); };
+  V.v.querySelectorAll("[data-wk]").forEach(b => b.onclick = () => { V.wk = b.dataset.wk === "1"; rd(); });
   V.v.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { V.metric = +b.dataset.m; rd(); });
   V.v.querySelectorAll("[data-go]").forEach(b => b.onclick = () => { const [a, i] = b.dataset.go.split(":"); V.p = a; V.sel = +i; rd(); scrollTo({ top: 0, behavior: "smooth" }); });
 }
@@ -252,10 +269,13 @@ function pdfDialog(info) {
   const sl = [...sess.values()].sort((a, z) => String(a.k).localeCompare(String(z.k))).map(e => { const ds = e.ds.sort(), rg = ds.length ? (ds[0] === ds[ds.length - 1] ? dm(ds[0]) : `${dm(ds[0])}–${dm(ds[ds.length - 1])}`) : ""; return { k: e.k, label: ds.length ? `${wkNo(ds[0])}. hafta${rg ? " · " + rg : ""}` : "Tarihsiz denetimler" }; });
   info.sess = sl;
   const scopes = sl.length ? [["all", sl.length > 1 ? "Tüm haftalar (hafta bazlı)" : sl[0].label], ...(sl.length > 1 ? [["last:" + sl[sl.length - 1].k, "Son hafta · " + sl[sl.length - 1].label], ...sl.map(x => ["s:" + x.k, x.label])] : [])] : null;
+  if (scopes && info.wkKey) { const i = scopes.findIndex(x => x[0] === "last:" + info.wkKey); if (i > 0) scopes.unshift(scopes.splice(i, 1)[0]); }
   askFormat({ title: "PDF indir", text: `${info.title} · ${info.plabel}. Grafik ve açıklamalar; yöneticinize göndermek için hazırlanır (resimsiz tek sayfa).`, defOrient: n > 7 ? "landscape" : "portrait", hint: n > 7 ? `${n} bölüm olduğu için yatay düzen önerilir.` : "Az sayıda bölümde dikey düzen yeterlidir.", scopes, pics: info.details.reduce((a, g) => a + g.items.reduce((b, it) => b + (it.pics?.length || 0), 0), 0) }).then(o => o && printSheet(info, o));
 }
 
 async function printSheet(info, { size, orient, pics = false, file = false, scope = "all" }) {
+  // Hafta seçildiyse grafik de o haftanın görünümüne geçer (yalnız o hafta denetlenen bölümler, ay başından haftanın sonuna birikimli)
+  if (info.weekFor && /^(s|last):/.test(scope)) { const w = info.weekFor(scope.replace(/^(s|last):/, "")); if (w && w.names.length) info = { ...info, ...w, partial: "" }; }
   // Tasarım A4 ölçüsünde (96 dpi) yapılır; A3 için √2 büyütülür.
   const land = orient === "landscape", W = land ? 1123 : 794, Hh = land ? 794 : 1123, M = 38, z = size === "A3" ? 1.4142 : 1;
   const cw = W - 2 * M, cpl = Math.floor(cw / 6.3);

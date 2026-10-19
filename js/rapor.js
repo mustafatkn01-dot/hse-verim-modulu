@@ -1,11 +1,12 @@
 // Aylık HSE Raporu · kayıtlı verilerden otomatik grafik + açıklama
-import * as S from "./store.js?v=20261018b";
-import { esc } from "./ui.js?v=20261018b";
-import * as Gorev from "./gorev.js?v=20261018b";
-import * as T from "./tatil.js?v=20261018b";
-import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261018b";
-import { CATS } from "./isgcats.js?v=20261018b";
-import { bandOf, calcIsg, katsayi, surecVar, DEFAULT_PARAMS, MONTHS, num, konusmaPct, konusmaSifir } from "./scoring.js?v=20261018b";
+import * as S from "./store.js?v=20261019a";
+import { esc } from "./ui.js?v=20261019a";
+import * as Gorev from "./gorev.js?v=20261019a";
+import * as T from "./tatil.js?v=20261019a";
+import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261019a";
+import { CATS } from "./isgcats.js?v=20261019a";
+import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261019a";
+import { bandOf, calcIsg, katsayi, surecVar, DEFAULT_PARAMS, MONTHS, num, konusmaPct, konusmaSifir } from "./scoring.js?v=20261019a";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -17,7 +18,7 @@ const pad = n => String(n).padStart(2, "0");
 const f1 = n => n.toFixed(1).replace(".", ",");
 const fin = x => (typeof x === "number" && isFinite(x) ? x : null);
 export const reset = () => { R.plOpen = false; };
-const R = { plOpen: false, month: null, per: "m", key: "", pics: false, ph: {}, off: new Set(), vert: new Set() };
+const R = { wk: false, wkOk: false, plOpen: false, month: null, per: "m", key: "", pics: false, ph: {}, off: new Set(), vert: new Set() };
 const PER = { m: "Aylık", q: "3 Aylık (Ç1)", h: "6 Aylık (Ç2)", n: "9 Aylık (Ç3)", y: "Yıllık" };
 const PN = { q: "1. çeyrek · Ocak-Mart", h: "2. çeyrek · Ocak-Haziran (kümülatif)", n: "3. çeyrek · Ocak-Eylül (kümülatif)", y: "Ocak-Aralık" };
 const LAST = { q: 3, h: 6, n: 9, y: 12 };
@@ -61,7 +62,7 @@ const vbars = (items, hf) => {
 };
 // Grafik görünümü seçici: yatay çubuk / dikey sütun (yazdırmada gizlenir, seçilen görünüm basılır)
 const toggle = id => { const v = R.vert.has(id), btn = (on, vt, title, svg) => `<button class="sec" data-vt="${id}" data-to="${vt}" title="${title}" aria-label="${title}" aria-pressed="${on}" style="height:30px;width:34px;min-width:0;padding:0;border-radius:8px;display:flex;align-items:center;justify-content:center;${on ? "background:#0B6E4F;color:#fff;border-color:#0B6E4F" : "background:#fff;color:#546964"}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">${svg}</svg></button>`;
-  return `<span class="noprint" style="display:inline-flex;gap:4px;margin-left:12px;vertical-align:middle">${btn(!v, "h", "Yatay çubuk", '<path d="M4 6h14M4 12h10M4 18h16"/>')}${btn(v, "v", "Dikey sütun", '<path d="M6 20V10M12 20V4M18 20v-7"/>')}</span>`; };
+  return `<span class="noprint" style="display:inline-flex;gap:4px;margin-left:12px;vertical-align:middle">${btn(!v, "h", "Yatay çubuk", '<path d="M4 6h14M4 12h10M4 18h16"/>')}${btn(v, "v", "Dikey sütun", '<path d="M6 20V10M12 20V4M18 20v-7"/>')}${id === "isg" && R.wkOk ? `<button class="sec" data-wk="1" title="Son hafta" aria-label="Son hafta" aria-pressed="${R.wk}" style="height:30px;min-width:0;padding:0 10px;border-radius:8px;font-size:12.5px;font-weight:700;${R.wk ? "background:#0B6E4F;color:#fff;border-color:#0B6E4F" : "background:#fff;color:#546964"}">Son hafta</button>` : ""}</span>`; };
 const card = (title, sub, body, tg) => `<div class="cd" style="gap:18px"><div class="row sp" style="align-items:baseline"><h2>${title}${tg ? toggle(tg) : ""}</h2><div class="muted" style="font-size:13px">${sub}</div></div>${body}</div>`;
 
 const imgH = p => `<img data-pid="${p.id}" src="${R.ph[p.id] || p.t}" alt="Fotoğraf" style="height:227px;width:auto;max-width:100%;border-radius:8px;border:1px solid #C3D1CC;background:#EEF2F0">`;
@@ -149,7 +150,11 @@ function draw(v, st, setup, data) {
   const g2 = KEYS.map((k, i) => (mavg[i] === null ? "" : bar(TITLE[i], mavg[i], 0, { band: bn(mavg[i]), t: "Ağırlık %" + W[i], c: "#2A3F3A", bg: "#E4ECE9" }, true))).join("");
 
   // modül kartları
-  const modBars = (k, vid) => vid && R.vert.has(vid) ? vbars(rows.map(r => { const x = val[k][r.id]; return { name: r.name, sub: k === "kaza" ? sub(r) : undefined, v: x, label: x === null ? { t: k === "isbasi" && !multi && data.ib[pad(m)]?.result?.per?.[r.id]?.state === "none" ? "Giriş yok" : k === "isg" ? "Denetim yok" : "Veri yok", band: "İyi" } : { t: bn(x), band: bn(x) } }; })) : `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(340px,100%),1fr));gap:10px 36px">${rows.map(r => { const x = val[k][r.id]; return bar(r.name, x, 0, x === null ? { t: k === "isbasi" && !multi && data.ib[pad(m)]?.result?.per?.[r.id]?.state === "none" ? "Giriş yok" : k === "isg" ? "Denetim yok" : "Veri yok", band: "İyi", ...NONE } : { t: bn(x), band: bn(x) }, true, undefined, undefined, k === "kaza" ? sub(r) : undefined); }).join("")}</div>`;
+  // İSG · "Son hafta" sekmesi: dönemin son denetim haftası; puanlar ay başından o haftanın sonuna birikimli, yalnız o hafta denetlenen bölümler
+  const WD = rows.flatMap(r => ms.map(mi => { const d = data.ig[`${pad(mi)}_${r.id}`]; return d?.sessions?.length ? { m: mi, id: r.id, sessions: d.sessions, freq: d.freq, bonus: d.bonus } : null; })).filter(Boolean);
+  const wk = lastWeekKey(WD, ms); R.wkOk = !!wk;
+  const wmode = !!wk && R.wk, wsc = wmode ? weekScores(WD, rows, p, y, wk) : {}, wlab = wmode ? weekLabel(WD, wk, y) : "";
+  const modBars = (k, vid) => vid && R.vert.has(vid) ? vbars((k === "isg" && wmode ? rows.filter(r => wsc[r.id] !== undefined) : rows).map(r => { const x = k === "isg" && wmode ? wsc[r.id] : val[k][r.id]; return { name: r.name, sub: k === "kaza" ? sub(r) : undefined, v: x, label: x === null ? { t: k === "isbasi" && !multi && data.ib[pad(m)]?.result?.per?.[r.id]?.state === "none" ? "Giriş yok" : k === "isg" ? "Denetim yok" : "Veri yok", band: "İyi" } : { t: bn(x), band: bn(x) } }; })) : `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(340px,100%),1fr));gap:10px 36px">${(k === "isg" && wmode ? rows.filter(r => wsc[r.id] !== undefined) : rows).map(r => { const x = k === "isg" && wmode ? wsc[r.id] : val[k][r.id]; return bar(r.name, x, 0, x === null ? { t: k === "isbasi" && !multi && data.ib[pad(m)]?.result?.per?.[r.id]?.state === "none" ? "Giriş yok" : k === "isg" ? "Denetim yok" : "Veri yok", band: "İyi", ...NONE } : { t: bn(x), band: bn(x) }, true, undefined, undefined, k === "kaza" ? sub(r) : undefined); }).join("")}</div>`;
   const noteTxt = (r, n) => `${esc(n)} <b style="white-space:nowrap">— ${esc(r.name)}</b>`;
   const nk = [], nn = [], ni = [];
   let kT = 0, kL = 0, kAny = false, hired = 0, trained = 0, oos = 0, ibAny = false, cnCnt = 0, cnHit = 0, knAny = false;
@@ -259,12 +264,13 @@ function draw(v, st, setup, data) {
   ${anyData && !R.off.has(TITLE[0]) ? modCard("kaza", 0, "Grafik 3 · İş Kazası Verimi", `${plabel} · kaza ceza puanı × bölüm katsayısı`, nk, "g3") : ""}
   ${anyData && !R.off.has(TITLE[1]) ? modCard("konusma", 1, "Grafik 4 · Eğitim Konuşması Verimi", `${plabel} · gerçekleşen süre / (kişi × hedef süre × katsayı)`, nn) : ""}
   ${anyData && !R.off.has(TITLE[2]) ? modCard("isbasi", 2, "Grafik 5 · İşbaşı Eğitim Verimi", `${plabel} · eğitim oranı × ZTF (gecikme) × TC (düzensizlik)`, ni) : ""}
-  ${anyData && modHas[3] && !R.off.has(TITLE[3]) ? card("İSG Denetim Verimi", `${plabel} · denetim sıklığı × kategori ağırlığı × bölüm katsayısı + ramak kala bonusu`, modBars("isg", "isg"), "isg") : ""}
+  ${anyData && modHas[3] && !R.off.has(TITLE[3]) ? card("İSG Denetim Verimi", wmode ? `${wlab} · ay başından haftanın sonuna birikimli; yalnız o hafta denetlenen bölümler` : `${plabel} · denetim sıklığı × kategori ağırlığı × bölüm katsayısı + ramak kala bonusu`, modBars("isg", "isg"), "isg") : ""}
   ${R.off.has("İSG bulgu dağılımı") ? "" : g6}${R.off.has(TITLE[3]) ? "" : scope}
   ${planCard}${gorevCard}${gNote}
   <div class="muted noprint" style="font-size:13px;line-height:1.6">Dönem raporlarında bölüm değerleri, verisi olan ayların ortalamasıdır (kümülatif: Ç1 Ocak-Mart, Ç2 Ocak-Haziran, Ç3 Ocak-Eylül). Açıklamalar, aylık giriş sayfalarında yazılan notlardan derlenir (İSG için "Uygunsuz" işaretli maddelerin notları). Metni değiştirmek için ilgili kaydı güncelleyin; rapor kendiliğinden yenilenir. PDF için tarayıcının yazdırma penceresinde "PDF olarak kaydet" seçin.</div>`;
   v.querySelector("#incClr")?.addEventListener("click", () => { incKeys.forEach(k => incAllOff ? R.off.delete(k) : R.off.add(k)); draw(v, st, setup, data); });
   v.querySelectorAll("[data-inc]").forEach(b => b.onclick = () => { const k = b.dataset.inc; R.off.has(k) ? R.off.delete(k) : R.off.add(k); draw(v, st, setup, data); });
+  v.querySelectorAll("[data-wk]").forEach(b => b.onclick = () => { R.wk = !R.wk; draw(v, st, setup, data); });
   v.querySelectorAll("[data-vt]").forEach(b => b.onclick = () => { if (b.dataset.to === "v") R.vert.add(b.dataset.vt); else R.vert.delete(b.dataset.vt); draw(v, st, setup, data); });
   const rp = document.getElementById("rPic"); if (rp) rp.onchange = e => { R.pics = e.target.checked; draw(v, st, setup, data); };
   if (R.pics) hydrate(v, st);
