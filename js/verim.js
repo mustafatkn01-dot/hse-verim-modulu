@@ -1,11 +1,21 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261019d";
-import { esc } from "./ui.js?v=20261019d";
-import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261019d";
-import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261019d";
-import { CATS } from "./isgcats.js?v=20261019d";
-import * as Gorev from "./gorev.js?v=20261019d";
-import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261019d";
+<<<<<<< HEAD
+import * as S from "./store.js?v=20261019e";
+import { esc } from "./ui.js?v=20261019e";
+import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261019e";
+import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261019e";
+import { CATS } from "./isgcats.js?v=20261019e";
+import * as Gorev from "./gorev.js?v=20261019e";
+import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261019e";
+=======
+import * as S from "./store.js?v=20261019e";
+import { esc } from "./ui.js?v=20261019e";
+import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261019e";
+import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261019e";
+import { CATS } from "./isgcats.js?v=20261019e";
+import * as Gorev from "./gorev.js?v=20261019e";
+import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261019e";
+>>>>>>> parent of 9019a1f (İSG Son hafta: yalnız o haftanın denetimleriyle skor (birikimli değil))
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -93,7 +103,7 @@ function draw() {
   const cur = PER[V.p].items[V.sel], have = cur.idx.filter(i => hasM[i]).length, partial = have > 0 && have < cur.idx.length;
   const mk = V.metric, val = (id, k) => avg(series(id, k), cur.idx);
   const seg = on => (on ? "background:var(--sel);color:#fff;border-color:var(--sel)" : "background:var(--card);color:var(--text);border-color:var(--inl)");
-  // İSG · "Son hafta" sekmesi: seçili dönemin son denetim haftası; puanlar yalnız o haftanın denetimleriyle hesaplanır
+  // İSG · "Son hafta" sekmesi: seçili dönemin son denetim haftası; puanlar ay başından o haftanın sonuna kadar birikimlidir, yalnız o hafta denetlenen bölümler gösterilir
   const WD = V.data._i || [], wk = mk === 3 ? lastWeekKey(WD, cur.idx.map(i => i + 1)) : null, wmode = !!wk && V.wk;
   const wsc = wk ? weekScores(WD, rows, p, y, wk) : {}, wlab = wk ? weekLabel(WD, wk, y) : "";
   const crows = rows, plab = wmode ? wlab : PER[V.p].name(V.sel);
@@ -123,11 +133,11 @@ function draw() {
     return notes;
   };
   const notes = buildNotes(plab, crows.map(r => r.name), vals, av, !wmode && V.p === "m" && V.sel > 0, wmode);
-  if (wmode && notes.length) notes.push("Puanlar yalnız bu haftanın denetimleriyle hesaplanır (Dönem puanıyla birebir kıyaslanmaz); bu hafta denetlenmeyen bölümler grafikte \"Denetlenmedi\" olarak işaretlenir ve ortalamaya girmez.");
-  // PDF: seçilen haftanın grafiği (yalnız o haftanın denetimleri)
+  if (wmode && notes.length) notes.push("Puanlar ay başından bu haftanın sonuna kadar yapılan denetimlerle hesaplanır; bu hafta denetlenmeyen bölümler grafikte \"Denetlenmedi\" olarak işaretlenir ve ortalamaya girmez.");
+  // PDF: seçilen haftanın grafiği (yalnız o hafta denetlenen bölümler, ay başından o haftanın sonuna birikimli)
   const weekFor = k => { const sc = weekScores(WD, rows, p, y, k), cr = rows, vs = cr.map(r => sc[r.id] ?? null), vv = vs.filter(x => x !== null), a = vv.length ? vv.reduce((q, z) => q + z, 0) / vv.length : null, lab = weekLabel(WD, k, y), ns = buildNotes(lab, cr.map(r => r.name), vs, a, false, true);
-    if (ns.length) ns.push("Puanlar yalnız bu haftanın denetimleriyle hesaplanır (Dönem puanıyla birebir kıyaslanmaz); bu hafta denetlenmeyen bölümler grafikte \"Denetlenmedi\" olarak işaretlenir ve ortalamaya girmez.");
-    return { names: cr.map(r => r.name), vals: vs, av: a, ab: band(a), abn: bname(a), plabel: lab + " · yalnız bu hafta", notes: ns, nullLabel: "Denetlenmedi" }; };
+    if (ns.length) ns.push("Puanlar ay başından bu haftanın sonuna kadar yapılan denetimlerle hesaplanır; bu hafta denetlenmeyen bölümler grafikte \"Denetlenmedi\" olarak işaretlenir ve ortalamaya girmez.");
+    return { names: cr.map(r => r.name), vals: vs, av: a, ab: band(a), abn: bname(a), plabel: lab + " · birikimli", notes: ns, nullLabel: "Denetlenmedi" }; };
   const nonEmpty = rows.some(r => V.data[r.id].some(m => m.some(x => x !== null)));
 
   const heads = [], mr = rows.map(() => []);
@@ -275,7 +285,7 @@ function pdfDialog(info) {
 }
 
 async function printSheet(info, { size, orient, pics = false, file = false, scope = "all" }) {
-  // Hafta seçildiyse grafik de o haftanın görünümüne geçer (yalnız o haftanın denetimleri)
+  // Hafta seçildiyse grafik de o haftanın görünümüne geçer (yalnız o hafta denetlenen bölümler, ay başından haftanın sonuna birikimli)
   if (info.weekFor && /^(s|last):/.test(scope)) { const w = info.weekFor(scope.replace(/^(s|last):/, "")); if (w && w.names.length) info = { ...info, ...w, partial: "" }; }
   // Tasarım A4 ölçüsünde (96 dpi) yapılır; A3 için √2 büyütülür.
   const land = orient === "landscape", W = land ? 1123 : 794, Hh = land ? 794 : 1123, M = 38, z = size === "A3" ? 1.4142 : 1;

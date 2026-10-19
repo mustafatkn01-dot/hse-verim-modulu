@@ -1,6 +1,11 @@
 // Tatil takvimi ve haftalık denetim planı (yalnızca gösterim; puanı etkilemez)
-import * as S from "./store.js?v=20261019d";
-import { esc, modal, toast, noticeBox, pickDate, fmtTarih } from "./ui.js?v=20261019d";
+<<<<<<< HEAD
+import * as S from "./store.js?v=20261019e";
+import { esc, modal, toast, noticeBox, pickDate, fmtTarih } from "./ui.js?v=20261019e";
+=======
+import * as S from "./store.js?v=20261019e";
+import { esc, modal, toast, noticeBox, pickDate, fmtTarih } from "./ui.js?v=20261019e";
+>>>>>>> parent of 9019a1f (İSG Son hafta: yalnız o haftanın denetimleriyle skor (birikimli değil))
 
 const pad = n => String(n).padStart(2, "0");
 const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;

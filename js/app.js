@@ -1,20 +1,40 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261019d";
-import * as S from "./store.js?v=20261019d";
-import * as Prim from "./primary.js?v=20261019d";
-import * as Denetim from "./denetim.js?v=20261019d";
-import * as Kaza from "./kaza.js?v=20261019d";
-import * as Konusma from "./konusma.js?v=20261019d";
-import * as Ramak from "./ramak.js?v=20261019d";
-import * as Genel from "./genel.js?v=20261019d";
-import * as Rapor from "./rapor.js?v=20261019d";
-import * as Verim from "./verim.js?v=20261019d";
-import * as Isbasi from "./isbasi.js?v=20261019d";
-import * as Guest from "./guest.js?v=20261019d";
-import * as Yontem from "./yontem.js?v=20261019d";
-import * as Tatil from "./tatil.js?v=20261019d";
-import * as Gorev from "./gorev.js?v=20261019d";
-import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261019d";
-import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261019d";
+<<<<<<< HEAD
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261019e";
+import * as S from "./store.js?v=20261019e";
+import * as Prim from "./primary.js?v=20261019e";
+import * as Denetim from "./denetim.js?v=20261019e";
+import * as Kaza from "./kaza.js?v=20261019e";
+import * as Konusma from "./konusma.js?v=20261019e";
+import * as Ramak from "./ramak.js?v=20261019e";
+import * as Genel from "./genel.js?v=20261019e";
+import * as Rapor from "./rapor.js?v=20261019e";
+import * as Verim from "./verim.js?v=20261019e";
+import * as Isbasi from "./isbasi.js?v=20261019e";
+import * as Guest from "./guest.js?v=20261019e";
+import * as Yontem from "./yontem.js?v=20261019e";
+import * as Tatil from "./tatil.js?v=20261019e";
+import * as Gorev from "./gorev.js?v=20261019e";
+import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261019e";
+import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261019e";
+=======
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261019e";
+import * as S from "./store.js?v=20261019e";
+import * as Prim from "./primary.js?v=20261019e";
+import * as Denetim from "./denetim.js?v=20261019e";
+import * as Kaza from "./kaza.js?v=20261019e";
+import * as Konusma from "./konusma.js?v=20261019e";
+import * as Ramak from "./ramak.js?v=20261019e";
+import * as Genel from "./genel.js?v=20261019e";
+import * as Rapor from "./rapor.js?v=20261019e";
+import * as Verim from "./verim.js?v=20261019e";
+import * as Isbasi from "./isbasi.js?v=20261019e";
+import * as Guest from "./guest.js?v=20261019e";
+import * as Yontem from "./yontem.js?v=20261019e";
+import * as Tatil from "./tatil.js?v=20261019e";
+import * as Gorev from "./gorev.js?v=20261019e";
+import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261019e";
+import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261019e";
+>>>>>>> parent of 9019a1f (İSG Son hafta: yalnız o haftanın denetimleriyle skor (birikimli değil))
 const PEND_META = { isbasig: ["isbasi", "İşbaşı Eğitim"], konusmag: ["konusma", "Eğitim Konuşması"], kazag: ["kaza", "İş Kazası"] };
 
 const VERSION = "1.6.6";

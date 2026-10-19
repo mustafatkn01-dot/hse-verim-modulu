@@ -1,12 +1,23 @@
 // Aylık HSE Raporu · kayıtlı verilerden otomatik grafik + açıklama
-import * as S from "./store.js?v=20261019d";
-import { esc } from "./ui.js?v=20261019d";
-import * as Gorev from "./gorev.js?v=20261019d";
-import * as T from "./tatil.js?v=20261019d";
-import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261019d";
-import { CATS } from "./isgcats.js?v=20261019d";
-import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261019d";
-import { bandOf, calcIsg, katsayi, surecVar, DEFAULT_PARAMS, MONTHS, num, konusmaPct, konusmaSifir } from "./scoring.js?v=20261019d";
+<<<<<<< HEAD
+import * as S from "./store.js?v=20261019e";
+import { esc } from "./ui.js?v=20261019e";
+import * as Gorev from "./gorev.js?v=20261019e";
+import * as T from "./tatil.js?v=20261019e";
+import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261019e";
+import { CATS } from "./isgcats.js?v=20261019e";
+import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261019e";
+import { bandOf, calcIsg, katsayi, surecVar, DEFAULT_PARAMS, MONTHS, num, konusmaPct, konusmaSifir } from "./scoring.js?v=20261019e";
+=======
+import * as S from "./store.js?v=20261019e";
+import { esc } from "./ui.js?v=20261019e";
+import * as Gorev from "./gorev.js?v=20261019e";
+import * as T from "./tatil.js?v=20261019e";
+import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261019e";
+import { CATS } from "./isgcats.js?v=20261019e";
+import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261019e";
+import { bandOf, calcIsg, katsayi, surecVar, DEFAULT_PARAMS, MONTHS, num, konusmaPct, konusmaSifir } from "./scoring.js?v=20261019e";
+>>>>>>> parent of 9019a1f (İSG Son hafta: yalnız o haftanın denetimleriyle skor (birikimli değil))
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -150,7 +161,7 @@ function draw(v, st, setup, data) {
   const g2 = KEYS.map((k, i) => (mavg[i] === null ? "" : bar(TITLE[i], mavg[i], 0, { band: bn(mavg[i]), t: "Ağırlık %" + W[i], c: "#2A3F3A", bg: "#E4ECE9" }, true))).join("");
 
   // modül kartları
-  // İSG · "Son hafta" sekmesi: dönemin son denetim haftası; puanlar yalnız o haftanın denetimleriyle
+  // İSG · "Son hafta" sekmesi: dönemin son denetim haftası; puanlar ay başından o haftanın sonuna birikimli, yalnız o hafta denetlenen bölümler
   const WD = rows.flatMap(r => ms.map(mi => { const d = data.ig[`${pad(mi)}_${r.id}`]; return d?.sessions?.length ? { m: mi, id: r.id, sessions: d.sessions, freq: d.freq, bonus: d.bonus } : null; })).filter(Boolean);
   const wk = lastWeekKey(WD, ms); R.wkOk = !!wk;
   const wmode = !!wk && R.wk, wsc = wmode ? weekScores(WD, rows, p, y, wk) : {}, wlab = wmode ? weekLabel(WD, wk, y) : "";
@@ -264,7 +275,7 @@ function draw(v, st, setup, data) {
   ${anyData && !R.off.has(TITLE[0]) ? modCard("kaza", 0, "Grafik 3 · İş Kazası Verimi", `${plabel} · kaza ceza puanı × bölüm katsayısı`, nk, "g3") : ""}
   ${anyData && !R.off.has(TITLE[1]) ? modCard("konusma", 1, "Grafik 4 · Eğitim Konuşması Verimi", `${plabel} · gerçekleşen süre / (kişi × hedef süre × katsayı)`, nn) : ""}
   ${anyData && !R.off.has(TITLE[2]) ? modCard("isbasi", 2, "Grafik 5 · İşbaşı Eğitim Verimi", `${plabel} · eğitim oranı × ZTF (gecikme) × TC (düzensizlik)`, ni) : ""}
-  ${anyData && modHas[3] && !R.off.has(TITLE[3]) ? card("İSG Denetim Verimi", wmode ? `${wlab} · yalnız o haftanın denetimleri; denetlenmeyen bölümler "Denetlenmedi"` : `${plabel} · denetim sıklığı × kategori ağırlığı × bölüm katsayısı + ramak kala bonusu`, modBars("isg", "isg"), "isg") : ""}
+  ${anyData && modHas[3] && !R.off.has(TITLE[3]) ? card("İSG Denetim Verimi", wmode ? `${wlab} · ay başından haftanın sonuna birikimli; denetlenmeyen bölümler "Denetlenmedi"` : `${plabel} · denetim sıklığı × kategori ağırlığı × bölüm katsayısı + ramak kala bonusu`, modBars("isg", "isg"), "isg") : ""}
   ${R.off.has("İSG bulgu dağılımı") ? "" : g6}${R.off.has(TITLE[3]) ? "" : scope}
   ${planCard}${gorevCard}${gNote}
   <div class="muted noprint" style="font-size:13px;line-height:1.6">Dönem raporlarında bölüm değerleri, verisi olan ayların ortalamasıdır (kümülatif: Ç1 Ocak-Mart, Ç2 Ocak-Haziran, Ç3 Ocak-Eylül). Açıklamalar, aylık giriş sayfalarında yazılan notlardan derlenir (İSG için "Uygunsuz" işaretli maddelerin notları). Metni değiştirmek için ilgili kaydı güncelleyin; rapor kendiliğinden yenilenir. PDF için tarayıcının yazdırma penceresinde "PDF olarak kaydet" seçin.</div>`;
