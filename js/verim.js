@@ -1,11 +1,11 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261021i";
-import { esc } from "./ui.js?v=20261021i";
-import { bandOf, DEFAULT_PARAMS, num, isgMonth, makTier, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261021i";
-import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261021i";
-import { CATS } from "./isgcats.js?v=20261021i";
-import * as Gorev from "./gorev.js?v=20261021i";
-import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261021i";
+import * as S from "./store.js?v=20261021j";
+import { esc } from "./ui.js?v=20261021j";
+import { bandOf, DEFAULT_PARAMS, num, isgMonth, makTier, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261021j";
+import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261021j";
+import { CATS } from "./isgcats.js?v=20261021j";
+import * as Gorev from "./gorev.js?v=20261021j";
+import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261021j";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -55,7 +55,7 @@ export async function load(st, setup) {
         const fxo = (se.fixed || {})[key + "|" + j]; if (fxo && fxo.st === "ok" && fxo.t === k && (fxo.tx || "").trim()) bs.fx = { tx: fxo.tx.trim(), ph: (fxo.ph || []).map(ph => ({ ...ph })), at: fxo.at || 0 };
         o.list.set(k, e); }); }));
     Object.entries(items).forEach(([key, o]) => { const mm = /^c(\d+)i(\d+)$/.exec(key); if (!mm) return; const c = CATS[+mm[1]]; if (!c) return;
-      [...o.list.entries()].forEach(([t, e]) => notes.push({ m: mOf(d), k: 3, id, t: `${c.name}: ${t || c.items[+mm[2]]}`, x: `${e.c} denetimde uygunsuz`, pics: e.pics, by: e.by })); }); });
+      [...o.list.entries()].forEach(([t, e]) => notes.push({ m: mOf(d), k: 3, id, cat: c.name, t: `${c.name}: ${t || c.items[+mm[2]]}`, x: `${e.c} denetimde uygunsuz`, pics: e.pics, by: e.by })); }); });
   out._n = notes;
   out._i = ig.map(d => ({ m: parseInt(String(d.id).slice(0, 2), 10), id: String(d.id).slice(3), sessions: d.sessions || [], freq: d.freq, bonus: d.bonus }));
   out._s = {}; ig.forEach(d => { const id = String(d.id).slice(3); (d.sessions || []).forEach(se => { if (se?.date) (out._s[id] ||= []).push(se.date); }); });
@@ -188,9 +188,9 @@ function draw() {
     <div class="muted" style="font-size:12.5px;line-height:1.6">Veri girilmeyen aylar "–" gösterir. Eksik aylı dönemler mevcut aylar üzerinden hesaplanır ve "kısmi" olarak işaretlenir. Bir bölümde değerlendirilen modül yoksa (örn. işe giriş yok) toplam verimde ağırlıklar kalan modüllere yeniden dağıtılır (ağırlıklar: İş Kazası ${W[0]}, Konuşma ${W[1]}, İşbaşı ${W[2]}, İSG ${W[3]}).</div></div>`;
   const rowIx = Object.fromEntries(rows.map((r, i) => [r.id, i])), MODN = ["İş Kazası", "Eğitim Konuşması", "İşbaşı Eğitim", "İSG Denetim"];
   const sel = (V.data._n || []).filter(n => (mk === 4 || n.k === mk) && cur.idx.includes(n.m) && rowIx[n.id] !== undefined).sort((a, b) => a.k - b.k || rowIx[a.id] - rowIx[b.id] || a.m - b.m);
-  const details = [0, 1, 2, 3].map(k => ({ mod: MODN[k], items: sel.filter(n => n.k === k).map(n => ({ dept: rows[rowIx[n.id]].name, text: n.t, extra: n.x, pics: n.pics || [], by: n.by || null, mon: cur.idx.length > 1 ? MS[n.m] : "" })) })).filter(g => g.items.length);
+  const details = [0, 1, 2, 3].map(k => ({ mod: MODN[k], items: sel.filter(n => n.k === k).map(n => ({ dept: rows[rowIx[n.id]].name, text: n.t, cat: n.cat || "", extra: n.x, pics: n.pics || [], by: n.by || null, mon: cur.idx.length > 1 ? MS[n.m] : "" })) })).filter(g => g.items.length);
   const detHtml = `<div style="border-top:1px solid var(--line);padding-top:16px;display:flex;flex-direction:column;gap:12px"><div style="font-weight:800;font-size:13px;letter-spacing:.8px;color:var(--muted)">BÖLÜM AÇIKLAMALARI <span style="font-weight:600;letter-spacing:0">· denetim ve eğitim kayıtlarında yazılanlar</span></div>
-    ${details.length ? details.map(g => `<div class="col1" style="gap:6px">${mk === 4 ? `<div style="font-weight:800;color:#145F96">${g.mod}</div>` : ""}${g.items.map((a, i) => `<div style="display:flex;gap:10px;line-height:1.55"><span style="flex:0 0 22px;font-weight:800;color:#0B6E4F">${i + 1}.</span><span>${a.mon ? `<span class="muted">${a.mon} · </span>` : ""}<b>${esc(a.dept)}</b> — ${esc(a.text)} <span class="muted" style="white-space:nowrap">· ${esc(a.extra)}</span></span></div>`).join("")}</div>`).join("") : `<div class="muted">Bu dönem için girilmiş açıklama yok.</div>`}</div>`;
+    ${details.length ? details.map(g => `<div class="col1" style="gap:6px">${mk === 4 ? `<div style="font-weight:800;color:#145F96">${g.mod}</div>` : ""}${g.items.map((a, i) => `<div style="display:flex;gap:10px;line-height:1.55"><span style="flex:0 0 22px;font-weight:800;color:#0B6E4F">${i + 1}.</span><span>${a.mon ? `<span class="muted">${a.mon} · </span>` : ""}<b>${esc(a.dept)}</b> — ${a.cat && a.text.startsWith(a.cat + ": ") ? `<i style="color:#C4453A;font-weight:600">${esc(a.cat)}:</i> ${esc(a.text.slice(a.cat.length + 2))}` : esc(a.text)} <span class="muted" style="white-space:nowrap">· ${esc(a.extra)}</span></span></div>`).join("")}</div>`).join("") : `<div class="muted">Bu dönem için girilmiş açıklama yok.</div>`}</div>`;
   const info = { fid: st.fid, year: st.year, details, mk4: mk === 4, fname: st.factories.find(f => f.id === st.fid)?.name || "", title: `${MET[mk][0]} · Bölüm Karşılaştırması`, plabel: plab, av, abn: bname(av), ab, names: crows.map(r => r.name), vals, weekFor: wk ? weekFor : null, nullLabel: mk === 3 ? (wmode ? "Denetlenmedi" : "Denetim yok") : "", wkKey: wmode ? wk : null, bandOf: x => (x === null ? NONE : band(x)), notes, partial: partial && !wmode ? `Kısmi dönem: ${cur.idx.length} aydan ${have} tanesi için veri var. Değerler mevcut aylar üzerinden hesaplandı.` : "", esik: p.esik };
   // ---- Açılır kartlar (varsayılan kapalı) ----
   const OP = V.op || (V.op = {});
