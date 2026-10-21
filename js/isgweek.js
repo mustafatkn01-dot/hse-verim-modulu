@@ -1,6 +1,6 @@
 // İSG Denetim · hafta bazlı görünüm (o haftanın en son denetiminin skoru)
-import { isgAudits, makTier, katsayi, surecVar, DEFAULT_PARAMS } from "./scoring.js?v=20261021c";
-import { CATS } from "./isgcats.js?v=20261021c";
+import { isgAudits, makTier, katsayi, surecVar, DEFAULT_PARAMS } from "./scoring.js?v=20261021d";
+import { CATS } from "./isgcats.js?v=20261021d";
 
 const pad = n => String(n).padStart(2, "0");
 const dt = t => new Date(+t.slice(0, 4), +t.slice(5, 7) - 1, +t.slice(8, 10));

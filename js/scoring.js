@@ -74,8 +74,12 @@ export const bandOf = (sc, p) => {
  */
 // Aksiyon alındı: onaylı aksiyonu olan açıklama cezadan düşer; sıklık ve yoğunluk geçmişi korunur.
 // s.fixed["madde|sıra"] = {t: bulgu metni, tx: aksiyon açıklaması, ph: fotoğraflar, st: "ok" | "rej", rat: istek zamanı, rej: ret gerekçesi}
-export const fxOk = (fx, id, j, t) => { const f = fx?.[id + "|" + j]; return !!f && f.st === "ok" && f.t === String(t || "").trim(); };
-export const openIn = (s, id) => { const a = s.fails?.[id]; if (!a) return 0; if (!a.length) return 1; return a.filter((t, j) => !fxOk(s.fixed, id, j, t)).length; };
+// Aksiyon, denetimin haftası kapanmadan (en geç o haftanın cumartesi günü) girilmişse cezadan düşer; sonrasında yalnız açıklamada görünür
+const isoL = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+export const fxDeadline = date => { const g = new Date(+date.slice(0, 4), +date.slice(5, 7) - 1, +date.slice(8, 10)); g.setDate(g.getDate() + (g.getDay() === 0 ? -6 : 1 - g.getDay()) + 5); return isoL(g); };
+export const fxInTime = (f, date) => !date || !f?.rat || isoL(new Date(f.rat)) <= fxDeadline(date);
+export const fxOk = (fx, id, j, t, date) => { const f = fx?.[id + "|" + j]; return !!f && f.st === "ok" && f.t === String(t || "").trim() && fxInTime(f, date); };
+export const openIn = (s, id) => { const a = s.fails?.[id]; if (!a) return 0; if (!a.length) return 1; return a.filter((t, j) => !fxOk(s.fixed, id, j, t, s.date)).length; };
 
 export function calcIsg({ cats, sessions, draft, freqOv, bonusIdx, F, p, yog = false, mak = "4", perAudit = false, only = null }) {
   const azami = Math.max(1, num(p.isg.azami) || 3);
@@ -97,7 +101,7 @@ export function calcIsg({ cats, sessions, draft, freqOv, bonusIdx, F, p, yog = f
       if (isX) {
         curFails++; curFailed++; if (!(draft.notes[id] || []).some(t => t.trim())) missing++;
         const ne = (draft.notes[id] || []).map(t => String(t).trim()).filter(Boolean);
-        if (!draft.fixed || !ne.length || ne.some((t, j) => !fxOk(draft.fixed, id, j, t))) curOpen++;
+        if (!draft.fixed || !ne.length || ne.some((t, j) => !fxOk(draft.fixed, id, j, t, draft.date))) curOpen++;
       }
       const pd = new Set(sessions.map((x, i) => [x, i]).filter(([x]) => x.fails[id] !== undefined).map(([x, i]) => dayOf(x, i)));
       return { id, mk, prev, isX, cnt: pd.size + (isX && !pd.has(curDay) ? 1 : 0) };
