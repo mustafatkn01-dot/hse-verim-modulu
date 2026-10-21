@@ -1,11 +1,11 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261021j";
-import { esc } from "./ui.js?v=20261021j";
-import { bandOf, DEFAULT_PARAMS, num, isgMonth, makTier, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261021j";
-import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261021j";
-import { CATS } from "./isgcats.js?v=20261021j";
-import * as Gorev from "./gorev.js?v=20261021j";
-import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261021j";
+import * as S from "./store.js?v=20261021k";
+import { esc } from "./ui.js?v=20261021k";
+import { bandOf, DEFAULT_PARAMS, num, isgMonth, makTier, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261021k";
+import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261021k";
+import { CATS } from "./isgcats.js?v=20261021k";
+import * as Gorev from "./gorev.js?v=20261021k";
+import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261021k";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -310,7 +310,7 @@ async function printSheet(info, { size, orient, pics = false, file = false, scop
   const sh = document.createElement("div"); sh.id = "psheet";
   const FONT = "font-family:Manrope,system-ui,sans-serif;color:#10201C;display:flex;flex-direction:column;gap:14px;font-size:13px";
   const items = [];
-  DET.forEach((g, gi) => g.items.forEach((a, i) => items.push({ gi, mod: g.mod, sub: g.sub, html: `<div data-brk style="display:flex;gap:8px;line-height:1.45;font-size:12px;break-inside:avoid"><span style="flex:0 0 20px;font-weight:800;color:#0B6E4F">${i + 1}.</span><span>${a.mon ? `<span style="color:#546964">${a.mon} · </span>` : ""}<b>${esc(a.dept)}</b> — ${esc(a.text)}${a.done ? ` <span style="color:#8A9A95;font-style:italic">(görev tamamlandı)</span>` : ""}${a.extra ? ` <span style="color:#546964">· ${esc(a.extra)}</span>` : ""}${picsHtml(a)}</span></div>` })));
+  DET.forEach((g, gi) => g.items.forEach((a, i) => items.push({ gi, mod: g.mod, sub: g.sub, html: `<div data-brk style="display:flex;gap:8px;line-height:1.45;font-size:12px;break-inside:avoid"><span style="flex:0 0 20px;font-weight:800;color:#0B6E4F">${i + 1}.</span><span>${a.mon ? `<span style="color:#546964">${a.mon} · </span>` : ""}<b>${esc(a.dept)}</b> — ${a.cat && a.text.startsWith(a.cat + ": ") ? `<i style="color:#C4453A;font-weight:600">${esc(a.cat)}:</i> ${esc(a.text.slice(a.cat.length + 2))}` : esc(a.text)}${a.done ? ` <span style="color:#8A9A95;font-style:italic">(görev tamamlandı)</span>` : ""}${a.extra ? ` <span style="color:#546964">· ${esc(a.extra)}</span>` : ""}${picsHtml(a)}</span></div>` })));
   const group = list => { let out = "", cur = -1; list.forEach(e => { if (e.gi !== cur) { if (cur !== -1) out += "</div>"; cur = e.gi; out += `<div style="display:flex;flex-direction:column;gap:4px">${e.sub ? `<div style="font-weight:800;color:#145F96">${info.mk4 ? esc(e.mod) : "Açıklamalar"} <span style="font-weight:400;font-style:italic;color:#8A9A95">(${esc(e.sub)})</span></div>` : info.mk4 ? `<div style="font-weight:800;color:#145F96">${esc(e.mod)}</div>` : ""}`; } out += e.html; }); return out + (cur !== -1 ? "</div>" : ""); };
   const descBox = inner => `<div style="border-top:1px solid #D5E0DC;padding-top:10px;display:flex;flex-direction:column;gap:5px">${DET.some(g => g.sub) && !info.mk4 ? "" : `<div style="font-weight:800;font-size:12px;letter-spacing:.8px;color:#3E534E">AÇIKLAMA</div>`}${inner}</div>`;
   const NONE = `<div style="color:#546964">Bu dönem için girilmiş açıklama yok.</div>`;
