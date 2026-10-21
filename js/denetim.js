@@ -1,12 +1,12 @@
 // İSG Denetim Listesi sayfası
-import * as Guest from "./guest.js?v=20261021k";
-import * as Gorev from "./gorev.js?v=20261021k";
-import * as S from "./store.js?v=20261021k";
-import * as Ramak from "./ramak.js?v=20261021k";
-import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261021k";
-import { CATS } from "./isgcats.js?v=20261021k";
-import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261021k";
-import { calcIsg, isgMonth, isgAudits, fxInTime, makTier, katsayi, bandOf, num, surecVar, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261021k";
+import * as Guest from "./guest.js?v=20261021m";
+import * as Gorev from "./gorev.js?v=20261021m";
+import * as S from "./store.js?v=20261021m";
+import * as Ramak from "./ramak.js?v=20261021m";
+import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261021m";
+import { CATS } from "./isgcats.js?v=20261021m";
+import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261021m";
+import { calcIsg, isgMonth, isgAudits, fxInTime, makTier, katsayi, bandOf, num, surecVar, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261021m";
 
 const COLL = "isg";
 const D = { pk: { open: false, view: 0, cnt: {} }, fxEditing: new Set(), fxDraft: {}, fxOpen: new Set(), fxList: [], gfxOpen: false, key: "", setup: null, doc: null, dept: null, month: null, open: {}, ro: false, timer: null, saved: true, msg: "" };
@@ -311,6 +311,21 @@ function fxForm(key, edit = false) {
     <button data-fxsave="${key}" style="height:44px;background:#0B6E4F;border-color:#0B6E4F;color:#fff;font-weight:700">${edit ? "Değişiklikleri kaydet" : "Aksiyon alındı olarak kaydet"}</button>
     ${edit ? `<button class="sec" data-fxcancel="${key}" style="height:40px">Vazgeç</button><span class="muted" style="font-size:12px">Düzenleme, aksiyonun giriş tarihini değiştirmez; ceza durumu aynı kalır.</span>` : `<span class="muted" style="font-size:12px">Denetimin haftası kapanmadan (en geç cumartesi) girilirse ceza kalkar; sonrasında yalnızca açıklamada görünür.</span>`}`;
 }
+// Görev takip anahtarı (gchip ile aynı kural) ve aksiyon eşitleme
+function gkOf(s, id, j, t) {
+  const { st } = D.ctx, dup = (s.fails?.[id] || []).slice(0, j).filter(x => String(x || "").trim() === t).length;
+  return Gorev.noteKey("d", st.fid, st.year, D.month, D.dept, `${id}_${s.no}`, t, dup);
+}
+const gsigOf = () => JSON.stringify((D.doc?.sessions || []).map(s => Object.entries(s.fails || {}).map(([id, arr]) => (arr || []).map((t, j) => Gorev.durumOf(gkOf(s, id, j, String(t || "").trim()))?.durum === "kapali" && !s.fixed?.[id + "|" + j] ? 1 : 0))));
+function fxGorevSync() {
+  if (GUEST.on || !D.doc || !Gorev.linked()) return;
+  D.doc.sessions.forEach(s => Object.entries(s.fails || {}).forEach(([id, arr]) => (arr || []).forEach((t0, j) => {
+    const t = String(t0 || "").trim(); if (!t) return;
+    const f = s.fixed?.[id + "|" + j], ok = f && f.st === "ok" && f.t === t && (f.tx || "").trim(), key = gkOf(s, id, j, t);
+    if (ok) Gorev.aksiyonYaz(key, f.tx.trim(), f.at); else Gorev.aksiyonSil(key);
+  })));
+}
+
 // Denetim formunda açıklamanın altındaki açılır aksiyon kartı (yetkili görünümü)
 function fxCard(s, id, j, t) {
   const f = fxStateOf(s, id, j, t), pd = (D.fxPend || []).find(x => x.no === s.no && x.id === id && x.j === j);
@@ -324,6 +339,7 @@ function fxCard(s, id, j, t) {
       ${editing ? "" : cur.tx ? `<span>${esc(cur.tx)}</span>${fxImgs(cur.ph)}` : ""}
       ${!pd && f?.st === "rej" ? `<div style="padding:8px 10px;border-radius:10px;background:#FDF1F0;border:1px solid #F3C7C3;color:#7A1C14;font-size:13px"><b>Ret gerekçesi:</b> ${esc(f.rej || "")}</div>` : ""}
       ${pd && !D.ro ? `<button data-fxrev="${key}|${pd.guestUid}" style="height:42px">İncele ve karar ver</button><span class="muted" style="font-size:12px">Onay bekleyen aksiyon puana henüz yansımaz.</span>` : ""}
+      ${canAdd && Gorev.durumOf(gkOf(s, id, j, t))?.durum === "kapali" ? `<div style="display:flex;gap:8px;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:10px;background:#EAF7F1;border:1px solid #A9DCC4;font-size:12.5px"><span>Görev takipte kapatıldı${Gorev.durumOf(gkOf(s, id, j, t)).kapanis ? " · " + fxWhen(Gorev.durumOf(gkOf(s, id, j, t)).kapanis) : ""}</span><button class="sec" data-fxfromg="${key}" style="height:34px;min-height:0;padding:0 10px;font-size:13px;white-space:nowrap">Aksiyon olarak ekle</button></div>` : ""}
       ${canAdd ? fxForm(key) : editing ? fxForm(key, true) : ""}
       ${!pd && f?.st === "ok" && !editing && !D.ro && !GUEST.on ? `<div style="display:flex;gap:8px;flex-wrap:nowrap"><button class="sec" data-fxedit="${key}" style="flex:1 1 0;min-width:0;height:34px;min-height:0;padding:0 8px;font-size:13px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap">${ic('<path d="M4 20h4L19 9l-4-4L4 16v4z"/>', 15)}Düzenle</button><button class="sec" data-fxdel="${key}" style="flex:1 1 0;min-width:0;height:34px;min-height:0;padding:0 8px;font-size:13px;color:#B3261E;border-color:#B3261E;white-space:nowrap">Aksiyonu kaldır</button></div>` : ""}
       ${!pd && f?.st === "ok" ? (fxInTime(f, s.date) ? `<span style="font-size:12px;color:#0B6E4F">Bu bulgu cezada Uygun gibi sayılır; sıklık takibi sürer.</span>` : `<span style="font-size:12px;color:#7A5200">Hafta kapandıktan sonra girildi: yalnızca açıklamada görünür, ceza puanı değişmez.</span>`) : ""}</div></details>`;
@@ -593,6 +609,13 @@ function pkGo(y, m) {
 
 function bind(v, c) {
   const { st } = D.ctx, doc = D.doc, d = doc.draft;
+  fxGorevSync(); D.gsig = gsigOf();
+  if (!D.gsub) D.gsub = Gorev.onChange(() => {
+    if (!D.v?.isConnected || !D.doc) return;
+    fxGorevSync();
+    const sig = gsigOf();
+    if (sig !== D.gsig && D.saved !== false) { D.gsig = sig; draw(); }
+  });
   const again = () => { draw(); persist(); };
   const on = (sel, fn) => v.querySelectorAll(sel).forEach(el => el.onclick = () => fn(el));
   $("bolum").onchange = e => { D.dept = e.target.value; render(D.v, D.ctx); };
@@ -658,7 +681,7 @@ function bind(v, c) {
   on("[data-reopen]", async el => {
     const no = +el.dataset.reopen, t = doc.sessions.find(x => x.no === no); if (!t) return;
     if (doc.draft.on !== false && Object.keys(doc.draft.marks || {}).length && doc.draft.edit !== no) {
-      const { confirmBox } = await import("./ui.js?v=20261021k");
+      const { confirmBox } = await import("./ui.js?v=20261021m");
       if (!(await confirmBox(`${no}. denetim açılsın mı?`, "Şu an açık olan denetimde kaydedilmemiş değişiklikler varsa kaybolur. Önce “Kaydet”e basmanız önerilir.", "Yine de aç"))) return;
     }
     if (t.no === doc.sessions.length) t.closed = false;
@@ -676,7 +699,7 @@ function bind(v, c) {
   });
   const gAll = async () => (await S.listMonthDocs(st.fid, st.year, "isgg").catch(() => [])).filter(g => g.id.startsWith(`${pad(D.month)}_${D.dept}_`));
   on("[data-delsess]", async el => {
-    const { confirmBox } = await import("./ui.js?v=20261021k");
+    const { confirmBox } = await import("./ui.js?v=20261021m");
     const no = +el.dataset.delsess, ix = doc.sessions.findIndex(x => x.no === no); if (ix < 0) return;
     const gone = doc.sessions[ix], later = ix < doc.sessions.length - 1, all = await gAll(), gAp = all.filter(g => g.status === "approved" && g.no === gone.no);
     let mode = "all";
@@ -701,7 +724,7 @@ function bind(v, c) {
   });
   // Sahip: misafir taslağını tamamen sil (denetime ve rapora hiç girmez)
   const delG = async g => {
-    const { confirmBox } = await import("./ui.js?v=20261021k");
+    const { confirmBox } = await import("./ui.js?v=20261021m");
     if (!(await confirmBox("Misafir taslağı silinsin mi?", `${g.guestName} taslağı ve fotoğrafları kalıcı olarak silinir; denetime ve rapora hiç girmez. Misafir isterse yeniden yazabilir.`, "Evet, tamamen sil", true))) return false;
     Object.values(g.draft?.photos || {}).flat().forEach(p => S.deletePhoto(st.fid, st.year, p.id).catch(() => {}));
     await S.deleteMonthDoc(st.fid, st.year, "isgg", g.id); await Guest.inboxDelete(`${g.guestUid}_${st.fid}_${st.year}_${+g.month}_${g.dept}`);
@@ -712,7 +735,7 @@ function bind(v, c) {
   const holOK = async date => {
     if (!date || GUEST.on || D.okHol?.has(date)) return true;
     const h = tatilMap(await tatilYukle(st.fid, st.year).catch(() => null)).get(date); if (!h || h.yarim) return true;
-    const { confirmBox } = await import("./ui.js?v=20261021k");
+    const { confirmBox } = await import("./ui.js?v=20261021m");
     if (!(await confirmBox("İzin / tatil günü", `${fmtTarih(date)} tarihi "${h.ad}" olarak izinli/tatil işaretli. Yine de bu tarihle denetim yapılsın mı?`, "Evet, kabul et"))) return false;
     (D.okHol ||= new Set()).add(date); return true;
   };
@@ -829,6 +852,11 @@ function bind(v, c) {
   v.querySelectorAll("details.ak[data-fk]").forEach(el => el.addEventListener("toggle", () => { el.open ? D.fxOpen.add(el.dataset.fk) : D.fxOpen.delete(el.dataset.fk); }));
   on("[data-fxrev]", el => { const [key, gu] = el.dataset.fxrev.split("|").length > 3 ? [el.dataset.fxrev.split("|").slice(0, 3).join("|"), el.dataset.fxrev.split("|")[3]] : [el.dataset.fxrev, ""]; const pd = D.fxPend.find(x => x.key === key && x.guestUid === gu); if (pd) fxReview(pd); });
   const fxSess = key => { const [no, id, j] = key.split("|"); const s = doc.sessions.find(x => x.no === +no); return { s, id, j: +j, fk: id + "|" + j }; };
+  on("[data-fxfromg]", el => {
+    const key = el.dataset.fxfromg, dr = (D.fxDraft[key] ||= { tx: "", ph: [] }), { s, id, j } = fxSess(key), t = String((s?.fails?.[id] || [])[j] || "").trim(), dn = Gorev.durumOf(gkOf(s, id, j, t));
+    if (!(dr.tx || "").trim()) dr.tx = "Görev takipte kapatıldı" + (dn?.kapanis ? " (" + fxWhen(dn.kapanis).slice(0, 10) + ")" : "") + ".";
+    D.fxOpen.add(key); draw();
+  });
   on("[data-fxnb]", async el => {
     const key = el.dataset.fxnb, { s, id, j } = fxSess(key), dr = (D.fxDraft[key] ||= { tx: "", ph: [] });
     const r = await noteEditor({ title: "Alınan aksiyon", item: (s?.fails?.[id] || [])[j] || "", text: dr.tx, question: "Ne yapıldı? Alınan aksiyonu yazın.", example: "Örn. Koruyucu kapak yerine takıldı, devre dışı bırakma bağlantısı kaldırıldı." });
@@ -864,7 +892,7 @@ function bind(v, c) {
   });
   on("[data-fxdel]", async el => {
     const { s, fk } = fxSess(el.dataset.fxdel); if (!s?.fixed?.[fk]) return;
-    const { confirmBox } = await import("./ui.js?v=20261021k");
+    const { confirmBox } = await import("./ui.js?v=20261021m");
     if (!(await confirmBox("Aksiyon kaldırılsın mı?", "Aksiyon bilgisi silinir; bulgu yeniden cezaya sayılır.", "Evet, kaldır", true))) return;
     const old = s.fixed[fk]; delete s.fixed[fk];
     if ((await persist(true)) === false) { s.fixed[fk] = old; return toast("Kaydedilemedi."); }

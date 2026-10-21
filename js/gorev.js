@@ -1,19 +1,20 @@
 // (ramak kala kayıtları islendi:"ramak" ile yazılır: görev takibin eski sürümleri bunları almaz, yalnızca yeni sürüm olay sayfasına ekler)
 // Görev takip programı köprüsü (mtisggorev). HSE Verim yalnızca küçük kayıtlar bırakır ve durumu okur;
 // görev/kaza kayıtlarını görev programı kendisi oluşturur. Bağlantı yoksa özellik uyarı kartıyla kapalı kalır.
-import { GOREV_CFG } from "./gorev-config.js?v=20261021k";
-import * as S from "./store.js?v=20261021k";
-import { esc, toast } from "./ui.js?v=20261021k";
+import { GOREV_CFG } from "./gorev-config.js?v=20261021m";
+import * as S from "./store.js?v=20261021m";
+import { esc, toast } from "./ui.js?v=20261021m";
 
 const CFG = GOREV_CFG || null, CDN = "https://www.gstatic.com/firebasejs/10.14.1/";
 let F = null, auth = null, db = null, user = null, err = "", fabs = null, started = false, offs = [], loaded = false;
-const durum = new Map(), gelen = new Map(), pend = new Map(), subs = new Set();
+const durum = new Map(), gelen = new Map(), aks = new Map(), aksSent = new Map(), pend = new Map(), subs = new Set();
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 export const enabled = () => !!CFG;
 export const state = () => !CFG ? "yok" : err && !F ? "hata" : !F ? "bekle" : !user ? "giris" : err ? "hata" : "hazir";
 export const statusText = () => ({ yok: "Tanımlı değil", bekle: "Bağlanıyor…", giris: "Bağlı değil", hata: "Bağlantı sorunu", hazir: `Bağlı · ${user?.email || ""}` })[state()];
 export const durumOf = key => durum.get(key) || null;
+export const aksOf = key => aks.get(key) || null;
 export const linked = () => state() === "hazir" && loaded;
 export const onChange = f => { subs.add(f); return () => subs.delete(f); };
 const fire = () => { subs.forEach(f => { try { f(); } catch { } }); paint(); };
@@ -27,16 +28,33 @@ export const makeKey = (...p) => p.map(x => String(x).replace(/[^A-Za-z0-9_-]/g,
 export const noteKey = (kind, fid, y, m, dept, extra, text, dup = 0) => makeKey(kind, fid, y, String(m).padStart(2, "0"), dept, extra, hash(String(text).trim()) + (dup ? "x" + dup : ""));
 
 const R = p => F.ref(db, (CFG.root || "isg") + "/" + p);
-const stopW = () => { offs.forEach(f => { try { f(); } catch { } }); offs = []; durum.clear(); gelen.clear(); fabs = null; loaded = false; };
+const stopW = () => { offs.forEach(f => { try { f(); } catch { } }); offs = []; durum.clear(); gelen.clear(); aks.clear(); aksSent.clear(); fabs = null; loaded = false; };
 function startW() {
   const bad = e => { err = /permission/i.test(e?.message || "") ? "yetki" : "okuma"; fire(); };
   const map = (m, v) => { m.clear(); Object.keys(v || {}).forEach(k => m.set(k, v[k])); };
   offs.push(F.onValue(R("hseDurum"), s => { map(durum, s.val()); err = ""; loaded = true; fire(); }, bad));
+  offs.push(F.onValue(R("hseAksiyon"), s => { map(aks, s.val()); fire(); }, () => { }));
   offs.push(F.onValue(R("hseGelen"), s => { map(gelen, s.val()); fire(); }, bad));
   setTimeout(() => bolumleriYayinla().catch(() => { }), 1500);
   offs.push(F.onValue(R("settings/fabrikalar"), s => {
     const v = s.val(); fabs = Object.values(v || {}).map(x => x && x.name).filter(Boolean); fire();
   }, bad));
+}
+
+
+// ---- Aksiyon alındı ⇄ görev kapatma ----
+// HSE'de onaylı aksiyon: isg/hseAksiyon/{anahtar} = { tx, at }. Görev programı bunu görünce bağlı görevi kapatır.
+// Yalnızca göreve bağlı (durum açık/kapalı) bulgular için yazılır; bağlantı yoksa sessizce atlanır.
+export function aksiyonYaz(key, tx, at) {
+  if (state() !== "hazir" || !loaded) return;
+  const d = durum.get(key); if (!d || (d.durum !== "acik" && d.durum !== "kapali")) return;
+  const cur = aks.get(key); if ((cur && cur.tx === tx) || aksSent.get(key) === tx) return;
+  aksSent.set(key, tx);
+  F.set(R("hseAksiyon/" + key), { tx, at: at || Date.now() }).catch(() => aksSent.delete(key));
+}
+export function aksiyonSil(key) {
+  if (state() !== "hazir" || !loaded || !aks.has(key)) return;
+  aksSent.delete(key); F.remove(R("hseAksiyon/" + key)).catch(() => { });
 }
 
 // ---- Bölüm listesini görev takibe yayınla (kayıt formundaki açılır liste ve bölüm grafikleri için) ----
