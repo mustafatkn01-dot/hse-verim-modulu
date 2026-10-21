@@ -1,15 +1,15 @@
 // İSG Denetim Listesi sayfası
-import * as Guest from "./guest.js?v=20261021h";
-import * as Gorev from "./gorev.js?v=20261021h";
-import * as S from "./store.js?v=20261021h";
-import * as Ramak from "./ramak.js?v=20261021h";
-import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261021h";
-import { CATS } from "./isgcats.js?v=20261021h";
-import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261021h";
-import { calcIsg, isgMonth, isgAudits, fxInTime, makTier, katsayi, bandOf, num, surecVar, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261021h";
+import * as Guest from "./guest.js?v=20261021i";
+import * as Gorev from "./gorev.js?v=20261021i";
+import * as S from "./store.js?v=20261021i";
+import * as Ramak from "./ramak.js?v=20261021i";
+import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261021i";
+import { CATS } from "./isgcats.js?v=20261021i";
+import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261021i";
+import { calcIsg, isgMonth, isgAudits, fxInTime, makTier, katsayi, bandOf, num, surecVar, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261021i";
 
 const COLL = "isg";
-const D = { fxEditing: new Set(), fxDraft: {}, fxOpen: new Set(), fxList: [], gfxOpen: false, key: "", setup: null, doc: null, dept: null, month: null, open: {}, ro: false, timer: null, saved: true, msg: "" };
+const D = { pk: { open: false, view: 0, cnt: {} }, fxEditing: new Set(), fxDraft: {}, fxOpen: new Set(), fxList: [], gfxOpen: false, key: "", setup: null, doc: null, dept: null, month: null, open: {}, ro: false, timer: null, saved: true, msg: "" };
 const W = { 3: ["Kritik ×3", "#FADAD7", "#8E1B16"], 2: ["Major ×2", "#FBE9C6", "#6B3F00"], 1: ["Minor ×1", "#DCEAF7", "#145F96"] };
 const FT = [["#0B6E4F", "#FFF"], ["#F5B700", "#2B2000"], ["#F28C28", "#2B1500"], ["#B3261E", "#FFF"]];
 const BAND = { Mükemmel: ["#17A06F", "#0B6E4F", "#D9F1E6"], İyi: ["#2A82C4", "#145F96", "#DCEAF7"], Orta: ["#F5B700", "#6B3F00", "#FBE9C6"], Kritik: ["#D6382E", "#B3261E", "#FADAD7"] };
@@ -87,6 +87,7 @@ export function focus(month, dept, by) { D.month = +month; D.dept = dept; D.key 
 
 export async function render(v, ctx) {
   const { st } = ctx;
+  D.pk.open = false; D.pk.cnt = {};
   const setup = await S.getSetup(st.fid, st.year);
   if (!setup?.rows?.length) { v.innerHTML = `<div class="cd"><h2>Önce bölümleri tanımlayın</h2><p class="sub">Denetim girişi için Kurulum ve Kayıtlar sayfasında en az bir bölüm kaydedilmeli.</p><div><a href="#kurulum"><button>Kurulum'a git</button></a></div></div>`; return; }
   D.setup = setup;
@@ -521,7 +522,7 @@ function draw() {
   ${gfxPanel()}
   <div class="cd" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px 10px;padding:14px;align-items:start">
     <div class="sf"><label class="hd" for="bolum">BÖLÜM</label><select id="bolum" class="inp">${setup.rows.map(r => `<option value="${r.id}" ${r.id === D.dept ? "selected" : ""}>${esc(r.name)}</option>`).join("")}</select></div>
-    <div class="sf"><label class="hd" for="ay">DÖNEM</label><select id="ay" class="inp">${MONTHS.map((m, i) => `<option value="${i + 1}" ${i + 1 === D.month ? "selected" : ""}>${m} ${st.year}</option>`).join("")}</select></div>
+    <div class="sf" style="position:relative"><label class="hd" for="ay">DÖNEM</label><button id="ay" class="inp fld pkb ${D.pk.open ? "on" : ""}" aria-haspopup="true" aria-expanded="${D.pk.open}"><span>${MONTHS[D.month - 1]} ${st.year}</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0B6E4F" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="${D.pk.open ? "transform:rotate(180deg)" : ""}"><path d="M6 9l6 6 6-6"/></svg></button>${pkHtml(st)}</div>
     <div class="sf"><label class="hd" for="tarih">DENETİM TARİHİ</label><button id="tarih" class="inp fld ${date ? "" : "ph"}" ${D.ro ? "disabled" : ""}><span>${date ? esc(fmtTarih(date)) : "Tarih seç"}</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0B6E4F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></button>${date ? `<div class="muted" style="font-size:12.5px">${wkNo(date)}. hafta</div>` : ""}</div>
     <div class="sf"><label class="hd" for="denetci">DENETÇİ</label><input id="denetci" class="inp" value="${esc(doc.auditor)}" placeholder="Ad Soyad" ${D.ro ? "disabled" : ""}></div></div>
   <div class="cd" style="padding:18px 20px;gap:14px"><div class="row sp"><b style="font:600 16px Sora,sans-serif">Bu Ayın Denetim Kayıtları</b>
@@ -568,12 +569,41 @@ function draw() {
   paintWk(); bind(v, c);
 }
 
+// Dönem seçici: yıl okları + 3x4 ay tablosu; aylarda bu bölümün denetim sayısı
+function pkHtml(st) {
+  if (!D.pk.open) return "";
+  const ys = (st.years || []).map(Number).sort((a, b) => a - b), y = D.pk.view, i = ys.indexOf(y), cn = D.pk.cnt[y + "/" + D.dept] || {}, now = new Date();
+  return `<div class="pkp" role="dialog" aria-label="Dönem seç"><div class="pky"><button class="pkyb" data-pky="-1" aria-label="Önceki yıl" ${i <= 0 ? "disabled" : ""}>‹</button><b>${y}</b><button class="pkyb" data-pky="1" aria-label="Sonraki yıl" ${i < 0 || i >= ys.length - 1 ? "disabled" : ""}>›</button></div>
+    <div class="pkg">${MONTHS.map((m, k) => { const n = cn[k + 1] || 0, sel = y === +st.year && k + 1 === D.month, cur = y === now.getFullYear() && k === now.getMonth(); return `<button class="pkm ${n ? "" : "dim"} ${cur ? "cur" : ""} ${sel ? "sel" : ""}" data-pkm="${k + 1}" aria-label="${m} ${y}${n ? ", " + n + " denetim" : ""}">${m.slice(0, 3)}<small>${n || "&nbsp;"}</small></button>`; }).join("")}</div></div>`;
+}
+async function pkLoad(y) {
+  const { st } = D.ctx, k = y + "/" + D.dept;
+  if (D.pk.cnt[k]) return;
+  const r = {};
+  try { (await S.listMonthDocs(st.fid, y, COLL)).forEach(d => { const m = d.id.match(/^(\d\d)_(.+)$/); if (m && m[2] === D.dept) r[+m[1]] = (d.sessions || []).length; }); } catch {}
+  D.pk.cnt[k] = r;
+}
+function pkGo(y, m) {
+  const { st } = D.ctx;
+  D.pk.open = false; D.month = m; D.key = "";
+  if (String(y) === String(st.year)) return render(D.v, D.ctx);
+  const sy = document.getElementById("selYear");
+  if (sy) { sy.value = String(y); sy.dispatchEvent(new Event("change")); }
+}
+
 function bind(v, c) {
   const { st } = D.ctx, doc = D.doc, d = doc.draft;
   const again = () => { draw(); persist(); };
   const on = (sel, fn) => v.querySelectorAll(sel).forEach(el => el.onclick = () => fn(el));
   $("bolum").onchange = e => { D.dept = e.target.value; render(D.v, D.ctx); };
-  $("ay").onchange = e => { D.month = +e.target.value; render(D.v, D.ctx); };
+  $("ay").onclick = async e => {
+    e.stopPropagation(); D.pk.open = !D.pk.open; D.pk.view = +st.year; draw();
+    if (D.pk.open) { await pkLoad(D.pk.view); if (D.pk.open) draw(); }
+  };
+  v.querySelectorAll("[data-pky]").forEach(b => b.onclick = async e => { e.stopPropagation(); D.pk.view += +b.dataset.pky; draw(); await pkLoad(D.pk.view); if (D.pk.open) draw(); });
+  v.querySelectorAll("[data-pkm]").forEach(b => b.onclick = e => { e.stopPropagation(); pkGo(D.pk.view, +b.dataset.pkm); });
+  v.querySelector(".pkp")?.addEventListener("click", e => e.stopPropagation());
+  if (D.pk.open && !D.pk.bound) { D.pk.bound = true; document.addEventListener("click", () => { if (D.pk.open) { D.pk.open = false; if (D.v?.isConnected) draw(); } }); }
   $("tarih").onclick = async () => { const r = await pickDate({ title: "Denetim tarihi", max: iso(new Date()), a: d.date || "", view: `${st.year}-${String(D.month).padStart(2, "0")}-01` }); if (r && await holOK(r.a)) { d.date = r.a; again(); } };
   $("denetci").onchange = e => { doc.auditor = e.target.value.trim(); persist(); };
   on("[data-tog]", el => { const k = el.dataset.tog, w = !D.open[k]; D.open = {}; D.open[k] = w; draw(); if (w) setTimeout(() => document.querySelector(`[data-tog="${k}"]`)?.scrollIntoView({ block: "start", behavior: "smooth" }), 30); });
@@ -628,7 +658,7 @@ function bind(v, c) {
   on("[data-reopen]", async el => {
     const no = +el.dataset.reopen, t = doc.sessions.find(x => x.no === no); if (!t) return;
     if (doc.draft.on !== false && Object.keys(doc.draft.marks || {}).length && doc.draft.edit !== no) {
-      const { confirmBox } = await import("./ui.js?v=20261021h");
+      const { confirmBox } = await import("./ui.js?v=20261021i");
       if (!(await confirmBox(`${no}. denetim açılsın mı?`, "Şu an açık olan denetimde kaydedilmemiş değişiklikler varsa kaybolur. Önce “Kaydet”e basmanız önerilir.", "Yine de aç"))) return;
     }
     if (t.no === doc.sessions.length) t.closed = false;
@@ -646,7 +676,7 @@ function bind(v, c) {
   });
   const gAll = async () => (await S.listMonthDocs(st.fid, st.year, "isgg").catch(() => [])).filter(g => g.id.startsWith(`${pad(D.month)}_${D.dept}_`));
   on("[data-delsess]", async el => {
-    const { confirmBox } = await import("./ui.js?v=20261021h");
+    const { confirmBox } = await import("./ui.js?v=20261021i");
     const no = +el.dataset.delsess, ix = doc.sessions.findIndex(x => x.no === no); if (ix < 0) return;
     const gone = doc.sessions[ix], later = ix < doc.sessions.length - 1, all = await gAll(), gAp = all.filter(g => g.status === "approved" && g.no === gone.no);
     let mode = "all";
@@ -671,7 +701,7 @@ function bind(v, c) {
   });
   // Sahip: misafir taslağını tamamen sil (denetime ve rapora hiç girmez)
   const delG = async g => {
-    const { confirmBox } = await import("./ui.js?v=20261021h");
+    const { confirmBox } = await import("./ui.js?v=20261021i");
     if (!(await confirmBox("Misafir taslağı silinsin mi?", `${g.guestName} taslağı ve fotoğrafları kalıcı olarak silinir; denetime ve rapora hiç girmez. Misafir isterse yeniden yazabilir.`, "Evet, tamamen sil", true))) return false;
     Object.values(g.draft?.photos || {}).flat().forEach(p => S.deletePhoto(st.fid, st.year, p.id).catch(() => {}));
     await S.deleteMonthDoc(st.fid, st.year, "isgg", g.id); await Guest.inboxDelete(`${g.guestUid}_${st.fid}_${st.year}_${+g.month}_${g.dept}`);
@@ -682,7 +712,7 @@ function bind(v, c) {
   const holOK = async date => {
     if (!date || GUEST.on || D.okHol?.has(date)) return true;
     const h = tatilMap(await tatilYukle(st.fid, st.year).catch(() => null)).get(date); if (!h || h.yarim) return true;
-    const { confirmBox } = await import("./ui.js?v=20261021h");
+    const { confirmBox } = await import("./ui.js?v=20261021i");
     if (!(await confirmBox("İzin / tatil günü", `${fmtTarih(date)} tarihi "${h.ad}" olarak izinli/tatil işaretli. Yine de bu tarihle denetim yapılsın mı?`, "Evet, kabul et"))) return false;
     (D.okHol ||= new Set()).add(date); return true;
   };
@@ -834,7 +864,7 @@ function bind(v, c) {
   });
   on("[data-fxdel]", async el => {
     const { s, fk } = fxSess(el.dataset.fxdel); if (!s?.fixed?.[fk]) return;
-    const { confirmBox } = await import("./ui.js?v=20261021h");
+    const { confirmBox } = await import("./ui.js?v=20261021i");
     if (!(await confirmBox("Aksiyon kaldırılsın mı?", "Aksiyon bilgisi silinir; bulgu yeniden cezaya sayılır.", "Evet, kaldır", true))) return;
     const old = s.fixed[fk]; delete s.fixed[fk];
     if ((await persist(true)) === false) { s.fixed[fk] = old; return toast("Kaydedilemedi."); }
