@@ -58,8 +58,8 @@ button.sm{height:32px;padding:0 10px;font-size:13px}
 .helpbox .v{display:flex;flex-wrap:wrap;gap:8px}
 .helpbox .v div{padding:6px 12px;border-radius:99px;background:var(--card);border:1px solid var(--infob)}
 .tbl{overflow-x:auto}
-.tin{min-width:1040px;display:flex;flex-direction:column;gap:10px}
-.g{display:grid;grid-template-columns:30px minmax(110px,1.2fr) 84px 104px 124px 100px 128px 108px 92px 36px;gap:10px;align-items:center}
+.tin{min-width:1160px;display:flex;flex-direction:column;gap:10px}
+.g{display:grid;grid-template-columns:30px minmax(110px,1.2fr) 84px 104px 112px 124px 100px 128px 108px 92px 36px;gap:10px;align-items:center}
 .g .hb{min-height:44px;height:auto;padding:6px 8px;border-radius:10px;border:1px solid var(--hbd);background:var(--hbg);color:var(--htx);font-size:12px;line-height:1.3;text-align:left;display:flex;align-items:center;justify-content:space-between;gap:6px}
 .g .hb.on{background:var(--navy);color:#fff;border-color:var(--navy)}
 .calc{height:40px;display:flex;align-items:center;justify-content:center;border-radius:10px;background:var(--calc);font-weight:700;color:var(--calct)}

@@ -5,7 +5,7 @@ import * as Guest from "./guest.js?v=20261019h";
 import * as Gorev from "./gorev.js?v=20261019h";
 import { esc, toast, pickDate, fmtTarih, compressImage, showPhoto, confirmBox, GUEST, guestLock, roText } from "./ui.js?v=20261019h";
 import { CATS } from "./isgcats.js?v=20261019h";
-import { calcIsg, katsayi, bandOf, surecVar, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261019h";
+import { isgMonth, makTier, katsayi, bandOf, surecVar, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261019h";
 import { askFormat, savePdf } from "./pdf.js?v=20261019h";
 
 export const COLL = "ramak";
@@ -24,8 +24,8 @@ export function counts(recs) { const c = {}; recs.forEach(r => { if (r.src === "
 export const isMan = doc => doc?.bonusMan === true || (doc?.bonusMan === undefined && (doc?.bonus || 0) > 0);
 
 export function isgResult(doc, row, m, p, year) {
-  const c = calcIsg({ cats: CATS, sessions: doc.sessions, draft: { marks: {}, notes: {}, ydNotes: {} }, freqOv: doc.freq, bonusIdx: doc.bonus, F: katsayi(row, +m), p, yog: surecVar(year, m) });
-  return { score: +c.score.toFixed(2), penalty: +c.penalty.toFixed(2), bonus: c.bonus, den: c.den, total: c.total, ydPct: c.ydPct, band: bandOf(c.score, p), F: +katsayi(row, +m).toFixed(2), sessions: doc.sessions.length };
+  const ms = isgMonth({ cats: CATS, sessions: doc.sessions, freqOv: doc.freq, bonusIdx: doc.bonus, F: katsayi(row, +m), p, yog: surecVar(year, m), mak: makTier(row) }), c = ms.c;
+  return { score: +ms.score.toFixed(2), penalty: +ms.penalty.toFixed(2), bonus: ms.bonus, den: c.den, total: c.total, ydPct: c.ydPct, band: bandOf(ms.score, p), F: +katsayi(row, +m).toFixed(2), sessions: doc.sessions.length };
 }
 // Kayıtlar değişince, elle seçilmemiş bölüm-ay denetim kayıtlarının bonusunu ve sonucunu günceller (sahip)
 export async function syncBonus(fid, year, month, setup, recs) {

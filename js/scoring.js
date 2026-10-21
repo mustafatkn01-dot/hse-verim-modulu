@@ -55,7 +55,7 @@ export const DEFAULT_PARAMS = {
   isg: { azami: "3", r1: "5", r2: "10", r3: "15" }
 };
 export const rid = () => "d" + Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-3);
-export const newRow = (i = 1) => ({ id: rid(), name: `Bölüm ${i}`, n: "10", risk: "0-3", tc: "1,0", ramp: "Düşük", ztf: "1,0" });
+export const newRow = (i = 1) => ({ id: rid(), name: `Bölüm ${i}`, n: "10", risk: "0-3", mak: "4", tc: "1,0", ramp: "Düşük", ztf: "1,0" });
 
 // ---------- İSG Denetim hesabı ----------
 export const MONTHS = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
@@ -72,10 +72,11 @@ export const bandOf = (sc, p) => {
  * Ceza = 100 × Σ(sıklık·ağırlık) / (azami × toplam ağırlık) × F   (Y.D. kategori: ceza 0, payda sabit)
  * Skor = min(100, max(0, 100 − ceza) + bonus)
  */
-export function calcIsg({ cats, sessions, draft, freqOv, bonusIdx, F, p, yog = false }) {
+export function calcIsg({ cats, sessions, draft, freqOv, bonusIdx, F, p, yog = false, mak = "4", perAudit = false, only = null }) {
   const azami = Math.max(1, num(p.isg.azami) || 3);
   const bonusVals = [0, num(p.isg.r1), num(p.isg.r2), num(p.isg.r3)];
-  let numer = 0, den = 0, total = 0, nCount = 0, totalItems = 0, unmarked = 0, missing = 0, ydMissing = 0, curFails = 0, curMarked = false;
+  const anyDraft = Object.keys(draft.marks || {}).length > 0, thrM = { "1": 1, "23": 2 }[mak] ?? 3, MACH = [0, 1, 4]; // makine maddeleri (kategori 2: 1, 2, 5)
+  let numer = 0, den = 0, act = 0, total = 0, nCount = 0, totalItems = 0, unmarked = 0, missing = 0, ydMissing = 0, curFails = 0, curMarked = false;
   const catInfo = cats.map((c, ci) => {
     total += c.w; totalItems += c.items.length;
     const dayOf = (x, i) => x.date || "#" + i, curDay = draft.date || "#cur";
@@ -93,6 +94,9 @@ export function calcIsg({ cats, sessions, draft, freqOv, bonusIdx, F, p, yog = f
       return { id, mk, prev, isX, cnt: pd.size + (isX && !pd.has(curDay) ? 1 : 0) };
     });
     if (allYD && !(draft.ydNotes?.[ci] || "").trim()) ydMissing++;
+    // Kategorideki tüm maddeler Y.D. ise (önceki denetimlerde de) kategori hesaptan çıkar; ağırlığı diğer kategorilere kayar
+    const savedYD = sessions.every(x => x.yd && ci in x.yd), excl = (sessions.length > 0 || anyDraft) && (sessions.length === 0 || savedYD) && (!anyDraft || allYD);
+    if (!excl) act += c.w;
     const savedApplicable = sessions.some(s => s.app[ci]);
     const hasFreq = anyApplicable || savedApplicable;
     const catCount = catDays.size + (curFailed > 0 && !catDays.has(curDay) ? 1 : 0); // aynı gün yapılan denetimler tek sayılır
@@ -101,16 +105,43 @@ export function calcIsg({ cats, sessions, draft, freqOv, bonusIdx, F, p, yog = f
     // Yoğunluk (yog: süreç başlangıç ayından itibaren): bir denetim gününde bu kategoride 3 veya daha fazla bulgu varsa sıklık 1 basamak artar (en fazla azami)
     const byDay = {}; sessions.forEach((x, i) => Object.keys(x.fails).forEach(k => { if (k.startsWith(`c${ci}i`)) { const d = dayOf(x, i); byDay[d] = (byDay[d] || 0) + Math.max(1, (x.fails[k] || []).length); } }));
     items.forEach(it => { if (it.isX) byDay[curDay] = (byDay[curDay] || 0) + Math.max(1, (draft.notes[it.id] || []).filter(t => String(t).trim()).length); });
-    const maxDay = Math.max(0, ...Object.values(byDay)), heavy = !!yog && catCount > 0 && maxDay >= 3;
+    const maxDay = Math.max(0, ...Object.values(byDay));
+    // Makine kademesi (Kurulum): 1 makinede makine maddesinden (1, 2, 5) tek bulgu, 2-3 makinede aynı günde 2 bulgu "yoğun" sayılır
+    let maxM = 0;
+    if (ci === 1 && thrM < 3) { const bm = {}; sessions.forEach((x, i) => MACH.forEach(ii => { const k = `c1i${ii}`; if (x.fails[k]) { const d = dayOf(x, i); bm[d] = (bm[d] || 0) + Math.max(1, (x.fails[k] || []).length); } })); MACH.forEach(ii => { const it = items[ii]; if (it?.isX) bm[curDay] = (bm[curDay] || 0) + Math.max(1, (draft.notes[it.id] || []).filter(t => String(t).trim()).length); }); maxM = Math.max(0, ...Object.values(bm)); }
+    const heavy = !!yog && catCount > 0 && (maxDay >= 3 || (thrM < 3 && maxM >= thrM));
     if (heavy) auto = Math.min(azami, auto + 1);
     const ov = freqOv[ci];
     const freq = !hasFreq ? null : (ov !== undefined ? ov : auto);
-    if (hasFreq) { numer += freq * c.w; den += c.w; }
+    if (hasFreq) { if (!perAudit || curFailed > 0 || (only && only.has(ci))) numer += freq * c.w; den += c.w; }
     return { items, hasFreq, catCount, auto, freq, heavy, maxDay, allYD, hasOverride: ov !== undefined, marked: items.filter(x => x.mk).length, nItems: items.length };
   });
-  const penalty = total > 0 ? (100 * numer / (azami * total)) * F : 0;
+  const pd = yog ? act : total, penalty = pd > 0 ? (100 * numer / (azami * pd)) * F : 0; // tamamı Y.D. kategori yalnız süreç başlangıcından sonra paydadan çıkar
   const bonus = bonusVals[bonusIdx] || 0;
   const score = Math.min(100, Math.max(0, 100 - penalty) + bonus);
   return { catInfo, penalty, bonus, bonusVals, score, den, total, nCount, totalItems, ydPct: totalItems ? Math.round(100 * nCount / totalItems) : 0,
     unmarked, missing, ydMissing, curFails, curMarked, azami, canSave: unmarked === 0 && missing === 0 && ydMissing === 0 };
+}
+
+// Makine kademesi (Kurulum › bölüm): "4" = 4+ makine (varsayılan), "23" = 2-3, "1" = 1 makine, "0" = yok
+export const makTier = r => r?.mak || "4";
+const EMPTY = () => ({ marks: {}, notes: {}, ydNotes: {} });
+// Denetim bazlı skorlar (süreç başlangıcından sonra): her denetim 100'den başlar, yalnız O denetimde bulgu çıkan kategoriler ceza alır;
+// sıklık, aydaki önceki denetimlerden devam eder (ceza puanı taşınmaz). Ramak kala bonusu ay skoruna eklenir.
+export function isgAudits({ cats, sessions, freqOv, F, p, yog, mak }) {
+  const dates = [...new Set(sessions.map(s => s.date || ""))].sort(), out = [];
+  dates.forEach(d => {
+    const ss = sessions.filter(s => !s.date || s.date <= d), only = new Set();
+    sessions.filter(s => (s.date || "") === d).forEach(s => cats.forEach((_, ci) => { if (Object.keys(s.fails || {}).some(k => k.startsWith(`c${ci}i`))) only.add(ci); }));
+    const c = calcIsg({ cats, sessions: ss, draft: EMPTY(), freqOv: freqOv || {}, bonusIdx: 0, F, p, yog, mak, perAudit: true, only });
+    out.push({ date: d, score: c.score, penalty: c.penalty });
+  });
+  return out;
+}
+// Aylık İSG skoru: süreç başlangıcından sonra denetim skorlarının ortalaması (+ ramak kala bonusu), öncesinde eski hesap
+export function isgMonth({ cats, sessions, freqOv, bonusIdx, F, p, yog, mak }) {
+  const c = calcIsg({ cats, sessions, draft: EMPTY(), freqOv: freqOv || {}, bonusIdx: bonusIdx || 0, F, p, yog, mak });
+  if (!yog || !sessions.length) return { score: c.score, penalty: c.penalty, bonus: c.bonus, audits: null, c };
+  const audits = isgAudits({ cats, sessions, freqOv, F, p, yog, mak }), avg = audits.reduce((a, x) => a + x.score, 0) / audits.length;
+  return { score: Math.min(100, Math.max(0, avg) + c.bonus), penalty: 100 - avg, bonus: c.bonus, avg, audits, c };
 }

@@ -6,7 +6,7 @@ import * as Ramak from "./ramak.js?v=20261019h";
 import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261019h";
 import { CATS } from "./isgcats.js?v=20261019h";
 import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261019h";
-import { calcIsg, katsayi, bandOf, num, surecVar, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261019h";
+import { calcIsg, isgMonth, isgAudits, makTier, katsayi, bandOf, num, surecVar, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261019h";
 
 const COLL = "isg";
 const D = { key: "", setup: null, doc: null, dept: null, month: null, open: {}, ro: false, timer: null, saved: true, msg: "" };
@@ -274,8 +274,18 @@ function draw() {
   const row = setup.rows.find(r => r.id === D.dept), F = katsayi(row, D.month);
   const on = doc.draft.on !== false, editNo = doc.draft.edit;
   const calcSessions = doc.sessions.filter(x => x.no !== editNo);
-  const c = calcIsg({ cats: CATS, sessions: on ? calcSessions : doc.sessions, draft: on ? doc.draft : { marks: {}, notes: {}, ydNotes: {} }, freqOv: doc.freq, bonusIdx: doc.bonus, F, p, yog: surecVar(st.year, D.month) });
-  const band = bandOf(c.score, p), B = BAND[band];
+  const yogM = surecVar(st.year, D.month), mak = makTier(row);
+  // Makine sayısı "Yok" olan bölümde yeni denetimde makine maddeleri (1, 2) otomatik Y.D. gelir (elle değiştirilebilir)
+  if (on && yogM && mak === "0" && !doc.draft.mk0 && !D.ro && !GUEST.on) { doc.draft.mk0 = true; ["c1i0", "c1i1"].forEach(id => { if (!doc.draft.marks[id]) doc.draft.marks[id] = "n"; }); }
+  // Süreç başlangıcından sonra: her denetim 100'den başlar, yalnız bu denetimde bulgu çıkan kategoriler ceza alır (sıklık aydaki önceki denetimlerden gelir); ay skoru = denetim skorlarının ortalaması + ramak kala bonusu
+  const c = calcIsg({ cats: CATS, sessions: on ? calcSessions : doc.sessions, draft: on ? doc.draft : { marks: {}, notes: {}, ydNotes: {} }, freqOv: doc.freq, bonusIdx: yogM ? 0 : doc.bonus, F, p, yog: yogM, mak, perAudit: yogM });
+  const bon = yogM ? (c.bonusVals[doc.bonus] || 0) : c.bonus;
+  const mo = yogM ? isgMonth({ cats: CATS, sessions: doc.sessions, freqOv: doc.freq, bonusIdx: doc.bonus, F, p, yog: yogM, mak }) : null;
+  const prevA = yogM && on ? isgAudits({ cats: CATS, sessions: calcSessions, freqOv: doc.freq, F, p, yog: yogM, mak }).map(x => x.score) : [];
+  const monthL = yogM ? (on ? (c.curMarked ? [...prevA, c.score] : prevA) : (mo.audits || []).map(x => x.score)) : [];
+  const monthAvg = monthL.length ? Math.min(100, monthL.reduce((a, x) => a + x, 0) / monthL.length + bon) : null;
+  const shown = yogM && !on ? mo.score : c.score;
+  const band = bandOf(shown, p), B = BAND[band];
   const curNo = editNo ?? (doc.sessions.length + 1), date = doc.draft.date;
   const dateOk = date && +date.slice(0, 4) === +st.year && +date.slice(5, 7) === D.month && date <= iso(new Date());
   const canSave = c.canSave && dateOk && !D.ro;
@@ -305,7 +315,7 @@ function draw() {
     const ydBox = info.allYD ? `<div class="ydbox"><span class="hd">BU KATEGORİDE TÜM MADDELER Y.D. · KISA GEREKÇE</span>
       <input class="inp" data-yd="${ci}" value="${esc(doc.draft.ydNotes?.[ci] || "")}" aria-label="Y.D. gerekçesi" placeholder="Örn. İlgili bölümde çalışma yoktur">
       <span class="muted" style="font-size:12.5px">Bu kategori puanı etkilemez (ceza 0), ancak bölümün tüm kategorilerindeki payı sabit kalır. Gerekçe raporda görünür.</span></div>` : "";
-    const freqBox = info.hasFreq ? `<div class="fbox"><div style="min-width:200px"><span class="hd">KATEGORİ SIKLIĞI (BU AY)</span><div class="muted" style="font-size:12.5px">${info.hasOverride ? `Elle seçildi (otomatik öneri: ${info.auto})` : `Otomatik: bu ay ${info.catCount} farklı günde bulgu${info.heavy ? `, bir denetimde ${info.maxDay} bulgu (+1)` : ""} → sıklık ${info.auto}${cat.w === 3 ? " (kritik kategoride bulgu varsa en az 2)" : ""}`}</div></div>
+    const freqBox = info.hasFreq ? `<div class="fbox"><div style="min-width:200px"><span class="hd">KATEGORİ SIKLIĞI (BU AY)</span><div class="muted" style="font-size:12.5px">${info.hasOverride ? `Elle seçildi (otomatik öneri: ${info.auto})` : `Otomatik: bu ay ${info.catCount} farklı günde bulgu${info.heavy ? `, bir denetimde ${info.maxDay} bulgu (+1)` : ""} → sıklık ${info.auto}${cat.w === 3 ? " (kritik kategoride bulgu varsa en az 2)" : ""}${yogM ? ". Ceza yalnız bu denetimde bulgu varsa işlenir" : ""}`}</div></div>
       <div class="row">${[0, 1, 2, 3].filter(k => k <= c.azami).map(k => `<button class="fq" data-freq="${ci}|${k}" style="${seg(info.freq === k, FT[k][0], FT[k][1])}">${k}</button>`).join("")}
       ${info.hasOverride ? `<button class="sec" style="height:40px;color:#0F3F63;border-color:var(--inl)" data-freqreset="${ci}">Otomatiğe dön</button>` : ""}</div>
       <div class="muted" style="flex-basis:100%;font-size:12px">0 Uygun · 1 Nadiren (ayda 1) · 2 Sık (ayda 2-3) · 3 Haftalık</div></div>` : "";
@@ -345,14 +355,14 @@ function draw() {
   <fieldset class="fs" ${D.ro ? "disabled" : ""}><div class="two" style="align-items:flex-start">
     <div class="colw" style="flex:2 1 600px;gap:14px">${catHtml}</div>
     <div class="colw side" style="flex:1 1 320px;gap:16px">
-      <div class="save" style="gap:16px"><h2 style="font-size:16px">Anlık İSG Skoru · Bu Ay</h2>
-        <div class="row" style="gap:14px;flex-wrap:nowrap"><div style="font:700 56px/1 Sora,sans-serif;letter-spacing:-2px;color:#fff">${f1(c.score)}</div>
+      <div class="save" style="gap:16px"><h2 style="font-size:16px">${yogM ? "Bu Denetimin İSG Skoru" : "Anlık İSG Skoru · Bu Ay"}</h2>
+        <div class="row" style="gap:14px;flex-wrap:nowrap"><div style="font:700 56px/1 Sora,sans-serif;letter-spacing:-2px;color:#fff">${f1(shown)}</div>
           <span class="pill" style="background:${B[2]};color:${B[1]}">${band}</span></div>
-        <div style="position:relative;height:12px;border-radius:99px;background:rgba(255,255,255,.14)"><div style="height:12px;border-radius:99px;width:${c.score.toFixed(1)}%;background:${B[0]}"></div>
+        <div style="position:relative;height:12px;border-radius:99px;background:rgba(255,255,255,.14)"><div style="height:12px;border-radius:99px;width:${shown.toFixed(1)}%;background:${B[0]}"></div>
           ${[num(p.esik.o), num(p.esik.i), num(p.esik.m)].map(x => `<div style="position:absolute;top:-3px;left:${x}%;width:2px;height:18px;background:rgba(255,255,255,.55)"></div>`).join("")}</div>
         <div class="row sp" style="font-size:11px;color:#8FA8A1;margin-top:-6px"><span>0</span><span>${p.esik.o}</span><span>${p.esik.i}</span><span>${p.esik.m}</span><span>100</span></div>
         <div class="col1" style="padding-top:6px;border-top:1px solid rgba(255,255,255,.12);gap:10px">
-          ${[["Değerlendirme kapsamı (ağırlık)", `<b>${c.den} / ${c.total}</b>`], ["Bölüm katsayısı", `<b>×${F.toFixed(2).replace(".", ",")}</b>`], ["Ceza puanı", `<b style="color:#FFB4AB">−${f1(c.penalty)}</b>`], ["Ramak kala bonusu", `<b style="color:#7FE3B8">+${c.bonus}</b>`], ["Y.D. işaretli madde", `<b>${c.nCount} · %${c.ydPct}</b>`]].map(([a, b]) => `<div class="row sp"><span style="color:#9DB5AE">${a}</span>${b}</div>`).join("")}
+          ${[["Değerlendirme kapsamı (ağırlık)", `<b>${c.den} / ${c.total}</b>`], ["Bölüm katsayısı", `<b>×${F.toFixed(2).replace(".", ",")}</b>`], ["Ceza puanı", `<b style="color:#FFB4AB">−${f1(c.penalty)}</b>`], ...(monthAvg !== null ? [["Ay skoru (ortalama)", `<b>${f1(monthAvg)} · ${monthL.length} denetim</b>`]] : []), ["Ramak kala bonusu" + (yogM ? " (ay skoruna)" : ""), `<b style="color:#7FE3B8">+${bon}</b>`], ["Y.D. işaretli madde", `<b>${c.nCount} · %${c.ydPct}</b>`]].map(([a, b]) => `<div class="row sp"><span style="color:#9DB5AE">${a}</span>${b}</div>`).join("")}
           ${c.ydPct > 50 ? `<div style="padding:10px 12px;border-radius:10px;background:#FBE9C6;color:#5A3300;font-size:12.5px;line-height:1.5;font-weight:600">Değerlendirme kapsamı düşük: maddelerin yarısından fazlası Y.D. Skor yüksek görünebilir, raporda uyarı olarak yer alır.</div>` : ""}</div></div>
       <div class="cd" style="padding:20px;gap:12px"><div><b style="font:600 16px Sora,sans-serif">Ramak Kala Bildirim</b>
         <div class="muted" style="font-size:12.5px;line-height:1.5;margin-top:4px">Bildirimi yapan bölüm, bu ay getirdiği bildirim sayısına göre bonus alır. Ceza değil, bonus puandır.</div></div>
@@ -372,7 +382,7 @@ function draw() {
     v.querySelector("fieldset.fs")?.remove(); v.querySelector(".helpbox")?.remove();
     const last = doc.sessions[doc.sessions.length - 1], thisMon = monOf(iso(new Date())), locked = !!last && monOf(last.date) === thisMon;
     v.insertAdjacentHTML("beforeend", `<div class="cd" style="gap:12px;padding:20px"><b style="font:600 16px Sora,sans-serif">${locked ? "Bu hafta denetimi tamamlandı" : "Yeni denetim başlatılabilir"}</b>
-      <div class="muted" style="line-height:1.55">${last ? `${last.no}. denetim ${dmy(last.date)} (${wkNo(last.date)}. hafta) tarihinde tamamlandı. ` : ""}Bu bölümün aylık İSG skoru <b>${f1(c.score)}</b> (${band}). ${locked ? "Saha turunda yeni bir eksiklik görürseniz “Yeniden aç” ile bu haftanın denetimine ekleyin. Yeni denetim, yeni hafta başlayınca açılır." : "Yeni hafta için denetimi başlatabilirsiniz. Geçen haftanın denetimine ekleme yapmak isterseniz “Yeniden aç”ı kullanın."}</div>
+      <div class="muted" style="line-height:1.55">${last ? `${last.no}. denetim ${dmy(last.date)} (${wkNo(last.date)}. hafta) tarihinde tamamlandı. ` : ""}Bu bölümün aylık İSG skoru <b>${f1(shown)}</b> (${band})${yogM ? ", denetim skorlarının ortalaması" : ""}. ${locked ? "Saha turunda yeni bir eksiklik görürseniz “Yeniden aç” ile bu haftanın denetimine ekleyin. Yeni denetim, yeni hafta başlayınca açılır." : "Yeni hafta için denetimi başlatabilirsiniz. Geçen haftanın denetimine ekleme yapmak isterseniz “Yeniden aç”ı kullanın."}</div>
       ${D.ro ? "" : `<div><button id="newSess" ${locked ? "disabled" : ""}>${doc.sessions.length + 1}. Denetimi Başlat</button></div>${locked ? `<div class="muted" style="font-size:12.5px;margin-top:-4px">${dmk(addDays(thisMon, 7))} Pzt günü başlatılabilir</div>` : ""}`}</div>`);
   }
   paintWk(); bind(v, c);

@@ -1,11 +1,11 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
 import * as S from "./store.js?v=20261019h";
 import { esc } from "./ui.js?v=20261019h";
-import { bandOf, DEFAULT_PARAMS, num, calcIsg, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261019h";
+import { bandOf, DEFAULT_PARAMS, num, isgMonth, makTier, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261019h";
 import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261019h";
 import { CATS } from "./isgcats.js?v=20261019h";
 import * as Gorev from "./gorev.js?v=20261019h";
-import { auditAvg, lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261019h";
+import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261019h";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -33,7 +33,7 @@ export async function load(st, setup) {
       const id = String(d.id).slice(3), row = rows.find(r => r.id === id); if (!out[id]) return;
       // Skor, kayıtlı denetimlerden güncel ağırlıklarla yeniden hesaplanır (kategori ağırlığı değişirse eski kayıtlar da güncellenir)
       let sc = num0(d.result.score);
-      if (d.sessions?.length && row) { try { sc = +calcIsg({ cats: CATS, sessions: d.sessions, draft: { marks: {}, notes: {}, ydNotes: {} }, freqOv: d.freq || {}, bonusIdx: d.bonus || 0, F: katsayi(row, m + 1), p: setup.params || DEFAULT_PARAMS, yog: surecVar(st.year, m + 1) }).score.toFixed(2); } catch { } }
+      if (d.sessions?.length && row) { try { sc = +isgMonth({ cats: CATS, sessions: d.sessions, freqOv: d.freq || {}, bonusIdx: d.bonus || 0, F: katsayi(row, m + 1), p: setup.params || DEFAULT_PARAMS, yog: surecVar(st.year, m + 1), mak: makTier(row) }).score.toFixed(2); } catch { } }
       out[id][m][3] = sc; return;
     }
     rows.forEach(r => { const x = d.result.per?.[r.id]; if (x) out[r.id][m][k] = num0(pick(x, m)); });
@@ -97,8 +97,7 @@ function draw() {
   const WD = V.data._i || [], wk = mk === 3 ? lastWeekKey(WD, cur.idx.map(i => i + 1)) : null, wmode = !!wk && V.wk;
   const wsc = wk ? weekScores(WD, rows, p, y, wk) : {}, wlab = wk ? weekLabel(WD, wk, y) : "";
   const crows = rows, plab = wmode ? wlab : PER[V.p].name(V.sel);
-  const iav = mk === 3 && !wmode ? auditAvg(WD, rows, p, y, cur.idx.map(i => i + 1)) : null;
-  const vals = wmode ? crows.map(r => wsc[r.id] ?? null) : iav ? rows.map(r => iav[r.id]?.avg ?? val(r.id, mk)) : rows.map(r => val(r.id, mk)), ok = vals.filter(x => x !== null);
+  const vals = wmode ? crows.map(r => wsc[r.id] ?? null) : rows.map(r => val(r.id, mk)), ok = vals.filter(x => x !== null);
   const av = ok.length ? ok.reduce((a, c) => a + c, 0) / ok.length : null, ab = band(av);
   const cell = x => (x === null ? { t: "–", bg: NONE.bg, c: NONE.c } : { t: f1(x), bg: band(x).bg, c: band(x).c });
   const t0 = 30, H = 2.4;
@@ -123,8 +122,8 @@ function draw() {
     }
     return notes;
   };
-  const notes = buildNotes(plab, crows.map(r => r.name), vals, av, !wmode && !iav && V.p === "m" && V.sel > 0, wmode);
-  if (iav && notes.length) notes.push("Puanlar, dönemde yapılan her denetimin puanının ortalamasıdır (denetim sayısı: " + rows.filter(r => iav[r.id]).map(r => r.name + " " + iav[r.id].n).join(", ") + "). Her denetimin puanı, o güne kadarki birikimli İSG skorudur.");
+  const notes = buildNotes(plab, crows.map(r => r.name), vals, av, !wmode && V.p === "m" && V.sel > 0, wmode);
+  if (mk === 3 && !wmode && notes.length) notes.push("İSG puanı, ayda yapılan denetimlerin puan ortalamasıdır (ramak kala bonusu eklenir). Her denetim 100 puandan başlar; yalnız o denetimde bulgu çıkan kategoriler ceza alır, sıklık önceki denetimlerden devam eder.");
   if (wmode && notes.length) notes.push("Puan, bu haftanın en son denetiminin puanıdır (denetim ekranındaki anlık İSG skoru); bu hafta denetlenmeyen bölümler grafikte \"Denetlenmedi\" olarak işaretlenir ve ortalamaya girmez.");
   // PDF: seçilen haftanın grafiği (ay başından o haftanın sonuna birikimli)
   const weekFor = k => { const sc = weekScores(WD, rows, p, y, k), cr = rows, vs = cr.map(r => sc[r.id] ?? null), vv = vs.filter(x => x !== null), a = vv.length ? vv.reduce((q, z) => q + z, 0) / vv.length : null, lab = weekLabel(WD, k, y), ns = buildNotes(lab, cr.map(r => r.name), vs, a, false, true);

@@ -302,6 +302,8 @@ const HELP = {
     [["0-5", "katsayı 0,05"], ["6-10", "katsayı 0,10"], ["11-15", "katsayı 0,15"], ["16-20", "katsayı 0,20"], ["21-25", "katsayı 0,25"], ["26+", "katsayı 0,30"]]],
   risk: ["Risk skoru (5×5)", "Bölümün 5×5 risk matrisine göre skor aralığı. Seçilen aralık risk seviyesini ve bölüm katsayısına etkisini belirler.",
     [["0-3", "Çok Düşük · 0,05"], ["4-6", "Düşük · 0,10"], ["8-12", "Orta · 0,15"], ["15-16", "Yüksek · 0,20"], ["20-25", "Çok Yüksek · 0,25"]]],
+  mak: ["Makine sayısı", "Bölümde İSG denetiminde makine emniyeti (koruyucu, acil durdurma, sıkışma noktaları) kontrolüne konu makine sayısı. Az makineli bölümde tek bir makine arızası makine parkının tamamı demektir; bu yüzden bulgu daha ağır sayılır.",
+    [["4+", "normal hesap"], ["2-3", "aynı denetimde 2 makine bulgusu sıklığı 1 basamak artırır"], ["1", "tek makine bulgusu sıklığı 1 basamak artırır (kritikte sıklık 3)"], ["Yok", "makine maddeleri (1, 2) denetimde otomatik Y.D. gelir; kategoride tüm maddeler Y.D. ise kategori hesaptan çıkar, ağırlığı diğer kategorilere kayar"]]],
   tc: ["Turnover / Kalıcılık (TC)", "Personelin bölümde kalıcılık sürecini ifade eder. Tahmin etmeyin; gerçek kayda göre seçin. 1 değerine yakınlık kalıcı kadroyu, 0'a yakınlık yüksek devri gösterir.",
     [["1,0", "personel 3+ ay kalıcı"], ["0,6", "1-3 ay içinde ayrıldı"], ["0,2", "ilk 1 ayda ayrıldı"]]],
   ramp: ["Hızlı artış (Ramp)", "Çalışma sezonuna göre bölüm içindeki çalışan sayısı artış hızını ifade eder. Seçilen düzey, ZTF değerine tolerans olarak eklenir.",
@@ -311,9 +313,10 @@ const HELP = {
   ztfr: ["ZTF (ramp toleranslı) · hesaplanan", "ZTF değerine ramp toleransı eklenerek bulunur, en fazla 1,0 olur. Elle girilmez.", [["Formül", "min(1; ZTF + ramp toleransı)"]]],
   kat: ["Bölüm katsayısı · hesaplanan", "Çalışan sayısı ve risk skoruna göre bulunur. İSG denetim cezası bu katsayıyla çarpılır. Elle girilmez.", [["Formül", "1 + (çalışan katsayısı − 0,05) + (risk katsayısı − 0,05)"]]]
 };
-const HEADS = [["ad", "Bölüm adı"], ["calisan", "Çalışan sayısı"], ["risk", "Risk skoru (5×5)"], ["tc", "Turnover (TC)"], ["ramp", "Ramp düzeyi"], ["ztf", "ZTF"], ["ztfr", "ZTF (ramp toleranslı)"], ["kat", "Bölüm katsayısı"]];
+const HEADS = [["ad", "Bölüm adı"], ["calisan", "Çalışan sayısı"], ["risk", "Risk skoru (5×5)"], ["mak", "Makine sayısı"], ["tc", "Turnover (TC)"], ["ramp", "Ramp düzeyi"], ["ztf", "ZTF"], ["ztfr", "ZTF (ramp toleranslı)"], ["kat", "Bölüm katsayısı"]];
 const OPT = {
   risk: [["0-3", "0-3"], ["4-6", "4-6"], ["8-12", "8-12"], ["15-16", "15-16"], ["20-25", "20-25"]],
+  mak: [["4", "4+ makine"], ["23", "2-3 makine"], ["1", "1 makine"], ["0", "Yok"]],
   tc: [["1,0", "1,0 · 3+ ay"], ["0,6", "0,6 · 1-3 ay"], ["0,2", "0,2 · ilk ay"]],
   ramp: [["Düşük", "Düşük"], ["Orta", "Orta"], ["Yüksek", "Yüksek"]],
   ztf: [["1,0", "1,0 · 1-5 gün"], ["0,8", "0,8 · 6. gün"], ["0,6", "0,6 · 7. gün"], ["0,4", "0,4 · 8. gün"], ["0,2", "0,2 · 9. gün"], ["0", "0 · 10+ gün"]]
@@ -370,6 +373,7 @@ function drawKurulum(v) {
         <input class="inp" data-k="name" aria-label="Bölüm adı" value="${esc(r.name)}">
         <input class="inp" data-k="n" inputmode="numeric" aria-label="Çalışan sayısı" value="${esc(r.n)}">
         ${sel("inp", OPT.risk, r.risk, "Risk skoru").replace("<select", '<select data-k="risk"')}
+        ${sel("inp", OPT.mak, r.mak || "4", "Makine sayısı").replace("<select", '<select data-k="mak"')}
         ${sel("inp", OPT.tc, r.tc, "Turnover, kalıcılık katsayısı (TC)").replace("<select", '<select data-k="tc"')}
         ${sel("inp", OPT.ramp, r.ramp, "Hızlı artış, ramp düzeyi").replace("<select", '<select data-k="ramp"')}
         ${sel("inp", OPT.ztf, r.ztf, "ZTF, eğitim zamanlama katsayısı").replace("<select", '<select data-k="ztf"')}

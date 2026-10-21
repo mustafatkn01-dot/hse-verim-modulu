@@ -5,8 +5,8 @@ import * as Gorev from "./gorev.js?v=20261019h";
 import * as T from "./tatil.js?v=20261019h";
 import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261019h";
 import { CATS } from "./isgcats.js?v=20261019h";
-import { auditAvg, lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261019h";
-import { bandOf, calcIsg, katsayi, surecVar, DEFAULT_PARAMS, MONTHS, num, konusmaPct, konusmaSifir } from "./scoring.js?v=20261019h";
+import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261019h";
+import { bandOf, isgMonth, makTier, katsayi, surecVar, DEFAULT_PARAMS, MONTHS, num, konusmaPct, konusmaSifir } from "./scoring.js?v=20261019h";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -109,8 +109,8 @@ function draw(v, st, setup, data) {
       const b = fin(konusmaPct(kn?.result?.per?.[r.id], st.year, mi)); if (b !== null) mv.konusma[r.id].push(b);
       const x = ib?.result?.per?.[r.id]; if (x?.state === "ok" && fin(x.verim) !== null) mv.isbasi[r.id].push(x.verim);
       const d = data.ig[`${mm}_${r.id}`];
-      const cc = d && d.sessions?.length ? calcIsg({ cats: CATS, sessions: d.sessions, draft: { marks: {}, notes: {}, ydNotes: {} }, freqOv: d.freq || {}, bonusIdx: d.bonus || 0, F: katsayi(r, +mm), p, yog: surecVar(st.year, +mm) }) : null;
-      const sc = cc ? fin(+cc.score.toFixed(2)) : fin(d?.result?.score);
+      const mo = d && d.sessions?.length ? isgMonth({ cats: CATS, sessions: d.sessions, freqOv: d.freq || {}, bonusIdx: d.bonus || 0, F: katsayi(r, +mm), p, yog: surecVar(st.year, +mm), mak: makTier(r) }) : null, cc = mo ? mo.c : null;
+      const sc = mo ? fin(+mo.score.toFixed(2)) : fin(d?.result?.score);
       if (sc !== null) { mv.isg[r.id].push(sc); monthsWith.add(mi); }
       if (cc) isgList.push({ mi, r, d, c: cc });
     });
@@ -153,9 +153,8 @@ function draw(v, st, setup, data) {
   // İSG · "Son hafta" sekmesi: dönemin son denetim haftası; puanlar ay başından o haftanın sonuna birikimli, yalnız o hafta denetlenen bölümler
   const WD = rows.flatMap(r => ms.map(mi => { const d = data.ig[`${pad(mi)}_${r.id}`]; return d?.sessions?.length ? { m: mi, id: r.id, sessions: d.sessions, freq: d.freq, bonus: d.bonus } : null; })).filter(Boolean);
   const wk = lastWeekKey(WD, ms); R.wkOk = !!wk;
-  const iavg = auditAvg(WD, rows, p, y, ms);
   const wmode = !!wk && R.wk, wsc = wmode ? weekScores(WD, rows, p, y, wk) : {}, wlab = wmode ? weekLabel(WD, wk, y) : "";
-  const modBars = (k, vid) => vid && R.vert.has(vid) ? vbars(rows.map(r => { const x = k === "isg" ? (wmode ? (wsc[r.id] ?? null) : (iavg[r.id]?.avg ?? val[k][r.id])) : val[k][r.id]; return { name: r.name, sub: k === "kaza" ? sub(r) : undefined, v: x, label: x === null ? { t: k === "isbasi" && !multi && data.ib[pad(m)]?.result?.per?.[r.id]?.state === "none" ? "Giriş yok" : k === "isg" ? (wmode ? "Denetlenmedi" : "Denetim yok") : "Veri yok", band: "İyi" } : { t: bn(x), band: bn(x) } }; })) : `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(340px,100%),1fr));gap:10px 36px">${rows.map(r => { const x = k === "isg" ? (wmode ? (wsc[r.id] ?? null) : (iavg[r.id]?.avg ?? val[k][r.id])) : val[k][r.id]; return bar(r.name, x, 0, x === null ? { t: k === "isbasi" && !multi && data.ib[pad(m)]?.result?.per?.[r.id]?.state === "none" ? "Giriş yok" : k === "isg" ? (wmode ? "Denetlenmedi" : "Denetim yok") : "Veri yok", band: "İyi", ...NONE } : { t: bn(x), band: bn(x) }, true, undefined, undefined, k === "kaza" ? sub(r) : undefined); }).join("")}</div>`;
+  const modBars = (k, vid) => vid && R.vert.has(vid) ? vbars(rows.map(r => { const x = k === "isg" && wmode ? (wsc[r.id] ?? null) : val[k][r.id]; return { name: r.name, sub: k === "kaza" ? sub(r) : undefined, v: x, label: x === null ? { t: k === "isbasi" && !multi && data.ib[pad(m)]?.result?.per?.[r.id]?.state === "none" ? "Giriş yok" : k === "isg" ? (wmode ? "Denetlenmedi" : "Denetim yok") : "Veri yok", band: "İyi" } : { t: bn(x), band: bn(x) } }; })) : `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(340px,100%),1fr));gap:10px 36px">${rows.map(r => { const x = k === "isg" && wmode ? (wsc[r.id] ?? null) : val[k][r.id]; return bar(r.name, x, 0, x === null ? { t: k === "isbasi" && !multi && data.ib[pad(m)]?.result?.per?.[r.id]?.state === "none" ? "Giriş yok" : k === "isg" ? (wmode ? "Denetlenmedi" : "Denetim yok") : "Veri yok", band: "İyi", ...NONE } : { t: bn(x), band: bn(x) }, true, undefined, undefined, k === "kaza" ? sub(r) : undefined); }).join("")}</div>`;
   const noteTxt = (r, n) => `${esc(n)} <b style="white-space:nowrap">— ${esc(r.name)}</b>`;
   const nk = [], nn = [], ni = [];
   let kT = 0, kL = 0, kAny = false, hired = 0, trained = 0, oos = 0, ibAny = false, cnCnt = 0, cnHit = 0, knAny = false;

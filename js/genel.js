@@ -2,7 +2,7 @@
 import * as S from "./store.js?v=20261019h";
 import { esc, noticeBox } from "./ui.js?v=20261019h";
 import { CATS } from "./isgcats.js?v=20261019h";
-import { bandOf, calcIsg, katsayi, surecVar, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261019h";
+import { bandOf, calcIsg, makTier, katsayi, surecVar, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261019h";
 import { load } from "./verim.js?v=20261019h";
 import * as T from "./tatil.js?v=20261019h";
 import * as Gorev from "./gorev.js?v=20261019h";
@@ -50,7 +50,7 @@ export async function render(v, ctx) {
   const docs = hm >= 0 ? await Promise.all(rows.map(r => S.getMonthDoc(st.fid, st.year, "isg", `${pad(hm + 1)}_${r.id}`))) : [];
   const heat = rows.map((r, i) => {
     const d = docs[i]; if (!d?.sessions?.length) return { r, f: null };
-    const c = calcIsg({ cats: CATS, sessions: d.sessions, draft: { marks: {}, notes: {}, ydNotes: {} }, freqOv: d.freq || {}, bonusIdx: d.bonus || 0, F: katsayi(r, hm + 1), p, yog: surecVar(st.year, hm + 1) });
+    const c = calcIsg({ cats: CATS, sessions: d.sessions, draft: { marks: {}, notes: {}, ydNotes: {} }, freqOv: d.freq || {}, bonusIdx: d.bonus || 0, F: katsayi(r, hm + 1), p, yog: surecVar(st.year, hm + 1), mak: makTier(r) });
     return { r, f: c.catInfo.map(x => x.freq) };
   });
 
