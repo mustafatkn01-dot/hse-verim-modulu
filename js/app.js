@@ -1,20 +1,20 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261021a";
-import * as S from "./store.js?v=20261021a";
-import * as Prim from "./primary.js?v=20261021a";
-import * as Denetim from "./denetim.js?v=20261021a";
-import * as Kaza from "./kaza.js?v=20261021a";
-import * as Konusma from "./konusma.js?v=20261021a";
-import * as Ramak from "./ramak.js?v=20261021a";
-import * as Genel from "./genel.js?v=20261021a";
-import * as Rapor from "./rapor.js?v=20261021a";
-import * as Verim from "./verim.js?v=20261021a";
-import * as Isbasi from "./isbasi.js?v=20261021a";
-import * as Guest from "./guest.js?v=20261021a";
-import * as Yontem from "./yontem.js?v=20261021a";
-import * as Tatil from "./tatil.js?v=20261021a";
-import * as Gorev from "./gorev.js?v=20261021a";
-import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261021a";
-import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261021a";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261021b";
+import * as S from "./store.js?v=20261021b";
+import * as Prim from "./primary.js?v=20261021b";
+import * as Denetim from "./denetim.js?v=20261021b";
+import * as Kaza from "./kaza.js?v=20261021b";
+import * as Konusma from "./konusma.js?v=20261021b";
+import * as Ramak from "./ramak.js?v=20261021b";
+import * as Genel from "./genel.js?v=20261021b";
+import * as Rapor from "./rapor.js?v=20261021b";
+import * as Verim from "./verim.js?v=20261021b";
+import * as Isbasi from "./isbasi.js?v=20261021b";
+import * as Guest from "./guest.js?v=20261021b";
+import * as Yontem from "./yontem.js?v=20261021b";
+import * as Tatil from "./tatil.js?v=20261021b";
+import * as Gorev from "./gorev.js?v=20261021b";
+import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261021b";
+import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261021b";
 const PEND_META = { isbasig: ["isbasi", "İşbaşı Eğitim"], konusmag: ["konusma", "Eğitim Konuşması"], kazag: ["kaza", "İş Kazası"] };
 
 const VERSION = "1.6.6";
@@ -303,7 +303,7 @@ const HELP = {
   risk: ["Risk skoru (5×5)", "Bölümün 5×5 risk matrisine göre skor aralığı. Seçilen aralık risk seviyesini ve bölüm katsayısına etkisini belirler.",
     [["0-3", "Çok Düşük · 0,05"], ["4-6", "Düşük · 0,10"], ["8-12", "Orta · 0,15"], ["15-16", "Yüksek · 0,20"], ["20-25", "Çok Yüksek · 0,25"]]],
   mak: ["Makine sayısı", "Bölümde İSG denetiminde makine emniyeti (koruyucu, acil durdurma, sıkışma noktaları) kontrolüne konu makine sayısı. Az makineli bölümde tek bir makine arızası makine parkının tamamı demektir; bu yüzden bulgu daha ağır sayılır.",
-    [["4+", "normal hesap"], ["2-3", "aynı denetimde 2 makine bulgusu sıklığı 1 basamak artırır"], ["1", "tek makine bulgusu sıklığı 1 basamak artırır (kritikte sıklık 3)"], ["Yok", "makine maddeleri (1, 2) denetimde otomatik Y.D. gelir; kategoride tüm maddeler Y.D. ise kategori hesaptan çıkar, ağırlığı diğer kategorilere kayar"]]],
+    [["4+", "normal hesap"], ["2-3", "aynı denetimde 2 makine bulgusu sıklığı 1 basamak artırır"], ["1", "tek makine bulgusu sıklığı 1 basamak artırır (kritikte sıklık 3)"], ["Yok", "makine maddeleri (1, 2) yeni denetimde otomatik Y.D. gelir; Y.D. maddelerden ceza gelmez"]]],
   tc: ["Turnover / Kalıcılık (TC)", "Personelin bölümde kalıcılık sürecini ifade eder. Tahmin etmeyin; gerçek kayda göre seçin. 1 değerine yakınlık kalıcı kadroyu, 0'a yakınlık yüksek devri gösterir.",
     [["1,0", "personel 3+ ay kalıcı"], ["0,6", "1-3 ay içinde ayrıldı"], ["0,2", "ilk 1 ayda ayrıldı"]]],
   ramp: ["Hızlı artış (Ramp)", "Çalışma sezonuna göre bölüm içindeki çalışan sayısı artış hızını ifade eder. Seçilen düzey, ZTF değerine tolerans olarak eklenir.",

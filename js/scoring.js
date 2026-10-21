@@ -75,8 +75,8 @@ export const bandOf = (sc, p) => {
 export function calcIsg({ cats, sessions, draft, freqOv, bonusIdx, F, p, yog = false, mak = "4", perAudit = false, only = null }) {
   const azami = Math.max(1, num(p.isg.azami) || 3);
   const bonusVals = [0, num(p.isg.r1), num(p.isg.r2), num(p.isg.r3)];
-  const anyDraft = Object.keys(draft.marks || {}).length > 0, thrM = { "1": 1, "23": 2 }[mak] ?? 3, MACH = [0, 1, 4]; // makine maddeleri (kategori 2: 1, 2, 5)
-  let numer = 0, den = 0, act = 0, total = 0, nCount = 0, totalItems = 0, unmarked = 0, missing = 0, ydMissing = 0, curFails = 0, curMarked = false;
+  const thrM = { "1": 1, "23": 2 }[mak] ?? 3, MACH = [0, 1, 4]; // makine maddeleri (kategori 2: 1, 2, 5)
+  let numer = 0, den = 0, total = 0, nCount = 0, totalItems = 0, unmarked = 0, missing = 0, ydMissing = 0, curFails = 0, curMarked = false;
   const catInfo = cats.map((c, ci) => {
     total += c.w; totalItems += c.items.length;
     const dayOf = (x, i) => x.date || "#" + i, curDay = draft.date || "#cur";
@@ -94,9 +94,6 @@ export function calcIsg({ cats, sessions, draft, freqOv, bonusIdx, F, p, yog = f
       return { id, mk, prev, isX, cnt: pd.size + (isX && !pd.has(curDay) ? 1 : 0) };
     });
     if (allYD && !(draft.ydNotes?.[ci] || "").trim()) ydMissing++;
-    // Kategorideki tüm maddeler Y.D. ise (önceki denetimlerde de) kategori hesaptan çıkar; ağırlığı diğer kategorilere kayar
-    const savedYD = sessions.every(x => x.yd && ci in x.yd), excl = (sessions.length > 0 || anyDraft) && (sessions.length === 0 || savedYD) && (!anyDraft || allYD);
-    if (!excl) act += c.w;
     const savedApplicable = sessions.some(s => s.app[ci]);
     const hasFreq = anyApplicable || savedApplicable;
     const catCount = catDays.size + (curFailed > 0 && !catDays.has(curDay) ? 1 : 0); // aynı gün yapılan denetimler tek sayılır
@@ -116,7 +113,7 @@ export function calcIsg({ cats, sessions, draft, freqOv, bonusIdx, F, p, yog = f
     if (hasFreq) { if (!perAudit || curFailed > 0 || (only && only.has(ci))) numer += freq * c.w; den += c.w; }
     return { items, hasFreq, catCount, auto, freq, heavy, maxDay, allYD, hasOverride: ov !== undefined, marked: items.filter(x => x.mk).length, nItems: items.length };
   });
-  const pd = yog ? act : total, penalty = pd > 0 ? (100 * numer / (azami * pd)) * F : 0; // tamamı Y.D. kategori yalnız süreç başlangıcından sonra paydadan çıkar
+  const penalty = total > 0 ? (100 * numer / (azami * total)) * F : 0; // Y.D. kategori: ceza 0, payda sabit (tüm bölümlerde aynı ölçek)
   const bonus = bonusVals[bonusIdx] || 0;
   const score = Math.min(100, Math.max(0, 100 - penalty) + bonus);
   return { catInfo, penalty, bonus, bonusVals, score, den, total, nCount, totalItems, ydPct: totalItems ? Math.round(100 * nCount / totalItems) : 0,
