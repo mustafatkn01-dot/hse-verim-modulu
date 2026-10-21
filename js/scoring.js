@@ -72,6 +72,11 @@ export const bandOf = (sc, p) => {
  * Ceza = 100 × Σ(sıklık·ağırlık) / (azami × toplam ağırlık) × F   (Y.D. kategori: ceza 0, payda sabit)
  * Skor = min(100, max(0, 100 − ceza) + bonus)
  */
+// Aksiyon alındı: onaylı aksiyonu olan açıklama cezadan düşer; sıklık ve yoğunluk geçmişi korunur.
+// s.fixed["madde|sıra"] = {t: bulgu metni, tx: aksiyon açıklaması, ph: fotoğraflar, st: "ok" | "rej", rat: istek zamanı, rej: ret gerekçesi}
+export const fxOk = (fx, id, j, t) => { const f = fx?.[id + "|" + j]; return !!f && f.st === "ok" && f.t === String(t || "").trim(); };
+export const openIn = (s, id) => { const a = s.fails?.[id]; if (!a) return 0; if (!a.length) return 1; return a.filter((t, j) => !fxOk(s.fixed, id, j, t)).length; };
+
 export function calcIsg({ cats, sessions, draft, freqOv, bonusIdx, F, p, yog = false, mak = "4", perAudit = false, only = null }) {
   const azami = Math.max(1, num(p.isg.azami) || 3);
   const bonusVals = [0, num(p.isg.r1), num(p.isg.r2), num(p.isg.r3)];
@@ -81,7 +86,7 @@ export function calcIsg({ cats, sessions, draft, freqOv, bonusIdx, F, p, yog = f
     total += c.w; totalItems += c.items.length;
     const dayOf = (x, i) => x.date || "#" + i, curDay = draft.date || "#cur";
     const catDays = new Set(sessions.map((x, i) => [x, i]).filter(([x]) => Object.keys(x.fails).some(k => k.startsWith(`c${ci}i`))).map(([x, i]) => dayOf(x, i)));
-    let curFailed = 0, anyApplicable = false, allYD = c.items.length > 0;
+    let curFailed = 0, curOpen = 0, anyApplicable = false, allYD = c.items.length > 0;
     const items = c.items.map((_, ii) => {
       const id = `c${ci}i${ii}`, mk = draft.marks[id];
       if (!mk) unmarked++; else curMarked = true;
@@ -89,7 +94,11 @@ export function calcIsg({ cats, sessions, draft, freqOv, bonusIdx, F, p, yog = f
       if (mk === "u" || mk === "x") anyApplicable = true;
       const prev = sessions.filter(s => s.fails[id] !== undefined);
       const isX = mk === "x";
-      if (isX) { curFails++; curFailed++; if (!(draft.notes[id] || []).some(t => t.trim())) missing++; }
+      if (isX) {
+        curFails++; curFailed++; if (!(draft.notes[id] || []).some(t => t.trim())) missing++;
+        const ne = (draft.notes[id] || []).map(t => String(t).trim()).filter(Boolean);
+        if (!draft.fixed || !ne.length || ne.some((t, j) => !fxOk(draft.fixed, id, j, t))) curOpen++;
+      }
       const pd = new Set(sessions.map((x, i) => [x, i]).filter(([x]) => x.fails[id] !== undefined).map(([x, i]) => dayOf(x, i)));
       return { id, mk, prev, isX, cnt: pd.size + (isX && !pd.has(curDay) ? 1 : 0) };
     });
@@ -110,7 +119,7 @@ export function calcIsg({ cats, sessions, draft, freqOv, bonusIdx, F, p, yog = f
     if (heavy) auto = Math.min(azami, auto + 1);
     const ov = freqOv[ci];
     const freq = !hasFreq ? null : (ov !== undefined ? ov : auto);
-    if (hasFreq) { if (!perAudit || curFailed > 0 || (only && only.has(ci))) numer += freq * c.w; den += c.w; }
+    if (hasFreq) { if (!perAudit || curOpen > 0 || (only && only.has(ci))) numer += freq * c.w; den += c.w; }
     return { items, hasFreq, catCount, auto, freq, heavy, maxDay, allYD, hasOverride: ov !== undefined, marked: items.filter(x => x.mk).length, nItems: items.length };
   });
   const penalty = total > 0 ? (100 * numer / (azami * total)) * F : 0; // Y.D. kategori: ceza 0, payda sabit (tüm bölümlerde aynı ölçek)
@@ -129,7 +138,7 @@ export function isgAudits({ cats, sessions, freqOv, F, p, yog, mak }) {
   const dates = [...new Set(sessions.map(s => s.date || ""))].sort(), out = [];
   dates.forEach(d => {
     const ss = sessions.filter(s => !s.date || s.date <= d), only = new Set();
-    sessions.filter(s => (s.date || "") === d).forEach(s => cats.forEach((_, ci) => { if (Object.keys(s.fails || {}).some(k => k.startsWith(`c${ci}i`))) only.add(ci); }));
+    sessions.filter(s => (s.date || "") === d).forEach(s => cats.forEach((_, ci) => { if (Object.keys(s.fails || {}).some(k => k.startsWith(`c${ci}i`) && openIn(s, k) > 0)) only.add(ci); }));
     const c = calcIsg({ cats, sessions: ss, draft: EMPTY(), freqOv: freqOv || {}, bonusIdx: 0, F, p, yog, mak, perAudit: true, only });
     out.push({ date: d, score: c.score, penalty: c.penalty });
   });

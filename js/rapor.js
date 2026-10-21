@@ -1,12 +1,12 @@
 // Aylık HSE Raporu · kayıtlı verilerden otomatik grafik + açıklama
-import * as S from "./store.js?v=20261021b";
-import { esc } from "./ui.js?v=20261021b";
-import * as Gorev from "./gorev.js?v=20261021b";
-import * as T from "./tatil.js?v=20261021b";
-import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261021b";
-import { CATS } from "./isgcats.js?v=20261021b";
-import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261021b";
-import { bandOf, isgMonth, makTier, katsayi, surecVar, DEFAULT_PARAMS, MONTHS, num, konusmaPct, konusmaSifir } from "./scoring.js?v=20261021b";
+import * as S from "./store.js?v=20261021c";
+import { esc } from "./ui.js?v=20261021c";
+import * as Gorev from "./gorev.js?v=20261021c";
+import * as T from "./tatil.js?v=20261021c";
+import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261021c";
+import { CATS } from "./isgcats.js?v=20261021c";
+import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261021c";
+import { bandOf, isgMonth, makTier, katsayi, surecVar, DEFAULT_PARAMS, MONTHS, num, konusmaPct, konusmaSifir } from "./scoring.js?v=20261021c";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -66,10 +66,16 @@ const toggle = id => { const v = R.vert.has(id), btn = (on, vt, title, svg) => `
 const card = (title, sub, body, tg) => `<div class="cd" style="gap:18px"><div class="row sp" style="align-items:baseline"><h2>${title}${tg ? toggle(tg) : ""}</h2><div class="muted" style="font-size:13px">${sub}</div></div>${body}</div>`;
 
 const imgH = p => `<img data-pid="${p.id}" src="${R.ph[p.id] || p.t}" alt="Fotoğraf" style="height:227px;width:auto;max-width:100%;border-radius:8px;border:1px solid #C3D1CC;background:#EEF2F0">`;
+const fxDate = at => { const d = new Date(at); return at ? `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()}` : ""; };
+const fxTick = '<span style="flex:0 0 16px;width:16px;height:16px;border-radius:4px;background:#0B6E4F;display:inline-flex;align-items:center;justify-content:center;margin-top:2px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12l5 5L20 6"/></svg></span>';
+// Aksiyon alındı satırı: kişi adı yazılmaz; yalnızca tarih ve aksiyon açıklaması
+const fxLine = fx => `<span style="display:flex;gap:8px;align-items:flex-start;padding:7px 10px;border-radius:6px;border-left:4px solid #0B6E4F;background:#EAF7F1">${fxTick}<span><b style="color:#0B6E4F">Aksiyon alındı</b>${fx.at ? ` <span class="muted" style="white-space:nowrap">· ${fxDate(fx.at)}</span>` : ""}<br>${esc(fx.tx)}</span></span>`;
+const fxCol = (lbl, list, c) => `<span style="display:flex;flex-direction:column;gap:4px"><span style="font-size:11px;font-weight:800;letter-spacing:.6px;color:${c}">${lbl}</span><span style="display:flex;flex-wrap:wrap;gap:10px">${list.map(imgH).join("")}</span></span>`;
 function g6Body(a, mpre) {
   const tail = `<b style="white-space:nowrap">${esc(a.dept)}</b> <span class="muted" style="white-space:nowrap">· sıklık ${a.f}</span>`;
-  if (!R.pics || !a.notes.some(n => n.pics.length)) return `${mpre(a.mi)}${esc(a.notes.length ? a.notes.map(n => n.t).join("; ") : a.text)} ${tail}`;
-  return `<span style="display:flex;flex-direction:column;gap:8px">${a.notes.map((n, i) => `<span data-brk style="display:flex;flex-direction:column;gap:6px"><span>${i ? "" : mpre(a.mi)}${esc(n.t)}${i === a.notes.length - 1 ? " " + tail : ""}</span>${n.pics.length ? `<span style="display:flex;flex-wrap:wrap;gap:10px">${n.pics.map(imgH).join("")}</span>` : ""}</span>`).join("")}</span>`;
+  const anyFx = a.notes.some(n => n.fx);
+  if (!anyFx && (!R.pics || !a.notes.some(n => n.pics.length))) return `${mpre(a.mi)}${esc(a.notes.length ? a.notes.map(n => n.t).join("; ") : a.text)} ${tail}`;
+  return `<span style="display:flex;flex-direction:column;gap:8px">${a.notes.map((n, i) => `<span data-brk style="display:flex;flex-direction:column;gap:6px"><span>${i ? "" : mpre(a.mi)}${esc(n.t)}${anyFx || i === a.notes.length - 1 ? " " + tail : ""}</span>${n.fx ? fxLine(n.fx) : ""}${R.pics && n.fx && (n.pics.length || n.fx.ph.length) ? `<span style="display:flex;flex-wrap:wrap;gap:16px">${n.pics.length ? fxCol("AKSİYON ÖNCESİ", n.pics, "#B3261E") : ""}${n.fx.ph.length ? fxCol("AKSİYON SONRASI", n.fx.ph, "#0B6E4F") : ""}</span>` : R.pics && n.pics.length ? `<span style="display:flex;flex-wrap:wrap;gap:10px">${n.pics.map(imgH).join("")}</span>` : ""}</span>`).join("")}</span>`;
 }
 // Resimlerin tam boyutlu hâlini yükle (küçük resimle başlar)
 async function hydrate(v, st) {
@@ -185,15 +191,16 @@ function draw(v, st, setup, data) {
   isgList.forEach(({ mi, r, d, c }) => c.catInfo.forEach((info, ci) => info.items.forEach((it, ii) => {
     if (it.cnt > 0) {
       const nm = new Map();
-      d.sessions.forEach(s => (s.fails[it.id] || []).forEach((t, j) => { const e = nm.get(t) || { t, pics: [] }; ((s.photos || {})[it.id + "|" + j] || []).forEach(p => { if (!e.pics.some(x => x.id === p.id)) { e.pics.push(p); phIds.add(p.id); } }); nm.set(t, e); }));
+      d.sessions.forEach(s => (s.fails[it.id] || []).forEach((t, j) => { const e = nm.get(t) || { t, pics: [] }; ((s.photos || {})[it.id + "|" + j] || []).forEach(p => { if (!e.pics.some(x => x.id === p.id)) { e.pics.push(p); phIds.add(p.id); } }); const fx = (s.fixed || {})[it.id + "|" + j]; if (fx && fx.st === "ok" && fx.t === t && (fx.tx || "").trim()) { e.fx = { tx: fx.tx.trim(), ph: (fx.ph || []).map(p => ({ ...p })), at: fx.at || 0 }; e.fx.ph.forEach(p => phIds.add(p.id)); } nm.set(t, e); }));
       const notes = [...nm.values()];
       catRows[ci].items.push({ dept: r.name, mi, text: CATS[ci].items[ii], notes, f: it.cnt });
     }
   })));
   const mx = Math.max(1, ...catRows.map(x => x.items.length)), anyIsg = isgList.length > 0;
-  const g6 = anyIsg ? card("Grafik 6 · İSG Bulgu Dağılımı", "Kategori bazında uygunsuz madde sayısı",
+  const fxTotal = catRows.reduce((a, x) => a + x.items.reduce((b, it) => b + it.notes.filter(n => n.fx).length, 0), 0), fxAny = fxTotal > 0;
+  const g6 = anyIsg ? card("Grafik 6 · İSG Bulgu Dağılımı", `Kategori bazında uygunsuz madde sayısı${fxAny ? ` · ${fxTotal} aksiyon alındı` : ""}`,
     `<div class="col1" style="gap:10px">${catRows.map(x => `<div style="display:flex;align-items:center;gap:12px"><span style="width:min(190px,34%);flex:0 0 min(190px,34%);font-weight:600;font-size:13.5px">${esc(x.c.name)}</span>
-      <div style="flex:1;min-width:40px;height:14px;border-radius:999px;background:#E4ECE9;overflow:hidden"><div style="height:100%;border-radius:999px;width:${Math.round(x.items.length / mx * 100)}%;background:${CCOL[x.ci % 8]}"></div></div><span style="width:28px;text-align:right;font-weight:700">${x.items.length}</span></div>`).join("")}</div>
+      <div style="flex:1;min-width:40px;height:14px;border-radius:999px;background:#E4ECE9;overflow:hidden"><div style="height:100%;border-radius:999px;width:${Math.round(x.items.length / mx * 100)}%;background:${CCOL[x.ci % 8]}"></div></div><span style="width:28px;text-align:right;font-weight:700">${x.items.length}</span>${fxAny ? `<span style="width:84px;flex:0 0 84px;font-size:11.5px;font-weight:700;color:#0B6E4F">${(n => n ? "✓ " + n + " aksiyon" : "")(x.items.reduce((a, it) => a + it.notes.filter(n => n.fx).length, 0))}</span>` : ""}</div>`).join("")}</div>
     <div style="border-top:1px solid var(--line);padding-top:16px;display:flex;flex-direction:column;gap:16px"><div style="font-weight:800;font-size:13px;letter-spacing:.8px;color:var(--muted)">AÇIKLAMA</div>
     ${catRows.filter(x => x.items.length).map(x => `<div class="col1" style="gap:6px"><div data-brk style="display:flex;align-items:center;gap:10px;break-after:avoid"><span style="width:10px;height:10px;border-radius:3px;background:${CCOL[x.ci % 8]}"></span><span style="font-weight:800">${esc(x.c.name)}</span></div>
       ${x.items.map((a, k) => `<div data-brk style="display:flex;gap:10px;line-height:1.55;padding-left:20px"><span style="flex:0 0 22px;font-weight:800;color:#145F96">${k + 1}.</span><span>${g6Body(a, mpre)}</span></div>`).join("")}</div>`).join("") || `<div class="muted">Bu ay uygunsuz bulgu yok.</div>`}</div>`) : "";

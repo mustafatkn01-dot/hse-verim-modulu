@@ -1,15 +1,15 @@
 // İSG Denetim Listesi sayfası
-import * as Guest from "./guest.js?v=20261021b";
-import * as Gorev from "./gorev.js?v=20261021b";
-import * as S from "./store.js?v=20261021b";
-import * as Ramak from "./ramak.js?v=20261021b";
-import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261021b";
-import { CATS } from "./isgcats.js?v=20261021b";
-import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261021b";
-import { calcIsg, isgMonth, isgAudits, makTier, katsayi, bandOf, num, surecVar, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261021b";
+import * as Guest from "./guest.js?v=20261021c";
+import * as Gorev from "./gorev.js?v=20261021c";
+import * as S from "./store.js?v=20261021c";
+import * as Ramak from "./ramak.js?v=20261021c";
+import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261021c";
+import { CATS } from "./isgcats.js?v=20261021c";
+import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261021c";
+import { calcIsg, isgMonth, isgAudits, fxOk, makTier, katsayi, bandOf, num, surecVar, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261021c";
 
 const COLL = "isg";
-const D = { key: "", setup: null, doc: null, dept: null, month: null, open: {}, ro: false, timer: null, saved: true, msg: "" };
+const D = { fxOpen: new Set(), fxList: [], gfxOpen: false, key: "", setup: null, doc: null, dept: null, month: null, open: {}, ro: false, timer: null, saved: true, msg: "" };
 const W = { 3: ["Kritik ×3", "#FADAD7", "#8E1B16"], 2: ["Major ×2", "#FBE9C6", "#6B3F00"], 1: ["Minor ×1", "#DCEAF7", "#145F96"] };
 const FT = [["#0B6E4F", "#FFF"], ["#F5B700", "#2B2000"], ["#F28C28", "#2B1500"], ["#B3261E", "#FFF"]];
 const BAND = { Mükemmel: ["#17A06F", "#0B6E4F", "#D9F1E6"], İyi: ["#2A82C4", "#145F96", "#DCEAF7"], Orta: ["#F5B700", "#6B3F00", "#FBE9C6"], Kritik: ["#D6382E", "#B3261E", "#FADAD7"] };
@@ -119,9 +119,16 @@ export async function render(v, ctx) {
       D.gpoll = setInterval(D.gcheck, 15000);
       if (!D.vis) { D.vis = true; document.addEventListener("visibilitychange", () => { if (!document.hidden) D.gcheck?.(); }); }
       D.doc.draft = D.gdoc?.draft ? { ...emptyDraft(defaultDate(st.year, D.month), true), ...D.gdoc.draft, on: true, edit: null } : emptyDraft(defaultDate(st.year, D.month), true);
+      // Aksiyon bildirimlerim (ayrı kayıt: onaylanmış taslak durumundan etkilenmez) + yetkilinin kararı canlı izlenir
+      const fxd = await S.getMonthDoc(st.fid, st.year, "isgg", `${gid}_fix_${GUEST.uid}`).catch(() => null);
+      D.fxList = Object.entries(fxd?.draft?.fixReqs || {}).map(([key, req]) => ({ guestUid: GUEST.uid, guestName: GUEST.name, key, req }));
+      D.unwatchFx?.(); D.fxSeen = null;
+      D.unwatchFx = S.watchMonthDoc(st.fid, st.year, COLL, gid, d => fxWatch(d));
     } else {
       settle(D.doc, st.year, D.month);
-      D.gdocs = (await S.listMonthDocs(st.fid, st.year, "isgg").catch(() => [])).filter(g => g.id.startsWith(gid + "_") && (g.status === "saved" || g.status === "review"));
+      const all = (await S.listMonthDocs(st.fid, st.year, "isgg").catch(() => [])).filter(g => g.id.startsWith(gid + "_"));
+      D.gdocs = all.filter(g => g.status === "saved" || g.status === "review");
+      D.fxList = all.filter(g => g.draft?.fixReqs).flatMap(g => Object.entries(g.draft.fixReqs).map(([key, req]) => ({ guestUid: g.guestUid, guestName: g.guestName, key, req })));
     }
     D.key = key; D.open = {}; D.saved = true; D.touched = false; D.msg = "";
   }
@@ -141,7 +148,7 @@ async function rkLoad() {
 }
 
 // "Bu hafta" şeridi: bugünün haftasında her bölümün denetim durumu (yalnızca gösterim; bölüme dokununca o bölüme geçilir)
-export const reset = () => { WK.open = false; D.open = {}; };
+export const reset = () => { WK.open = false; D.open = {}; D.fxOpen = new Set(); D.gfxOpen = false; };
 const WK = { open: false, rows: null, mon: "", t: 0, days: {} };
 async function loadWk(force = false) {
   const { st } = D.ctx || {}; if (!st || !D.setup) return;
@@ -269,6 +276,157 @@ function gchip(cat, ii, id, notes, k, curNo, row, st) {
   return Gorev.chip(key, { tip: "denetim", fab: st.factories?.find(f => f.id === st.fid)?.name || "", yil: +st.year, ay: D.month, bolum: row?.name || "", kategori: cat.name, madde: cat.items[ii], metin: t, agirlik: cat.w, url: location.origin + location.pathname + "#denetim" }, true);
 }
 
+// ---------------- Aksiyon alındı ----------------
+// Misafir, açık bir bulgu için aksiyon bildirir (ayrı kayıt: isgg/{ay}_{bölüm}_fix_{uid}); yetkili kabul ederse
+// session.fixed["madde|sıra"] = {t, tx, ph, st:"ok"} yazılır: bulgu cezada Uygun gibi sayılır, ilk tespit ve sıklık takibi sürer.
+const catOf = id => { const m = /^c(\d+)i(\d+)$/.exec(id); return { cat: CATS[+m[1]], txt: CATS[+m[1]].items[+m[2]] }; };
+const fxWhen = at => { const d = new Date(at); return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+const fxStateOf = (s, id, j, t) => { const f = s.fixed?.[id + "|" + j]; return f && f.t === t ? f : null; };
+const fxImgs = list => list?.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px">${list.map(p => `<span class="pth"><img src="${p.t}" data-pv="${p.id}" alt="Fotoğraf"></span>`).join("")}</div>` : "";
+// Karar bekleyen aksiyon istekleri (istek, varsa kararı geçtiyse bekliyor sayılır)
+function fxPending() {
+  const out = [];
+  (D.fxList || []).forEach(x => {
+    const [no, id, j] = x.key.split("|"), s = D.doc.sessions.find(y => y.no === +no);
+    if (!s || (s.fails?.[id] || [])[+j] !== x.req.t) return;
+    const f = s.fixed?.[id + "|" + j];
+    if (f && (f.rat || 0) >= x.req.at) return;
+    out.push({ ...x, no: +no, id, j: +j, s });
+  });
+  return out.sort((a, b) => a.req.at - b.req.at);
+}
+const pvOpen = async el => {
+  const { st } = D.ctx; showPhoto(el.getAttribute("src"));
+  const full = await S.getPhoto(st.fid, st.year, el.dataset.pv).catch(() => null);
+  if (full) [...document.querySelectorAll(".mod")].pop()?.querySelector("img")?.setAttribute("src", full);
+};
+// Denetim formunda açıklamanın altındaki açılır aksiyon kartı (yetkili görünümü)
+function fxCard(s, id, j, t) {
+  const f = fxStateOf(s, id, j, t), pd = (D.fxPend || []).find(x => x.no === s.no && x.id === id && x.j === j);
+  if (!f && !pd) return "";
+  const key = `${s.no}|${id}|${j}`, cur = pd ? pd.req : f;
+  const [cls, ttl, bdg, bg, fg] = pd ? ["amb", "Aksiyon bildirildi", "Onay bekliyor", "#FBE9C6", "#5A3300"] : f.st === "ok" ? ["grn", "Aksiyon alındı", "Onaylandı", "#0B6E4F", "#fff"] : ["red", "Aksiyon reddedildi", "Reddedildi", "#B3261E", "#fff"];
+  return `<details class="ak ${cls}" data-fk="${key}" ${D.fxOpen.has(key) ? "open" : ""}><summary><span class="akt"><b>${ttl}</b><span class="pill" style="background:${bg};color:${fg}">${bdg}</span></span>${ic('<path d="M6 9l6 6 6-6"/>', 18)}</summary>
+    <div class="akb"><span class="muted" style="font-size:12.5px">${esc(pd ? pd.guestName : (f.gn || ""))}${cur.at || cur.ap ? " · " + fxWhen(pd ? cur.at : (f.ap || f.at)) : ""}</span>
+      <span>${esc(cur.tx || "")}</span>${fxImgs(cur.ph)}
+      ${!pd && f.st === "rej" ? `<div style="padding:8px 10px;border-radius:10px;background:#FDF1F0;border:1px solid #F3C7C3;color:#7A1C14;font-size:13px"><b>Ret gerekçesi:</b> ${esc(f.rej || "")}</div>` : ""}
+      ${pd && !D.ro ? `<button data-fxrev="${key}|${pd.guestUid}" style="height:42px">İncele ve karar ver</button><span class="muted" style="font-size:12px">Onay bekleyen aksiyon puana henüz yansımaz.</span>` : ""}
+      ${!pd && f.st === "ok" ? `<span style="font-size:12px;color:#0B6E4F">Bu bulgu cezada Uygun gibi sayılır; sıklık takibi sürer.</span>` : ""}</div></details>`;
+}
+// Yetkili: bekleyen aksiyon bildirimleri paneli
+function fxPanel(list) {
+  if (GUEST.on || !list.length) return "";
+  return `<div class="cd" style="padding:18px 20px;gap:12px"><div><b style="font:600 16px Sora,sans-serif">Aksiyon bildirimleri (${list.length})</b>
+    <div class="muted" style="font-size:12.5px;line-height:1.5">Misafirlerin bildirdiği aksiyonlar. Kabul ederseniz bulgu cezada Uygun gibi sayılır; reddederseniz gerekçeniz misafire iletilir.</div></div>
+    ${list.map(x => { const { cat, txt } = catOf(x.id); return `<div class="sess" style="flex-direction:column;align-items:stretch;gap:6px"><div class="row sp" style="flex-wrap:nowrap"><div style="min-width:0"><b>${esc(cat.name)}</b><div class="muted" style="font-size:12.5px">${x.no}. denetim · ${dm(x.s.date)} · ${esc(x.guestName)} · ${fxWhen(x.req.at)}</div></div><button class="sm" data-fxrev="${x.key}|${x.guestUid}">İncele</button></div>
+      <div style="font-size:13px"><span class="muted">Tespit:</span> ${esc(x.req.t)}</div><div style="font-size:13px"><span class="muted">Aksiyon:</span> ${esc(x.req.tx)}</div></div>`; }).join("")}</div>`;
+}
+// Yetkili: kabul / ret penceresi
+function fxReview(pd) {
+  const { st } = D.ctx, doc = D.doc, s = pd.s, req = pd.req, { cat } = catOf(pd.id), fk = `${pd.id}|${pd.j}`;
+  const row = D.setup.rows.find(r => r.id === D.dept), yg = surecVar(st.year, D.month);
+  const aud = fx => isgAudits({ cats: CATS, sessions: doc.sessions.map(x => x === s ? { ...x, fixed: { ...(x.fixed || {}), ...fx } } : x), freqOv: doc.freq, F: katsayi(row, D.month), p: D.setup.params || DEFAULT_PARAMS, yog: yg, mak: makTier(row) }).find(a => a.date === s.date)?.score;
+  const b0 = yg ? aud({}) : null, b1 = yg ? aud({ [fk]: { t: req.t, st: "ok" } }) : null, f1 = n => n.toFixed(1).replace(".", ",");
+  const m = document.createElement("div"); m.className = "mod";
+  m.innerHTML = `<div class="mbox" role="dialog" aria-modal="true" style="gap:14px;max-height:92vh;overflow:auto"><div class="row sp" style="flex-wrap:nowrap"><div><h2 style="font-size:19px">Aksiyon incelemesi</h2><div class="muted" style="font-size:13px">${esc(row.name)} · ${esc(cat.name)} · ${s.no}. denetim</div></div>
+      <button data-x aria-label="Kapat" style="flex:0 0 35px;width:35px;height:35px;min-width:0;padding:0;background:#D6382E;border-color:#D6382E;color:#fff;font-size:24px;line-height:1">×</button></div>
+    <div style="background:#FDF1F0;border:1px solid #F3C7C3;border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:8px"><span class="hd" style="color:#B3261E">İLK TESPİT · ${dmy(s.date)}</span><span>${esc(req.t)}</span>${fxImgs(s.photos?.[fk])}</div>
+    <div style="background:#FFF8E6;border:1px solid #F1D48A;border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:8px"><span class="hd" style="color:#7A5200">ALINAN AKSİYON · ${fxWhen(req.at)}</span><span class="muted" style="font-size:12.5px">${esc(pd.guestName)}</span>
+      <textarea class="inp" id="fxTx" rows="3" style="min-height:76px;height:auto;padding:10px;resize:vertical" aria-label="Aksiyon açıklaması">${esc(req.tx)}</textarea>${fxImgs(req.ph)}
+      <span class="muted" style="font-size:12px">Gerekirse açıklamayı düzeltebilirsiniz.</span></div>
+    <div style="background:#EAF7F1;border:1px solid #A9DCC4;border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.5"><b style="color:#0B6E4F">Kabul ederseniz</b><br>${b0 !== null && b1 !== null ? (Math.abs(b1 - b0) < 0.05 ? "Bu denetimin skoru değişmez; kategoride başka açık bulgu var, ceza o bulgular kapanınca kalkar. " : `Bu denetimin skoru <b>${f1(b0)} → ${f1(b1)}</b>. `) : "Bulgu cezada Uygun gibi sayılır. "}Sıklık takibi sürer.</div>
+    <button data-ok style="height:46px;background:#0B6E4F;border-color:#0B6E4F;color:#fff;font-weight:700">Kabul et</button>
+    <div style="border-top:1px solid var(--line);padding-top:12px;display:flex;flex-direction:column;gap:8px"><span class="hd">RET GEREKÇESİ (ZORUNLU)</span><textarea class="inp" id="fxRj" rows="3" style="min-height:76px;height:auto;padding:10px;resize:vertical" aria-label="Ret gerekçesi" placeholder="Neden kabul edilmedi? Misafire iletilir."></textarea>
+      <button class="sec" data-no style="height:46px;color:#D6382E;border-color:#D6382E;font-weight:700">Reddet ve gerekçeyi gönder</button></div></div>`;
+  document.body.appendChild(m);
+  m.querySelector("[data-x]").onclick = () => m.remove();
+  m.addEventListener("mousedown", e => { if (e.target === m) m.remove(); });
+  m.querySelectorAll("[data-pv]").forEach(im => im.onclick = () => pvOpen(im));
+  const done = async (obj, msg) => {
+    m.querySelectorAll("button").forEach(b => b.disabled = true);
+    (s.fixed ||= {})[fk] = { t: req.t, tx: m.querySelector("#fxTx").value.trim(), ph: req.ph || [], at: Date.now(), rat: req.at, gn: pd.guestName, ...obj };
+    const ok = await persist(true);
+    if (ok === false) { delete s.fixed[fk]; toast("Kaydedilemedi, bağlantıyı kontrol edip tekrar deneyin."); m.querySelectorAll("button").forEach(b => b.disabled = false); return; }
+    m.remove();
+    if (!fxPending().some(x => x.guestUid === pd.guestUid)) Guest.inboxDelete(`${pd.guestUid}_fx_${st.fid}_${st.year}_${D.month}_${D.dept}`);
+    draw(); toast(msg);
+  };
+  m.querySelector("[data-ok]").onclick = () => { if (!m.querySelector("#fxTx").value.trim()) return toast("Aksiyon açıklaması boş olamaz."); done({ st: "ok", ap: Date.now() }, "Aksiyon kabul edildi; bulgu cezada Uygun gibi sayılır."); };
+  m.querySelector("[data-no]").onclick = () => { const r = m.querySelector("#fxRj").value.trim(); if (!r) return toast("Ret gerekçesi yazın."); done({ st: "rej", rej: r }, "Aksiyon reddedildi; gerekçe misafire iletilir."); };
+}
+// Misafir: açık bulgular listesi (açılır kart) ve aksiyon bildirme formu
+function gfxRows() {
+  const rows = [], pend = fxPending();
+  D.doc.sessions.forEach(s => Object.entries(s.fails || {}).forEach(([id, arr]) => arr.forEach((t, j) => {
+    if (!t) return; const f = fxStateOf(s, id, j, t);
+    if (f?.st === "ok") return;
+    rows.push({ s, id, j, t, f, pd: pend.find(x => x.no === s.no && x.id === id && x.j === j) });
+  })));
+  return rows;
+}
+function gfxPanel() {
+  if (!GUEST.on) return "";
+  const rows = gfxRows(); if (!rows.length) return "";
+  const open = D.gfxOpen;
+  return `<div class="cd" style="padding:16px 20px;gap:10px"><button type="button" data-gfxt aria-expanded="${open}" style="display:flex;align-items:center;gap:12px;width:100%;min-height:44px;height:auto;padding:0;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer;font-weight:400"><span style="flex:1;min-width:0"><b style="font:600 16px Sora,sans-serif;display:block">Aksiyon bildir · açık bulgular (${rows.length})</b><span class="muted" style="font-size:12.5px;line-height:1.5">Bir bulguyla ilgili önlem aldıysanız aksiyonu fotoğrafla yetkiliye bildirin.</span></span><span style="transform:rotate(${open ? 180 : 0}deg);display:flex">${ic('<path d="M6 9l6 6 6-6"/>')}</span></button>
+    ${open ? rows.map(r => { const { cat } = catOf(r.id), key = `${r.s.no}|${r.id}|${r.j}`;
+      return `<div class="sess" style="flex-direction:column;align-items:stretch;gap:6px"><div class="row sp" style="flex-wrap:nowrap"><div style="min-width:0"><b style="font-size:14px">${esc(cat.name)}</b><div class="muted" style="font-size:12.5px">${r.s.no}. denetim · ${dm(r.s.date)}</div></div>
+        ${r.pd ? '<span class="pill" style="background:#FBE9C6;color:#5A3300">Onay bekliyor</span>' : r.f?.st === "rej" ? '<span class="pill" style="background:#FADAD7;color:#B3261E">Reddedildi</span>' : ""}</div>
+        <div style="font-size:13.5px">${esc(r.t)}</div>${fxImgs(r.s.photos?.[r.id + "|" + r.j])}
+        ${!r.pd && r.f?.st === "rej" ? `<div style="padding:8px 10px;border-radius:10px;background:#FDF1F0;border:1px solid #F3C7C3;color:#7A1C14;font-size:13px"><b>Ret gerekçesi:</b> ${esc(r.f.rej || "")}</div>` : ""}
+        ${r.pd ? `<div style="font-size:13px"><span class="muted">Bildirdiğiniz aksiyon:</span> ${esc(r.pd.req.tx)}</div>` : ""}
+        <button class="${r.pd ? "sec" : ""}" data-gfx="${key}" style="height:42px">${r.pd ? "Aksiyonu güncelle" : r.f?.st === "rej" ? "Düzeltip yeniden gönder" : "Aksiyon alındı"}</button></div>`; }).join("") : ""}</div>`;
+}
+function gfxForm(r) {
+  const { st } = D.ctx, { cat } = catOf(r.id), key = `${r.s.no}|${r.id}|${r.j}`, prev = D.fxList.find(x => x.key === key);
+  let ph = prev ? prev.req.ph.map(p => ({ ...p })) : [];
+  const m = document.createElement("div"); m.className = "mod";
+  const draw2 = () => {
+    m.innerHTML = `<div class="mbox" role="dialog" aria-modal="true" style="gap:12px;max-height:92vh;overflow:auto"><div class="row sp" style="flex-wrap:nowrap"><div><h2 style="font-size:19px">Aksiyon bildir</h2><div class="muted" style="font-size:13px">${esc(cat.name)} · ${r.s.no}. denetim</div></div>
+        <button data-x aria-label="Kapat" style="flex:0 0 35px;width:35px;height:35px;min-width:0;padding:0;background:#D6382E;border-color:#D6382E;color:#fff;font-size:24px;line-height:1">×</button></div>
+      <div style="background:#FDF1F0;border:1px solid #F3C7C3;border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:8px"><span class="hd" style="color:#B3261E">TESPİT</span><span>${esc(r.t)}</span>${fxImgs(r.s.photos?.[r.id + "|" + r.j])}</div>
+      <span class="hd">AKSİYON FOTOĞRAFI</span>
+      <div class="phs" style="padding:0">${ph.map(p => `<span class="pth"><img src="${p.t}" alt="Fotoğraf"><button class="px" data-rm="${p.id}" aria-label="Fotoğrafı sil">×</button></span>`).join("")}
+        <label class="pbtn">${ic('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>', 20)}<i>Fotoğraf çek</i><input type="file" accept="image/*" capture="environment" hidden></label>
+        <label class="pbtn">${ic('<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.5"/><path d="M21 16l-5-5-8 9"/>', 20)}<i>Resim ekle</i><input type="file" accept="image/*" multiple hidden></label></div>
+      <span class="hd">ALINAN AKSİYON</span><textarea class="inp" id="gfxTx" rows="4" style="min-height:96px;height:auto;padding:10px;resize:vertical" placeholder="Ne yapıldı? Tarihi ve yapılan işi yazın.">${esc(prev?.req.tx || "")}</textarea>
+      <span class="muted" style="font-size:12px">Açıklama zorunludur. Gönderince yetkili kullanıcıya bildirim gider; kabul edilene kadar puana yansımaz.</span>
+      <button data-send style="height:46px;background:#0B6E4F;border-color:#0B6E4F;color:#fff;font-weight:700">Aksiyonu yetkiliye gönder</button></div>`;
+    const tx = m.querySelector("#gfxTx");
+    m.querySelector("[data-x]").onclick = () => m.remove();
+    m.querySelectorAll("img[src]").forEach(im => { if (im.closest(".pth") && !im.dataset.pv) im.onclick = () => showPhoto(im.getAttribute("src")); });
+    m.querySelectorAll("[data-rm]").forEach(b => b.onclick = e => { e.stopPropagation(); const pid = b.dataset.rm; ph = ph.filter(p => p.id !== pid); S.deletePhoto(st.fid, st.year, pid).catch(() => {}); const v = tx.value; draw2(); m.querySelector("#gfxTx").value = v; });
+    m.querySelectorAll("input[type=file]").forEach(inp => inp.onchange = async () => {
+      const files = [...inp.files]; inp.value = ""; if (!files.length) return; const v = tx.value; let n = 0;
+      for (const f of files) { try { const { full, thumb } = await compressImage(f), pid = "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); await S.savePhoto(st.fid, st.year, pid, full); ph.push({ id: pid, t: thumb }); n++; } catch (e) { toast("Fotoğraf eklenemedi: " + (e.message || e)); } }
+      draw2(); m.querySelector("#gfxTx").value = v;
+    });
+    m.querySelector("[data-send]").onclick = async e => {
+      const text = tx.value.trim(); if (!text) return toast("Alınan aksiyonu yazın.");
+      e.target.disabled = true;
+      const reqs = {}; D.fxList.forEach(x => { reqs[x.key] = x.req; }); reqs[key] = { t: r.t, tx: text, ph, at: Date.now(), gn: GUEST.name };
+      try {
+        await S.saveMonthDoc(st.fid, st.year, "isgg", `${pad(D.month)}_${D.dept}_fix_${GUEST.uid}`, { guestUid: GUEST.uid, guestName: GUEST.name, dept: D.dept, month: D.month, status: "draft", draft: { fixReqs: reqs }, at: Date.now() });
+      } catch (er) { toast("Gönderilemedi: " + (er.message || er)); e.target.disabled = false; return; }
+      D.fxList = Object.entries(reqs).map(([k, req]) => ({ guestUid: GUEST.uid, guestName: GUEST.name, key: k, req }));
+      m.remove(); draw(); toast("Aksiyon yetkili kullanıcıya gönderildi.");
+      Guest.reportFix({ fid: st.fid, year: st.year, month: D.month, dept: D.dept, deptName: D.setup.rows.find(x => x.id === D.dept)?.name || "", factoryName: st.factories.find(f => f.id === st.fid)?.name || "" }, cat.name);
+    };
+  };
+  document.body.appendChild(m); draw2();
+}
+// Misafir: yetkilinin kararı (kabul / ret) canlı yansır
+function fxWatch(d) {
+  if (!d || !GUEST.on) return;
+  const seen = {}; (d.sessions || []).forEach(s => Object.entries(s.fixed || {}).forEach(([k, f]) => { seen[`${s.no}|${k}`] = f; }));
+  if (D.fxSeen) Object.entries(seen).forEach(([k, f]) => {
+    const o = D.fxSeen[k]; if (o && o.st === f.st && o.rat === f.rat) return;
+    if (D.fxList.some(x => x.key === k)) toast(f.st === "ok" ? "Aksiyonunuz kabul edildi." : "Aksiyonunuz reddedildi: " + (f.rej || ""));
+  });
+  D.fxSeen = seen; D.doc.sessions = d.sessions || [];
+  if (D.v?.isConnected && D.v.querySelector("#bolum")) draw();
+}
+
 function draw() {
   const { st } = D.ctx, v = D.v, doc = D.doc, setup = D.setup, p = setup.params || DEFAULT_PARAMS;
   const row = setup.rows.find(r => r.id === D.dept), F = katsayi(row, D.month);
@@ -278,7 +436,11 @@ function draw() {
   // Makine sayısı "Yok" olan bölümde yeni denetimde makine maddeleri (1, 2) otomatik Y.D. gelir (elle değiştirilebilir)
   if (on && yogM && mak === "0" && !doc.draft.mk0 && !D.ro && !GUEST.on) { doc.draft.mk0 = true; ["c1i0", "c1i1"].forEach(id => { if (!doc.draft.marks[id]) doc.draft.marks[id] = "n"; }); }
   // Süreç başlangıcından sonra: her denetim 100'den başlar, yalnız bu denetimde bulgu çıkan kategoriler ceza alır (sıklık aydaki önceki denetimlerden gelir); ay skoru = denetim skorlarının ortalaması + ramak kala bonusu
-  const c = calcIsg({ cats: CATS, sessions: on ? calcSessions : doc.sessions, draft: on ? doc.draft : { marks: {}, notes: {}, ydNotes: {} }, freqOv: doc.freq, bonusIdx: yogM ? 0 : doc.bonus, F, p, yog: yogM, mak, perAudit: yogM });
+  D.fxPend = fxPending();
+  const edS = on && !GUEST.on && editNo != null ? doc.sessions.find(x => x.no === editNo) : null;
+  const fxc = (id, notes, k) => { const t = String(notes[k] || "").trim(); if (!edS || !t) return ""; const fi = notes.slice(0, k).filter(x => String(x || "").trim()).length; const h = fxCard(edS, id, fi, t); return h ? `<div style="padding-left:22px">${h}</div>` : ""; };
+  const fxN = doc.sessions.reduce((a, x) => a + Object.values(x.fixed || {}).filter(f => f.st === "ok").length, 0);
+  const c = calcIsg({ cats: CATS, sessions: on ? calcSessions : doc.sessions, draft: on ? (edS?.fixed ? { ...doc.draft, fixed: edS.fixed } : doc.draft) : { marks: {}, notes: {}, ydNotes: {} }, freqOv: doc.freq, bonusIdx: yogM ? 0 : doc.bonus, F, p, yog: yogM, mak, perAudit: yogM });
   const bon = yogM ? (c.bonusVals[doc.bonus] || 0) : c.bonus;
   const mo = yogM ? isgMonth({ cats: CATS, sessions: doc.sessions, freqOv: doc.freq, bonusIdx: doc.bonus, F, p, yog: yogM, mak }) : null;
   const prevA = yogM && on ? isgAudits({ cats: CATS, sessions: calcSessions, freqOv: doc.freq, F, p, yog: yogM, mak }).map(x => x.score) : [];
@@ -309,7 +471,7 @@ function draw() {
             <button class="nb" data-note="${id}|${k}" aria-label="Açıklamayı yaz veya düzenle"><span class="nt" style="color:${t.trim() ? "var(--text)" : "#8A6A66"}">${esc(t.trim() ? t : "Dokunun ve yazın: hangi makine veya alanda, ne gibi uygunsuzluk var?")}</span>${ic('<path d="M4 20h4L19 9l-4-4L4 16v4z"/>', 18)}</button>
             <button class="nx" data-nrm="${id}|${k}" aria-label="Açıklamayı sil">×</button></div>
           <div class="phs">${(doc.draft.photos?.[id + "|" + k] || []).map(p => `<span class="pth"><img src="${p.t}" data-pv="${p.id}" alt="Fotoğraf"><button class="px" data-prm="${id}|${k}|${p.id}" aria-label="Fotoğrafı sil">×</button></span>`).join("")}
-            ${D.ro ? "" : `<label class="pbtn">${ic('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>', 20)}<i>Fotoğraf çek</i><input type="file" accept="image/*" capture="environment" data-ph="${id}|${k}" hidden></label><label class="pbtn">${ic('<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.5"/><path d="M21 16l-5-5-8 9"/>', 20)}<i>Resim ekle</i><input type="file" accept="image/*" multiple data-ph="${id}|${k}" hidden></label>`}${gchip(cat, ii, id, notes, k, curNo, row, st)}</div>`).join("")}
+            ${D.ro ? "" : `<label class="pbtn">${ic('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>', 20)}<i>Fotoğraf çek</i><input type="file" accept="image/*" capture="environment" data-ph="${id}|${k}" hidden></label><label class="pbtn">${ic('<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.5"/><path d="M21 16l-5-5-8 9"/>', 20)}<i>Resim ekle</i><input type="file" accept="image/*" multiple data-ph="${id}|${k}" hidden></label>`}${gchip(cat, ii, id, notes, k, curNo, row, st)}</div>${fxc(id, notes, k)}`).join("")}
           <button class="sec" style="align-self:flex-start;height:38px;color:#8E1B16;border-color:#B3261E" data-nadd="${id}">+ Benzer uygunsuzluk ekle</button></div>` : ""}</div>`;
     }).join("");
     const ydBox = info.allYD ? `<div class="ydbox"><span class="hd">BU KATEGORİDE TÜM MADDELER Y.D. · KISA GEREKÇE</span>
@@ -339,6 +501,8 @@ function draw() {
   ${GUEST.on && D.gstatus === "review" ? `<div class="okbar"><span>Taslağınız onay bekliyor. Yetkili kullanıcı onaylayınca denetime eklenir.</span></div>` : ""}
   ${GUEST.on && D.gstatus === "approved" ? `<div class="okbar"><span>Taslağınız onaylandı ve denetime eklendi.</span>${guestLock(st.year, D.month) ? "" : '<button class="sec" id="newGDraft">Yeni taslak başlat</button>'}</div>` : ""}
   ${gPanel(D.gdocs)}
+  ${fxPanel(D.fxPend)}
+  ${gfxPanel()}
   <div class="cd" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px 10px;padding:14px;align-items:start">
     <div class="sf"><label class="hd" for="bolum">BÖLÜM</label><select id="bolum" class="inp">${setup.rows.map(r => `<option value="${r.id}" ${r.id === D.dept ? "selected" : ""}>${esc(r.name)}</option>`).join("")}</select></div>
     <div class="sf"><label class="hd" for="ay">DÖNEM</label><select id="ay" class="inp">${MONTHS.map((m, i) => `<option value="${i + 1}" ${i + 1 === D.month ? "selected" : ""}>${m} ${st.year}</option>`).join("")}</select></div>
@@ -362,7 +526,7 @@ function draw() {
           ${[num(p.esik.o), num(p.esik.i), num(p.esik.m)].map(x => `<div style="position:absolute;top:-3px;left:${x}%;width:2px;height:18px;background:rgba(255,255,255,.55)"></div>`).join("")}</div>
         <div class="row sp" style="font-size:11px;color:#8FA8A1;margin-top:-6px"><span>0</span><span>${p.esik.o}</span><span>${p.esik.i}</span><span>${p.esik.m}</span><span>100</span></div>
         <div class="col1" style="padding-top:6px;border-top:1px solid rgba(255,255,255,.12);gap:10px">
-          ${[["Değerlendirme kapsamı (ağırlık)", `<b>${c.den} / ${c.total}</b>`], ["Bölüm katsayısı", `<b>×${F.toFixed(2).replace(".", ",")}</b>`], ["Ceza puanı", `<b style="color:#FFB4AB">−${f1(c.penalty)}</b>`], ...(monthAvg !== null ? [["Ay skoru (ortalama)", `<b>${f1(monthAvg)} · ${monthL.length} denetim</b>`]] : []), ["Ramak kala bonusu" + (yogM ? " (ay skoruna)" : ""), `<b style="color:#7FE3B8">+${bon}</b>`], ["Y.D. işaretli madde", `<b>${c.nCount} · %${c.ydPct}</b>`]].map(([a, b]) => `<div class="row sp"><span style="color:#9DB5AE">${a}</span>${b}</div>`).join("")}
+          ${[["Değerlendirme kapsamı (ağırlık)", `<b>${c.den} / ${c.total}</b>`], ["Bölüm katsayısı", `<b>×${F.toFixed(2).replace(".", ",")}</b>`], ["Ceza puanı", `<b style="color:#FFB4AB">−${f1(c.penalty)}</b>`], ...(monthAvg !== null ? [["Ay skoru (ortalama)", `<b>${f1(monthAvg)} · ${monthL.length} denetim</b>`]] : []), ["Ramak kala bonusu" + (yogM ? " (ay skoruna)" : ""), `<b style="color:#7FE3B8">+${bon}</b>`], ["Y.D. işaretli madde", `<b>${c.nCount} · %${c.ydPct}</b>`], ...(yogM && fxN ? [["Aksiyon onaylı açıklama", `<b style="color:#7FE3B8">${fxN}</b>`]] : [])].map(([a, b]) => `<div class="row sp"><span style="color:#9DB5AE">${a}</span>${b}</div>`).join("")}
           ${c.ydPct > 50 ? `<div style="padding:10px 12px;border-radius:10px;background:#FBE9C6;color:#5A3300;font-size:12.5px;line-height:1.5;font-weight:600">Değerlendirme kapsamı düşük: maddelerin yarısından fazlası Y.D. Skor yüksek görünebilir, raporda uyarı olarak yer alır.</div>` : ""}</div></div>
       <div class="cd" style="padding:20px;gap:12px"><div><b style="font:600 16px Sora,sans-serif">Ramak Kala Bildirim</b>
         <div class="muted" style="font-size:12.5px;line-height:1.5;margin-top:4px">Bildirimi yapan bölüm, bu ay getirdiği bildirim sayısına göre bonus alır. Ceza değil, bonus puandır.</div></div>
@@ -448,7 +612,7 @@ function bind(v, c) {
   on("[data-reopen]", async el => {
     const no = +el.dataset.reopen, t = doc.sessions.find(x => x.no === no); if (!t) return;
     if (doc.draft.on !== false && Object.keys(doc.draft.marks || {}).length && doc.draft.edit !== no) {
-      const { confirmBox } = await import("./ui.js?v=20261021b");
+      const { confirmBox } = await import("./ui.js?v=20261021c");
       if (!(await confirmBox(`${no}. denetim açılsın mı?`, "Şu an açık olan denetimde kaydedilmemiş değişiklikler varsa kaybolur. Önce “Kaydet”e basmanız önerilir.", "Yine de aç"))) return;
     }
     if (t.no === doc.sessions.length) t.closed = false;
@@ -466,7 +630,7 @@ function bind(v, c) {
   });
   const gAll = async () => (await S.listMonthDocs(st.fid, st.year, "isgg").catch(() => [])).filter(g => g.id.startsWith(`${pad(D.month)}_${D.dept}_`));
   on("[data-delsess]", async el => {
-    const { confirmBox } = await import("./ui.js?v=20261021b");
+    const { confirmBox } = await import("./ui.js?v=20261021c");
     const no = +el.dataset.delsess, ix = doc.sessions.findIndex(x => x.no === no); if (ix < 0) return;
     const gone = doc.sessions[ix], later = ix < doc.sessions.length - 1, all = await gAll(), gAp = all.filter(g => g.status === "approved" && g.no === gone.no);
     let mode = "all";
@@ -491,7 +655,7 @@ function bind(v, c) {
   });
   // Sahip: misafir taslağını tamamen sil (denetime ve rapora hiç girmez)
   const delG = async g => {
-    const { confirmBox } = await import("./ui.js?v=20261021b");
+    const { confirmBox } = await import("./ui.js?v=20261021c");
     if (!(await confirmBox("Misafir taslağı silinsin mi?", `${g.guestName} taslağı ve fotoğrafları kalıcı olarak silinir; denetime ve rapora hiç girmez. Misafir isterse yeniden yazabilir.`, "Evet, tamamen sil", true))) return false;
     Object.values(g.draft?.photos || {}).flat().forEach(p => S.deletePhoto(st.fid, st.year, p.id).catch(() => {}));
     await S.deleteMonthDoc(st.fid, st.year, "isgg", g.id); await Guest.inboxDelete(`${g.guestUid}_${st.fid}_${st.year}_${+g.month}_${g.dept}`);
@@ -502,7 +666,7 @@ function bind(v, c) {
   const holOK = async date => {
     if (!date || GUEST.on || D.okHol?.has(date)) return true;
     const h = tatilMap(await tatilYukle(st.fid, st.year).catch(() => null)).get(date); if (!h || h.yarim) return true;
-    const { confirmBox } = await import("./ui.js?v=20261021b");
+    const { confirmBox } = await import("./ui.js?v=20261021c");
     if (!(await confirmBox("İzin / tatil günü", `${fmtTarih(date)} tarihi "${h.ad}" olarak izinli/tatil işaretli. Yine de bu tarihle denetim yapılsın mı?`, "Evet, kabul et"))) return false;
     (D.okHol ||= new Set()).add(date); return true;
   };
@@ -615,5 +779,11 @@ function bind(v, c) {
   on("[data-gdet]", el => { const g = D.gdocs.find(x => x.id === el.dataset.gdet); if (g) openReview(g); });
   if (D.autoOpen) { const k = D.autoOpen; D.autoOpen = null; const g = D.gdocs.find(x => x.guestUid === k) || (k === "*" ? D.gdocs[0] : null); if (g) openReview(g); }
   const dn = document.getElementById("doneSess"); if (dn) dn.onclick = () => doSave(true);
+  // Aksiyon kartları: başlığa dokununca açılır / kapanır (varsayılan kapalı; sayfadan çıkınca kapanır)
+  v.querySelectorAll("details.ak[data-fk]").forEach(el => el.addEventListener("toggle", () => { el.open ? D.fxOpen.add(el.dataset.fk) : D.fxOpen.delete(el.dataset.fk); }));
+  on("[data-fxrev]", el => { const [key, gu] = el.dataset.fxrev.split("|").length > 3 ? [el.dataset.fxrev.split("|").slice(0, 3).join("|"), el.dataset.fxrev.split("|")[3]] : [el.dataset.fxrev, ""]; const pd = D.fxPend.find(x => x.key === key && x.guestUid === gu); if (pd) fxReview(pd); });
+  on("[data-gfxt]", () => { D.gfxOpen = !D.gfxOpen; draw(); });
+  on("[data-gfx]", el => { const r = gfxRows().find(x => `${x.s.no}|${x.id}|${x.j}` === el.dataset.gfx); if (r) gfxForm(r); });
+  v.querySelectorAll("[data-pv]").forEach(im => { if (!im.onclick) im.onclick = () => pvOpen(im); });
 }
 const $ = id => document.getElementById(id);

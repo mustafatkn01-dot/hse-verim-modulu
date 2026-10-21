@@ -1,11 +1,11 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261021b";
-import { esc } from "./ui.js?v=20261021b";
-import { bandOf, DEFAULT_PARAMS, num, isgMonth, makTier, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261021b";
-import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261021b";
-import { CATS } from "./isgcats.js?v=20261021b";
-import * as Gorev from "./gorev.js?v=20261021b";
-import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261021b";
+import * as S from "./store.js?v=20261021c";
+import { esc } from "./ui.js?v=20261021c";
+import { bandOf, DEFAULT_PARAMS, num, isgMonth, makTier, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261021c";
+import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261021c";
+import { CATS } from "./isgcats.js?v=20261021c";
+import * as Gorev from "./gorev.js?v=20261021c";
+import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261021c";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -51,7 +51,9 @@ export async function load(st, setup) {
       const L = (arr || []).length ? arr : [""];
       L.forEach((t, j) => { const k = String(t || "").trim(), e = o.list.get(k) || { c: 0, pics: [], at: j, by: {} }; e.c++;
         const ph0 = (se.photos || {})[key + "|" + j] || [], bs = e.by[se.no] || (e.by[se.no] = { no: se.no, m: mOf(d), date: se.date || "", pics: [], gk: k ? Gorev.noteKey("d", st.fid, st.year, mOf(d) + 1, id, `${key}_${se.no}`, k, L.slice(0, j).filter(x => String(x || "").trim() === k).length) : "" });
-        ph0.forEach(ph => { if (!e.pics.some(x => x.id === ph.id)) e.pics.push(ph); if (!bs.pics.some(x => x.id === ph.id)) bs.pics.push(ph); }); o.list.set(k, e); }); }));
+        ph0.forEach(ph => { if (!e.pics.some(x => x.id === ph.id)) e.pics.push(ph); if (!bs.pics.some(x => x.id === ph.id)) bs.pics.push(ph); });
+        const fxo = (se.fixed || {})[key + "|" + j]; if (fxo && fxo.st === "ok" && fxo.t === k && (fxo.tx || "").trim()) bs.fx = { tx: fxo.tx.trim(), ph: (fxo.ph || []).map(ph => ({ ...ph })), at: fxo.at || 0 };
+        o.list.set(k, e); }); }));
     Object.entries(items).forEach(([key, o]) => { const mm = /^c(\d+)i(\d+)$/.exec(key); if (!mm) return; const c = CATS[+mm[1]]; if (!c) return;
       [...o.list.entries()].forEach(([t, e]) => notes.push({ m: mOf(d), k: 3, id, t: `${c.name}: ${t || c.items[+mm[2]]}`, x: `${e.c} denetimde uygunsuz`, pics: e.pics, by: e.by })); }); });
   out._n = notes;
@@ -273,7 +275,7 @@ function pdfDialog(info) {
   const scopes = sl.length ? [["all", sl.length > 1 ? "Tüm haftalar (hafta bazlı)" : sl[0].label], ...(sl.length > 1 ? [["last:" + sl[sl.length - 1].k, "Son hafta · " + sl[sl.length - 1].label], ...sl.map(x => ["s:" + x.k, x.label])] : [])] : null;
   if (scopes && info.wkKey) { const i = scopes.findIndex(x => x[0] === "last:" + info.wkKey); if (i > 0) scopes.unshift(scopes.splice(i, 1)[0]); }
   askFormat({ title: "PDF indir", text: `${info.title} · ${info.plabel}. Grafik ve açıklamalar; yöneticinize göndermek için hazırlanır (resimsiz tek sayfa).`, defOrient: n > 7 ? "landscape" : "portrait", hint: n > 7 ? `${n} bölüm olduğu için yatay düzen önerilir.` : "Az sayıda bölümde dikey düzen yeterlidir.", scopes, pics: info.details.reduce((a, g) => a + g.items.reduce((b, it) => b + (it.pics?.length || 0), 0), 0),
-    picsFor: scope => info.details.reduce((a, g) => a + (g.mod !== "İSG Denetim" ? g.items.reduce((b, it) => b + (it.pics?.length || 0), 0) : g.items.reduce((b, it) => b + Object.values(it.by || {}).filter(x => scope === "all" || info.wkOf(x) === scope.replace(/^(s|last):/, "")).reduce((c, x) => c + (x.pics?.length || 0), 0), 0)), 0) }).then(o => o && printSheet(info, o));
+    picsFor: scope => info.details.reduce((a, g) => a + (g.mod !== "İSG Denetim" ? g.items.reduce((b, it) => b + (it.pics?.length || 0), 0) : g.items.reduce((b, it) => b + Object.values(it.by || {}).filter(x => scope === "all" || info.wkOf(x) === scope.replace(/^(s|last):/, "")).reduce((c, x) => c + (x.pics?.length || 0) + (x.fx?.ph?.length || 0), 0), 0)), 0) }).then(o => o && printSheet(info, o));
 }
 
 async function printSheet(info, { size, orient, pics = false, file = false, scope = "all" }) {
@@ -294,12 +296,17 @@ async function printSheet(info, { size, orient, pics = false, file = false, scop
   const sl = info.sess || [], sc = scope || "all";
   if (sl.length) {
     const want = sc === "all" ? sl : sl.filter(x => sc === "s:" + x.k || sc === "last:" + x.k);
-    DET = info.details.flatMap(g => g.mod !== "İSG Denetim" ? [g] : want.map(w => ({ mod: g.mod, sub: w.label, items: g.items.flatMap(it => Object.values(it.by || {}).filter(b => info.wkOf(b) === w.k).map(b => ({ ...it, pics: b.pics, extra: "", done: done(b.gk), mon: "" }))) })).filter(x => x.items.length));
+    DET = info.details.flatMap(g => g.mod !== "İSG Denetim" ? [g] : want.map(w => ({ mod: g.mod, sub: w.label, items: g.items.flatMap(it => Object.values(it.by || {}).filter(b => info.wkOf(b) === w.k).map(b => ({ ...it, pics: b.pics, fx: b.fx, extra: "", done: done(b.gk), mon: "" }))) })).filter(x => x.items.length));
   }
-  const usePics = pics && DET.some(g => g.items.some(i => i.pics?.length)), PH = {};
-  if (usePics) await Promise.all(DET.flatMap(g => g.items.flatMap(i => i.pics || [])).map(async p => { try { PH[p.id] = await S.getPhoto(info.fid, info.year, p.id); } catch { } }));
+  const usePics = pics && DET.some(g => g.items.some(i => i.pics?.length || i.fx?.ph?.length)), PH = {};
+  if (usePics) await Promise.all(DET.flatMap(g => g.items.flatMap(i => [...(i.pics || []), ...(i.fx?.ph || [])])).map(async p => { try { PH[p.id] = await S.getPhoto(info.fid, info.year, p.id); } catch { } }));
   const psz = file ? 227 : Math.round(227 / z); // 6 cm yükseklik
-  const picsHtml = a => usePics && a.pics?.length ? `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">${a.pics.map(p => `<img src="${PH[p.id] || p.t}" alt="Fotoğraf" style="height:${psz}px;width:auto;max-width:100%;border-radius:6px;border:1px solid #C3D1CC">`).join("")}</div>` : "";
+  const im = p => `<img src="${PH[p.id] || p.t}" alt="Fotoğraf" style="height:${psz}px;width:auto;max-width:100%;border-radius:6px;border:1px solid #C3D1CC">`;
+  const fxD = at => { const d = new Date(at); return at ? `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()}` : ""; };
+  const col = (l, list, c) => `<div style="display:flex;flex-direction:column;gap:3px"><span style="font-size:10.5px;font-weight:800;letter-spacing:.6px;color:${c}">${l}</span><div style="display:flex;flex-wrap:wrap;gap:8px">${list.map(im).join("")}</div></div>`;
+  // Aksiyon alındı: kişi adı yazılmaz; açıklama altında yeşil satır, resimlerde "aksiyon öncesi" ve yanında "aksiyon sonrası"
+  const fxHtml = a => a.fx ? `<div style="display:flex;gap:8px;align-items:flex-start;margin-top:4px;padding:6px 10px;border-radius:6px;border-left:4px solid #0B6E4F;background:#EAF7F1"><span style="flex:0 0 16px;width:16px;height:16px;border-radius:4px;background:#0B6E4F;display:inline-flex;align-items:center;justify-content:center;margin-top:1px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12l5 5L20 6"/></svg></span><span><b style="color:#0B6E4F">Aksiyon alındı</b>${a.fx.at ? ` <span style="color:#546964;white-space:nowrap">· ${fxD(a.fx.at)}</span>` : ""}<br>${esc(a.fx.tx)}</span></div>` : "";
+  const picsHtml = a => fxHtml(a) + (usePics && a.fx && (a.pics?.length || a.fx.ph.length) ? `<div style="display:flex;flex-wrap:wrap;gap:14px;margin-top:6px">${a.pics?.length ? col("AKSİYON ÖNCESİ", a.pics, "#B3261E") : ""}${a.fx.ph.length ? col("AKSİYON SONRASI", a.fx.ph, "#0B6E4F") : ""}</div>` : usePics && a.pics?.length ? `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">${a.pics.map(im).join("")}</div>` : "");
   const sh = document.createElement("div"); sh.id = "psheet";
   const FONT = "font-family:Manrope,system-ui,sans-serif;color:#10201C;display:flex;flex-direction:column;gap:14px;font-size:13px";
   const items = [];

@@ -3,8 +3,8 @@
 //   users/{sahip}/invites/{kod}        davet (e-posta ayarı kopyası)
 //   users/{sahip}/guestReqs/{misafirUid}  onay isteği {gid, code, name, unit, status, at}
 //   users/{sahip}/members/{misafirUid}    onaylı üye {name, unit, factories[], mode, expires|null}
-import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously } from "./firebase.js?v=20261021b";
-import { esc, toast, confirmBox } from "./ui.js?v=20261021b";
+import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously } from "./firebase.js?v=20261021c";
+import { esc, toast, confirmBox } from "./ui.js?v=20261021c";
 
 const Q = new URLSearchParams(location.search);
 export const linkInfo = () => {
@@ -138,6 +138,15 @@ export async function reportAudit(info, kind) {
   const what = kind === "review" ? "tamamlanmasını istiyor" : "kaydetti";
   pushRaw(GC.ntfy, { title: "HSE Verim · Misafir denetimi", message: `${GC.name} · ${info.deptName} · ${info.no}. denetimi ${what}.`, click: `${location.origin}${location.pathname}?denetim=${[info.fid, info.year, info.month, info.dept].join(".")}`, priority: kind === "review" ? 4 : 3, tags: ["clipboard"] });
 }
+// Misafir aksiyon bildirimi: gelen kutusuna ayrı satır (no: 0 = aksiyon) + yetkiliye telefon bildirimi
+export async function reportFix(info, catName) {
+  if (!GC.owner || !GC.uid) return;
+  const key = [info.fid, info.year, info.month, info.dept].join("_");
+  try {
+    await setDoc(doc(db, `users/${GC.owner}/inbox/${GC.uid}_fx_${key}`), { fid: info.fid, year: +info.year, month: +info.month, dept: info.dept, deptName: info.deptName || "", factoryName: info.factoryName || "", no: 0, by: GC.uid, byName: GC.name, kind: "saved", status: "open", at: Date.now() });
+  } catch (e) { toast("Yetkiliye bildirilemedi: " + (e.message || e)); return; }
+  pushRaw(GC.ntfy, { title: "HSE Verim · Aksiyon bildirimi", message: `${GC.name} · ${info.deptName}: ${catName} için aksiyon bildirdi. İncelemek için dokunun.`, click: `${location.origin}${location.pathname}?denetim=${[info.fid, info.year, info.month, info.dept].join(".")}`, priority: 4, tags: ["white_check_mark"] });
+}
 export const inboxDelete = id => deleteDoc(doc(db, `users/${auth.currentUser.uid}/inbox/${id}`)).catch(() => {});
 export async function inboxClear(ownerUid, { fid, year, month, dept }) {
   try {
@@ -159,8 +168,8 @@ export async function renderInbox(box, { ownerUid, onOpen }) {
   const open = rows.filter(r => r.status === "open").sort((a, b) => (a.kind === "review" ? -1 : 0) - (b.kind === "review" ? -1 : 0) || b.at - a.at);
   if (!open.length) { box.innerHTML = ""; return; }
   box.innerHTML = `<div class="cd" style="gap:12px"><div><h2>Misafir denetimleri · kontrol bekleyen (${open.length})</h2><div class="muted" style="font-size:13px">Misafirlerin kaydettiği veya tamamlanmasını istediği denetimler. Açıp kontrol edin; onayladığınızda veya geri gönderdiğinizde satır kalkar.</div></div>
-    <div class="col1" style="gap:8px">${open.map(r => `<div class="it" style="gap:10px;flex-wrap:wrap"><div class="grow"><b>${esc(r.deptName)}</b> <span class="tag" style="${r.kind === "review" ? "background:#FBE9C6;color:#6B3F00" : ""}">${r.kind === "review" ? "Tamamlanması istendi" : "Kaydedildi"}</span>
-      <div class="muted" style="font-size:12.5px">${esc(r.factoryName)} · ${MN[r.month - 1]} ${r.year} · ${r.no}. denetim · ${esc(r.byName)} · ${ago(r.at)}</div></div>
+    <div class="col1" style="gap:8px">${open.map(r => `<div class="it" style="gap:10px;flex-wrap:wrap"><div class="grow"><b>${esc(r.deptName)}</b> <span class="tag" style="${r.kind === "review" || !r.no ? "background:#FBE9C6;color:#6B3F00" : ""}">${!r.no ? "Aksiyon bildirildi" : r.kind === "review" ? "Tamamlanması istendi" : "Kaydedildi"}</span>
+      <div class="muted" style="font-size:12.5px">${esc(r.factoryName)} · ${MN[r.month - 1]} ${r.year} · ${r.no ? r.no + ". denetim · " : ""}${esc(r.byName)} · ${ago(r.at)}</div></div>
       <div class="row" style="gap:6px"><button class="sm" data-io="${r.id}">Aç</button><button class="sm sec" data-ix="${r.id}">Gördüm</button></div></div>`).join("")}</div></div>`;
   box.querySelectorAll("[data-io]").forEach(b => b.onclick = () => onOpen(open.find(r => r.id === b.dataset.io)));
   box.querySelectorAll("[data-ix]").forEach(b => b.onclick = async () => { await deleteDoc(doc(db, `users/${ownerUid}/inbox/${b.dataset.ix}`)).catch(() => {}); renderInbox(box, { ownerUid, onOpen }); });
