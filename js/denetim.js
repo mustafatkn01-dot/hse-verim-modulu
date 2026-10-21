@@ -1,12 +1,12 @@
 // İSG Denetim Listesi sayfası
-import * as Guest from "./guest.js?v=20261021f";
-import * as Gorev from "./gorev.js?v=20261021f";
-import * as S from "./store.js?v=20261021f";
-import * as Ramak from "./ramak.js?v=20261021f";
-import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261021f";
-import { CATS } from "./isgcats.js?v=20261021f";
-import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261021f";
-import { calcIsg, isgMonth, isgAudits, fxInTime, makTier, katsayi, bandOf, num, surecVar, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261021f";
+import * as Guest from "./guest.js?v=20261021g";
+import * as Gorev from "./gorev.js?v=20261021g";
+import * as S from "./store.js?v=20261021g";
+import * as Ramak from "./ramak.js?v=20261021g";
+import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261021g";
+import { CATS } from "./isgcats.js?v=20261021g";
+import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261021g";
+import { calcIsg, isgMonth, isgAudits, fxInTime, makTier, katsayi, bandOf, num, surecVar, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261021g";
 
 const COLL = "isg";
 const D = { fxEditing: new Set(), fxDraft: {}, fxOpen: new Set(), fxList: [], gfxOpen: false, key: "", setup: null, doc: null, dept: null, month: null, open: {}, ro: false, timer: null, saved: true, msg: "" };
@@ -306,7 +306,7 @@ function fxForm(key, edit = false) {
   return `<div class="phs" style="padding:0">${dr.ph.map(p => `<span class="pth"><img src="${p.t}" data-pv="${p.id}" alt="Fotoğraf"><button class="px" data-fxprm="${key}" data-pid="${p.id}" aria-label="Fotoğrafı sil">×</button></span>`).join("")}
     <label class="pbtn">${ic('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>', 20)}<i>Fotoğraf çek</i><input type="file" accept="image/*" capture="environment" data-fxph="${key}" hidden></label>
     <label class="pbtn">${ic('<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.5"/><path d="M21 16l-5-5-8 9"/>', 20)}<i>Resim ekle</i><input type="file" accept="image/*" multiple data-fxph="${key}" hidden></label></div>
-    <textarea class="inp" data-fxtx="${key}" rows="3" style="min-height:76px;height:auto;padding:10px;resize:vertical" placeholder="Ne yapıldı? Alınan aksiyonu yazın." aria-label="Alınan aksiyon">${esc(dr.tx)}</textarea>
+    <button type="button" class="nb" data-fxnb="${key}" aria-label="Aksiyon açıklamasını yaz veya düzenle"><span class="nt" style="color:${dr.tx.trim() ? "var(--text)" : "#6B7F79"}">${esc(dr.tx.trim() ? dr.tx : "Dokunun ve yazın: ne yapıldı?")}</span>${ic('<path d="M4 20h4L19 9l-4-4L4 16v4z"/>', 18)}</button>
     <button data-fxsave="${key}" style="height:44px;background:#0B6E4F;border-color:#0B6E4F;color:#fff;font-weight:700">${edit ? "Değişiklikleri kaydet" : "Aksiyon alındı olarak kaydet"}</button>
     ${edit ? `<button class="sec" data-fxcancel="${key}" style="height:40px">Vazgeç</button><span class="muted" style="font-size:12px">Düzenleme, aksiyonun giriş tarihini değiştirmez; ceza durumu aynı kalır.</span>` : `<span class="muted" style="font-size:12px">Denetimin haftası kapanmadan (en geç cumartesi) girilirse ceza kalkar; sonrasında yalnızca açıklamada görünür.</span>`}`;
 }
@@ -324,7 +324,7 @@ function fxCard(s, id, j, t) {
       ${!pd && f?.st === "rej" ? `<div style="padding:8px 10px;border-radius:10px;background:#FDF1F0;border:1px solid #F3C7C3;color:#7A1C14;font-size:13px"><b>Ret gerekçesi:</b> ${esc(f.rej || "")}</div>` : ""}
       ${pd && !D.ro ? `<button data-fxrev="${key}|${pd.guestUid}" style="height:42px">İncele ve karar ver</button><span class="muted" style="font-size:12px">Onay bekleyen aksiyon puana henüz yansımaz.</span>` : ""}
       ${canAdd ? fxForm(key) : editing ? fxForm(key, true) : ""}
-      ${!pd && f?.st === "ok" && !editing && !D.ro && !GUEST.on ? `<div class="row" style="gap:8px"><button class="sec" data-fxedit="${key}" style="height:38px;display:flex;align-items:center;gap:6px">${ic('<path d="M4 20h4L19 9l-4-4L4 16v4z"/>', 16)}Düzenle</button><button class="sec" data-fxdel="${key}" style="height:38px;color:#B3261E;border-color:#B3261E">Aksiyonu kaldır</button></div>` : ""}
+      ${!pd && f?.st === "ok" && !editing && !D.ro && !GUEST.on ? `<div style="display:flex;gap:8px;flex-wrap:nowrap"><button class="sec" data-fxedit="${key}" style="flex:1 1 0;min-width:0;height:34px;min-height:0;padding:0 8px;font-size:13px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap">${ic('<path d="M4 20h4L19 9l-4-4L4 16v4z"/>', 15)}Düzenle</button><button class="sec" data-fxdel="${key}" style="flex:1 1 0;min-width:0;height:34px;min-height:0;padding:0 8px;font-size:13px;color:#B3261E;border-color:#B3261E;white-space:nowrap">Aksiyonu kaldır</button></div>` : ""}
       ${!pd && f?.st === "ok" ? (fxInTime(f, s.date) ? `<span style="font-size:12px;color:#0B6E4F">Bu bulgu cezada Uygun gibi sayılır; sıklık takibi sürer.</span>` : `<span style="font-size:12px;color:#7A5200">Hafta kapandıktan sonra girildi: yalnızca açıklamada görünür, ceza puanı değişmez.</span>`) : ""}</div></details>`;
 }
 // Yetkili: bekleyen aksiyon bildirimleri paneli
@@ -346,26 +346,28 @@ function fxReview(pd) {
       <button data-x aria-label="Kapat" style="flex:0 0 35px;width:35px;height:35px;min-width:0;padding:0;background:#D6382E;border-color:#D6382E;color:#fff;font-size:24px;line-height:1">×</button></div>
     <div style="background:#FDF1F0;border:1px solid #F3C7C3;border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:8px"><span class="hd" style="color:#B3261E">İLK TESPİT · ${dmy(s.date)}</span><span>${esc(req.t)}</span>${fxImgs(s.photos?.[fk])}</div>
     <div style="background:#FFF8E6;border:1px solid #F1D48A;border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:8px"><span class="hd" style="color:#7A5200">ALINAN AKSİYON · ${fxWhen(req.at)}</span><span class="muted" style="font-size:12.5px">${esc(pd.guestName)}</span>
-      <textarea class="inp" id="fxTx" rows="3" style="min-height:76px;height:auto;padding:10px;resize:vertical" aria-label="Aksiyon açıklaması">${esc(req.tx)}</textarea>${fxImgs(req.ph)}
+      <button type="button" class="nb" id="fxNb" aria-label="Aksiyon açıklamasını düzenle"><span class="nt">${esc(req.tx)}</span>${ic('<path d="M4 20h4L19 9l-4-4L4 16v4z"/>', 18)}</button>${fxImgs(req.ph)}
       <span class="muted" style="font-size:12px">Gerekirse açıklamayı düzeltebilirsiniz.</span></div>
     <div style="background:#EAF7F1;border:1px solid #A9DCC4;border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.5"><b style="color:#0B6E4F">Kabul ederseniz</b><br>${late ? "Bu denetimin haftası kapandı (en geç cumartesi): aksiyon yalnızca açıklamada görünür, ceza puanı değişmez. " : ""}${!late && b0 !== null && b1 !== null ? (Math.abs(b1 - b0) < 0.05 ? "Bu denetimin skoru değişmez; kategoride başka açık bulgu var, ceza o bulgular kapanınca kalkar. " : `Bu denetimin skoru <b>${f1(b0)} → ${f1(b1)}</b>. `) : "Bulgu cezada Uygun gibi sayılır. "}Sıklık takibi sürer.</div>
     <button data-ok style="height:46px;background:#0B6E4F;border-color:#0B6E4F;color:#fff;font-weight:700">Kabul et</button>
     <div style="border-top:1px solid var(--line);padding-top:12px;display:flex;flex-direction:column;gap:8px"><span class="hd">RET GEREKÇESİ (ZORUNLU)</span><textarea class="inp" id="fxRj" rows="3" style="min-height:76px;height:auto;padding:10px;resize:vertical" aria-label="Ret gerekçesi" placeholder="Neden kabul edilmedi? Misafire iletilir."></textarea>
       <button class="sec" data-no style="height:46px;color:#D6382E;border-color:#D6382E;font-weight:700">Reddet ve gerekçeyi gönder</button></div></div>`;
   document.body.appendChild(m);
+  let txr = req.tx;
+  m.querySelector("#fxNb").onclick = async () => { const r = await noteEditor({ title: "Alınan aksiyon", item: req.t, text: txr, question: "Ne yapıldı? Alınan aksiyonu yazın.", example: "Örn. Koruyucu kapak yerine takıldı." }); if (r !== null) { txr = r; m.querySelector("#fxNb .nt").textContent = r; } };
   m.querySelector("[data-x]").onclick = () => m.remove();
   m.addEventListener("mousedown", e => { if (e.target === m) m.remove(); });
   m.querySelectorAll("[data-pv]").forEach(im => im.onclick = () => pvOpen(im));
   const done = async (obj, msg) => {
     m.querySelectorAll("button").forEach(b => b.disabled = true);
-    (s.fixed ||= {})[fk] = { t: req.t, tx: m.querySelector("#fxTx").value.trim(), ph: req.ph || [], at: Date.now(), rat: req.at, gn: pd.guestName, ...obj };
+    (s.fixed ||= {})[fk] = { t: req.t, tx: txr.trim(), ph: req.ph || [], at: Date.now(), rat: req.at, gn: pd.guestName, ...obj };
     const ok = await persist(true);
     if (ok === false) { delete s.fixed[fk]; toast("Kaydedilemedi, bağlantıyı kontrol edip tekrar deneyin."); m.querySelectorAll("button").forEach(b => b.disabled = false); return; }
     m.remove();
     if (!fxPending().some(x => x.guestUid === pd.guestUid)) Guest.inboxDelete(`${pd.guestUid}_fx_${st.fid}_${st.year}_${D.month}_${D.dept}`);
     draw(); toast(msg);
   };
-  m.querySelector("[data-ok]").onclick = () => { if (!m.querySelector("#fxTx").value.trim()) return toast("Aksiyon açıklaması boş olamaz."); done({ st: "ok", ap: Date.now() }, "Aksiyon kabul edildi; bulgu cezada Uygun gibi sayılır."); };
+  m.querySelector("[data-ok]").onclick = () => { if (!txr.trim()) return toast("Aksiyon açıklaması boş olamaz."); done({ st: "ok", ap: Date.now() }, "Aksiyon kabul edildi; bulgu cezada Uygun gibi sayılır."); };
   m.querySelector("[data-no]").onclick = () => { const r = m.querySelector("#fxRj").value.trim(); if (!r) return toast("Ret gerekçesi yazın."); done({ st: "rej", rej: r }, "Aksiyon reddedildi; gerekçe misafire iletilir."); };
 }
 // Misafir: açık bulgular listesi (açılır kart) ve aksiyon bildirme formu
@@ -392,8 +394,8 @@ function gfxPanel() {
         <button class="${r.pd ? "sec" : ""}" data-gfx="${key}" style="height:42px">${r.pd ? "Aksiyonu güncelle" : r.f?.st === "rej" ? "Düzeltip yeniden gönder" : "Aksiyon alındı"}</button></div>`; }).join("") : ""}</div>`;
 }
 function gfxForm(r) {
-  const { st } = D.ctx, { cat } = catOf(r.id), key = `${r.s.no}|${r.id}|${r.j}`, prev = D.fxList.find(x => x.key === key);
-  let ph = prev ? prev.req.ph.map(p => ({ ...p })) : [];
+  const r0 = r, { st } = D.ctx, { cat } = catOf(r.id), key = `${r.s.no}|${r.id}|${r.j}`, prev = D.fxList.find(x => x.key === key);
+  let ph = prev ? prev.req.ph.map(p => ({ ...p })) : [], txt = prev?.req.tx || "";
   const m = document.createElement("div"); m.className = "mod";
   const draw2 = () => {
     m.innerHTML = `<div class="mbox" role="dialog" aria-modal="true" style="gap:12px;max-height:92vh;overflow:auto"><div class="row sp" style="flex-wrap:nowrap"><div><h2 style="font-size:19px">Aksiyon bildir</h2><div class="muted" style="font-size:13px">${esc(cat.name)} · ${r.s.no}. denetim</div></div>
@@ -403,20 +405,20 @@ function gfxForm(r) {
       <div class="phs" style="padding:0">${ph.map(p => `<span class="pth"><img src="${p.t}" alt="Fotoğraf"><button class="px" data-rm="${p.id}" aria-label="Fotoğrafı sil">×</button></span>`).join("")}
         <label class="pbtn">${ic('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>', 20)}<i>Fotoğraf çek</i><input type="file" accept="image/*" capture="environment" hidden></label>
         <label class="pbtn">${ic('<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.5"/><path d="M21 16l-5-5-8 9"/>', 20)}<i>Resim ekle</i><input type="file" accept="image/*" multiple hidden></label></div>
-      <span class="hd">ALINAN AKSİYON</span><textarea class="inp" id="gfxTx" rows="4" style="min-height:96px;height:auto;padding:10px;resize:vertical" placeholder="Ne yapıldı? Tarihi ve yapılan işi yazın.">${esc(prev?.req.tx || "")}</textarea>
+      <span class="hd">ALINAN AKSİYON</span><button type="button" class="nb" id="gfxNb" aria-label="Aksiyon açıklamasını yaz veya düzenle"><span class="nt" style="color:${txt.trim() ? "var(--text)" : "#6B7F79"}">${esc(txt.trim() ? txt : "Dokunun ve yazın: ne yapıldı?")}</span>${ic('<path d="M4 20h4L19 9l-4-4L4 16v4z"/>', 18)}</button>
       <span class="muted" style="font-size:12px">Açıklama zorunludur. Gönderince yetkili kullanıcıya bildirim gider; kabul edilene kadar puana yansımaz.</span>
       <button data-send style="height:46px;background:#0B6E4F;border-color:#0B6E4F;color:#fff;font-weight:700">Aksiyonu yetkiliye gönder</button></div>`;
-    const tx = m.querySelector("#gfxTx");
+    m.querySelector("#gfxNb").onclick = async () => { const r = await noteEditor({ title: "Alınan aksiyon", item: r0.t, text: txt, question: "Ne yapıldı? Alınan aksiyonu yazın.", example: "Örn. Koruyucu kapak yerine takıldı, devre dışı bırakma bağlantısı kaldırıldı." }); if (r !== null) { txt = r; draw2(); } };
     m.querySelector("[data-x]").onclick = () => m.remove();
     m.querySelectorAll("img[src]").forEach(im => { if (im.closest(".pth") && !im.dataset.pv) im.onclick = () => showPhoto(im.getAttribute("src")); });
-    m.querySelectorAll("[data-rm]").forEach(b => b.onclick = e => { e.stopPropagation(); const pid = b.dataset.rm; ph = ph.filter(p => p.id !== pid); S.deletePhoto(st.fid, st.year, pid).catch(() => {}); const v = tx.value; draw2(); m.querySelector("#gfxTx").value = v; });
+    m.querySelectorAll("[data-rm]").forEach(b => b.onclick = e => { e.stopPropagation(); const pid = b.dataset.rm; ph = ph.filter(p => p.id !== pid); S.deletePhoto(st.fid, st.year, pid).catch(() => {}); draw2(); });
     m.querySelectorAll("input[type=file]").forEach(inp => inp.onchange = async () => {
-      const files = [...inp.files]; inp.value = ""; if (!files.length) return; const v = tx.value; let n = 0;
+      const files = [...inp.files]; inp.value = ""; if (!files.length) return; let n = 0;
       for (const f of files) { try { const { full, thumb } = await compressImage(f), pid = "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); await S.savePhoto(st.fid, st.year, pid, full); ph.push({ id: pid, t: thumb }); n++; } catch (e) { toast("Fotoğraf eklenemedi: " + (e.message || e)); } }
-      draw2(); m.querySelector("#gfxTx").value = v;
+      draw2();
     });
     m.querySelector("[data-send]").onclick = async e => {
-      const text = tx.value.trim(); if (!text) return toast("Alınan aksiyonu yazın.");
+      const text = txt.trim(); if (!text) return toast("Alınan aksiyonu yazın.");
       e.target.disabled = true;
       const reqs = {}; D.fxList.forEach(x => { reqs[x.key] = x.req; }); reqs[key] = { t: r.t, tx: text, ph, at: Date.now(), gn: GUEST.name };
       try {
@@ -626,7 +628,7 @@ function bind(v, c) {
   on("[data-reopen]", async el => {
     const no = +el.dataset.reopen, t = doc.sessions.find(x => x.no === no); if (!t) return;
     if (doc.draft.on !== false && Object.keys(doc.draft.marks || {}).length && doc.draft.edit !== no) {
-      const { confirmBox } = await import("./ui.js?v=20261021f");
+      const { confirmBox } = await import("./ui.js?v=20261021g");
       if (!(await confirmBox(`${no}. denetim açılsın mı?`, "Şu an açık olan denetimde kaydedilmemiş değişiklikler varsa kaybolur. Önce “Kaydet”e basmanız önerilir.", "Yine de aç"))) return;
     }
     if (t.no === doc.sessions.length) t.closed = false;
@@ -644,7 +646,7 @@ function bind(v, c) {
   });
   const gAll = async () => (await S.listMonthDocs(st.fid, st.year, "isgg").catch(() => [])).filter(g => g.id.startsWith(`${pad(D.month)}_${D.dept}_`));
   on("[data-delsess]", async el => {
-    const { confirmBox } = await import("./ui.js?v=20261021f");
+    const { confirmBox } = await import("./ui.js?v=20261021g");
     const no = +el.dataset.delsess, ix = doc.sessions.findIndex(x => x.no === no); if (ix < 0) return;
     const gone = doc.sessions[ix], later = ix < doc.sessions.length - 1, all = await gAll(), gAp = all.filter(g => g.status === "approved" && g.no === gone.no);
     let mode = "all";
@@ -669,7 +671,7 @@ function bind(v, c) {
   });
   // Sahip: misafir taslağını tamamen sil (denetime ve rapora hiç girmez)
   const delG = async g => {
-    const { confirmBox } = await import("./ui.js?v=20261021f");
+    const { confirmBox } = await import("./ui.js?v=20261021g");
     if (!(await confirmBox("Misafir taslağı silinsin mi?", `${g.guestName} taslağı ve fotoğrafları kalıcı olarak silinir; denetime ve rapora hiç girmez. Misafir isterse yeniden yazabilir.`, "Evet, tamamen sil", true))) return false;
     Object.values(g.draft?.photos || {}).flat().forEach(p => S.deletePhoto(st.fid, st.year, p.id).catch(() => {}));
     await S.deleteMonthDoc(st.fid, st.year, "isgg", g.id); await Guest.inboxDelete(`${g.guestUid}_${st.fid}_${st.year}_${+g.month}_${g.dept}`);
@@ -680,7 +682,7 @@ function bind(v, c) {
   const holOK = async date => {
     if (!date || GUEST.on || D.okHol?.has(date)) return true;
     const h = tatilMap(await tatilYukle(st.fid, st.year).catch(() => null)).get(date); if (!h || h.yarim) return true;
-    const { confirmBox } = await import("./ui.js?v=20261021f");
+    const { confirmBox } = await import("./ui.js?v=20261021g");
     if (!(await confirmBox("İzin / tatil günü", `${fmtTarih(date)} tarihi "${h.ad}" olarak izinli/tatil işaretli. Yine de bu tarihle denetim yapılsın mı?`, "Evet, kabul et"))) return false;
     (D.okHol ||= new Set()).add(date); return true;
   };
@@ -797,7 +799,11 @@ function bind(v, c) {
   v.querySelectorAll("details.ak[data-fk]").forEach(el => el.addEventListener("toggle", () => { el.open ? D.fxOpen.add(el.dataset.fk) : D.fxOpen.delete(el.dataset.fk); }));
   on("[data-fxrev]", el => { const [key, gu] = el.dataset.fxrev.split("|").length > 3 ? [el.dataset.fxrev.split("|").slice(0, 3).join("|"), el.dataset.fxrev.split("|")[3]] : [el.dataset.fxrev, ""]; const pd = D.fxPend.find(x => x.key === key && x.guestUid === gu); if (pd) fxReview(pd); });
   const fxSess = key => { const [no, id, j] = key.split("|"); const s = doc.sessions.find(x => x.no === +no); return { s, id, j: +j, fk: id + "|" + j }; };
-  v.querySelectorAll("[data-fxtx]").forEach(el => el.oninput = () => { (D.fxDraft[el.dataset.fxtx] ||= { tx: "", ph: [] }).tx = el.value; });
+  on("[data-fxnb]", async el => {
+    const key = el.dataset.fxnb, { s, id, j } = fxSess(key), dr = (D.fxDraft[key] ||= { tx: "", ph: [] });
+    const r = await noteEditor({ title: "Alınan aksiyon", item: (s?.fails?.[id] || [])[j] || "", text: dr.tx, question: "Ne yapıldı? Alınan aksiyonu yazın.", example: "Örn. Koruyucu kapak yerine takıldı, devre dışı bırakma bağlantısı kaldırıldı." });
+    if (r === null) return; dr.tx = r; D.fxOpen.add(key); draw();
+  });
   v.querySelectorAll("input[data-fxph]").forEach(inp => inp.onchange = async () => {
     const key = inp.dataset.fxph, files = [...inp.files]; inp.value = ""; if (!files.length) return; D.msg = "Fotoğraf hazırlanıyor…"; setSv();
     for (const f of files) { try { const { full, thumb } = await compressImage(f), pid = "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); await S.savePhoto(st.fid, st.year, pid, full); (D.fxDraft[key] ||= { tx: "", ph: [] }).ph.push({ id: pid, t: thumb }); } catch (e) { toast("Fotoğraf eklenemedi: " + (e.message || e)); } }
@@ -828,7 +834,7 @@ function bind(v, c) {
   });
   on("[data-fxdel]", async el => {
     const { s, fk } = fxSess(el.dataset.fxdel); if (!s?.fixed?.[fk]) return;
-    const { confirmBox } = await import("./ui.js?v=20261021f");
+    const { confirmBox } = await import("./ui.js?v=20261021g");
     if (!(await confirmBox("Aksiyon kaldırılsın mı?", "Aksiyon bilgisi silinir; bulgu yeniden cezaya sayılır.", "Evet, kaldır", true))) return;
     const old = s.fixed[fk]; delete s.fixed[fk];
     if ((await persist(true)) === false) { s.fixed[fk] = old; return toast("Kaydedilemedi."); }
