@@ -3,8 +3,8 @@
 //   users/{sahip}/invites/{kod}        davet (e-posta ayarı kopyası)
 //   users/{sahip}/guestReqs/{misafirUid}  onay isteği {gid, code, name, unit, status, at}
 //   users/{sahip}/members/{misafirUid}    onaylı üye {name, unit, factories[], mode, expires|null}
-import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously } from "./firebase.js?v=20261022c";
-import { esc, toast, confirmBox } from "./ui.js?v=20261022c";
+import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously } from "./firebase.js?v=20261022d";
+import { esc, toast, confirmBox } from "./ui.js?v=20261022d";
 
 const Q = new URLSearchParams(location.search);
 export const linkInfo = () => {
@@ -200,10 +200,13 @@ const PPL = (o, p) => doc(db, `users/${o}/guestPeople/${p}`);
 const normName = s => String(s || "").replace(/İ/g, "i").replace(/I/g, "i").toLowerCase().replace(/[ıçğöşü]/g, c => ({ ı: "i", ç: "c", ğ: "g", ö: "o", ş: "s", ü: "u" })[c]).replace(/\s+/g, " ").trim();
 const GCOLLS = ["isgg", "konusmag", "isbasig", "kazag", "ramak"];
 const loadPeople = async o => getDocs(collection(db, `users/${o}/guestPeople`)).then(s => s.docs.map(d => ({ id: d.id, ...d.data() }))).catch(() => []);
-const newPid = taken => { const A = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; for (;;) { const p = Array.from(crypto.getRandomValues(new Uint8Array(4)), b => A[b % A.length]).join(""); if (!taken.has(p)) return p; } };
+const newPid = taken => { // 6 hane, serbest dizilim; en az 2 harf ve en az 2 rakam (karışan I, O, L, 0, 1 kullanılmaz)
+  const L = "ABCDEFGHJKMNPQRSTUVWXYZ", N = "23456789", A = L + N;
+  for (;;) { const p = Array.from(crypto.getRandomValues(new Uint8Array(6)), b => A[b % A.length]).join(""), n = [...p].filter(c => N.includes(c)).length; if (n >= 2 && n <= 4 && !taken.has(p)) return p; }
+};
 // Önceki kayıtları bul: kişi kaydı (ID) + adı eşleşen, sahibi artık üye olmayan (sahipsiz) taslaklar
 async function findPrev(o, name, gid) {
-  const S = await import("./store.js?v=20261022c"), n = normName(name);
+  const S = await import("./store.js?v=20261022d"), n = normName(name);
   const people = (await loadPeople(o)).filter(p => p.norm === n);
   const mems = await getDocs(collection(db, `users/${o}/members`)).then(s => new Set(s.docs.map(d => d.id))).catch(() => new Set());
   const uids = new Set(); people.forEach(p => (p.uids || []).forEach(u => { if (u !== gid && !mems.has(u)) uids.add(u); }));
@@ -217,7 +220,7 @@ async function findPrev(o, name, gid) {
   return { person: people[0] || null, pid: people[0]?.id || null, uids, count };
 }
 async function migrateGuest(oldUids, newUid, name) {
-  const S = await import("./store.js?v=20261022c"); let n = 0;
+  const S = await import("./store.js?v=20261022d"); let n = 0;
   for (const f of await S.listFactories()) for (const y of await S.listYears(f.id)) for (const c of GCOLLS) {
     const all = await S.listMonthDocs(f.id, y, c), ids = new Set(all.map(d => d.id));
     for (const d of all) {
