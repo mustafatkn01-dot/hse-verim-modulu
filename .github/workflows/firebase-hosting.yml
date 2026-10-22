@@ -1,0 +1,21 @@
+# main'e her gönderimde siteyi Firebase Hosting'e (hse-verim-modulu.web.app) yayınlar.
+# GitHub Pages yayını bundan bağımsız sürer. FIREBASE_SERVICE_ACCOUNT gizli anahtarı yoksa bu iş sessizce atlanır.
+name: Firebase Hosting
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+    steps:
+      - uses: actions/checkout@v4
+        if: env.SA != ''
+      - uses: FirebaseExtended/action-hosting-deploy@v0
+        if: env.SA != ''
+        with:
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: hse-verim-modulu
+          channelId: live
