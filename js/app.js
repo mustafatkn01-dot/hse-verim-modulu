@@ -1,20 +1,20 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261022l";
-import * as S from "./store.js?v=20261022l";
-import * as Prim from "./primary.js?v=20261022l";
-import * as Denetim from "./denetim.js?v=20261022l";
-import * as Kaza from "./kaza.js?v=20261022l";
-import * as Konusma from "./konusma.js?v=20261022l";
-import * as Ramak from "./ramak.js?v=20261022l";
-import * as Genel from "./genel.js?v=20261022l";
-import * as Rapor from "./rapor.js?v=20261022l";
-import * as Verim from "./verim.js?v=20261022l";
-import * as Isbasi from "./isbasi.js?v=20261022l";
-import * as Guest from "./guest.js?v=20261022l";
-import * as Yontem from "./yontem.js?v=20261022l";
-import * as Tatil from "./tatil.js?v=20261022l";
-import * as Gorev from "./gorev.js?v=20261022l";
-import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261022l";
-import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261022l";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261022m";
+import * as S from "./store.js?v=20261022m";
+import * as Prim from "./primary.js?v=20261022m";
+import * as Denetim from "./denetim.js?v=20261022m";
+import * as Kaza from "./kaza.js?v=20261022m";
+import * as Konusma from "./konusma.js?v=20261022m";
+import * as Ramak from "./ramak.js?v=20261022m";
+import * as Genel from "./genel.js?v=20261022m";
+import * as Rapor from "./rapor.js?v=20261022m";
+import * as Verim from "./verim.js?v=20261022m";
+import * as Isbasi from "./isbasi.js?v=20261022m";
+import * as Guest from "./guest.js?v=20261022m";
+import * as Yontem from "./yontem.js?v=20261022m";
+import * as Tatil from "./tatil.js?v=20261022m";
+import * as Gorev from "./gorev.js?v=20261022m";
+import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261022m";
+import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261022m";
 const PEND_META = { isbasig: ["isbasi", "İşbaşı Eğitim"], konusmag: ["konusma", "Eğitim Konuşması"], kazag: ["kaza", "İş Kazası"] };
 
 const VERSION = "1.7.0";
@@ -485,7 +485,7 @@ async function pageAyarlar(v) {
   const started = st.yearsAll.filter(y => +y <= cy), futYear = st.yearsAll.find(y => +y > cy), lastStarted = started[started.length - 1];
   if (!yilKeep) yilSel = null; const yOpen = yilKeep; yilKeep = false;
   const yItems = [...st.yearsMeta].sort((p, q) => +p.id - +q.id).map(m => ({ y: String(m.id), meta: m }));
-  yItems.push({ y: yItems.length ? String(+yItems[yItems.length - 1].y + 1) : String(cy), nw: true });
+  const nextV = yItems.length ? String(+yItems[yItems.length - 1].y + 1) : String(cy);
   const nextRaw = lastStarted ? String(+lastStarted + 1) : String(cy), canStart = !futYear && +nextRaw <= cy, next = nextRaw;
   const counts = {};
   await Promise.all(st.all.map(async f => {
@@ -536,7 +536,7 @@ async function pageAyarlar(v) {
         <div class="fg"><input id="nf" class="inp" placeholder="Fabrika adı" aria-label="Fabrika adı"><input id="nl" class="inp" placeholder="Konum (örn. Gebze)" aria-label="Konum"></div>
         <div><button id="addF">+ Fabrika ekle</button></div></div></div></div>
 
-    <div class="cd" style="gap:14px">${accHead("yil", "Yıllar", st.yearsMeta.length + " yıl" + (st.active ? " · aktif: " + st.active : ""))}${accBody}<div class="muted" style="font-size:13px">Veriler yıl bazında saklanır. Yalnızca aktif yıl düzenlenebilir, arşiv yıllarını üstteki yıl seçiciden inceleyebilir, gerekirse “Aktif yap” ile tekrar düzenlemeye açabilirsiniz. Yeni yıl başlatınca Genel Bakış sayfasının altında “Yıllar Arası Karşılaştırma” kartı iki yılı kıyaslar.</div>
+    <div class="cd" style="gap:14px">${accHead("yil", "Yıllar", st.yearsMeta.length + " yıl" + (st.active ? " · aktif: " + st.active : ""))}${accBody}
       ${st.fid ? '<div id="yStep" class="col1" style="gap:12px"></div>' : '<span class="muted">Seçili fabrikada yıl yok.</span>'}</div></div>
     <div class="cd" style="gap:14px">${accHead("tema", "Görünüm", esc(THEMES.find(t => t[0] === theme)?.[1] || ""))}${accBody}<div class="muted" style="font-size:13px">Tema seçimi bu cihazda saklanır.</div>
       <div class="th">${THEMES.map(([k, n, sd, bg, cd]) => `<button class="tb ${k === theme ? "on" : ""}" data-theme="${k}" aria-pressed="${k === theme}">
@@ -602,10 +602,9 @@ async function pageAyarlar(v) {
   };
   // Yıllar: ok işaretleriyle gezilen tek yıl kartı (yalnızca mevcut yıllar + bir sonraki yıl)
   const yEl = $("yStep"), fi = yItems.findIndex(x => x.y === String(yilSel ?? st.active));
-  let yi = fi >= 0 ? fi : Math.max(0, yItems.length - 2);
+  let yi = fi >= 0 ? fi : Math.max(0, yItems.length - 1);
   const yState = it => {
     const y = it.y;
-    if (it.nw) return +y <= cy ? { k: "rdy", label: "Başlatılabilir", hint: "Yeni yıl başlatılınca bölümler ve parametreler önceki yıldan kopyalanır. Tatil takvimi kopyalanmaz: <b>Kurulum → Tatil Takvimi</b> kartından bayramları kontrol edin." } : { k: "gry", label: "Henüz başlamadı", hint: `1 Ocak ${y} tarihinde başlatılabilir.` };
     if (String(y) === String(st.active)) return { k: "act", label: "Aktif" };
     if (it.meta.archived) return { k: "arc", label: "Arşivde" };
     if (+y > cy) return { k: "gry", label: "Henüz başlamadı", hint: `1 Ocak ${y} tarihinde aktif yapılabilir.` };
@@ -635,16 +634,21 @@ async function pageAyarlar(v) {
   };
   const drawY = () => {
     if (!yEl) return;
-    const it = yItems[yi], s = yState(it), b = (a, t, c = "sec", dis = false) => `<button class="sm ${c}" data-ya="${a}" ${dis ? "disabled" : ""}>${t}</button>`;
-    let acts;
-    if (it.nw) acts = b("new", "Yıl başlat", "ypri", s.k !== "rdy");
-    else if (s.k === "act") acts = '<span class="muted">Düzenlemeye açık yıl</span>';
-    else if (it.meta.archived) acts = b("unarch", "Arşivden çıkar") + b("del", "Sil", "sec yrm");
-    else acts = b("act", "Aktif yap", "ypri", +it.y > cy) + (+it.y > cy ? "" : b("arch", "Arşivle")) + b("del", "Sil", "sec yrm");
-    yEl.innerHTML = `<div class="yst"><button class="sec yab" data-yn="-1" aria-label="Önceki yıl" ${yi <= 0 ? "disabled" : ""}>‹</button><div class="ybx ${s.k}"><b>${it.y}</b><span>${s.label}</span></div><button class="sec yab" data-yn="1" aria-label="Sonraki yıl" ${yi >= yItems.length - 1 ? "disabled" : ""}>›</button></div>
+    const it = yItems[yi], s = it ? yState(it) : { k: "gry", label: "" }, b = (a, t, c = "sec", dis = false) => `<button class="sm ${c}" data-ya="${a}" ${dis ? "disabled" : ""}>${t}</button>`;
+    let acts = "";
+    if (it) {
+      if (s.k === "act") acts = '<span class="muted">Düzenlemeye açık yıl</span>';
+      else if (it.meta.archived) acts = b("unarch", "Arşivden çıkar") + b("del", "Sil", "sec yrm");
+      else acts = b("act", "Aktif yap", "ypri", +it.y > cy) + (+it.y > cy ? "" : b("arch", "Arşivle")) + b("del", "Sil", "sec yrm");
+    }
+    // Son kayıtlı yılda: bir sonraki yılı başlat düğmesi (1 Ocak'a kadar gri pasif, sonra yeşil çerçeveli)
+    if (!it || yi === yItems.length - 1) acts += b("new", `+ ${nextV} yıl başlat`, "sec ynew", +nextV > cy);
+    yEl.innerHTML = `<div class="yst"><button class="sec yab" data-yn="-1" aria-label="Önceki yıl" ${yi <= 0 ? "disabled" : ""}>‹</button>
+      <div class="yctr">${it ? `<div class="yyr ${s.k === "act" ? "" : "dimc"}">${it.y}</div><span class="ypl ${s.k}">${s.label}</span><span class="ypos">${yi + 1} / ${yItems.length}</span>` : '<span class="muted">Kayıtlı yıl yok</span>'}</div>
+      <button class="sec yab" data-yn="1" aria-label="Sonraki yıl" ${yi >= yItems.length - 1 ? "disabled" : ""}>›</button></div>
       ${s.hint ? `<div class="muted" style="text-align:center;font-size:12.5px;line-height:1.55">${s.hint}</div>` : ""}<div class="yact">${acts}</div>`;
     yEl.querySelectorAll("[data-yn]").forEach(x => x.onclick = () => { yi += +x.dataset.yn; drawY(); });
-    yEl.querySelectorAll("[data-ya]").forEach(x => x.onclick = () => yRun(x.dataset.ya, it));
+    yEl.querySelectorAll("[data-ya]").forEach(x => x.onclick = () => yRun(x.dataset.ya, x.dataset.ya === "new" ? { y: nextV } : it));
   };
   drawY();
   if ($("gvBtn")) {
