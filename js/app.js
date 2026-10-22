@@ -1,20 +1,20 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261022i";
-import * as S from "./store.js?v=20261022i";
-import * as Prim from "./primary.js?v=20261022i";
-import * as Denetim from "./denetim.js?v=20261022i";
-import * as Kaza from "./kaza.js?v=20261022i";
-import * as Konusma from "./konusma.js?v=20261022i";
-import * as Ramak from "./ramak.js?v=20261022i";
-import * as Genel from "./genel.js?v=20261022i";
-import * as Rapor from "./rapor.js?v=20261022i";
-import * as Verim from "./verim.js?v=20261022i";
-import * as Isbasi from "./isbasi.js?v=20261022i";
-import * as Guest from "./guest.js?v=20261022i";
-import * as Yontem from "./yontem.js?v=20261022i";
-import * as Tatil from "./tatil.js?v=20261022i";
-import * as Gorev from "./gorev.js?v=20261022i";
-import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261022i";
-import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261022i";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261022j";
+import * as S from "./store.js?v=20261022j";
+import * as Prim from "./primary.js?v=20261022j";
+import * as Denetim from "./denetim.js?v=20261022j";
+import * as Kaza from "./kaza.js?v=20261022j";
+import * as Konusma from "./konusma.js?v=20261022j";
+import * as Ramak from "./ramak.js?v=20261022j";
+import * as Genel from "./genel.js?v=20261022j";
+import * as Rapor from "./rapor.js?v=20261022j";
+import * as Verim from "./verim.js?v=20261022j";
+import * as Isbasi from "./isbasi.js?v=20261022j";
+import * as Guest from "./guest.js?v=20261022j";
+import * as Yontem from "./yontem.js?v=20261022j";
+import * as Tatil from "./tatil.js?v=20261022j";
+import * as Gorev from "./gorev.js?v=20261022j";
+import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261022j";
+import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261022j";
 const PEND_META = { isbasig: ["isbasi", "İşbaşı Eğitim"], konusmag: ["konusma", "Eğitim Konuşması"], kazag: ["kaza", "İş Kazası"] };
 
 const VERSION = "1.7.0";
@@ -532,16 +532,16 @@ async function pageAyarlar(v) {
         <div class="fg"><input id="nf" class="inp" placeholder="Fabrika adı" aria-label="Fabrika adı"><input id="nl" class="inp" placeholder="Konum (örn. Gebze)" aria-label="Konum"></div>
         <div><button id="addF">+ Fabrika ekle</button></div></div></div></div>
 
-    <div class="cd"><div><h2>Yıllar</h2><div class="muted" style="font-size:13px">Veriler yıl bazında saklanır. Yalnızca aktif yıl düzenlenebilir, arşiv yıllarını üstteki yıl seçiciden inceleyebilir, gerekirse “Aktif yap” ile tekrar düzenlemeye açabilirsiniz. Yeni yıl başlatınca Genel Bakış sayfasının altında “Yıllar Arası Karşılaştırma” kartı iki yılı kıyaslar.</div></div>
+    <div class="cd" style="gap:14px">${accHead("yil", "Yıllar", st.yearsMeta.length + " yıl" + (st.active ? " · aktif: " + st.active : ""))}${accBody}<div class="muted" style="font-size:13px">Veriler yıl bazında saklanır. Yalnızca aktif yıl düzenlenebilir, arşiv yıllarını üstteki yıl seçiciden inceleyebilir, gerekirse “Aktif yap” ile tekrar düzenlemeye açabilirsiniz. Yeni yıl başlatınca Genel Bakış sayfasının altında “Yıllar Arası Karşılaştırma” kartı iki yılı kıyaslar.</div></div>
       <div class="ygrid">${st.yearsMeta.map(m => { const y = m.id, a = String(y) === String(st.active), fut = +y > cy, ar = m.archived;
         const stt = a ? "Aktif" : fut ? "Henüz başlamadı" : ar ? "Arşivde" : "Salt okunur";
         const btn = a || fut ? `<span class="ys">${stt}</span>` : ar ? `<button class="sec yb" data-unarch="${y}">Arşivden çıkar</button>` : `<button class="sec yb" data-actyear="${y}">Aktif yap</button>`;
         return `<div class="ycard ${a ? "cur" : ""} ${ar || fut ? "dim" : ""}" title="${stt}"><button class="yx" data-yx="${y}" aria-label="${y} yılı için seçenekler">×</button><b class="yn">${y}</b>${btn}</div>`; }).join("")}${st.fid && canStart ? `<button class="ycard add" id="newY"><b class="yn">+ ${next}</b><span class="ys">Yıl başlat</span></button>` : ""}${st.fid ? "" : '<span class="muted">Seçili fabrikada yıl yok.</span>'}</div>
       ${st.fid && !canStart ? `<div class="muted" style="font-size:12.5px;line-height:1.6">${futYear ? `${futYear} yılı henüz başlamadı; 1 Ocak ${futYear} tarihinde "Aktif yap" ile başlatılabilir.` : `Yeni yıl (${next}), mevcut yıl bitmeden eklenemez; 1 Ocak ${next} tarihinde başlatılabilir.`} Bugünün tarihi: ${new Date().toLocaleDateString("tr-TR")}.</div>` : ""}
-      ${canStart ? '<div class="muted" style="font-size:12.5px">Yeni yıl başlatılınca bölümler ve parametreler önceki yıldan kopyalanır. Tatil takvimi kopyalanmaz: yeni yılda <b>Kurulum → Tatil Takvimi</b> kartını açıp dini bayramları kontrol edin (senkronize simgesi veya özel gün ekleme).</div>' : ""}</div>
-    <div class="cd"><div><h2>Görünüm</h2><div class="muted" style="font-size:13px">Tema seçimi bu cihazda saklanır.</div></div>
+      ${canStart ? '<div class="muted" style="font-size:12.5px">Yeni yıl başlatılınca bölümler ve parametreler önceki yıldan kopyalanır. Tatil takvimi kopyalanmaz: yeni yılda <b>Kurulum → Tatil Takvimi</b> kartını açıp dini bayramları kontrol edin (senkronize simgesi veya özel gün ekleme).</div>' : ""}</div></div>
+    <div class="cd" style="gap:14px">${accHead("tema", "Görünüm", esc(THEMES.find(t => t[0] === theme)?.[1] || ""))}${accBody}<div class="muted" style="font-size:13px">Tema seçimi bu cihazda saklanır.</div>
       <div class="th">${THEMES.map(([k, n, sd, bg, cd]) => `<button class="tb ${k === theme ? "on" : ""}" data-theme="${k}" aria-pressed="${k === theme}">
-        <div class="pv"><div style="flex:0 0 28%;background:${sd}"></div><div style="flex:1;background:${bg};display:flex;flex-direction:column;gap:5px;padding:7px"><div style="height:8px;border-radius:4px;background:${cd}"></div><div style="height:8px;width:60%;border-radius:4px;background:#17A06F"></div></div></div><b>${n}</b></button>`).join("")}</div></div>
+        <div class="pv"><div style="flex:0 0 28%;background:${sd}"></div><div style="flex:1;background:${bg};display:flex;flex-direction:column;gap:5px;padding:7px"><div style="height:8px;border-radius:4px;background:${cd}"></div><div style="height:8px;width:60%;border-radius:4px;background:#17A06F"></div></div></div><b>${n}</b></button>`).join("")}</div></div></div>
 
     <div class="cd" style="gap:14px"><button type="button" id="uaTg" aria-expanded="false" aria-label="Uygulama ve Senkronizasyon bölümünü aç" style="display:flex;align-items:center;gap:12px;width:100%;min-height:40px;height:auto;padding:0;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer"><span style="flex:1;min-width:0"><h2 style="margin:0">Uygulama ve Senkronizasyon</h2><div class="muted" style="font-size:13px;margin-top:4px;font-weight:600">Sürüm ${VERSION}</div></span><span style="flex:0 0 40px;width:40px;height:40px;border-radius:12px;border:1.5px solid var(--gd);color:var(--gd);box-sizing:border-box;display:flex;align-items:center;justify-content:center"><svg id="uaCh" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="transition:transform .15s"><path d="M6 9l6 6 6-6"/></svg></span></button>
       <div class="col1" id="uaBody" data-ua hidden style="gap:14px;border-top:1px solid var(--line);padding-top:14px">
@@ -577,7 +577,7 @@ async function pageAyarlar(v) {
   $("askOut").onclick = () => $("modal").classList.remove("hide");
   $("noOut").onclick = () => $("modal").classList.add("hide");
   $("yesOut").onclick = doSignOut;
-  v.querySelectorAll("[data-theme]").forEach(b => b.onclick = () => { S.pref.set("theme", b.dataset.theme); applyTheme(); pageAyarlar(v); });
+  v.querySelectorAll("[data-theme]").forEach(b => b.onclick = () => { S.pref.set("theme", b.dataset.theme); applyTheme(); Promise.resolve(pageAyarlar(v)).then(() => v.querySelector("[data-acc=tema]")?.click()); });
   v.querySelectorAll("[data-act]").forEach(b => b.onclick = async () => { st.fid = b.dataset.act; S.pref.set("fid", st.fid); await loadYears(); say("Aktif fabrika değiştirildi."); pageAyarlar(v); });
   v.querySelectorAll("[data-edit]").forEach(b => b.onclick = async () => {
     const f = st.all.find(x => x.id === b.dataset.edit);
