@@ -3,8 +3,8 @@
 //   users/{sahip}/invites/{kod}        davet (e-posta ayarı kopyası)
 //   users/{sahip}/guestReqs/{misafirUid}  onay isteği {gid, code, name, unit, status, at}
 //   users/{sahip}/members/{misafirUid}    onaylı üye {name, unit, factories[], mode, expires|null}
-import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously } from "./firebase.js?v=20261022b";
-import { esc, toast, confirmBox } from "./ui.js?v=20261022b";
+import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously } from "./firebase.js?v=20261022c";
+import { esc, toast, confirmBox } from "./ui.js?v=20261022c";
 
 const Q = new URLSearchParams(location.search);
 export const linkInfo = () => {
@@ -194,6 +194,43 @@ export function watchRequests(ownerUid, cb) {
 }
 
 // ---------------- Sahip: onay penceresi ----------------
+// ---- Kişi kaydı (kalıcı ID): misafir ayrılıp aynı ad soyadla yeniden katılırsa önceki kayıtları devam eder ----
+// users/{sahip}/guestPeople/{ID} = { name, norm, unit, uids: [eski ve yeni misafir uid'leri], createdAt }
+const PPL = (o, p) => doc(db, `users/${o}/guestPeople/${p}`);
+const normName = s => String(s || "").replace(/İ/g, "i").replace(/I/g, "i").toLowerCase().replace(/[ıçğöşü]/g, c => ({ ı: "i", ç: "c", ğ: "g", ö: "o", ş: "s", ü: "u" })[c]).replace(/\s+/g, " ").trim();
+const GCOLLS = ["isgg", "konusmag", "isbasig", "kazag", "ramak"];
+const loadPeople = async o => getDocs(collection(db, `users/${o}/guestPeople`)).then(s => s.docs.map(d => ({ id: d.id, ...d.data() }))).catch(() => []);
+const newPid = taken => { const A = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; for (;;) { const p = Array.from(crypto.getRandomValues(new Uint8Array(4)), b => A[b % A.length]).join(""); if (!taken.has(p)) return p; } };
+// Önceki kayıtları bul: kişi kaydı (ID) + adı eşleşen, sahibi artık üye olmayan (sahipsiz) taslaklar
+async function findPrev(o, name, gid) {
+  const S = await import("./store.js?v=20261022c"), n = normName(name);
+  const people = (await loadPeople(o)).filter(p => p.norm === n);
+  const mems = await getDocs(collection(db, `users/${o}/members`)).then(s => new Set(s.docs.map(d => d.id))).catch(() => new Set());
+  const uids = new Set(); people.forEach(p => (p.uids || []).forEach(u => { if (u !== gid && !mems.has(u)) uids.add(u); }));
+  let count = 0;
+  for (const f of await S.listFactories()) for (const y of await S.listYears(f.id)) for (const c of GCOLLS) {
+    for (const d of await S.listMonthDocs(f.id, y, c)) {
+      const u = d.guestUid; if (!u || u === gid || mems.has(u)) continue;
+      if (uids.has(u) || normName(d.guestName) === n) { uids.add(u); count++; }
+    }
+  }
+  return { person: people[0] || null, pid: people[0]?.id || null, uids, count };
+}
+async function migrateGuest(oldUids, newUid, name) {
+  const S = await import("./store.js?v=20261022c"); let n = 0;
+  for (const f of await S.listFactories()) for (const y of await S.listYears(f.id)) for (const c of GCOLLS) {
+    const all = await S.listMonthDocs(f.id, y, c), ids = new Set(all.map(d => d.id));
+    for (const d of all) {
+      const ou = [...oldUids].find(u => d.guestUid === u); if (!ou) continue;
+      const nid = d.id.split(ou).join(newUid); if (ids.has(nid)) continue;
+      const { id, updatedAt, ...rest } = d;
+      await S.saveMonthDoc(f.id, y, c, nid, { ...rest, guestUid: newUid, guestName: name });
+      await S.deleteMonthDoc(f.id, y, c, d.id); n++;
+    }
+  }
+  return n;
+}
+
 export async function approvalDialog(ownerUid, gid, factories, done) {
   let req = null; try { const d = await getDoc(REQ(ownerUid, gid)); req = d.exists() ? d.data() : null; } catch {}
   const m = document.createElement("div"); m.className = "mod";
@@ -203,15 +240,27 @@ export async function approvalDialog(ownerUid, gid, factories, done) {
   m.innerHTML = `<div class="mbox" role="dialog" aria-modal="true" style="gap:14px"><h2>Misafir erişim isteği</h2>
     <div style="line-height:1.6"><div class="row" style="gap:8px;flex-wrap:nowrap" id="gNmRow"><b style="font-size:17px" id="gNm">${esc(req.name)}</b><button type="button" class="sm sec" id="gNmEd" aria-label="Adı düzenle" title="Adı düzenle" style="flex:0 0 32px;width:32px;height:32px;min-height:0;padding:0;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg></button></div><span class="muted">${[esc(req.unit || req.email || ""), ago(req.at)].filter(Boolean).join(" · ")}</span></div>
     ${done0 ? `<div class="warn">Bu istek zaten işlendi: ${req.status === "approved" ? "onaylandı" : "reddedildi"}. İsterseniz yeniden onay verebilirsiniz.</div>` : ""}
+    <div id="gMerge"></div>
     <div class="col1" style="gap:8px"><span class="hd">ERİŞİM VERİLECEK FABRİKA</span>
       ${factories.length > 1 ? `<select id="gFac" class="inp" style="font-weight:600">${factories.map(f => `<option value="${f.id}">${esc(f.name)}</option>`).join("")}</select>`
         : factories.length ? `<div class="inp ro" style="font-weight:600">${esc(factories[0].name)}</div>` : '<span class="muted">Fabrika yok</span>'}</div>
     <div class="muted" style="font-size:12.5px;line-height:1.5">Misafir; veri girişi yapar, İSG denetimini yalnızca kaydeder (tamamlama, silme, kurulum ve ayarlar yetkisi yoktur), raporları görür ve PDF alabilir.</div>
     <div class="col1" style="gap:8px"><button data-ok="perm">Süresiz onay</button><button class="sec" data-ok="24h">24 saatlik onay</button><button class="sec" data-ok="no" style="color:#B3261E;border-color:#B3261E">İptal (reddet)</button></div></div>`;
   document.body.appendChild(m);
+  let prev = null, lookSeq = 0;
+  const look = async nm => {
+    const box = m.querySelector("#gMerge"), seq = ++lookSeq; if (!box) return;
+    box.innerHTML = '<div class="muted" style="font-size:12.5px">Önceki kayıtlar aranıyor…</div>';
+    let r = null; try { r = await findPrev(ownerUid, nm, gid); } catch {}
+    if (seq !== lookSeq) return; prev = r;
+    if (!r || (!r.pid && !r.count)) { box.innerHTML = ""; return; }
+    box.innerHTML = `<div style="background:#EAF7F1;border:1px solid #A9DCC4;border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:6px"><div><b style="color:#0B6E4F">Daha önce kayıtlı bir kişi</b>${r.pid ? ` <span class="tag">ID ${esc(r.pid)}</span>` : ""}</div>${r.count ? `<label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;cursor:pointer"><input type="checkbox" id="gMg" checked style="margin-top:3px"><span>Önceki <b>${r.count}</b> taslak/bildirim kaydıyla birleştir, kaldığı yerden devam etsin. Başka biriyse işareti kaldırın.</span></label>` : '<div class="muted" style="font-size:12.5px">Devam edecek önceki kayıt yok; aynı ID ile kaydedilecek.</div>'}</div>`;
+  };
+  look(req.name);
   m.querySelector("#gNmEd")?.addEventListener("click", () => {
     const row = m.querySelector("#gNmRow"); if (row.querySelector("input")) return;
     row.innerHTML = `<input id="gNmI" class="inp" value="${esc(req.name)}" maxlength="60" style="flex:1;min-width:0;font-weight:700">`; row.querySelector("input").focus(); row.querySelector("input").select();
+    row.querySelector("input").addEventListener("change", e => { const v = e.target.value.trim(); if (v.length >= 3) look(v); });
   });
   m.querySelectorAll("[data-ok]").forEach(b => b.onclick = async () => {
     const mode = b.dataset.ok, nm = (m.querySelector("#gNmI")?.value || req.name).trim();
@@ -222,9 +271,12 @@ export async function approvalDialog(ownerUid, gid, factories, done) {
         const sel = m.querySelector("#gFac"), fs = sel ? [sel.value] : factories.slice(0, 1).map(f => f.id);
         if (!fs.length) { toast("Fabrika bulunamadı."); m.querySelectorAll("button").forEach(x => (x.disabled = false)); return; }
         const cg = await getDoc(doc(db, `users/${ownerUid}/meta/guestcfg`)).catch(() => null);
-        await setDoc(MEM(ownerUid, gid), { ntfy: cg?.exists() ? cg.data().ntfy || null : null, name: nm, unit: req.unit || "", factories: fs, mode, expires: mode === "24h" ? new Date(Date.now() + 864e5) : null, createdAt: Date.now() });
+        const ppl = await loadPeople(ownerUid), pid = prev?.pid || newPid(new Set(ppl.map(p => p.id))), merge = !!(m.querySelector("#gMg")?.checked && prev?.uids?.size);
+        await setDoc(PPL(ownerUid, pid), { name: nm, norm: normName(nm), unit: req.unit || "", createdAt: prev?.person?.createdAt || Date.now(), uids: [...new Set([...(prev?.person?.uids || []), ...(merge ? prev.uids : []), gid])] });
+        await setDoc(MEM(ownerUid, gid), { ntfy: cg?.exists() ? cg.data().ntfy || null : null, name: nm, unit: req.unit || "", pid, factories: fs, mode, expires: mode === "24h" ? new Date(Date.now() + 864e5) : null, createdAt: Date.now() });
+        let moved = 0; if (merge) { try { moved = await migrateGuest(prev.uids, gid, nm); } catch (e) { toast("Önceki kayıtlar taşınamadı: " + (e.message || e)); } }
         await updateDoc(REQ(ownerUid, gid), { status: "approved", decidedAt: Date.now() });
-        toast(`${nm} için ${mode === "24h" ? "24 saatlik" : "süresiz"} erişim onaylandı.`);
+        toast(`${nm} için ${mode === "24h" ? "24 saatlik" : "süresiz"} erişim onaylandı.${moved ? " " + moved + " önceki kayıt devam ettirildi." : ""}`);
       }
       close(); done?.();
     } catch (e) { toast("Kaydedilemedi: " + (e.message || e)); m.querySelectorAll("button").forEach(x => (x.disabled = false)); }
@@ -244,6 +296,9 @@ export async function renderSettings(box, { ownerUid, factories, onChange }) {
   const reqs = await getDocs(collection(db, `users/${ownerUid}/guestReqs`)).then(s => s.docs.map(d => ({ id: d.id, ...d.data() }))).catch(() => []);
   const mems = await getDocs(collection(db, `users/${ownerUid}/members`)).then(s => s.docs.map(d => ({ id: d.id, ...d.data() }))).catch(() => []);
   for (const m of mems) if ((m.ntfy || null) !== (cfg.ntfy || null)) { await updateDoc(MEM(ownerUid, m.id), { ntfy: cfg.ntfy || null }).catch(() => {}); m.ntfy = cfg.ntfy || null; }
+  { const ppl = await loadPeople(ownerUid), taken = new Set(ppl.map(p => p.id));
+    for (const m of mems) if (!m.pid) { const n = normName(m.name), ex = ppl.find(p => p.norm === n); const pid = ex?.id || newPid(taken); taken.add(pid);
+      try { await setDoc(PPL(ownerUid, pid), { name: m.name, norm: n, unit: m.unit || "", createdAt: ex?.createdAt || Date.now(), uids: [...new Set([...(ex?.uids || []), m.id])] }); await updateDoc(MEM(ownerUid, m.id), { pid }); m.pid = pid; } catch {} } }
   const inv0 = invs[0];
   if (inv0 && (cfg.ntfy || null) !== (inv0.ntfy || null)) { await updateDoc(doc(db, `users/${ownerUid}/invites/${inv0.id}`), { ntfy: cfg.ntfy || null }).catch(() => {}); inv0.ntfy = cfg.ntfy || null; }
   const inv = invs[0], link = inv ? `${location.origin}${location.pathname}?misafir=${ownerUid}.${inv.id}` : "";
@@ -254,7 +309,7 @@ export async function renderSettings(box, { ownerUid, factories, onChange }) {
       ${inv ? `<div class="row" style="flex-wrap:nowrap;gap:10px;align-items:stretch"><input class="inp" id="gLink" readonly value="${esc(link)}" onfocus="this.select()" style="flex:1;min-width:0"><button class="sm" id="gClose" aria-label="Davet bağlantısını kapat" title="Davet bağlantısını kapat" style="flex:0 0 32px;width:32px;height:32px;min-height:0;align-self:center;padding:0;background:#B3261E;border-color:#B3261E;color:#fff;font-size:26px;font-weight:400;line-height:1;display:grid;place-items:center;margin-right:6px">×</button></div><div class="row"><button class="sm" id="gCopy">Kopyala</button><button class="sm sec" id="gShare">Paylaş</button><button class="sm sec" id="gRegen">Bağlantıyı yenile</button></div>
         <div class="muted" style="font-size:12.5px">“Yenile” eski bağlantıyı geçersiz kılar, kırmızı × bağlantıyı kapatır (onaylı misafirler etkilenmez).</div>` : `<div><button id="gMake">Davet bağlantısı oluştur</button></div>`}</div>
     ${pend.length ? `<div class="col1" style="gap:8px"><span class="hd">ONAY BEKLEYEN İSTEKLER (${pend.length})</span>${pend.map(r => `<div class="it" style="gap:10px;flex-wrap:wrap"><div class="grow"><b>${esc(r.name)}</b><div class="muted" style="font-size:12.5px">${[esc(r.unit || r.email || ""), ago(r.at)].filter(Boolean).join(" · ")}</div></div><button class="sm" data-rv="${r.id}">İncele ve onayla</button></div>`).join("")}</div>` : ""}
-    ${memWrap(mems.length, `${mems.map(m => { const live = isLive(m); return `<div class="it" style="gap:10px;flex-wrap:wrap"><div class="grow"><b>${esc(m.name)}</b> <span class="tag" style="${live ? "" : "background:#FADAD7;color:#8E1B16"}">${esc(leftText(m))}</span><div class="muted" style="font-size:12.5px">${[esc(m.unit || m.email || ""), esc(fname(m.factories))].filter(Boolean).join(" · ")}</div></div>
+    ${memWrap(mems.length, `${mems.map(m => { const live = isLive(m); return `<div class="it" style="gap:10px;flex-wrap:wrap"><div class="grow"><b>${esc(m.name)}</b> <span class="tag" style="${live ? "" : "background:#FADAD7;color:#8E1B16"}">${esc(leftText(m))}</span>${m.pid ? ` <span class="muted" style="font-size:12px">ID ${esc(m.pid)}</span>` : ""}<div class="muted" style="font-size:12.5px">${[esc(m.unit || m.email || ""), esc(fname(m.factories))].filter(Boolean).join(" · ")}</div></div>
         <div class="row" style="gap:6px"><button class="sm sec" data-perm="${m.id}">Süresiz yap</button><button class="sm sec" data-h24="${m.id}">24 saat</button><button class="sm sec" data-fac="${m.id}">Fabrikalar</button><button class="sm sec" data-rm="${m.id}" style="color:#B3261E;border-color:#B3261E">Erişimi kaldır</button></div></div>`; }).join("") || '<span class="muted">Henüz onaylı misafir yok.</span>'}`)}
     <details ${cfg.ntfy ? "" : "open"}><summary style="cursor:pointer;font-weight:700">Telefon bildirimi (önerilen, ücretsiz)</summary><div class="col1" style="gap:8px;margin-top:10px">
       <div class="muted" style="font-size:12.5px;line-height:1.6">Misafir “Onay Gönder”e bastığında telefonunuza anında bildirim gelir; uygulama kapalı olsa bile. Bildirime dokununca onay ekranı açılır.<br><b>1.</b> Telefonunuza <b>ntfy</b> uygulamasını kurun (Play Store / App Store).<br><b>2.</b> Aşağıdan “Bildirim kodu oluştur”a basın.<br><b>3.</b> ntfy'de <b>+</b> ile aşağıdaki kodu abone olun (sunucu: ntfy.sh).<br><b>4.</b> “Test bildirimi gönder” ile deneyin.</div>
