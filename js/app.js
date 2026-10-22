@@ -1,20 +1,20 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261022j";
-import * as S from "./store.js?v=20261022j";
-import * as Prim from "./primary.js?v=20261022j";
-import * as Denetim from "./denetim.js?v=20261022j";
-import * as Kaza from "./kaza.js?v=20261022j";
-import * as Konusma from "./konusma.js?v=20261022j";
-import * as Ramak from "./ramak.js?v=20261022j";
-import * as Genel from "./genel.js?v=20261022j";
-import * as Rapor from "./rapor.js?v=20261022j";
-import * as Verim from "./verim.js?v=20261022j";
-import * as Isbasi from "./isbasi.js?v=20261022j";
-import * as Guest from "./guest.js?v=20261022j";
-import * as Yontem from "./yontem.js?v=20261022j";
-import * as Tatil from "./tatil.js?v=20261022j";
-import * as Gorev from "./gorev.js?v=20261022j";
-import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261022j";
-import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261022j";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261022k";
+import * as S from "./store.js?v=20261022k";
+import * as Prim from "./primary.js?v=20261022k";
+import * as Denetim from "./denetim.js?v=20261022k";
+import * as Kaza from "./kaza.js?v=20261022k";
+import * as Konusma from "./konusma.js?v=20261022k";
+import * as Ramak from "./ramak.js?v=20261022k";
+import * as Genel from "./genel.js?v=20261022k";
+import * as Rapor from "./rapor.js?v=20261022k";
+import * as Verim from "./verim.js?v=20261022k";
+import * as Isbasi from "./isbasi.js?v=20261022k";
+import * as Guest from "./guest.js?v=20261022k";
+import * as Yontem from "./yontem.js?v=20261022k";
+import * as Tatil from "./tatil.js?v=20261022k";
+import * as Gorev from "./gorev.js?v=20261022k";
+import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261022k";
+import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261022k";
 const PEND_META = { isbasig: ["isbasi", "İşbaşı Eğitim"], konusmag: ["konusma", "Eğitim Konuşması"], kazag: ["kaza", "İş Kazası"] };
 
 const VERSION = "1.7.0";
@@ -532,7 +532,7 @@ async function pageAyarlar(v) {
         <div class="fg"><input id="nf" class="inp" placeholder="Fabrika adı" aria-label="Fabrika adı"><input id="nl" class="inp" placeholder="Konum (örn. Gebze)" aria-label="Konum"></div>
         <div><button id="addF">+ Fabrika ekle</button></div></div></div></div>
 
-    <div class="cd" style="gap:14px">${accHead("yil", "Yıllar", st.yearsMeta.length + " yıl" + (st.active ? " · aktif: " + st.active : ""))}${accBody}<div class="muted" style="font-size:13px">Veriler yıl bazında saklanır. Yalnızca aktif yıl düzenlenebilir, arşiv yıllarını üstteki yıl seçiciden inceleyebilir, gerekirse “Aktif yap” ile tekrar düzenlemeye açabilirsiniz. Yeni yıl başlatınca Genel Bakış sayfasının altında “Yıllar Arası Karşılaştırma” kartı iki yılı kıyaslar.</div></div>
+    <div class="cd" style="gap:14px">${accHead("yil", "Yıllar", st.yearsMeta.length + " yıl" + (st.active ? " · aktif: " + st.active : ""))}${accBody}<div class="muted" style="font-size:13px">Veriler yıl bazında saklanır. Yalnızca aktif yıl düzenlenebilir, arşiv yıllarını üstteki yıl seçiciden inceleyebilir, gerekirse “Aktif yap” ile tekrar düzenlemeye açabilirsiniz. Yeni yıl başlatınca Genel Bakış sayfasının altında “Yıllar Arası Karşılaştırma” kartı iki yılı kıyaslar.</div>
       <div class="ygrid">${st.yearsMeta.map(m => { const y = m.id, a = String(y) === String(st.active), fut = +y > cy, ar = m.archived;
         const stt = a ? "Aktif" : fut ? "Henüz başlamadı" : ar ? "Arşivde" : "Salt okunur";
         const btn = a || fut ? `<span class="ys">${stt}</span>` : ar ? `<button class="sec yb" data-unarch="${y}">Arşivden çıkar</button>` : `<button class="sec yb" data-actyear="${y}">Aktif yap</button>`;
