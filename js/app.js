@@ -1,20 +1,20 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261022g";
-import * as S from "./store.js?v=20261022g";
-import * as Prim from "./primary.js?v=20261022g";
-import * as Denetim from "./denetim.js?v=20261022g";
-import * as Kaza from "./kaza.js?v=20261022g";
-import * as Konusma from "./konusma.js?v=20261022g";
-import * as Ramak from "./ramak.js?v=20261022g";
-import * as Genel from "./genel.js?v=20261022g";
-import * as Rapor from "./rapor.js?v=20261022g";
-import * as Verim from "./verim.js?v=20261022g";
-import * as Isbasi from "./isbasi.js?v=20261022g";
-import * as Guest from "./guest.js?v=20261022g";
-import * as Yontem from "./yontem.js?v=20261022g";
-import * as Tatil from "./tatil.js?v=20261022g";
-import * as Gorev from "./gorev.js?v=20261022g";
-import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261022g";
-import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261022g";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261022h";
+import * as S from "./store.js?v=20261022h";
+import * as Prim from "./primary.js?v=20261022h";
+import * as Denetim from "./denetim.js?v=20261022h";
+import * as Kaza from "./kaza.js?v=20261022h";
+import * as Konusma from "./konusma.js?v=20261022h";
+import * as Ramak from "./ramak.js?v=20261022h";
+import * as Genel from "./genel.js?v=20261022h";
+import * as Rapor from "./rapor.js?v=20261022h";
+import * as Verim from "./verim.js?v=20261022h";
+import * as Isbasi from "./isbasi.js?v=20261022h";
+import * as Guest from "./guest.js?v=20261022h";
+import * as Yontem from "./yontem.js?v=20261022h";
+import * as Tatil from "./tatil.js?v=20261022h";
+import * as Gorev from "./gorev.js?v=20261022h";
+import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261022h";
+import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261022h";
 const PEND_META = { isbasig: ["isbasi", "İşbaşı Eğitim"], konusmag: ["konusma", "Eğitim Konuşması"], kazag: ["kaza", "İş Kazası"] };
 
 const VERSION = "1.7.0";
@@ -487,6 +487,8 @@ async function pageAyarlar(v) {
   await Promise.all(st.all.map(async f => {
     try { const ys = await S.listYears(f.id); const s = ys.length ? await S.getSetup(f.id, ys[ys.length - 1]) : null; counts[f.id] = s?.rows?.length ?? 0; } catch { counts[f.id] = 0; }
   }));
+  const accHead = (id, title, sub) => `<button type="button" data-acc="${id}" aria-expanded="false" aria-label="${title} bölümünü aç" style="display:flex;align-items:center;gap:12px;width:100%;min-height:40px;height:auto;padding:0;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer"><span style="flex:1;min-width:0"><h2 style="margin:0">${title}</h2><div class="muted" style="font-size:13px;margin-top:4px;font-weight:600">${sub}</div></span><span style="flex:0 0 40px;width:40px;height:40px;border-radius:12px;border:1.5px solid var(--gd);color:var(--gd);box-sizing:border-box;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="transition:transform .15s"><path d="M6 9l6 6 6-6"/></svg></span></button>`;
+  const accBody = '<div class="col1" hidden style="gap:14px;border-top:1px solid var(--line);padding-top:14px">';
   const me = S.deviceId(), prime = await S.getPrimary().catch(() => null), iAmPrime = prime?.deviceId === me;
   const cur = st.factories.find(f => f.id === st.fid);
   v.innerHTML = `
@@ -506,7 +508,7 @@ async function pageAyarlar(v) {
 
     <div class="cd" id="guestBox"></div>
 
-    <div class="cd"><div><h2>Oturumlar ve Cihazlar</h2><div class="muted" style="font-size:13px">Hesabınıza giriş yapılmış cihazlar. Tanımadığınız bir cihaz varsa oradan uzaktan çıkış yapabilirsiniz.</div></div>
+    <div class="cd" style="gap:14px">${accHead("ses", "Oturumlar ve Cihazlar", sessions.length + " cihaz")}${accBody}<div class="muted" style="font-size:13px">Hesabınıza giriş yapılmış cihazlar. Tanımadığınız bir cihaz varsa oradan uzaktan çıkış yapabilirsiniz.</div>
       <div class="col1">${sessions.map(d => { const prim = d.id === prime?.deviceId, mine = d.id === me; return item(`
         ${ic('<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>').replace('width="20" height="20"', 'width="24" height="24"')}
         <div class="grow"><div class="row" style="gap:8px;flex-wrap:wrap"><b>${esc(d.name)}</b>${prim ? '<span class="tag" style="background:#0B2230;color:#fff">Ana cihaz</span>' : '<span class="tag" style="background:#EEF2F0;color:#4A5C57">İkincil cihaz</span>'}${mine ? '<span class="tag">Bu cihaz</span>' : ""}</div>
@@ -514,11 +516,11 @@ async function pageAyarlar(v) {
         <div class="row" style="gap:8px">${!prim ? `<button class="sm sec" data-prim="${d.id}" data-pname="${esc(d.name)}">Yetkili cihaz yap</button>` : ""}${!mine && iAmPrime ? `<button class="sm rm" data-rev="${d.id}">Uzaktan çıkış yap</button>` : ""}</div>`,
         mine ? "#F1FAF6" : "var(--card)", mine ? "#9ED6BD" : "var(--line)"); }).join("") || '<div class="muted">Oturum bilgisi bulunamadı.</div>'}</div>
       ${iAmPrime ? "" : '<div class="muted" style="font-size:12.5px;line-height:1.6">Bu cihaz ikincil cihazdır. Diğer oturumları yalnızca ana cihaz kapatabilir. Bu cihazı ana cihaz yapmak için "Yetkili cihaz yap" düğmesini kullanın; e-postanıza kod gönderilir.</div>'}
-      <div class="muted" style="font-size:12.5px;line-height:1.6">Çıkış yapılan cihazda oturum kapatılır ve yerel önbellek temizlenir. Verileriniz bulutta güvende kalır, tekrar giriş yapınca geri gelir.</div></div>
+      <div class="muted" style="font-size:12.5px;line-height:1.6">Çıkış yapılan cihazda oturum kapatılır ve yerel önbellek temizlenir. Verileriniz bulutta güvende kalır, tekrar giriş yapınca geri gelir.</div></div></div>
 
   </div>
   <div class="colw">
-    <div class="cd"><div><h2>Fabrikalar</h2><div class="muted" style="font-size:13px">Birden fazla fabrikanın denetimini yapabilirsiniz. Her fabrikanın bölümleri, kayıtları ve raporları ayrı tutulur; fabrika seçerek geçiş yaparsınız.</div></div>
+    <div class="cd" style="gap:14px">${accHead("fab", "Fabrikalar", st.all.length + " fabrika" + (cur ? " · aktif: " + esc(cur.name) : ""))}${accBody}<div class="muted" style="font-size:13px">Birden fazla fabrikanın denetimini yapabilirsiniz. Her fabrikanın bölümleri, kayıtları ve raporları ayrı tutulur; fabrika seçerek geçiş yaparsınız.</div>
       <div class="col1">${st.all.map(f => item(`
         <div class="grow"><b>${esc(f.name)}${f.archived ? " · arşivde" : ""}</b><div class="muted" style="font-size:12.5px">${esc(f.loc || "Konum yok")} · ${counts[f.id] ?? 0} bölüm</div></div>
         ${f.id === st.fid && !f.archived ? '<span class="tag">Aktif fabrika</span>' : (!f.archived ? `<button class="sm sec" data-act="${f.id}">Aktif yap</button>` : "")}
@@ -528,7 +530,7 @@ async function pageAyarlar(v) {
         f.id === st.fid && !f.archived ? "#F1FAF6" : "var(--card)")).join("") || '<div class="muted">Henüz fabrika yok.</div>'}</div>
       <div class="col1" style="padding-top:14px;border-top:1px solid var(--line)"><span class="hd">YENİ FABRİKA EKLE</span>
         <div class="fg"><input id="nf" class="inp" placeholder="Fabrika adı" aria-label="Fabrika adı"><input id="nl" class="inp" placeholder="Konum (örn. Gebze)" aria-label="Konum"></div>
-        <div><button id="addF">+ Fabrika ekle</button></div></div></div>
+        <div><button id="addF">+ Fabrika ekle</button></div></div></div></div>
 
     <div class="cd"><div><h2>Yıllar</h2><div class="muted" style="font-size:13px">Veriler yıl bazında saklanır. Yalnızca aktif yıl düzenlenebilir, arşiv yıllarını üstteki yıl seçiciden inceleyebilir, gerekirse “Aktif yap” ile tekrar düzenlemeye açabilirsiniz. Yeni yıl başlatınca Genel Bakış sayfasının altında “Yıllar Arası Karşılaştırma” kartı iki yılı kıyaslar.</div></div>
       <div class="ygrid">${st.yearsMeta.map(m => { const y = m.id, a = String(y) === String(st.active), fut = +y > cy, ar = m.archived;
@@ -554,6 +556,7 @@ async function pageAyarlar(v) {
     <p class="muted">Bu cihazdaki oturum kapatılır ve yerel önbellek temizlenir. Verileriniz bulutta güvende kalır.</p>
     <div class="row" style="justify-content:flex-end"><button class="sec" id="noOut">Vazgeç</button><button class="danger" id="yesOut">Evet, çıkış yap</button></div></div></div>`;
   instBind();
+  v.querySelectorAll("[data-acc]").forEach(b => b.onclick = () => { const body = b.nextElementSibling, o = body.hidden; body.hidden = !o; b.setAttribute("aria-expanded", o); b.setAttribute("aria-label", b.querySelector("h2").textContent + " bölümünü " + (o ? "kapat" : "aç")); b.querySelector("svg").style.transform = o ? "rotate(180deg)" : ""; });
   $("uaTg").onclick = () => { const b = $("uaBody"), o = b.hidden; b.hidden = !o; $("uaTg").setAttribute("aria-expanded", o); $("uaTg").setAttribute("aria-label", "Uygulama ve Senkronizasyon bölümünü " + (o ? "kapat" : "aç")); $("uaCh").style.transform = o ? "rotate(180deg)" : ""; };
   const say = t => { $("noteT").textContent = t; $("note").classList.remove("hide"); };
   Guest.renderSettings($("guestBox"), { ownerUid: auth.currentUser.uid, factories: st.all }).catch(() => {});
