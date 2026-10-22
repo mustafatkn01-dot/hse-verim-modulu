@@ -1,6 +1,6 @@
 // Tatil takvimi ve haftalık denetim planı (yalnızca gösterim; puanı etkilemez)
-import * as S from "./store.js?v=20261022m";
-import { esc, modal, toast, noticeBox, pickDate, fmtTarih } from "./ui.js?v=20261022m";
+import * as S from "./store.js?v=20261022n";
+import { esc, modal, toast, noticeBox, pickDate, fmtTarih } from "./ui.js?v=20261022n";
 
 const pad = n => String(n).padStart(2, "0");
 const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;

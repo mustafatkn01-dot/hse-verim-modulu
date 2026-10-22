@@ -1,20 +1,20 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261022m";
-import * as S from "./store.js?v=20261022m";
-import * as Prim from "./primary.js?v=20261022m";
-import * as Denetim from "./denetim.js?v=20261022m";
-import * as Kaza from "./kaza.js?v=20261022m";
-import * as Konusma from "./konusma.js?v=20261022m";
-import * as Ramak from "./ramak.js?v=20261022m";
-import * as Genel from "./genel.js?v=20261022m";
-import * as Rapor from "./rapor.js?v=20261022m";
-import * as Verim from "./verim.js?v=20261022m";
-import * as Isbasi from "./isbasi.js?v=20261022m";
-import * as Guest from "./guest.js?v=20261022m";
-import * as Yontem from "./yontem.js?v=20261022m";
-import * as Tatil from "./tatil.js?v=20261022m";
-import * as Gorev from "./gorev.js?v=20261022m";
-import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261022m";
-import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261022m";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261022n";
+import * as S from "./store.js?v=20261022n";
+import * as Prim from "./primary.js?v=20261022n";
+import * as Denetim from "./denetim.js?v=20261022n";
+import * as Kaza from "./kaza.js?v=20261022n";
+import * as Konusma from "./konusma.js?v=20261022n";
+import * as Ramak from "./ramak.js?v=20261022n";
+import * as Genel from "./genel.js?v=20261022n";
+import * as Rapor from "./rapor.js?v=20261022n";
+import * as Verim from "./verim.js?v=20261022n";
+import * as Isbasi from "./isbasi.js?v=20261022n";
+import * as Guest from "./guest.js?v=20261022n";
+import * as Yontem from "./yontem.js?v=20261022n";
+import * as Tatil from "./tatil.js?v=20261022n";
+import * as Gorev from "./gorev.js?v=20261022n";
+import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261022n";
+import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261022n";
 const PEND_META = { isbasig: ["isbasi", "İşbaşı Eğitim"], konusmag: ["konusma", "Eğitim Konuşması"], kazag: ["kaza", "İş Kazası"] };
 
 const VERSION = "1.7.0";
@@ -484,8 +484,9 @@ async function pageAyarlar(v) {
   const cy = new Date().getFullYear(), maxYear = st.yearsAll[st.yearsAll.length - 1];
   const started = st.yearsAll.filter(y => +y <= cy), futYear = st.yearsAll.find(y => +y > cy), lastStarted = started[started.length - 1];
   if (!yilKeep) yilSel = null; const yOpen = yilKeep; yilKeep = false;
-  const yItems = [...st.yearsMeta].sort((p, q) => +p.id - +q.id).map(m => ({ y: String(m.id), meta: m }));
-  const nextV = yItems.length ? String(+yItems[yItems.length - 1].y + 1) : String(cy);
+  const yAll = [...st.yearsMeta].sort((p, q) => +p.id - +q.id), yLim = +(st.active || cy);
+  const yItems = yAll.filter(m => +m.id <= yLim).map(m => ({ y: String(m.id), meta: m }));
+  const yNext = yAll.find(m => +m.id > yLim), nextV = yNext ? String(yNext.id) : yItems.length ? String(+yItems[yItems.length - 1].y + 1) : String(cy);
   const nextRaw = lastStarted ? String(+lastStarted + 1) : String(cy), canStart = !futYear && +nextRaw <= cy, next = nextRaw;
   const counts = {};
   await Promise.all(st.all.map(async f => {
@@ -536,7 +537,7 @@ async function pageAyarlar(v) {
         <div class="fg"><input id="nf" class="inp" placeholder="Fabrika adı" aria-label="Fabrika adı"><input id="nl" class="inp" placeholder="Konum (örn. Gebze)" aria-label="Konum"></div>
         <div><button id="addF">+ Fabrika ekle</button></div></div></div></div>
 
-    <div class="cd" style="gap:14px">${accHead("yil", "Yıllar", st.yearsMeta.length + " yıl" + (st.active ? " · aktif: " + st.active : ""))}${accBody}
+    <div class="cd" style="gap:14px">${accHead("yil", "Yıllar", yItems.length + " yıl" + (st.active ? " · aktif: " + st.active : ""))}${accBody}
       ${st.fid ? '<div id="yStep" class="col1" style="gap:12px"></div>' : '<span class="muted">Seçili fabrikada yıl yok.</span>'}</div></div>
     <div class="cd" style="gap:14px">${accHead("tema", "Görünüm", esc(THEMES.find(t => t[0] === theme)?.[1] || ""))}${accBody}<div class="muted" style="font-size:13px">Tema seçimi bu cihazda saklanır.</div>
       <div class="th">${THEMES.map(([k, n, sd, bg, cd]) => `<button class="tb ${k === theme ? "on" : ""}" data-theme="${k}" aria-pressed="${k === theme}">
@@ -603,14 +604,7 @@ async function pageAyarlar(v) {
   // Yıllar: ok işaretleriyle gezilen tek yıl kartı (yalnızca mevcut yıllar + bir sonraki yıl)
   const yEl = $("yStep"), fi = yItems.findIndex(x => x.y === String(yilSel ?? st.active));
   let yi = fi >= 0 ? fi : Math.max(0, yItems.length - 1);
-  const yState = it => {
-    const y = it.y;
-    if (String(y) === String(st.active)) return { k: "act", label: "Aktif" };
-    if (it.meta.archived) return { k: "arc", label: "Arşivde" };
-    if (+y > cy) return { k: "gry", label: "Henüz başlamadı", hint: `1 Ocak ${y} tarihinde aktif yapılabilir.` };
-    if (+y > +(st.active || 0)) return { k: "rdy", label: "Aktif yapılabilir" };
-    return { k: "ro", label: "Salt okunur" };
-  };
+  const yState = it => String(it.y) === String(st.active) ? { k: "act", label: "Aktif" } : { k: "arc", label: "Arşivde" };
   const yDone = (y) => { yilKeep = true; yilSel = y; pageAyarlar(v); };
   const yRun = async (a, it) => {
     const y = it.y;
@@ -627,6 +621,7 @@ async function pageAyarlar(v) {
     }
     if (a === "new") {
       if (+y > cy) return say(`${y} yılı henüz başlamadı; 1 Ocak ${y} tarihinde başlatılabilir.`);
+      if (st.yearsAll.map(String).includes(String(y))) { await S.updateFactory(st.fid, { activeYear: y }); S.pref.set("year", y); await loadContext(); say(`${y} yılı başlatıldı ve aktif yapıldı.`); return yDone(y); }
       await S.addYear(st.fid, y);
       if (maxYear) { const prev = await S.getSetup(st.fid, maxYear); if (prev) await S.saveSetup(st.fid, y, { rows: prev.rows.map(r => { const o = { ...r, n: String(nAt(r, 12)) }; delete o.nm; return o; }), params: prev.params }); }
       await S.updateFactory(st.fid, { activeYear: y }); S.pref.set("year", y); await loadContext(); say(`${y} yılı başlatıldı ve aktif yapıldı.`); return yDone(y);
@@ -639,14 +634,14 @@ async function pageAyarlar(v) {
     if (it) {
       if (s.k === "act") acts = '<span class="muted">Düzenlemeye açık yıl</span>';
       else if (it.meta.archived) acts = b("unarch", "Arşivden çıkar") + b("del", "Sil", "sec yrm");
-      else acts = b("act", "Aktif yap", "ypri", +it.y > cy) + (+it.y > cy ? "" : b("arch", "Arşivle")) + b("del", "Sil", "sec yrm");
+      else acts = b("act", "Aktif yap", "ypri") + b("del", "Sil", "sec yrm");
     }
     // Son kayıtlı yılda: bir sonraki yılı başlat düğmesi (1 Ocak'a kadar gri pasif, sonra yeşil çerçeveli)
     if (!it || yi === yItems.length - 1) acts += b("new", `+ ${nextV} yıl başlat`, "sec ynew", +nextV > cy);
     yEl.innerHTML = `<div class="yst"><button class="sec yab" data-yn="-1" aria-label="Önceki yıl" ${yi <= 0 ? "disabled" : ""}>‹</button>
       <div class="yctr">${it ? `<div class="yyr ${s.k === "act" ? "" : "dimc"}">${it.y}</div><span class="ypl ${s.k}">${s.label}</span><span class="ypos">${yi + 1} / ${yItems.length}</span>` : '<span class="muted">Kayıtlı yıl yok</span>'}</div>
       <button class="sec yab" data-yn="1" aria-label="Sonraki yıl" ${yi >= yItems.length - 1 ? "disabled" : ""}>›</button></div>
-      ${s.hint ? `<div class="muted" style="text-align:center;font-size:12.5px;line-height:1.55">${s.hint}</div>` : ""}<div class="yact">${acts}</div>`;
+      <div class="yact">${acts}</div>`;
     yEl.querySelectorAll("[data-yn]").forEach(x => x.onclick = () => { yi += +x.dataset.yn; drawY(); });
     yEl.querySelectorAll("[data-ya]").forEach(x => x.onclick = () => yRun(x.dataset.ya, x.dataset.ya === "new" ? { y: nextV } : it));
   };
