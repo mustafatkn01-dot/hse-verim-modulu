@@ -3,8 +3,8 @@
 //   users/{sahip}/invites/{kod}        davet (e-posta ayarı kopyası)
 //   users/{sahip}/guestReqs/{misafirUid}  onay isteği {gid, code, name, unit, status, at}
 //   users/{sahip}/members/{misafirUid}    onaylı üye {name, unit, factories[], mode, expires|null}
-import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously } from "./firebase.js?v=20261022d";
-import { esc, toast, confirmBox } from "./ui.js?v=20261022d";
+import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously } from "./firebase.js?v=20261022e";
+import { esc, toast, confirmBox } from "./ui.js?v=20261022e";
 
 const Q = new URLSearchParams(location.search);
 export const linkInfo = () => {
@@ -198,6 +198,7 @@ export function watchRequests(ownerUid, cb) {
 // users/{sahip}/guestPeople/{ID} = { name, norm, unit, uids: [eski ve yeni misafir uid'leri], createdAt }
 const PPL = (o, p) => doc(db, `users/${o}/guestPeople/${p}`);
 const normName = s => String(s || "").replace(/İ/g, "i").replace(/I/g, "i").toLowerCase().replace(/[ıçğöşü]/g, c => ({ ı: "i", ç: "c", ğ: "g", ö: "o", ş: "s", ü: "u" })[c]).replace(/\s+/g, " ").trim();
+const validPid = p => /^[A-Z2-9]{6}$/.test(p) && (n => n >= 2 && n <= 4)([...p].filter(c => /[2-9]/.test(c)).length);
 const GCOLLS = ["isgg", "konusmag", "isbasig", "kazag", "ramak"];
 const loadPeople = async o => getDocs(collection(db, `users/${o}/guestPeople`)).then(s => s.docs.map(d => ({ id: d.id, ...d.data() }))).catch(() => []);
 const newPid = taken => { // 6 hane, serbest dizilim; en az 2 harf ve en az 2 rakam (karışan I, O, L, 0, 1 kullanılmaz)
@@ -206,7 +207,7 @@ const newPid = taken => { // 6 hane, serbest dizilim; en az 2 harf ve en az 2 ra
 };
 // Önceki kayıtları bul: kişi kaydı (ID) + adı eşleşen, sahibi artık üye olmayan (sahipsiz) taslaklar
 async function findPrev(o, name, gid) {
-  const S = await import("./store.js?v=20261022d"), n = normName(name);
+  const S = await import("./store.js?v=20261022e"), n = normName(name);
   const people = (await loadPeople(o)).filter(p => p.norm === n);
   const mems = await getDocs(collection(db, `users/${o}/members`)).then(s => new Set(s.docs.map(d => d.id))).catch(() => new Set());
   const uids = new Set(); people.forEach(p => (p.uids || []).forEach(u => { if (u !== gid && !mems.has(u)) uids.add(u); }));
@@ -220,7 +221,7 @@ async function findPrev(o, name, gid) {
   return { person: people[0] || null, pid: people[0]?.id || null, uids, count };
 }
 async function migrateGuest(oldUids, newUid, name) {
-  const S = await import("./store.js?v=20261022d"); let n = 0;
+  const S = await import("./store.js?v=20261022e"); let n = 0;
   for (const f of await S.listFactories()) for (const y of await S.listYears(f.id)) for (const c of GCOLLS) {
     const all = await S.listMonthDocs(f.id, y, c), ids = new Set(all.map(d => d.id));
     for (const d of all) {
@@ -300,6 +301,9 @@ export async function renderSettings(box, { ownerUid, factories, onChange }) {
   const mems = await getDocs(collection(db, `users/${ownerUid}/members`)).then(s => s.docs.map(d => ({ id: d.id, ...d.data() }))).catch(() => []);
   for (const m of mems) if ((m.ntfy || null) !== (cfg.ntfy || null)) { await updateDoc(MEM(ownerUid, m.id), { ntfy: cfg.ntfy || null }).catch(() => {}); m.ntfy = cfg.ntfy || null; }
   { const ppl = await loadPeople(ownerUid), taken = new Set(ppl.map(p => p.id));
+    for (const p of ppl) if (!validPid(p.id)) { // eski biçimli ID'yi 6 haneli yeni biçime çevir (kişi kaydı ve üyelik birlikte)
+      const np = newPid(taken); taken.add(np); const { id, ...rest } = p;
+      try { await setDoc(PPL(ownerUid, np), rest); await deleteDoc(PPL(ownerUid, id)); for (const m of mems) if (m.pid === id) { await updateDoc(MEM(ownerUid, m.id), { pid: np }); m.pid = np; } p.id = np; } catch {} }
     for (const m of mems) if (!m.pid) { const n = normName(m.name), ex = ppl.find(p => p.norm === n); const pid = ex?.id || newPid(taken); taken.add(pid);
       try { await setDoc(PPL(ownerUid, pid), { name: m.name, norm: n, unit: m.unit || "", createdAt: ex?.createdAt || Date.now(), uids: [...new Set([...(ex?.uids || []), m.id])] }); await updateDoc(MEM(ownerUid, m.id), { pid }); m.pid = pid; } catch {} } }
   const inv0 = invs[0];
