@@ -1,20 +1,20 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261022a";
-import * as S from "./store.js?v=20261022a";
-import * as Prim from "./primary.js?v=20261022a";
-import * as Denetim from "./denetim.js?v=20261022a";
-import * as Kaza from "./kaza.js?v=20261022a";
-import * as Konusma from "./konusma.js?v=20261022a";
-import * as Ramak from "./ramak.js?v=20261022a";
-import * as Genel from "./genel.js?v=20261022a";
-import * as Rapor from "./rapor.js?v=20261022a";
-import * as Verim from "./verim.js?v=20261022a";
-import * as Isbasi from "./isbasi.js?v=20261022a";
-import * as Guest from "./guest.js?v=20261022a";
-import * as Yontem from "./yontem.js?v=20261022a";
-import * as Tatil from "./tatil.js?v=20261022a";
-import * as Gorev from "./gorev.js?v=20261022a";
-import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261022a";
-import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261022a";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261022b";
+import * as S from "./store.js?v=20261022b";
+import * as Prim from "./primary.js?v=20261022b";
+import * as Denetim from "./denetim.js?v=20261022b";
+import * as Kaza from "./kaza.js?v=20261022b";
+import * as Konusma from "./konusma.js?v=20261022b";
+import * as Ramak from "./ramak.js?v=20261022b";
+import * as Genel from "./genel.js?v=20261022b";
+import * as Rapor from "./rapor.js?v=20261022b";
+import * as Verim from "./verim.js?v=20261022b";
+import * as Isbasi from "./isbasi.js?v=20261022b";
+import * as Guest from "./guest.js?v=20261022b";
+import * as Yontem from "./yontem.js?v=20261022b";
+import * as Tatil from "./tatil.js?v=20261022b";
+import * as Gorev from "./gorev.js?v=20261022b";
+import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261022b";
+import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261022b";
 const PEND_META = { isbasig: ["isbasi", "İşbaşı Eğitim"], konusmag: ["konusma", "Eğitim Konuşması"], kazag: ["kaza", "İş Kazası"] };
 
 const VERSION = "1.6.6";
@@ -147,7 +147,7 @@ onAuthStateChanged(auth, async user => {
     });
     unwatchInb?.();
     unwatchInb = Guest.watchInbox(user.uid, list => {
-      const r = list[list.length - 1], msg = r.no === 0 ? `${r.byName} · ${r.deptName}: aksiyon bildirdi.` : `${r.byName} · ${r.deptName}: ${r.no}. denetim ${r.kind === "review" ? "tamamlanmasını istiyor" : "kaydedildi"}.`;
+      const r = list[list.length - 1], msg = r.no === 0 ? `${r.byName} · ${r.deptName}${r.wk ? " · " + r.wk + ". hafta" : ""}: aksiyon bildirdi.` : `${r.byName} · ${r.deptName}: ${r.no}. denetim ${r.kind === "review" ? "tamamlanmasını istiyor" : "kaydedildi"}.`;
       toast(msg); Guest.notify("HSE Verim · Misafir denetimi", msg, `${location.pathname}?denetim=${[r.fid, r.year, r.month, r.dept].join(".")}`);
       if (st.page === "genel") render(); else if (st.page === "denetim") Denetim.reload();
     });
