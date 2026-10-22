@@ -66,3 +66,4 @@ Fabrika adı iki programda aynı olmalıdır (büyük/küçük harf ve Türkçe 
 - 1.6.4: İSG denetim kategorileri akordeon (tek kategori açık); Verim sayfasında "İSG Denetim · Aylık Kıyas" kartı (son 2/3 ay, değişim, en çok düşenler üstte).
 - 1.6.5: "Önceki denetimde uygunsuzdu" yalnızca daha eski denetimleri sayar (eski bir denetim düzenlenirken); Y.D. gerekçe örneği genel hale getirildi.
 - 1.6.6: İSG aylık kıyas kartı bölüm bazlı bitişik sütun grafiğe çevrildi; seçici düğmeleri okunur.
+- 1.7.0: Aksiyon alındı (misafir bildirimi, yetkili girişi/düzenleme, kabul/ret, cezanın hafta içi kuralı, raporlarda tespit + aksiyon öncesi/sonrası); görev takip entegrasyonu iki yönlü (aksiyon görevi kapatır, kapanan görev aksiyon kaydı açar); İSG denetim dönem seçici (yıl okları + 3×4 ay tablosu); misafir kişi ID'si (6 hane) ile önceki kayıtları devam ettirme; Verim PDF'de kategori vurgusu; Firebase Hosting yayını (hse-verim-modulu.web.app).
