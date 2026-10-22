@@ -1,5 +1,9 @@
 # HSE Verim Modülü
-Statik web uygulaması (GitHub Pages) + Firebase (Auth e-posta/şifre, Firestore).
+
+**Uygulama adresi: <https://hse-verim-modulu.web.app>**  
+(Eski adres, geçiş süresince: <https://mustafatkn01-dot.github.io/hse-verim-modulu/>)
+
+Statik web uygulaması (Firebase Hosting, yedekte GitHub Pages) + Firebase (Auth e-posta/şifre, Firestore). `main`'e her gönderimde Firebase Hosting'e otomatik yayınlanır.
 
 - `index.html`, `css/`, `js/` — uygulama
 - `firestore.rules` — güvenlik kuralları (Firebase konsolunda Firestore → Rules'a yapıştırılır)
