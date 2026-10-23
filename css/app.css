@@ -361,3 +361,32 @@ details.ak.neu{background:#fff;border:1px solid #C3D1CC}
 .yact .ypri:disabled{background:var(--calc)}
 .yact .ynew:not(:disabled){border-color:var(--gd);color:var(--gd)}
 .yact .yrm{color:#B3261E;border-color:#B3261E}
+/* Arşiv işlemleri / Depolama (ar-) */
+.tag.gray{background:var(--line);color:var(--muted)}
+.mbox.ar{max-height:calc(100dvh - 24px);overflow-y:auto;gap:12px}
+.mbox.ar h2{margin:0;font-size:19px}
+.ar-btns{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.ar-sw{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ar-sw.one{grid-template-columns:1fr}
+.ar-sw button{height:auto;min-height:64px;padding:10px 12px;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;background:var(--card);color:var(--text);border:1.5px solid var(--line);display:flex;font-weight:700}
+.ar-sw button small{font-weight:500;color:var(--muted);font-size:12.5px}
+.ar-sw button.on{border-color:var(--gd);background:#EAF7F1;color:#10201C}
+.ar-sw button.on small{color:#546964}
+.ar-sw button.rd.on{border-color:var(--red);background:#FDECEA}
+.ar-sw button:disabled{opacity:.45;cursor:not-allowed}
+.ar-eff{font-size:13px;padding:10px 12px;border-radius:12px;background:var(--bg);border:1px dashed var(--line);line-height:1.5}
+.ar-eff.no{color:var(--muted)}
+.mbox .warn{font-size:13px;padding:10px 12px;border-radius:12px;background:#FDECEA;color:#8A1C14;line-height:1.5}
+.ar-chk{display:flex;gap:10px;align-items:flex-start;margin:0!important;font-weight:600;cursor:pointer}
+.ar-chk input{width:20px;height:20px;margin-top:2px;accent-color:var(--gd);flex:0 0 auto}
+.ar-chk small{display:block;font-weight:500;color:var(--muted);font-size:12.5px}
+.ar-bar{height:12px;border-radius:99px;background:var(--line);overflow:hidden}
+.ar-bar.sm{height:8px}
+.ar-bar i{display:block;height:100%;background:var(--gd);border-radius:99px;transition:width .2s}
+.ar-kv{display:flex;justify-content:space-between;gap:8px;font-size:14px;padding:4px 0}
+.ar-kv span{color:var(--muted)}
+.ar-sh{display:flex;align-items:center;justify-content:space-between;width:100%;height:auto;min-height:36px;padding:12px 0 0;background:transparent;color:inherit;font-weight:700;border-radius:0}
+.ar-sh .cv{display:inline-flex;transition:transform .2s}
+.ar-sh[aria-expanded="true"] .cv{transform:rotate(180deg)}
+.ar-yr{display:grid;grid-template-columns:44px 1fr 74px;gap:10px;align-items:center;font-size:13.5px}
+#dpB[hidden]{display:none!important}

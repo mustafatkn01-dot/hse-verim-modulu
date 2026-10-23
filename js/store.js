@@ -1,6 +1,7 @@
 // Veri katmanı: users/{uid}/factories/{fid}/years/{yıl}/setup/main
-import { auth, db, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, updateDoc, query, orderBy, serverTimestamp, onSnapshot } from "./firebase.js?v=20261022n";
-import { setSurec } from "./scoring.js?v=20261022n";
+import { auth, db, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, updateDoc, query, orderBy, serverTimestamp, onSnapshot, FS } from "./firebase.js?v=20261022o";
+import { shrinkDataUrl } from "./ui.js?v=20261022o";
+import { setSurec } from "./scoring.js?v=20261022o";
 
 const uid = () => auth.currentUser.uid;
 // Veri sahibi: misafir kullanıcıda davet eden hesabın uid'si; kendi oturum/profil kayıtları ise her zaman kendi hesabında
@@ -141,14 +142,14 @@ export async function exportAll() {
 
 // Fotoğraflar (küçültülmüş JPEG, base64): .../years/{yıl}/foto/{id}
 const fotoRef = (fid, y, id) => doc(db, `${base()}/factories/${fid}/years/${y}/foto/${id}`);
-export const savePhoto = (fid, y, id, d) => setDoc(fotoRef(fid, y, id), { d, at: Date.now() });
+export const savePhoto = (fid, y, id, d) => setDoc(fotoRef(fid, y, id), { d, at: Date.now(), len: d.length });
 export async function getPhoto(fid, y, id) { const s = await getDoc(fotoRef(fid, y, id)); return s.exists() ? s.data().d : null; }
 export const deletePhoto = (fid, y, id) => deleteDoc(fotoRef(fid, y, id));
 
 // Yıl yönetimi: arşivleme ve kalıcı silme
 export async function listYearsMeta(fid) {
   const s = await getDocs(collection(db, `${base()}/factories/${fid}/years`));
-  return s.docs.map(d => ({ id: d.id, archived: !!(d.data() || {}).archived })).sort((a, b) => (a.id < b.id ? -1 : 1));
+  return s.docs.map(d => { const v = d.data() || {}; return { id: d.id, archived: !!v.archived, shrink: v.shrink || null, noPhotos: !!v.noPhotos }; }).sort((a, b) => (a.id < b.id ? -1 : 1));
 }
 export const setYearArchived = (fid, y, archived) => setDoc(doc(db, `${base()}/factories/${fid}/years/${y}`), { year: Number(y), archived }, { merge: true });
 export async function yearCounts(fid, y) {
@@ -158,4 +159,75 @@ export async function deleteYearDeep(fid, y) {
   for (const coll of ["isg", "isgg", "kaza", "konusma", "isbasi", "konusmag", "isbasig", "ramak", "foto"]) for (const d of await listMonthDocs(fid, y, coll)) await deleteDoc(monthRef(fid, y, coll, d.id));
   await deleteDoc(setupRef(fid, y)).catch(() => {});
   await deleteDoc(doc(db, `${base()}/factories/${fid}/years/${y}`));
+}
+
+// ---- Arşiv: fotoğraf küçültme, silme, kullanım hesabı ----
+// foto kaydı: { d: dataURL, at, len: d.length, sz?: küçültme px, ob?: özgün boyut }; yıl kaydı: { shrink: {px, at, n, before, after}, noPhotos }
+const fotoCol = (fid, y) => collection(db, `${base()}/factories/${fid}/years/${y}/foto`);
+const yearRef = (fid, y) => doc(db, `${base()}/factories/${fid}/years/${y}`);
+const FPAGE = 12, AVG_PHOTO = 512 * 1024;
+// Fotoğrafları 12'şer sayfa sayfa okur (hepsini birden belleğe almaz)
+export async function* fotoPages(fid, y) {
+  let last = null;
+  for (;;) {
+    const q = last ? query(fotoCol(fid, y), orderBy(FS.documentId()), FS.startAfter(last), FS.limit(FPAGE)) : query(fotoCol(fid, y), orderBy(FS.documentId()), FS.limit(FPAGE));
+    const sn = await getDocs(q); if (sn.empty) return;
+    yield sn.docs; last = sn.docs[sn.docs.length - 1]; if (sn.docs.length < FPAGE) return;
+  }
+}
+export async function photoCount(fid, y) { try { return (await FS.getCountFromServer(fotoCol(fid, y))).data().count; } catch { return null; } }
+// Küçültme: hedefin altındakiler ve zaten işlenenler atlanır; yeni dosya anlamlı küçük değilse eskisi korunur; kesilirse kaldığı yerden devam eder
+export async function shrinkYear(fid, y, px, o = {}) {
+  const { onProgress = () => { }, stop = () => false } = o; let n = 0, saved = 0, before = 0, after = 0;
+  for await (const docs of fotoPages(fid, y)) for (const d of docs) {
+    if (stop()) return { stopped: true, n, saved, before, after };
+    const v = d.data(), cur = v.d || "", len = cur.length; n++;
+    if (!cur) continue;
+    before += v.ob || len;
+    if (v.sz && v.sz <= px) { after += len; onProgress({ n, saved }); continue; }
+    let nd = null; try { nd = await shrinkDataUrl(cur, px); } catch { }
+    if (nd && nd.length < len * 0.97) { await updateDoc(d.ref, { d: nd, len: nd.length, sz: px, ob: v.ob || len }); saved += len - nd.length; after += nd.length; }
+    else { await updateDoc(d.ref, { sz: px, len }); after += len; }
+    onProgress({ n, saved });
+  }
+  await setDoc(yearRef(fid, y), { shrink: { px, at: Date.now(), n, before, after }, noPhotos: false }, { merge: true });
+  return { stopped: false, n, saved, before, after };
+}
+// Kayıtlardaki küçük resimleri ({id, t: "data:image..."}) ayıklar
+const isThumb = o => o && typeof o === "object" && !Array.isArray(o) && typeof o.id === "string" && typeof o.t === "string" && o.t.startsWith("data:image");
+export function stripThumbs(v) {
+  if (Array.isArray(v)) { let ch = false; const out = []; for (const x of v) { if (isThumb(x)) { ch = true; continue; } const [r, c] = stripThumbs(x); if (c) ch = true; out.push(r); } return [out, ch]; }
+  if (v && typeof v === "object" && Object.getPrototypeOf(v) === Object.prototype) { let ch = false; const out = {}; for (const k of Object.keys(v)) { const [r, c] = stripThumbs(v[k]); if (c) ch = true; out[k] = r; } return [out, ch]; }
+  return [v, false];
+}
+const PH_COLLS = ["isg", "isgg", "kaza", "konusma", "isbasi", "ramak", "kazag", "konusmag", "isbasig"];
+// Yılın tüm fotoğraflarını siler (önce foto kayıtları, sonra kayıtlardaki küçük resimler); veriler kalır. Kesilirse yeniden çalıştırılabilir
+export async function deleteYearPhotos(fid, y, o = {}) {
+  const { onProgress = () => { }, stop = () => false } = o; let n = 0;
+  for await (const docs of fotoPages(fid, y)) {
+    await Promise.all(docs.map(d => deleteDoc(d.ref))); n += docs.length; onProgress({ phase: "foto", n });
+    if (stop()) return { stopped: true, n };
+  }
+  let m = 0;
+  for (const c of PH_COLLS) for (const d of await listMonthDocs(fid, y, c)) {
+    const { id, ...rest } = d, [nd, ch] = stripThumbs(rest);
+    if (ch) { await saveMonthDoc(fid, y, c, id, nd); m++; onProgress({ phase: "kayit", n, m }); }
+    if (stop()) return { stopped: true, n };
+  }
+  await setDoc(yearRef(fid, y), { noPhotos: true, shrink: null }, { merge: true });
+  return { stopped: false, n, m };
+}
+// Yıl verisi (yedek JSON'u için)
+export async function yearData(fid, y) {
+  const yo = { year: y, setup: await getSetup(fid, y).catch(() => null), tatil: await getTatil(fid, y).catch(() => null) };
+  for (const c of PH_COLLS) yo[c] = await listMonthDocs(fid, y, c);
+  return yo;
+}
+// Depolama tahmini: foto kayıtlarındaki len alanlarının toplamı (toplama sorgusu, fotoğraf indirmez); len'i olmayan eski fotoğraflar ortalamayla
+export async function photoUsage(fid, y) {
+  const col = fotoCol(fid, y); let n = 0, sum = 0, withLen = 0;
+  try { n = (await FS.getCountFromServer(col)).data().count; } catch { return null; }
+  if (!n) return { n: 0, bytes: 0, exact: true };
+  try { if (FS.getAggregateFromServer && FS.sum && FS.count) { const r = (await FS.getAggregateFromServer(query(col, FS.where("len", ">", 0)), { s: FS.sum("len"), c: FS.count() })).data(); sum = r.s || 0; withLen = r.c || 0; } } catch { }
+  const miss = Math.max(0, n - withLen); return { n, bytes: sum + miss * AVG_PHOTO, exact: miss === 0 };
 }

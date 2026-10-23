@@ -1,23 +1,24 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261022n";
-import * as S from "./store.js?v=20261022n";
-import * as Prim from "./primary.js?v=20261022n";
-import * as Denetim from "./denetim.js?v=20261022n";
-import * as Kaza from "./kaza.js?v=20261022n";
-import * as Konusma from "./konusma.js?v=20261022n";
-import * as Ramak from "./ramak.js?v=20261022n";
-import * as Genel from "./genel.js?v=20261022n";
-import * as Rapor from "./rapor.js?v=20261022n";
-import * as Verim from "./verim.js?v=20261022n";
-import * as Isbasi from "./isbasi.js?v=20261022n";
-import * as Guest from "./guest.js?v=20261022n";
-import * as Yontem from "./yontem.js?v=20261022n";
-import * as Tatil from "./tatil.js?v=20261022n";
-import * as Gorev from "./gorev.js?v=20261022n";
-import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261022n";
-import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261022n";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261022o";
+import * as S from "./store.js?v=20261022o";
+import * as Prim from "./primary.js?v=20261022o";
+import * as Denetim from "./denetim.js?v=20261022o";
+import * as Kaza from "./kaza.js?v=20261022o";
+import * as Konusma from "./konusma.js?v=20261022o";
+import * as Ramak from "./ramak.js?v=20261022o";
+import * as Genel from "./genel.js?v=20261022o";
+import * as Rapor from "./rapor.js?v=20261022o";
+import * as Verim from "./verim.js?v=20261022o";
+import * as Isbasi from "./isbasi.js?v=20261022o";
+import * as Guest from "./guest.js?v=20261022o";
+import * as Yontem from "./yontem.js?v=20261022o";
+import * as Tatil from "./tatil.js?v=20261022o";
+import * as Gorev from "./gorev.js?v=20261022o";
+import * as Arsiv from "./arsiv.js?v=20261022o";
+import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261022o";
+import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261022o";
 const PEND_META = { isbasig: ["isbasi", "İşbaşı Eğitim"], konusmag: ["konusma", "Eğitim Konuşması"], kazag: ["kaza", "İş Kazası"] };
 
-const VERSION = "1.7.0";
+const VERSION = "1.8.0";
 const st = { factories: [], years: [], fid: null, year: null, page: "genel", profile: {}, lastSync: new Date() };
 
 const GROUPS = [
@@ -543,6 +544,7 @@ async function pageAyarlar(v) {
       <div class="th">${THEMES.map(([k, n, sd, bg, cd]) => `<button class="tb ${k === theme ? "on" : ""}" data-theme="${k}" aria-pressed="${k === theme}">
         <div class="pv"><div style="flex:0 0 28%;background:${sd}"></div><div style="flex:1;background:${bg};display:flex;flex-direction:column;gap:5px;padding:7px"><div style="height:8px;border-radius:4px;background:${cd}"></div><div style="height:8px;width:60%;border-radius:4px;background:#17A06F"></div></div></div><b>${n}</b></button>`).join("")}</div></div></div>
 
+    <div class="cd" id="depoCard" style="gap:12px"></div>
     <div class="cd" style="gap:14px"><button type="button" id="uaTg" aria-expanded="false" aria-label="Uygulama ve Senkronizasyon bölümünü aç" style="display:flex;align-items:center;gap:12px;width:100%;min-height:40px;height:auto;padding:0;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer"><span style="flex:1;min-width:0"><h2 style="margin:0">Uygulama ve Senkronizasyon</h2><div class="muted" style="font-size:13px;margin-top:4px;font-weight:600">Sürüm ${VERSION}</div></span><span style="flex:0 0 40px;width:40px;height:40px;border-radius:12px;border:1.5px solid var(--gd);color:var(--gd);box-sizing:border-box;display:flex;align-items:center;justify-content:center"><svg id="uaCh" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="transition:transform .15s"><path d="M6 9l6 6 6-6"/></svg></span></button>
       <div class="col1" id="uaBody" data-ua hidden style="gap:14px;border-top:1px solid var(--line);padding-top:14px">
       <div class="fg">
@@ -614,11 +616,8 @@ async function pageAyarlar(v) {
       await S.updateFactory(st.fid, { activeYear: y }); S.pref.set("year", y); await loadContext(); say(`${y} yılı aktif yapıldı.`); return yDone(y);
     }
     if (a === "arch" || a === "unarch") { await S.setYearArchived(st.fid, y, a === "arch"); await loadContext(); say(a === "arch" ? `${y} yılı arşive taşındı.` : `${y} yılı arşivden çıkarıldı.`); return yDone(y); }
-    if (a === "del") {
-      const n = await S.yearCounts(st.fid, y).catch(() => 0);
-      if (!(await confirmBox(`${y} yılı kalıcı olarak silinsin mi?`, `${y} yılına ait ${n} aylık kayıt, kurulum ve fotoğraflar silinir. Bu işlem geri alınamaz.`, "Evet, sil", true))) return;
-      await S.deleteYearDeep(st.fid, y); if (S.pref.get("year") === y) S.pref.set("year", ""); await loadContext(); say(`${y} yılı silindi.`); return yDone(null);
-    }
+    if (a === "arc") return Arsiv.openArsiv({ fid: st.fid, y, meta: it.meta, onDone: async () => { await loadContext(); yDone(y); } });
+    if (a === "del") return Arsiv.openSil({ fid: st.fid, y, meta: it.meta, onDone: async (keep) => { await loadContext(); yDone(keep === null && !(await S.listYears(st.fid)).map(String).includes(String(y)) ? null : y); } });
     if (a === "new") {
       if (+y > cy) return say(`${y} yılı henüz başlamadı; 1 Ocak ${y} tarihinde başlatılabilir.`);
       if (st.yearsAll.map(String).includes(String(y))) { await S.updateFactory(st.fid, { activeYear: y }); S.pref.set("year", y); await loadContext(); say(`${y} yılı başlatıldı ve aktif yapıldı.`); return yDone(y); }
@@ -633,19 +632,23 @@ async function pageAyarlar(v) {
     let acts = "";
     if (it) {
       if (s.k === "act") acts = '<span class="muted">Düzenlemeye açık yıl</span>';
-      else if (it.meta.archived) acts = b("unarch", "Arşivden çıkar") + b("del", "Sil", "sec yrm");
-      else acts = b("act", "Aktif yap", "ypri") + b("del", "Sil", "sec yrm");
+      else if (it.meta.archived) acts = b("unarch", "Arşivden çıkar") + b("arc", "Arşiv işlemleri") + b("del", "Sil", "sec yrm");
+      else acts = b("act", "Aktif yap", "ypri") + b("arc", "Arşiv işlemleri") + b("del", "Sil", "sec yrm");
     }
     // Son kayıtlı yılda: bir sonraki yılı başlat düğmesi (1 Ocak'a kadar gri pasif, sonra yeşil çerçeveli)
     if (!it || yi === yItems.length - 1) acts += b("new", `+ ${nextV} yıl başlat`, "sec ynew", +nextV > cy);
     yEl.innerHTML = `<div class="yst"><button class="sec yab" data-yn="-1" aria-label="Önceki yıl" ${yi <= 0 ? "disabled" : ""}>‹</button>
-      <div class="yctr">${it ? `<div class="yyr ${s.k === "act" ? "" : "dimc"}">${it.y}</div><span class="ypl ${s.k}">${s.label}</span><span class="ypos">${yi + 1} / ${yItems.length}</span>` : '<span class="muted">Kayıtlı yıl yok</span>'}</div>
+      <div class="yctr">${it ? `<div class="yyr ${s.k === "act" ? "" : "dimc"}">${it.y}</div><span class="ypl ${s.k}">${s.label}</span>${s.k === "act" ? "" : Arsiv.badges(it.meta)}<span class="ypos">${yi + 1} / ${yItems.length}</span>` : '<span class="muted">Kayıtlı yıl yok</span>'}</div>
       <button class="sec yab" data-yn="1" aria-label="Sonraki yıl" ${yi >= yItems.length - 1 ? "disabled" : ""}>›</button></div>
       <div class="yact">${acts}</div>`;
     yEl.querySelectorAll("[data-yn]").forEach(x => x.onclick = () => { yi += +x.dataset.yn; drawY(); });
     yEl.querySelectorAll("[data-ya]").forEach(x => x.onclick = () => yRun(x.dataset.ya, x.dataset.ya === "new" ? { y: nextV } : it));
   };
   drawY();
+  if ($("depoCard")) {
+    const mm = {}; Promise.all(st.all.map(async f => { try { for (const m of await S.listYearsMeta(f.id)) mm[f.id + "|" + m.id] = m; } catch { } })).then(() =>
+      Arsiv.renderDepo($("depoCard"), { factories: st.all, profile: st.profile, metaOf: (f, y) => mm[f + "|" + y] }));
+  }
   if ($("gvBtn")) {
     const gp = () => { const ok = Gorev.state() === "hazir"; $("gvBtn").textContent = ok ? "Görev programı bağlı · Bağlantıyı kes" : "Görev programına bağlan"; $("gvBtn").title = Gorev.statusText(); };
     gp(); const off = Gorev.onChange(() => { if ($("gvBtn")) gp(); else off(); });

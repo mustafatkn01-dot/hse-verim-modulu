@@ -77,6 +77,14 @@ export async function compressImage(file) {
   let full = draw(1800, 0.85); for (const [mx, q] of [[1600, 0.8], [1400, 0.75], [1200, 0.7], [1000, 0.65]]) if (full.length > 900000) full = draw(mx, q);
   return { full, thumb: draw(140, 0.6) };
 }
+// Kayıtlı fotoğrafı (dataURL) hedef uzun kenara küçültür (1000 px: %65, 1200 px: %70); zaten küçükse null döner
+export async function shrinkDataUrl(src, px) {
+  const im = new Image(); im.src = src; await im.decode();
+  const w = im.naturalWidth, h = im.naturalHeight, m = Math.max(w, h); if (m <= px) return null;
+  const r = px / m, c = document.createElement("canvas"); c.width = Math.round(w * r); c.height = Math.round(h * r);
+  c.getContext("2d").drawImage(im, 0, 0, c.width, c.height);
+  return c.toDataURL("image/jpeg", px <= 1000 ? 0.65 : 0.7);
+}
 // Tam ekran fotoğraf görüntüleyici
 export function showPhoto(src) {
   const m = document.createElement("div"); m.className = "mod";

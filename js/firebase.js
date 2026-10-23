@@ -5,6 +5,7 @@ import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWith
   sendSignInLinkToEmail, EmailAuthProvider, reauthenticateWithCredential, signInWithEmailLink, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, updateDoc,
   query, orderBy, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import * as FSX from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyD8YdxVO452s1ETlqqpsiZcVTeKzxCZ2j0",
@@ -20,6 +21,8 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 setPersistence(auth, browserLocalPersistence).catch(() => {});
 
+// Ek işlevler (toplama sorguları, sayfalama): ad alanı olarak, bir ad bulunamazsa undefined olur
+export const FS = FSX;
 export const apiKey = firebaseConfig.apiKey, authDomain = firebaseConfig.authDomain;
 export { signInAnonymously, signInWithEmailLink, sendSignInLinkToEmail, EmailAuthProvider, reauthenticateWithCredential, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut,
   sendPasswordResetEmail, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, updateDoc,
