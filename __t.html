@@ -1,0 +1,9 @@
+<!doctype html><meta charset=utf-8><link rel=stylesheet href="/css/app.css"><body><div id="g"></div>
+<script type="module">
+import * as P from "/js/paylas.js?v=20261022q";
+window.P=P;
+const rows=[{id:"a",name:"Matbaa"},{id:"b",name:"Pres Bölümü"},{id:"c",name:"Planlama"}];
+window.openIt=()=>P.openShare({fid:"f1",year:"2026",month:10,rows,factoryName:"Adana Servis Merkezi"});
+const gr=await P.guestRows("f1","2026"); document.getElementById("g").innerHTML=P.guestCard(gr,true);
+window.ready=true;
+</script>

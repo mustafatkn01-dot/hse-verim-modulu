@@ -1,5 +1,5 @@
 // Ortak PDF yardımcıları: kâğıt boyutu (A4/A3) + sayfa düzeni (dikey/yatay) penceresi
-import { esc } from "./ui.js?v=20261022p";
+import { esc } from "./ui.js?v=20261022q";
 
 // "Paylaş" seçildiyse savePdf dosyayı indirmek yerine paylaşma penceresi açar
 const PDF = { share: false };
@@ -16,7 +16,7 @@ function shareReady(blob, name) {
   m.querySelector("[data-dl]").onclick = () => { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 800); };
   m.querySelector("[data-sh]").onclick = async () => { try { await navigator.share({ files: [file], title: name.replace(/\.pdf$/i, "") }); m.remove(); } catch (e) { if (e?.name !== "AbortError") { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click(); } } };
 }
-export function askFormat({ title = "PDF indir", text = "", defOrient = "portrait", hint = "", pics = 0, picsFor = null, fileOnly = false, scopes = null } = {}) {
+export function askFormat({ title = "PDF indir", text = "", defOrient = "portrait", hint = "", pics = 0, picsFor = null, fileOnly = false, scopes = null, takip = false } = {}) {
   return new Promise(res => {
     const o = { size: "A4", orient: defOrient, pics: false, scope: scopes ? scopes[0][0] : "all" };
     const m = document.createElement("div"); m.className = "mod";
@@ -28,6 +28,7 @@ export function askFormat({ title = "PDF indir", text = "", defOrient = "portrai
       <div class="col1" style="gap:6px"><span class="hd">SAYFA DÜZENİ</span><div class="row" style="gap:8px;flex-wrap:nowrap">${seg("orient", [["portrait", "Dikey"], ["landscape", "Yatay"]])}</div>
         ${hint ? `<span class="muted" style="font-size:12.5px">${esc(hint)}</span>` : ""}</div>
       ${pics || picsFor ? `<label class="row" data-prow style="gap:10px;flex-wrap:nowrap;font-weight:600;cursor:pointer"><input type="checkbox" data-pics style="width:20px;height:20px"> <span>Resimleri ekle (<span data-pn>${pics}</span> adet · her açıklamanın altında yaklaşık 6 cm)</span></label>` : ""}
+      ${takip ? `<label class="row" style="gap:10px;flex-wrap:nowrap;font-weight:600;cursor:pointer"><input type="checkbox" data-trow style="width:20px;height:20px"> <span>Her maddenin altına takip satırı ekle (sorumlu · termin)</span></label><label class="row" style="gap:10px;flex-wrap:nowrap;font-weight:600;cursor:pointer"><input type="checkbox" data-ttab style="width:20px;height:20px"> <span>Raporun sonuna bulgu termin takip tablosu ekle</span></label>` : ""}
       ${fileOnly ? "" : `<div class="muted" style="font-size:12.5px;line-height:1.5">Yazdırma önizlemesi açılır; oradan doğrudan yazdırabilir veya hedef olarak "PDF olarak kaydet" seçebilirsiniz. Ölçek ve kenar boşlukları "Varsayılan" kalsın.</div>`}
       <div class="col1" style="gap:8px"><div style="display:grid;grid-template-columns:${canShare() ? "1fr 1fr" : "1fr"};gap:8px"><button ${fileOnly ? "" : 'class="sec"'} data-file title="Yazdırmadan doğrudan PDF dosyası olarak indir">PDF indir</button>${canShare() ? `<button class="sec" data-share title="Dosyayı kaydetmeden WhatsApp, e-posta vb. ile paylaş">Paylaş</button>` : ""}</div>
         ${fileOnly ? "" : `<button data-yes>Önizleme ve yazdır</button>`}<button class="sec" data-no>İptal</button></div></div>`;
@@ -42,7 +43,7 @@ export function askFormat({ title = "PDF indir", text = "", defOrient = "portrai
     const sc = m.querySelector("#pScope"), pr = m.querySelector("[data-prow]"), pn = m.querySelector("[data-pn]");
     const upPics = () => { if (!picsFor || !pr) return; const n = picsFor(sc ? sc.value : "all"); pn.textContent = n; pr.style.display = n ? "" : "none"; if (!n && pc) pc.checked = false; };
     if (sc) sc.onchange = upPics; upPics();
-    const gv = () => ({ ...o, pics: !!pc?.checked, scope: sc ? sc.value : "all" });
+    const gv = () => ({ ...o, pics: !!pc?.checked, scope: sc ? sc.value : "all", trow: !!m.querySelector("[data-trow]")?.checked, ttab: !!m.querySelector("[data-ttab]")?.checked });
     const yb = m.querySelector("[data-yes]"); if (yb) yb.onclick = () => { PDF.share = false; done({ ...gv(), file: false }); };
     m.querySelector("[data-file]").onclick = () => { PDF.share = false; done({ ...gv(), file: true }); };
     const sb = m.querySelector("[data-share]"); if (sb) sb.onclick = () => { PDF.share = true; done({ ...gv(), file: true, share: true }); };

@@ -1,7 +1,7 @@
 // Veri katmanı: users/{uid}/factories/{fid}/years/{yıl}/setup/main
-import { auth, db, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, updateDoc, query, orderBy, serverTimestamp, onSnapshot, FS } from "./firebase.js?v=20261022p";
-import { shrinkDataUrl } from "./ui.js?v=20261022p";
-import { setSurec } from "./scoring.js?v=20261022p";
+import { auth, db, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, updateDoc, query, orderBy, serverTimestamp, onSnapshot, FS } from "./firebase.js?v=20261022q";
+import { shrinkDataUrl } from "./ui.js?v=20261022q";
+import { setSurec } from "./scoring.js?v=20261022q";
 
 const uid = () => auth.currentUser.uid;
 // Veri sahibi: misafir kullanıcıda davet eden hesabın uid'si; kendi oturum/profil kayıtları ise her zaman kendi hesabında
@@ -235,3 +235,12 @@ export async function photoUsage(fid, y) {
   try { if (FS.getAggregateFromServer && FS.sum && FS.count) { const r = (await FS.getAggregateFromServer(query(col, FS.where("len", ">", 0)), { s: FS.sum("len"), c: FS.count() })).data(); sum = r.s || 0; withLen = r.c || 0; } } catch { }
   const miss = Math.max(0, n - withLen); return { n, bytes: sum + miss * AVG_PHOTO, exact: miss === 0 };
 }
+
+// ---- Bulgu paylaşımı: users/{sahip}/shares/{id} = {fid, year, month, depts:[{id,name}], guests:[uid], names:{uid:ad}, termin, note, at} ----
+const shareCol = () => collection(db, `${mine()}/shares`);
+export async function addShare(data) { const id = Math.random().toString(36).slice(2, 10); await setDoc(doc(db, `${mine()}/shares/${id}`), { ...data, id, at: Date.now() }); return id; }
+export async function listShares(fid, year, month) { const s = await getDocs(shareCol()); return s.docs.map(d => d.data()).filter(x => x.fid === fid && String(x.year) === String(year) && (month == null || +x.month === +month)).sort((a, b) => b.at - a.at); }
+export const deleteShare = id => deleteDoc(doc(db, `${mine()}/shares/${id}`));
+export async function listMembers() { const s = await getDocs(collection(db, `${mine()}/members`)); return s.docs.map(d => ({ id: d.id, ...d.data() })); }
+// Misafir: kendisiyle paylaşılanlar (kural: yalnızca guests listesinde olduğu paylaşımlar okunur)
+export async function myShares(fid, year) { const s = await getDocs(query(collection(db, `${base()}/shares`), FS.where("guests", "array-contains", uid()))); return s.docs.map(d => d.data()).filter(x => x.fid === fid && String(x.year) === String(year)).sort((a, b) => b.at - a.at); }

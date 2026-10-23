@@ -1,11 +1,11 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261022p";
-import { esc } from "./ui.js?v=20261022p";
-import { bandOf, DEFAULT_PARAMS, num, isgMonth, makTier, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261022p";
-import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261022p";
-import { CATS } from "./isgcats.js?v=20261022p";
-import * as Gorev from "./gorev.js?v=20261022p";
-import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261022p";
+import * as S from "./store.js?v=20261022q";
+import { esc } from "./ui.js?v=20261022q";
+import { bandOf, DEFAULT_PARAMS, num, isgMonth, makTier, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261022q";
+import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261022q";
+import { CATS } from "./isgcats.js?v=20261022q";
+import * as Gorev from "./gorev.js?v=20261022q";
+import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261022q";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -274,11 +274,11 @@ function pdfDialog(info) {
   info.sess = sl;
   const scopes = sl.length ? [["all", sl.length > 1 ? "Tüm haftalar (hafta bazlı)" : sl[0].label], ...(sl.length > 1 ? [["last:" + sl[sl.length - 1].k, "Son hafta · " + sl[sl.length - 1].label], ...sl.map(x => ["s:" + x.k, x.label])] : [])] : null;
   if (scopes && info.wkKey) { const i = scopes.findIndex(x => x[0] === "last:" + info.wkKey); if (i > 0) scopes.unshift(scopes.splice(i, 1)[0]); }
-  askFormat({ title: "PDF indir", text: `${info.title} · ${info.plabel}. Grafik ve açıklamalar; yöneticinize göndermek için hazırlanır (resimsiz tek sayfa).`, defOrient: n > 7 ? "landscape" : "portrait", hint: n > 7 ? `${n} bölüm olduğu için yatay düzen önerilir.` : "Az sayıda bölümde dikey düzen yeterlidir.", scopes, pics: info.details.reduce((a, g) => a + g.items.reduce((b, it) => b + (it.pics?.length || 0), 0), 0),
+  askFormat({ title: "PDF indir", text: `${info.title} · ${info.plabel}. Grafik ve açıklamalar; yöneticinize göndermek için hazırlanır (resimsiz tek sayfa).`, defOrient: n > 7 ? "landscape" : "portrait", hint: n > 7 ? `${n} bölüm olduğu için yatay düzen önerilir.` : "Az sayıda bölümde dikey düzen yeterlidir.", scopes, takip: info.details.some(g => g.mod === "İSG Denetim"), pics: info.details.reduce((a, g) => a + g.items.reduce((b, it) => b + (it.pics?.length || 0), 0), 0),
     picsFor: scope => info.details.reduce((a, g) => a + (g.mod !== "İSG Denetim" ? g.items.reduce((b, it) => b + (it.pics?.length || 0), 0) : g.items.reduce((b, it) => b + Object.values(it.by || {}).filter(x => scope === "all" || info.wkOf(x) === scope.replace(/^(s|last):/, "")).reduce((c, x) => c + (x.pics?.length || 0) + (x.fx?.ph?.length || 0), 0), 0)), 0) }).then(o => o && printSheet(info, o));
 }
 
-async function printSheet(info, { size, orient, pics = false, file = false, scope = "all" }) {
+async function printSheet(info, { size, orient, pics = false, file = false, scope = "all", trow = false, ttab = false }) {
   // Hafta seçildiyse grafik de o haftanın görünümüne geçer (ay başından o haftanın sonuna birikimli)
   if (info.weekFor && /^(s|last):/.test(scope)) { const w = info.weekFor(scope.replace(/^(s|last):/, "")); if (w && w.names.length) info = { ...info, ...w, partial: "" }; }
   // Tasarım A4 ölçüsünde (96 dpi) yapılır; A3 için √2 büyütülür.
@@ -296,8 +296,19 @@ async function printSheet(info, { size, orient, pics = false, file = false, scop
   const sl = info.sess || [], sc = scope || "all";
   if (sl.length) {
     const want = sc === "all" ? sl : sl.filter(x => sc === "s:" + x.k || sc === "last:" + x.k);
-    DET = info.details.flatMap(g => g.mod !== "İSG Denetim" ? [g] : want.map(w => ({ mod: g.mod, sub: w.label, items: g.items.flatMap(it => Object.values(it.by || {}).filter(b => info.wkOf(b) === w.k).map(b => ({ ...it, pics: b.pics, fx: b.fx, extra: "", done: done(b.gk), mon: "" }))) })).filter(x => x.items.length));
+    DET = info.details.flatMap(g => g.mod !== "İSG Denetim" ? [g] : want.map(w => ({ mod: g.mod, sub: w.label, items: g.items.flatMap(it => Object.values(it.by || {}).filter(b => info.wkOf(b) === w.k).map(b => ({ ...it, pics: b.pics, fx: b.fx, extra: "", done: done(b.gk), mon: "", bm: b.m }))) })).filter(x => x.items.length));
   }
+  // Paylaşım bilgisi (sorumlu · termin): bölüm adı + ay ile eşleşen en yeni paylaşım
+  const SH = trow || ttab ? await S.listShares(info.fid, info.year).catch(() => []) : [];
+  const shOf = a => SH.find(x => +x.month === +a.bm && (x.depts || []).some(d => d.name === a.dept));
+  const fdm = t => new Date(t + "T00:00:00").toLocaleDateString("tr-TR", { day: "numeric", month: "long" }), todayIso = new Date().toISOString().slice(0, 10);
+  const whoOf = sh => sh ? Object.values(sh.names || {}).join(", ") : "";
+  const takipRow = a => { if (!trow) return ""; const sh = shOf(a); return `<div style="margin-top:3px;font-size:11px;color:#546964;font-style:italic">Sorumlu: <b style="font-style:normal;color:#3E534E">${esc(whoOf(sh) || "-")}</b> · Termin: <b style="font-style:normal;color:#3E534E">${sh ? fdm(sh.termin) : "-"}</b></div>`; };
+  const takipTable = () => { if (!ttab) return ""; const rows = DET.filter(g => g.mod === "İSG Denetim").flatMap(g => g.items);
+    if (!rows.length) return ""; const th = "padding:5px 6px;text-align:left;font-size:10.5px;color:#546964;border-bottom:1.5px solid #D5E0DC", td = "padding:5px 6px;border-bottom:1px solid #E6EDEA;vertical-align:top;font-size:11px;line-height:1.4";
+    return `<div style="border-top:1px solid #D5E0DC;padding-top:10px;display:flex;flex-direction:column;gap:5px"><div style="font-weight:800;font-size:12px;letter-spacing:.8px;color:#3E534E">BULGU TERMİN TAKİP TABLOSU</div>
+      <table style="border-collapse:collapse;width:100%"><tr><th style="${th}">Bölüm</th><th style="${th}">Bulgu</th><th style="${th}">Sorumlu</th><th style="${th}">Termin</th><th style="${th}">Durum</th></tr>${rows.map(a => { const sh = shOf(a), dn = !!a.fx, lt = !dn && sh && sh.termin < todayIso;
+      return `<tr style="break-inside:avoid"><td style="${td};white-space:nowrap">${esc(a.dept)}</td><td style="${td}">${esc(a.cat && a.text.startsWith(a.cat + ": ") ? a.text.slice(a.cat.length + 2) : a.text)}</td><td style="${td}">${esc(whoOf(sh) || "-")}</td><td style="${td};white-space:nowrap">${sh ? fdm(sh.termin) : "-"}</td><td style="${td};white-space:nowrap;font-weight:700;color:${dn ? "#0B6E4F" : lt ? "#B3261E" : "#3E534E"}">${dn ? "Aksiyon alındı" : lt ? "Gecikti" : "Açık"}</td></tr>`; }).join("")}</table></div>`; };
   const usePics = pics && DET.some(g => g.items.some(i => i.pics?.length || i.fx?.ph?.length)), PH = {};
   if (usePics) await Promise.all(DET.flatMap(g => g.items.flatMap(i => [...(i.pics || []), ...(i.fx?.ph || [])])).map(async p => { try { PH[p.id] = await S.getPhoto(info.fid, info.year, p.id); } catch { } }));
   const psz = file ? 227 : Math.round(227 / z); // 6 cm yükseklik
@@ -306,7 +317,7 @@ async function printSheet(info, { size, orient, pics = false, file = false, scop
   const col = (l, list, c) => `<div style="display:flex;flex-direction:column;gap:3px"><span style="font-size:10.5px;font-weight:800;letter-spacing:.6px;color:${c}">${l}</span><div style="display:flex;flex-wrap:wrap;gap:8px">${list.map(im).join("")}</div></div>`;
   // Aksiyon alındı: kişi adı yazılmaz; açıklama altında yeşil satır, resimlerde "aksiyon öncesi" ve yanında "aksiyon sonrası"
   const fxHtml = a => a.fx ? `<div style="display:flex;gap:8px;align-items:flex-start;margin-top:4px;padding:6px 10px;border-radius:6px;border-left:4px solid #0B6E4F;background:#EAF7F1"><span style="flex:0 0 16px;width:16px;height:16px;border-radius:4px;background:#0B6E4F;display:inline-flex;align-items:center;justify-content:center;margin-top:1px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12l5 5L20 6"/></svg></span><span><b style="color:#0B6E4F">Aksiyon alındı</b>${a.fx.at ? ` <span style="color:#546964;white-space:nowrap">· ${fxD(a.fx.at)}</span>` : ""}<br>${esc(a.fx.tx)}</span></div>` : "";
-  const picsHtml = a => fxHtml(a) + (usePics && a.fx && (a.pics?.length || a.fx.ph.length) ? `<div style="display:flex;flex-wrap:wrap;gap:14px;margin-top:6px">${a.pics?.length ? col("AKSİYON ÖNCESİ", a.pics, "#B3261E") : ""}${a.fx.ph.length ? col("AKSİYON SONRASI", a.fx.ph, "#0B6E4F") : ""}</div>` : usePics && a.pics?.length ? `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">${a.pics.map(im).join("")}</div>` : "");
+  const picsHtml = a => takipRow(a) + fxHtml(a) + (usePics && a.fx && (a.pics?.length || a.fx.ph.length) ? `<div style="display:flex;flex-wrap:wrap;gap:14px;margin-top:6px">${a.pics?.length ? col("AKSİYON ÖNCESİ", a.pics, "#B3261E") : ""}${a.fx.ph.length ? col("AKSİYON SONRASI", a.fx.ph, "#0B6E4F") : ""}</div>` : usePics && a.pics?.length ? `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">${a.pics.map(im).join("")}</div>` : "");
   const sh = document.createElement("div"); sh.id = "psheet";
   const FONT = "font-family:Manrope,system-ui,sans-serif;color:#10201C;display:flex;flex-direction:column;gap:14px;font-size:13px";
   const items = [];
@@ -329,7 +340,7 @@ async function printSheet(info, { size, orient, pics = false, file = false, scop
       first: `${info.partial ? `<div style="padding:8px 12px;border-radius:8px;background:#FBE9C6;color:#5A3300;font-weight:600">${esc(info.partial)}</div>` : ""}
     <div style="position:relative;height:${ch}px"><div style="position:absolute;inset:0">${GL.map(v => line(v, v)).join("")}</div><div style="position:absolute;left:30px;right:0;top:0;bottom:0;display:flex;gap:${gap}px">${bars}</div></div>
     <div style="display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:#546964">${[["Mükemmel", `≥ ${num(info.esik.m)}`], ["İyi", `${num(info.esik.i)}-${num(info.esik.m) - 1}`], ["Orta", `${num(info.esik.o)}-${num(info.esik.i) - 1}`], ["Kritik", `< ${num(info.esik.o)}`]].map(([k, r]) => `<span style="display:flex;align-items:center;gap:6px"><span style="width:11px;height:11px;border-radius:3px;background:${BAND[k].fill}"></span>${k} ${r}</span>`).join("")}</div>`,
-      foot: "" }; };
+      foot: takipTable() }; };
   const wrap = (inner, z, extra = "", pg = "") => `<div class="ppg" style="width:${cw}px;zoom:${z};${extra}${FONT}">${inner}${pg ? `<div style="position:absolute;left:0;right:0;bottom:0;text-align:center;font-size:11px;color:#6A7E79">${pg}</div>` : ""}</div>`;
   // Tek sayfa düzeni
   const PGH = Hh - 2 * M - 6, avail = PGH - 24; // alttaki 24 px sayfa numarasına ayrılır

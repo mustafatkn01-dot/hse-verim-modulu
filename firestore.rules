@@ -113,6 +113,11 @@ service cloud.firestore {
       }
     }
 
+    // Bulgu paylaşımı: yalnızca sahip yazar; misafir yalnızca kendisinin listede olduğu paylaşımları okur
+    match /users/{owner}/shares/{id} {
+      allow read: if request.auth != null && request.auth.uid in resource.data.guests;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
