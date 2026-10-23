@@ -82,7 +82,7 @@ service cloud.firestore {
         // İSG denetim kayıtlarını (isg) misafir yalnızca okur; kendi taslağını (isgg, id'si kendi uid'si ile biter) yazar.
         match /{coll}/{docId} {
           allow read: if live() && (coll in ['isg', 'kaza', 'konusma', 'isbasi', 'konusmag', 'isbasig', 'kazag', 'ramak', 'foto']
-            || (coll == 'isgg' && docId.matches('.*_' + request.auth.uid)));
+            || (coll == 'isgg' && (docId.matches('.*_' + request.auth.uid) || docId.matches('.*_fix_.*'))));
           // Eğitim konuşması / işbaşı eğitim / iş kazası aylık kaydını misafir DEĞİŞTİREMEZ; yalnızca kendi "bekleyen" kaydını ekler (sahip onaylar) veya bekleyen kaydını siler
           allow create: if live() && coll in ['konusmag', 'isbasig', 'kazag']
             && docId.matches('.*_' + request.auth.uid + '_.*')

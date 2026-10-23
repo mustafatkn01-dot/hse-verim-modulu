@@ -1,14 +1,16 @@
 // Bulgu paylaşımı: yetkili, seçtiği bölümlerin açık bulgularını seçtiği misafirlerle paylaşır; misafir kendi ekranında görür ve
 // mevcut "Aksiyon bildir" akışıyla aksiyon alır (yetkili onayı mevcut Aksiyon bildirimleri panelinde).
 // Puan kuralı mevcut sistemdeki gibi: aksiyonun gönderim zamanı denetim haftası içindeyse (en geç cumartesi) ve yetkili kabul ederse puana işlenir.
-import * as S from "./store.js?v=20261022q";
-import { esc, ic, toast, confirmBox } from "./ui.js?v=20261022q";
+import * as S from "./store.js?v=20261022r";
+import { esc, ic, toast, confirmBox, compressImage, showPhoto } from "./ui.js?v=20261022r";
+import * as Guest from "./guest.js?v=20261022r";
+import { CATS } from "./isgcats.js?v=20261022r";
 
 const pad = n => String(n).padStart(2, "0"), iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const addDays = (s, n) => { const d = new Date(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10)); d.setDate(d.getDate() + n); return iso(d); };
 const monOf = s => { const g = new Date(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10)).getDay(); return addDays(s, g === 0 ? -6 : 1 - g); };
 export const fd = s => new Date(s + "T00:00:00").toLocaleDateString("tr-TR", { day: "numeric", month: "long" });
-const WA = '<path d="M21 11.5a8.4 8.4 0 0 1-12.3 7.4L3 20.5l1.6-5.5A8.4 8.4 0 1 1 21 11.5z"/><path d="M9 9.5c.3 2 2.5 4.2 4.5 4.5l1.2-1.2-1.6-.9-.8.6c-.7-.3-1.4-1-1.7-1.7l.6-.8-.9-1.6z"/>';
+const WA = '<path d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-7l-5 4v-4H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/><path d="M8 10h8M8 13h5"/>';
 const ML = '<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3.5 7l8.5 6 8.5-6"/>';
 const IB = "flex:0 0 40px;width:40px;height:40px;padding:0;display:grid;place-items:center;min-height:0";
 
@@ -34,14 +36,14 @@ export async function openShare({ fid, year, month, rows, factoryName = "", onDo
     Promise.all(rows.map(r => S.getMonthDoc(fid, year, "isg", keyOf(month, r.id)).catch(() => null)))]);
   const live = mem.filter(x => (x.factories || []).includes(fid) && (x.expires == null || (x.expires.toMillis ? x.expires.toMillis() : +x.expires) > Date.now()));
   const info = Object.fromEntries(rows.map((r, i) => [r.id, openInfo(docs[i])]));
-  const st = { g: [], b: [], t: addDays(iso(new Date()), 7), note: "", old };
+  const st = { g: [], b: [], t: addDays(iso(new Date()), 7), note: "", old, roles: {} };
   const cutOf = ids => ids.map(i => info[i].cut).filter(Boolean).sort().pop() || "";
   const draw = () => {
     const all = rows.filter(r => info[r.id].n > 0), nOpen = st.b.reduce((a, i) => a + info[i].n, 0);
     box.innerHTML = `<h2 style="margin:0;font-size:20px">Bulguları paylaş</h2>
       <div class="muted" style="font-size:13px;line-height:1.5">${esc(factoryName)} · seçtiğiniz bölümlerin açık bulguları, seçtiğiniz kişilerle paylaşılır. Kişi bulgulara aksiyon girer, onayı siz verirsiniz.</div>
       <span class="hd">KİME</span>
-      ${live.length ? `<div class="col1" style="gap:6px">${live.map(g => `<label class="opt" style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid ${st.g.includes(g.id) ? "var(--gd)" : "var(--line)"};border-radius:12px;cursor:pointer;margin:0;${st.g.includes(g.id) ? "background:#EAF7F1" : ""}"><input type="checkbox" data-g="${g.id}" ${st.g.includes(g.id) ? "checked" : ""} style="width:20px;height:20px;margin:2px 0 0;flex:0 0 20px;accent-color:#0B6E4F"><span style="min-width:0"><b style="font-size:14px;display:block">${esc(g.name || "Misafir")}</b>${g.unit ? `<span style="font-style:italic;font-size:12px;color:var(--muted);display:block">${esc(g.unit)}</span>` : ""}</span></label>`).join("")}</div>` : '<div class="muted" style="font-size:13px">Bu fabrikaya yetkili onaylı misafir yok. Ayarlar &gt; Misafir erişimi bölümünden davet edin.</div>'}
+      ${live.length ? `<div class="col1" style="gap:6px">${live.map(g => { const on = st.g.includes(g.id); return `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid ${on ? "var(--gd)" : "var(--line)"};border-radius:12px;${on ? "background:#EAF7F1" : ""}"><input type="checkbox" data-g="${g.id}" aria-label="${esc(g.name || "Misafir")}" ${on ? "checked" : ""} style="width:20px;height:20px;margin:0;flex:0 0 20px;accent-color:#0B6E4F"><span style="flex:1;min-width:0"><b style="font-size:14px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(g.name || "Misafir")}</b>${g.unit ? `<span style="font-style:italic;font-size:12px;color:var(--muted);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(g.unit)}</span>` : ""}</span>${on ? `<button type="button" class="sec" data-role="${g.id}" style="flex:0 0 auto;height:34px;min-width:96px;padding:0 10px;font-size:12.5px">${st.roles[g.id] === "izle" ? "Yalnızca izler" : "Aksiyon alır"}</button>` : ""}</div>`; }).join("")}</div><div style="border-radius:12px;padding:10px 12px;font-size:12.5px;line-height:1.5;background:#E3F0F9;border:1px solid #BCD6EA;color:#143B5B"><b>Aksiyon alır:</b> bulguya aksiyon ve kanıt girer. <b>Yalnızca izler:</b> canlı takip görür, aksiyon düğmesi çıkmaz. İki rol de kendi gözlemini yeni bulgu olarak ekleyebilir, onayı siz verirsiniz.</div>` : '<div class="muted" style="font-size:13px">Bu fabrikaya yetkili onaylı misafir yok. Ayarlar &gt; Misafir erişimi bölümünden davet edin.</div>'}
       <span class="hd">HANGİ BÖLÜMLER</span>
       <div class="col1" style="gap:6px">${all.length ? `<label style="display:flex;gap:10px;align-items:center;padding:10px 12px;border:1px solid ${st.b.length === all.length ? "var(--gd)" : "var(--line)"};border-radius:12px;cursor:pointer;margin:0;${st.b.length === all.length ? "background:#EAF7F1" : ""}"><input type="checkbox" data-ball ${st.b.length === all.length ? "checked" : ""} style="width:20px;height:20px;flex:0 0 20px;accent-color:#0B6E4F"><b style="font-size:14px">Tüm bölümler</b></label>` : ""}
       ${rows.map(r => { const n = info[r.id].n, on = st.b.includes(r.id); return `<label style="display:flex;gap:10px;align-items:center;padding:10px 12px;border:1px solid ${on ? "var(--gd)" : "var(--line)"};border-radius:12px;cursor:${n ? "pointer" : "default"};margin:0;${on ? "background:#EAF7F1;" : ""}${n ? "" : "opacity:.5"}"><input type="checkbox" data-b="${r.id}" ${on ? "checked" : ""} ${n ? "" : "disabled"} style="width:20px;height:20px;flex:0 0 20px;accent-color:#0B6E4F"><span style="flex:1;min-width:0"><b style="font-size:14px">${esc(r.name)}</b></span><span class="muted" style="font-size:12.5px;white-space:nowrap">${n ? n + " açık bulgu" : "açık bulgu yok"}</span></label>`; }).join("")}</div>
@@ -49,8 +51,10 @@ export async function openShare({ fid, year, month, rows, factoryName = "", onDo
       <div><label class="hd" for="shN" style="margin:0">NOT (İSTEĞE BAĞLI)</label><textarea id="shN" class="inp" style="margin-top:4px;height:auto;min-height:64px;padding:10px;resize:vertical" placeholder="Örn. Önce yaya yolu ve yangın söndürücü önü.">${esc(st.note)}</textarea></div>
       ${st.g.length && st.b.length ? `<div style="border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.5;background:#E3F0F9;border:1px solid #BCD6EA;color:#143B5B">${st.g.length} kişi · ${st.b.length} bölüm · ${nOpen} açık bulgu. ${cutOf(st.b) ? (cutOf(st.b) >= iso(new Date()) ? `Puan için aksiyon en geç ${fd(cutOf(st.b))} gününe kadar girilmeli.` : "Denetim haftası kapandı: aksiyon görünür ama puan değişmez.") : ""}</div>` : ""}
       ${st.old.length ? `<div style="border-top:1px solid var(--line);padding-top:10px;display:flex;flex-direction:column;gap:6px"><span class="hd">BU AYIN PAYLAŞIMLARI (${st.old.length})</span>${st.old.map(o => `<div style="display:flex;align-items:center;gap:8px"><span style="flex:1;min-width:0;font-size:13px;line-height:1.4">${esc(Object.values(o.names || {}).join(", ") || "-")} <span class="muted">· ${esc(o.depts.map(d => d.name).join(", "))} · ${fd(o.termin)}</span></span><button type="button" class="sec sm" data-rm="${o.id}" style="flex:0 0 auto;min-width:0;padding:0 10px">Kaldır</button></div>`).join("")}</div>` : ""}
+      ${st.old.length ? '<button type="button" class="sec" data-sum>Durum özetini gönder</button>' : ""}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button class="sec" data-c>Vazgeç</button><button data-go ${st.g.length && st.b.length ? "" : "disabled"}>Gönder</button></div>`;
     box.querySelectorAll("[data-g]").forEach(x => x.onchange = () => { keep(); st.g = x.checked ? [...st.g, x.dataset.g] : st.g.filter(i => i !== x.dataset.g); draw(); });
+    box.querySelectorAll("[data-role]").forEach(x => x.onclick = () => { keep(); st.roles[x.dataset.role] = st.roles[x.dataset.role] === "izle" ? "aks" : "izle"; draw(); });
     box.querySelectorAll("[data-b]").forEach(x => x.onchange = () => { keep(); st.b = x.checked ? [...st.b, x.dataset.b] : st.b.filter(i => i !== x.dataset.b); draw(); });
     const ba = box.querySelector("[data-ball]"); if (ba) ba.onchange = () => { keep(); st.b = ba.checked ? all.map(r => r.id) : []; draw(); };
     box.querySelectorAll("[data-rm]").forEach(x => x.onclick = async () => {
@@ -58,12 +62,13 @@ export async function openShare({ fid, year, month, rows, factoryName = "", onDo
       try { await S.deleteShare(x.dataset.rm); st.old = st.old.filter(o => o.id !== x.dataset.rm); toast("Paylaşım kaldırıldı."); } catch { toast("Kaldırılamadı."); } draw();
     });
     box.querySelector("[data-c]").onclick = close; box.querySelector("[data-go]").onclick = send;
+    const sm = box.querySelector("[data-sum]"); if (sm) sm.onclick = summary;
   };
   const keep = () => { const t = box.querySelector("#shT"), n = box.querySelector("#shN"); if (t?.value) st.t = t.value; if (n) st.note = n.value; };
   const send = async () => {
     keep(); const btn = box.querySelector("[data-go]"); btn.disabled = true;
     const depts = rows.filter(r => st.b.includes(r.id)).map(r => ({ id: r.id, name: r.name })), names = Object.fromEntries(st.g.map(g => [g, live.find(x => x.id === g)?.name || "Misafir"]));
-    try { await S.addShare({ fid, year: String(year), month: +month, depts, guests: st.g, names, termin: st.t, note: st.note.trim() }); }
+    try { await S.addShare({ fid, year: String(year), month: +month, depts, guests: st.g, names, roles: Object.fromEntries(st.g.map(g => [g, st.roles[g] || "aks"])), termin: st.t, note: st.note.trim() }); }
     catch (e) { btn.disabled = false; return toast("Paylaşılamadı: " + (e.message || e)); }
     done(depts, names);
   };
@@ -74,28 +79,123 @@ export async function openShare({ fid, year, month, rows, factoryName = "", onDo
     box.innerHTML = `<h2 style="margin:0;font-size:20px">Paylaşıldı</h2>
       <div class="muted" style="font-size:13px;line-height:1.5">Kişiler uygulamayı açtığında paylaşımı görür. İsterseniz mesajı ayrıca WhatsApp veya e-posta ile gönderin.</div>
       ${st.g.map(g => { const nm = names[g]; return `<div style="display:flex;align-items:center;gap:8px"><span style="flex:1;min-width:0"><b style="font-size:14px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(nm)}</b>${live.find(x => x.id === g)?.unit ? `<span style="font-style:italic;font-size:12px;color:var(--muted);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(live.find(x => x.id === g).unit)}</span>` : ""}</span>
-        <a href="https://wa.me/?text=${encodeURIComponent(msgFor(nm))}" target="_blank" rel="noopener" aria-label="${esc(nm)} için WhatsApp mesajı" title="WhatsApp"><button type="button" class="sec" style="${IB}">${ic(WA, 20)}</button></a>
-        <a href="mailto:?subject=${encodeURIComponent("İSG bulguları paylaşıldı")}&body=${encodeURIComponent(msgFor(nm))}" aria-label="${esc(nm)} için e-posta" title="E-posta"><button type="button" class="sec" style="${IB}">${ic(ML, 20)}</button></a></div>`; }).join("")}
+        <a href="https://wa.me/?text=${encodeURIComponent(msgFor(nm))}" target="_blank" rel="noopener" aria-label="${esc(nm)} için WhatsApp mesajı" title="WhatsApp"><button type="button" class="sec" style="${IB}">${ic(WA, 17)}</button></a>
+        <a href="mailto:?subject=${encodeURIComponent("İSG bulguları paylaşıldı")}&body=${encodeURIComponent(msgFor(nm))}" aria-label="${esc(nm)} için e-posta" title="E-posta"><button type="button" class="sec" style="${IB}">${ic(ML, 17)}</button></a></div>`; }).join("")}
       <button data-c>Kapat</button>`;
     box.querySelector("[data-c]").onclick = close;
   };
+  // Durum özeti: bu ayın paylaşımlarındaki bölümler için canlı sayılar; kişi başına WhatsApp / e-posta simgeleri
+  const summary = async () => {
+    sm0();
+    const ids = [...new Set(st.old.flatMap(o => o.depts.map(d => d.id)))], isgg = await S.listMonthDocs(fid, year, "isgg").catch(() => []);
+    const lines = []; let T = 0, K = 0, O = 0, A = 0;
+    for (const id of ids) {
+      const isg = await S.getMonthDoc(fid, year, "isg", keyOf(month, id)).catch(() => null);
+      const it = buildItems(isg, isgg.filter(g => g.id.startsWith(keyOf(month, id) + "_fix_")));
+      const k = it.filter(x => x.st === "ok").length, o = it.filter(x => x.st === "on").length, a = it.length - k - o;
+      T += it.length; K += k; O += o; A += a; lines.push(`${rows.find(r => r.id === id)?.name || id}: ${k}/${it.length} aksiyon alındı`);
+    }
+    const msg = `İSG bulgu durumu\nToplam ${T} bulgu: ${K} aksiyon alındı, ${O} onay bekliyor, ${A} açık.\n${lines.join("\n")}\nBağlantı: ${location.origin}${location.pathname}`.replace(/\\n/g, "\n");
+    const people = [...new Map(st.old.flatMap(o => Object.entries(o.names || {}))).entries()];
+    box.innerHTML = `<h2 style="margin:0;font-size:20px">Durum özeti</h2><div style="background:var(--calc);border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.55;white-space:pre-line">${esc(msg)}</div>
+      ${people.map(([g, nm]) => `<div style="display:flex;align-items:center;gap:8px"><span style="flex:1;min-width:0"><b style="font-size:14px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(nm)}</b>${live.find(x => x.id === g)?.unit ? `<span style="font-style:italic;font-size:12px;color:var(--muted);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(live.find(x => x.id === g).unit)}</span>` : ""}</span>
+        <a href="https://wa.me/?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener" aria-label="${esc(nm)} için WhatsApp mesajı"><button type="button" class="sec" style="${IB}">${ic(WA, 17)}</button></a>
+        <a href="mailto:?subject=${encodeURIComponent("İSG bulgu durumu")}&body=${encodeURIComponent(msg)}" aria-label="${esc(nm)} için e-posta"><button type="button" class="sec" style="${IB}">${ic(ML, 17)}</button></a></div>`).join("")}
+      <button data-c>Kapat</button>`;
+    box.querySelector("[data-c]").onclick = close;
+  };
+  const sm0 = () => { box.innerHTML = '<div class="muted">Hesaplanıyor…</div>'; };
   draw();
 }
 
-// ---------------- Misafir: kendisiyle paylaşılanlar ----------------
-// Satırlar: paylaşımdaki her bölüm için güncel açık bulgu sayısı, termin, not (en yeni paylaşım geçerli)
-export async function guestRows(fid, year) {
-  const shares = await S.myShares(fid, year).catch(() => []), seen = new Map();
-  for (const sh of shares) for (const d of sh.depts || []) { const k = sh.month + "|" + d.id; if (!seen.has(k)) seen.set(k, { month: sh.month, id: d.id, name: d.name, termin: sh.termin, note: sh.note || "" }); }
-  const rows = await Promise.all([...seen.values()].map(async r => ({ ...r, ...openInfo(await S.getMonthDoc(fid, year, "isg", keyOf(r.month, r.id)).catch(() => null)) })));
-  return rows;
+// Bölüm kaydı + aksiyon istekleri → bulgu listesi: ok (aksiyon alındı) / on (aksiyon bildirildi, onay bekliyor) / ac (açık)
+export function buildItems(isg, fixDocs) {
+  const reqs = {};
+  for (const d of fixDocs || []) Object.entries(d?.draft?.fixReqs || {}).forEach(([k, r]) => { if (!reqs[k] || r.at > reqs[k].at) reqs[k] = r; });
+  const items = [];
+  for (const s of isg?.sessions || []) for (const [id, arr] of Object.entries(s.fails || {})) (arr || []).forEach((t, j) => {
+    if (!t) return; const k = id + "|" + j, f = s.fixed?.[k], r = reqs[`${s.no}|${k}`], ok = !!(f && f.t === t && f.st === "ok"), pend = !ok && !!r && r.t === t && !(f && (f.rat || 0) >= r.at);
+    items.push({ no: s.no, id, j, t, st: ok ? "ok" : pend ? "on" : "ac", before: s.photos?.[k] || [], after: ok ? (f.ph || []) : [] });
+  });
+  return items;
 }
-export function guestCard(rows, open) {
+// Misafir: paylaşımdaki bölümler canlı izlenir (bölüm kaydı + aksiyon istekleri + kendi gözlem taslağı); her değişiklikte cb(rows)
+export async function watchGuest(fid, year, uid, cb) {
+  const shares = await S.myShares(fid, year).catch(() => []), map = new Map();
+  for (const sh of shares) for (const d of sh.depts || []) {
+    const k = sh.month + "|" + d.id, role = sh.roles?.[uid] || "aks", e = map.get(k);
+    if (!e) map.set(k, { key: k, month: sh.month, id: d.id, name: d.name, termin: sh.termin, note: sh.note || "", role, gs: new Set(sh.guests || []) });
+    else { if (role === "aks") e.role = "aks"; (sh.guests || []).forEach(g => e.gs.add(g)); }
+  }
+  const rows = [...map.values()], st = {}, offs = [], today = iso(new Date());
+  const emit = () => cb(rows.map(r => {
+    const x = st[r.key] || {}, items = buildItems(x.isg, Object.values(x.fix || {})), ds = (x.isg?.sessions || []).map(s => s.date).filter(Boolean).sort(), own = x.own;
+    const mine = own && own.status === "review" ? Object.entries(own.draft?.marks || {}).filter(([, v]) => v === "x").flatMap(([id]) => (own.draft.notes?.[id] || []).map(t => String(t || "").trim()).filter(Boolean)) : [];
+    return { key: r.key, month: r.month, id: r.id, name: r.name, termin: r.termin, note: r.note, role: r.role, items, mine, no: (x.isg?.sessions?.length || 0) + 1,
+      n: items.length, ok: items.filter(i => i.st === "ok").length, on: items.filter(i => i.st === "on").length, ac: items.filter(i => i.st === "ac").length,
+      lt: items.filter(i => i.st === "ac" && r.termin < today).length, cut: ds.length ? addDays(monOf(ds[ds.length - 1]), 5) : "" };
+  }));
+  for (const r of rows) {
+    st[r.key] = { fix: {} }; const base = keyOf(r.month, r.id);
+    offs.push(S.watchMonthDoc(fid, year, "isg", base, d => { st[r.key].isg = d; emit(); }));
+    for (const g of r.gs) offs.push(S.watchMonthDoc(fid, year, "isgg", `${base}_fix_${g}`, d => { st[r.key].fix[g] = d; emit(); }));
+    offs.push(S.watchMonthDoc(fid, year, "isgg", `${base}_${uid}`, d => { st[r.key].own = d; emit(); }));
+  }
+  emit();
+  return () => offs.forEach(f => { try { f && f(); } catch { } });
+}
+const stack = c => `<div style="display:flex;height:10px;border-radius:99px;overflow:hidden;background:#EEF3F1">${[[c.ok, "#17A06F"], [c.on, "#F5B700"], [c.ac, "#C3D1CC"]].map(([v, bg]) => c.n ? `<i style="display:block;height:100%;width:${v / c.n * 100}%;background:${bg}"></i>` : "").join("")}</div>`;
+const PILL = { ok: ["#D9F1E6", "#0B6E4F", "Aksiyon alındı"], on: ["#FFF3D6", "#6B3F00", "Onay bekliyor"], ac: ["#EEF3F1", "#3E534E", "Açık"] };
+const th = l => l.map(p => `<span class="pth"><img src="${p.t}" data-pv="${p.id}" alt="Fotoğraf"></span>`).join("");
+// ui: { open, openB } – kart varsayılan kapalı, bölümler varsayılan kapalı
+export function guestCard(rows, ui = {}) {
   if (!rows?.length) return "";
-  const tot = rows.reduce((a, r) => a + r.n, 0), cut = rows.map(r => r.cut).filter(Boolean).sort().pop() || "", today = iso(new Date());
-  return `<div class="cd" style="padding:16px 20px;gap:10px"><button type="button" data-shrt aria-expanded="${open}" style="display:flex;align-items:center;gap:12px;width:100%;min-height:44px;height:auto;padding:0;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer;font-weight:400"><span style="flex:1;min-width:0"><b style="font:600 16px Sora,sans-serif;display:block">Bana paylaşılanlar (${tot})</b><span class="muted" style="font-size:12.5px;line-height:1.5">Yetkilinin sizinle paylaştığı açık bulgular.</span></span><span style="transform:rotate(${open ? 180 : 0}deg);display:flex">${ic('<path d="M6 9l6 6 6-6"/>')}</span></button>
-    ${open ? `${cut && cut >= today ? `<div style="border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.5;background:#E3F0F9;border:1px solid #BCD6EA;color:#143B5B"><b>Puan için:</b> Aksiyonu en geç ${fd(cut)} gününe kadar girin. Sonrasında aksiyon görünür, ama puan değişmez.</div>` : ""}
-    ${rows.map(r => `<div class="sess" style="flex-direction:column;align-items:stretch;gap:6px"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><b style="font-size:14px;min-width:0">${esc(r.name)}</b><span class="pill" style="${r.n ? "background:#FBE9C6;color:#5A3300" : "background:#D9F1E6;color:#0B6E4F"};white-space:nowrap">${r.n ? r.n + " açık" : "açık bulgu yok"}</span></div>
-      <div class="muted" style="font-size:12.5px">Termin: ${fd(r.termin)}</div>${r.note ? `<div style="font-style:italic;font-size:12.5px;color:var(--muted)">${esc(r.note)}</div>` : ""}
-      ${r.n ? `<button class="sec" data-shr="${r.month}|${r.id}" style="height:42px">Bulguları aç</button>` : ""}</div>`).join("")}` : ""}</div>`;
+  const T = rows.reduce((a, r) => ({ n: a.n + r.n, ok: a.ok + r.ok, on: a.on + r.on, ac: a.ac + r.ac, lt: a.lt + r.lt }), { n: 0, ok: 0, on: 0, ac: 0, lt: 0 }), open = !!ui.open;
+  const cut = rows.map(r => r.cut).filter(Boolean).sort().pop() || "", today = iso(new Date()), onlyWatch = rows.every(r => r.role === "izle");
+  const pct = T.n ? Math.round(T.ok / T.n * 100) : 0;
+  return `<div class="cd" style="padding:16px 20px;gap:10px"><button type="button" data-shrt aria-expanded="${open}" style="display:flex;align-items:center;gap:12px;width:100%;min-height:44px;height:auto;padding:0;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer;font-weight:400"><span style="flex:1;min-width:0"><b style="font:600 16px Sora,sans-serif;display:block">Bana paylaşılanlar (${T.ac + T.on})</b><span class="muted" style="font-size:12.5px;line-height:1.5">${onlyWatch ? "Yalnızca izlersiniz. " : ""}${T.ok}/${T.n} aksiyon alındı</span></span><span style="transform:rotate(${open ? 180 : 0}deg);display:flex">${ic('<path d="M6 9l6 6 6-6"/>')}</span></button>
+    ${open ? `<div style="display:flex;align-items:center;justify-content:space-between"><span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#0B6E4F"><b style="width:8px;height:8px;border-radius:50%;background:#17A06F;display:inline-block"></b>Canlı takip</span><b style="font:700 18px Sora,sans-serif;color:#0B6E4F">%${pct}</b></div>${stack(T)}
+    <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted)"><span>Aksiyon alındı ${T.ok}</span><span>Onay bekliyor ${T.on}</span><span>Açık ${T.ac}</span>${T.lt ? `<span style="color:#B3261E;font-weight:700">Gecikti ${T.lt}</span>` : ""}</div>
+    ${!onlyWatch && cut && cut >= today ? `<div style="border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.5;background:#E3F0F9;border:1px solid #BCD6EA;color:#143B5B"><b>Puan için:</b> Aksiyonu en geç ${fd(cut)} gününe kadar girin. Sonrasında aksiyon görünür, ama puan değişmez.</div>` : ""}
+    ${rows.map(r => { const o = ui.openB === r.key; return `<div class="sess" style="flex-direction:column;align-items:stretch;gap:8px"><button type="button" data-shrb="${r.key}" aria-expanded="${o}" style="display:flex;align-items:center;gap:10px;width:100%;min-height:44px;height:auto;padding:0;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer;font-weight:400"><span style="flex:1;min-width:0"><b style="font:600 15px Sora,sans-serif;display:block">${esc(r.name)}</b><span class="muted" style="font-size:12.5px">${r.ok}/${r.n} aksiyon alındı${r.lt ? ` · <b style="color:#B3261E">${r.lt} gecikti</b>` : ""}</span></span><span style="transform:rotate(${o ? 180 : 0}deg);display:flex">${ic('<path d="M6 9l6 6 6-6"/>')}</span></button>${stack(r)}
+      ${o ? `${r.note ? `<div style="font-style:italic;font-size:12.5px;color:var(--muted)">${esc(r.note)}</div>` : ""}${r.items.map(i => { const [bg, fg, tx] = PILL[i.st], late = i.st === "ac" && r.termin < today; return `<div style="border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:6px;background:var(--card)"><div style="font-size:14px;line-height:1.45">${esc(i.t)}</div>${i.st === "ok" && (i.before.length || i.after.length) ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px"><div><span class="hd" style="font-size:11px">ÖNCE</span><div class="phs" style="padding:0">${th(i.before)}</div></div><div><span class="hd" style="font-size:11px">SONRA</span><div class="phs" style="padding:0">${th(i.after)}</div></div></div>` : ""}<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:var(--muted)"><span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:99px;background:${bg};color:${fg}">${tx}</span>${late ? '<span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:99px;background:#D6382E;color:#fff">Gecikti</span>' : ""}<span>Termin: ${fd(r.termin)}</span></div></div>`; }).join("")}
+        ${r.mine.map(t => `<div style="border:1px dashed var(--inl);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:6px"><div style="font-size:14px;line-height:1.45">${esc(t)}</div><span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:99px;background:#FFF3D6;color:#6B3F00;align-self:flex-start">Yeni bulgu · onay bekliyor</span></div>`).join("")}
+        <div style="display:grid;grid-template-columns:${r.role === "aks" && r.ac ? "1fr 1fr" : "1fr"};gap:8px">${r.role === "aks" && r.ac ? `<button class="sec" data-shr="${r.month}|${r.id}" style="height:42px">Aksiyon bildir</button>` : ""}<button class="sec" data-shro="${r.key}" style="height:42px">+ Gözlemimi ekle</button></div>` : ""}</div>`; }).join("")}` : ""}</div>`;
+}
+// Misafir: kendi gözlemini bulgu olarak ekler → mevcut misafir taslağına yazılır ve onay için yetkiliye gider
+export function obsDialog({ fid, year, row, uid, name, factoryName = "", onDone = () => {} }) {
+  const m = document.createElement("div"); m.className = "mod";
+  m.innerHTML = '<div class="mbox pf" role="dialog" aria-modal="true" style="gap:12px"></div>'; document.body.appendChild(m);
+  const box = m.querySelector(".mbox"), close = () => m.remove(); m.addEventListener("mousedown", e => { if (e.target === m) close(); });
+  const d = { ci: 0, ii: 0, t: "", ph: null };
+  const draw = () => {
+    box.innerHTML = `<h2 style="margin:0;font-size:20px">Gözlem ekle · ${esc(row.name)}</h2><div class="muted" style="font-size:13px;line-height:1.5">Bulgunuz yetkiliye gider. Onaylanınca haftalık denetim listesine eklenir.</div>
+      <div><label class="hd" for="obC" style="margin:0">KATEGORİ</label><select id="obC" class="inp" style="margin-top:4px">${CATS.map((c, i) => `<option value="${i}" ${i === d.ci ? "selected" : ""}>${esc(c.name)}</option>`).join("")}</select></div>
+      <div><label class="hd" for="obI" style="margin:0">MADDE</label><select id="obI" class="inp" style="margin-top:4px">${CATS[d.ci].items.map((t, i) => `<option value="${i}" ${i === d.ii ? "selected" : ""}>${esc(t)}</option>`).join("")}</select></div>
+      <div><label class="hd" for="obT" style="margin:0">BULGU</label><textarea id="obT" class="inp" style="margin-top:4px;height:auto;min-height:72px;padding:10px;resize:vertical" placeholder="Gözlemlediğiniz bulguyu yazın">${esc(d.t)}</textarea></div>
+      ${d.ph ? `<div class="phs" style="padding:0"><span class="pth"><img src="${d.ph.t}" alt="Fotoğraf"></span></div>` : ""}
+      <label class="pbtn" style="justify-content:center">${ic('<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.5"/><path d="M21 16l-5-5-8 9"/>', 18)}<i>${d.ph ? "Fotoğraf eklendi · değiştir" : "Fotoğraf ekle"}</i><input type="file" accept="image/*" id="obF" hidden></label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button class="sec" data-c>Vazgeç</button><button data-go ${d.t.trim() && d.ph ? "" : "disabled"}>Onaya gönder</button></div>`;
+    box.querySelector("#obC").onchange = e => { d.t = box.querySelector("#obT").value; d.ci = +e.target.value; d.ii = 0; draw(); };
+    box.querySelector("#obI").onchange = e => { d.ii = +e.target.value; };
+    box.querySelector("#obT").oninput = e => { d.t = e.target.value; box.querySelector("[data-go]").disabled = !(d.t.trim() && d.ph); };
+    box.querySelector("#obF").onchange = async e => { const f = e.target.files[0]; if (!f) return; d.t = box.querySelector("#obT").value; try { const { full, thumb } = await compressImage(f), pid = "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); await S.savePhoto(fid, year, pid, full); d.ph = { id: pid, t: thumb }; } catch (er) { toast("Fotoğraf eklenemedi: " + (er.message || er)); } draw(); };
+    box.querySelector("[data-c]").onclick = close; box.querySelector("[data-go]").onclick = send;
+  };
+  const send = async () => {
+    const btn = box.querySelector("[data-go]"); btn.disabled = true;
+    const id = `c${d.ci}i${d.ii}`, key = `${keyOf(row.month, row.id)}_${uid}`, now = new Date(), mm = pad(+row.month);
+    try {
+      let g = await S.getMonthDoc(fid, year, "isgg", key).catch(() => null);
+      const date = +row.month === now.getMonth() + 1 && +year === now.getFullYear() ? iso(now) : `${year}-${mm}-01`;
+      let dr = g && g.status !== "approved" && g.draft ? g.draft : { marks: {}, notes: {}, ydNotes: {}, photos: {}, date, on: true, edit: null };
+      dr = { ...dr, marks: { ...dr.marks, [id]: "x" }, notes: { ...dr.notes }, photos: { ...dr.photos } };
+      const cur = (dr.notes[id] || []).filter((t, i, a) => !(a.length === 1 && !String(t).trim())), k = cur.length;
+      dr.notes[id] = [...cur, d.t.trim()]; dr.photos[`${id}|${k}`] = [d.ph];
+      await S.saveMonthDoc(fid, year, "isgg", key, { guestUid: uid, guestName: name, dept: row.id, month: +row.month, status: "review", draft: dr, at: Date.now() });
+      Guest.reportAudit({ fid, year, month: row.month, dept: row.id, deptName: row.name, factoryName, no: row.no }, "review");
+    } catch (e) { btn.disabled = false; return toast("Gönderilemedi: " + (e.message || e)); }
+    close(); toast("Gözlem yetkiliye gönderildi."); onDone();
+  };
+  draw();
 }
