@@ -390,3 +390,4 @@ details.ak.neu{background:#fff;border:1px solid #C3D1CC}
 .ar-sh[aria-expanded="true"] .cv{transform:rotate(180deg)}
 .ar-yr{display:grid;grid-template-columns:44px 1fr 74px;gap:10px;align-items:center;font-size:13.5px}
 #dpB[hidden]{display:none!important}
+.ar-act{border-top:1px solid var(--line);padding-top:14px;display:flex;flex-direction:column;gap:10px}

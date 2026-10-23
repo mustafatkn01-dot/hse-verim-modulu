@@ -1,21 +1,21 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261022o";
-import * as S from "./store.js?v=20261022o";
-import * as Prim from "./primary.js?v=20261022o";
-import * as Denetim from "./denetim.js?v=20261022o";
-import * as Kaza from "./kaza.js?v=20261022o";
-import * as Konusma from "./konusma.js?v=20261022o";
-import * as Ramak from "./ramak.js?v=20261022o";
-import * as Genel from "./genel.js?v=20261022o";
-import * as Rapor from "./rapor.js?v=20261022o";
-import * as Verim from "./verim.js?v=20261022o";
-import * as Isbasi from "./isbasi.js?v=20261022o";
-import * as Guest from "./guest.js?v=20261022o";
-import * as Yontem from "./yontem.js?v=20261022o";
-import * as Tatil from "./tatil.js?v=20261022o";
-import * as Gorev from "./gorev.js?v=20261022o";
-import * as Arsiv from "./arsiv.js?v=20261022o";
-import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261022o";
-import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261022o";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261022p";
+import * as S from "./store.js?v=20261022p";
+import * as Prim from "./primary.js?v=20261022p";
+import * as Denetim from "./denetim.js?v=20261022p";
+import * as Kaza from "./kaza.js?v=20261022p";
+import * as Konusma from "./konusma.js?v=20261022p";
+import * as Ramak from "./ramak.js?v=20261022p";
+import * as Genel from "./genel.js?v=20261022p";
+import * as Rapor from "./rapor.js?v=20261022p";
+import * as Verim from "./verim.js?v=20261022p";
+import * as Isbasi from "./isbasi.js?v=20261022p";
+import * as Guest from "./guest.js?v=20261022p";
+import * as Yontem from "./yontem.js?v=20261022p";
+import * as Tatil from "./tatil.js?v=20261022p";
+import * as Gorev from "./gorev.js?v=20261022p";
+import * as Arsiv from "./arsiv.js?v=20261022p";
+import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261022p";
+import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261022p";
 const PEND_META = { isbasig: ["isbasi", "İşbaşı Eğitim"], konusmag: ["konusma", "Eğitim Konuşması"], kazag: ["kaza", "İş Kazası"] };
 
 const VERSION = "1.8.0";
@@ -647,7 +647,7 @@ async function pageAyarlar(v) {
   drawY();
   if ($("depoCard")) {
     const mm = {}; Promise.all(st.all.map(async f => { try { for (const m of await S.listYearsMeta(f.id)) mm[f.id + "|" + m.id] = m; } catch { } })).then(() =>
-      Arsiv.renderDepo($("depoCard"), { factories: st.all, profile: st.profile, metaOf: (f, y) => mm[f + "|" + y] }));
+      Arsiv.renderDepo($("depoCard"), { factories: st.all, profile: st.profile, metaOf: (f, y) => mm[f + "|" + y], active: st.fid && st.active ? { fid: st.fid, y: st.active, fn: st.all.length > 1 ? (st.all.find(f => f.id === st.fid)?.name || "") : "" } : null }));
   }
   if ($("gvBtn")) {
     const gp = () => { const ok = Gorev.state() === "hazir"; $("gvBtn").textContent = ok ? "Görev programı bağlı · Bağlantıyı kes" : "Görev programına bağlan"; $("gvBtn").title = Gorev.statusText(); };

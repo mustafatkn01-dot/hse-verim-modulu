@@ -1,7 +1,7 @@
 // Veri katmanı: users/{uid}/factories/{fid}/years/{yıl}/setup/main
-import { auth, db, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, updateDoc, query, orderBy, serverTimestamp, onSnapshot, FS } from "./firebase.js?v=20261022o";
-import { shrinkDataUrl } from "./ui.js?v=20261022o";
-import { setSurec } from "./scoring.js?v=20261022o";
+import { auth, db, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, updateDoc, query, orderBy, serverTimestamp, onSnapshot, FS } from "./firebase.js?v=20261022p";
+import { shrinkDataUrl } from "./ui.js?v=20261022p";
+import { setSurec } from "./scoring.js?v=20261022p";
 
 const uid = () => auth.currentUser.uid;
 // Veri sahibi: misafir kullanıcıda davet eden hesabın uid'si; kendi oturum/profil kayıtları ise her zaman kendi hesabında
@@ -149,7 +149,7 @@ export const deletePhoto = (fid, y, id) => deleteDoc(fotoRef(fid, y, id));
 // Yıl yönetimi: arşivleme ve kalıcı silme
 export async function listYearsMeta(fid) {
   const s = await getDocs(collection(db, `${base()}/factories/${fid}/years`));
-  return s.docs.map(d => { const v = d.data() || {}; return { id: d.id, archived: !!v.archived, shrink: v.shrink || null, noPhotos: !!v.noPhotos }; }).sort((a, b) => (a.id < b.id ? -1 : 1));
+  return s.docs.map(d => { const v = d.data() || {}; return { id: d.id, archived: !!v.archived, shrink: v.shrink || null, noPhotos: !!v.noPhotos, shrinkPart: v.shrinkPart || null }; }).sort((a, b) => (a.id < b.id ? -1 : 1));
 }
 export const setYearArchived = (fid, y, archived) => setDoc(doc(db, `${base()}/factories/${fid}/years/${y}`), { year: Number(y), archived }, { merge: true });
 export async function yearCounts(fid, y) {
@@ -175,13 +175,16 @@ export async function* fotoPages(fid, y) {
     yield sn.docs; last = sn.docs[sn.docs.length - 1]; if (sn.docs.length < FPAGE) return;
   }
 }
+// Seçilen tarihe (ms) kadar yüklenen fotoğraf sayısı; tarihi olmayan eski fotoğraflar dahil değildir (tahmin)
+export async function photoCountUpto(fid, y, upto) { try { return (await FS.getCountFromServer(query(fotoCol(fid, y), FS.where("at", "<=", upto)))).data().count; } catch { return null; } }
 export async function photoCount(fid, y) { try { return (await FS.getCountFromServer(fotoCol(fid, y))).data().count; } catch { return null; } }
 // Küçültme: hedefin altındakiler ve zaten işlenenler atlanır; yeni dosya anlamlı küçük değilse eskisi korunur; kesilirse kaldığı yerden devam eder
 export async function shrinkYear(fid, y, px, o = {}) {
-  const { onProgress = () => { }, stop = () => false } = o; let n = 0, saved = 0, before = 0, after = 0;
+  const { onProgress = () => { }, stop = () => false, upto = 0 } = o; let n = 0, saved = 0, before = 0, after = 0;
   for await (const docs of fotoPages(fid, y)) for (const d of docs) {
     if (stop()) return { stopped: true, n, saved, before, after };
-    const v = d.data(), cur = v.d || "", len = cur.length; n++;
+    const v = d.data(); if (upto && v.at && v.at > upto) continue;   // aktif yılda: seçilen tarihten sonra yüklenenlere dokunma
+    const cur = v.d || "", len = cur.length; n++;
     if (!cur) continue;
     before += v.ob || len;
     if (v.sz && v.sz <= px) { after += len; onProgress({ n, saved }); continue; }
@@ -190,7 +193,8 @@ export async function shrinkYear(fid, y, px, o = {}) {
     else { await updateDoc(d.ref, { sz: px, len }); after += len; }
     onProgress({ n, saved });
   }
-  await setDoc(yearRef(fid, y), { shrink: { px, at: Date.now(), n, before, after }, noPhotos: false }, { merge: true });
+  if (upto) await setDoc(yearRef(fid, y), { shrinkPart: { px, upto, at: Date.now() } }, { merge: true });
+  else await setDoc(yearRef(fid, y), { shrink: { px, at: Date.now(), n, before, after }, noPhotos: false }, { merge: true });
   return { stopped: false, n, saved, before, after };
 }
 // Kayıtlardaki küçük resimleri ({id, t: "data:image..."}) ayıklar
