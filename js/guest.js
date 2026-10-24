@@ -3,8 +3,8 @@
 //   users/{sahip}/invites/{kod}        davet (e-posta ayarı kopyası)
 //   users/{sahip}/guestReqs/{misafirUid}  onay isteği {gid, code, name, unit, status, at}
 //   users/{sahip}/members/{misafirUid}    onaylı üye {name, unit, factories[], mode, expires|null}
-import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously, signInWithEmailAndPassword, createAuxUser } from "./firebase.js?v=20261024c";
-import { esc, toast, confirmBox } from "./ui.js?v=20261024c";
+import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously, signInWithEmailAndPassword, createAuxUser } from "./firebase.js?v=20261024d";
+import { esc, toast, confirmBox } from "./ui.js?v=20261024d";
 
 const Q = new URLSearchParams(location.search);
 export const linkInfo = () => {
@@ -221,7 +221,7 @@ const newPid = taken => { // 6 hane, serbest dizilim; en az 2 harf ve en az 2 ra
 };
 // Önceki kayıtları bul: kişi kaydı (ID) + adı eşleşen, sahibi artık üye olmayan (sahipsiz) taslaklar
 async function findPrev(o, name, gid) {
-  const S = await import("./store.js?v=20261024c"), n = normName(name);
+  const S = await import("./store.js?v=20261024d"), n = normName(name);
   const people = (await loadPeople(o)).filter(p => p.norm === n);
   const mems = await getDocs(collection(db, `users/${o}/members`)).then(s => new Set(s.docs.map(d => d.id))).catch(() => new Set());
   const uids = new Set(); people.forEach(p => (p.uids || []).forEach(u => { if (u !== gid && !mems.has(u)) uids.add(u); }));
@@ -235,7 +235,7 @@ async function findPrev(o, name, gid) {
   return { person: people[0] || null, pid: people[0]?.id || null, uids, count };
 }
 async function migrateGuest(oldUids, newUid, name) {
-  const S = await import("./store.js?v=20261024c"); let n = 0;
+  const S = await import("./store.js?v=20261024d"); let n = 0;
   for (const f of await S.listFactories()) for (const y of await S.listYears(f.id)) for (const c of GCOLLS) {
     const all = await S.listMonthDocs(f.id, y, c), ids = new Set(all.map(d => d.id));
     for (const d of all) {
@@ -331,7 +331,7 @@ export async function renderSettings(box, { ownerUid, factories, onChange }) {
       <div class="muted" style="font-size:12.5px;line-height:1.55">Her misafir için ayrı bağlantı üretilir. Misafir bağlantıya dokunur, onay beklemeden doğrudan girer; hangi tarayıcı veya telefonda açarsa açsın aynı kişi olarak tanınır.</div>
       <div><button class="sm" id="pNew">Misafir davet et</button></div>
       ${pins.length ? pins.map(p => { const m = mems.find(x => x.id === p.uid), dead = p.closed || !m, exp = m && !isLive(m); const stt = dead ? ["Kapatıldı", "background:#FADAD7;color:#8E1B16"] : exp ? ["Süresi doldu", "background:#FADAD7;color:#8E1B16"] : m.lastSeen ? ["Aktif", ""] : ["Link açılmadı", "background:#FBE9C6;color:#6B3F00"];
-        return `<div class="it" style="gap:10px;flex-wrap:wrap"><div class="grow"><b>${esc(p.name)}</b> <span class="tag" style="${stt[1]}">${stt[0]}</span><div class="muted" style="font-size:12.5px">${[esc(fname(p.factories)), m && !dead ? esc(leftText(m)) : ""].filter(Boolean).join(" · ")}</div><div class="muted" style="font-size:12.5px">${m?.lastSeen ? "Son görülme: " + ago(m.lastSeen) : "Gönderildi: " + ago(p.createdAt)}</div></div>
+        return `<div class="it" style="gap:10px;flex-wrap:wrap"><div class="grow"><b>${esc(p.name)}</b> <span class="tag" style="${stt[1]}">${stt[0]}</span>${(p.pid || m?.pid) ? ` <span class="muted" style="font-size:12px">ID ${esc(p.pid || m.pid)}</span>` : ""}<div class="muted" style="font-size:12.5px">${[esc(fname(p.factories)), m && !dead ? esc(leftText(m)) : ""].filter(Boolean).join(" · ")}</div><div class="muted" style="font-size:12.5px">${m?.lastSeen ? "Son görülme: " + ago(m.lastSeen) : "Gönderildi: " + ago(p.createdAt)}</div></div>
         <div class="row" style="gap:6px">${dead || exp ? `<button class="sm sec" data-pre="${p.id}">Yeniden aç</button><button class="sm sec" data-pdel="${p.id}" style="color:#B3261E;border-color:#B3261E">Sil</button>` : `<button class="sm sec" data-psend="${p.id}">Mesajı yeniden gönder</button><button class="sm sec" data-pcl="${p.id}" style="color:#B3261E;border-color:#B3261E">Linki kapat</button>`}</div></div>`; }).join("") : ""}</div>
     <details><summary style="cursor:pointer;font-weight:700">Ortak davet bağlantısı (onay isteyen yöntem)</summary><div class="col1" style="gap:12px;margin-top:10px">
     <div class="col1" style="gap:8px"><span class="hd">DAVET BAĞLANTISI</span>
