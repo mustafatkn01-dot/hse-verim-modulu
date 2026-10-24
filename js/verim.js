@@ -1,11 +1,11 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261022y";
-import { esc } from "./ui.js?v=20261022y";
-import { bandOf, DEFAULT_PARAMS, num, isgMonth, makTier, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261022y";
-import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261022y";
-import { CATS } from "./isgcats.js?v=20261022y";
-import * as Gorev from "./gorev.js?v=20261022y";
-import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261022y";
+import * as S from "./store.js?v=20261022z";
+import { esc } from "./ui.js?v=20261022z";
+import { bandOf, DEFAULT_PARAMS, num, isgMonth, makTier, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261022z";
+import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261022z";
+import { CATS } from "./isgcats.js?v=20261022z";
+import * as Gorev from "./gorev.js?v=20261022z";
+import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261022z";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -305,9 +305,11 @@ async function printSheet(info, { size, orient, pics = false, file = false, scop
   const whoOf = (sh, a) => [...new Set([...(a?.rs ? a.rs.split(", ") : []), ...(sh ? Object.values(sh.names || {}) : [])])].join(", ");
   const dueOf = (sh, a) => sh?.termin || a?.du || "";
   const takipRow = a => { if (!trow) return ""; const sh = shOf(a); return `<div style="margin-top:3px;font-size:11px;color:#546964;font-style:italic">Sorumlu: <b style="font-style:normal;color:#3E534E">${esc(whoOf(sh, a) || "-")}</b> · Termin: <b style="font-style:normal;color:#3E534E">${dueOf(sh, a) ? fdm(dueOf(sh, a)) : "-"}</b></div>`; };
-  const takipTable = () => { if (!ttab) return ""; const rows = DET.filter(g => g.mod === "İSG Denetim").flatMap(g => g.items);
+  const takipAll = () => ttab ? DET.filter(g => g.mod === "İSG Denetim").flatMap(g => g.items) : [];
+  // Takip tablosu: satır listesi verilirse yalnızca o satırlar (sayfalara bölünebilir); devam sayfasında başlık "(devam)"
+  const takipTable = (list, cont = false) => { const rows = list || takipAll();
     if (!rows.length) return ""; const th = "padding:5px 6px;text-align:left;font-size:10.5px;color:#546964;border-bottom:1.5px solid #D5E0DC", td = "padding:5px 6px;border-bottom:1px solid #E6EDEA;vertical-align:top;font-size:11px;line-height:1.4";
-    return `<div style="border-top:1px solid #D5E0DC;padding-top:10px;display:flex;flex-direction:column;gap:5px"><div style="font-weight:800;font-size:12px;letter-spacing:.8px;color:#3E534E">BULGU TERMİN TAKİP TABLOSU</div>
+    return `<div style="border-top:1px solid #D5E0DC;padding-top:10px;display:flex;flex-direction:column;gap:5px"><div style="font-weight:800;font-size:12px;letter-spacing:.8px;color:#3E534E">BULGU TERMİN TAKİP TABLOSU${cont ? " (devam)" : ""}</div>
       <table style="border-collapse:collapse;width:100%"><tr><th style="${th}">Bölüm</th><th style="${th}">Bulgu</th><th style="${th}">Sorumlu</th><th style="${th}">Termin</th><th style="${th}">Durum</th></tr>${rows.map(a => { const sh = shOf(a), dn = !!a.fx, tm = dueOf(sh, a), lt = !dn && tm && tm < todayIso;
       return `<tr style="break-inside:avoid"><td style="${td};white-space:nowrap">${esc(a.dept)}</td><td style="${td}">${esc(a.cat && a.text.startsWith(a.cat + ": ") ? a.text.slice(a.cat.length + 2) : a.text)}</td><td style="${td}">${esc(whoOf(sh, a) || "-")}</td><td style="${td};white-space:nowrap">${tm ? fdm(tm) : "-"}</td><td style="${td};white-space:nowrap;font-weight:700;color:${dn ? "#0B6E4F" : lt ? "#B3261E" : "#3E534E"}">${dn ? "Aksiyon alındı" : lt ? "Gecikti" : "Açık"}</td></tr>`; }).join("")}</table></div>`; };
   const usePics = pics && DET.some(g => g.items.some(i => i.pics?.length || i.fx?.ph?.length)), PH = {};
@@ -355,19 +357,25 @@ async function printSheet(info, { size, orient, pics = false, file = false, scop
     await Promise.all([...sh.querySelectorAll("img")].map(im => im.complete ? 0 : new Promise(r => { im.onload = im.onerror = r; })));
     const hs = [...sh.firstElementChild.children].map(c => c.offsetHeight);
     const ph = items.map((e, i) => ({ gi: e.gi, mod: e.mod, html: `<div style="height:${hs[i]}px"></div>` }));
-    const fits = (idx, first, last) => { const list = idx.map(i => ph[i]);
-      sh.innerHTML = wrap(p.head + (first ? p.first : "") + (list.length ? descBox(group(list)) : first && !items.length ? descBox(NONE) : "") + (last ? p.foot : ""), 1);
+    const fitsF = (idx, first, foot) => { const list = idx.map(i => ph[i]);
+      sh.innerHTML = wrap(p.head + (first ? p.first : "") + (list.length ? descBox(group(list)) : first && !items.length ? descBox(NONE) : "") + foot, 1);
       return sh.firstElementChild.offsetHeight <= avail; };
     const pages = []; let cur = [];
     for (let i = 0; i < items.length; i++) {
-      if (fits([...cur, i], !pages.length, false)) cur.push(i);
+      if (fitsF([...cur, i], !pages.length, "")) cur.push(i);
       else if (!cur.length && pages.length) cur.push(i);
       else { pages.push(cur); cur = [i]; }
     }
-    if (!fits(cur, !pages.length, true) && cur.length > 1) { const lastI = cur.pop(); pages.push(cur); cur = [lastI]; }
     pages.push(cur);
+    // Takip tablosu: son açıklama sayfasında sığdığı kadar satır, kalanı devam sayfalarında (tablo kesilmez, boş sayfa bırakılmaz)
+    let rest = takipAll(), lastFoot = "", k = rest.length; const chunks = [];
+    while (k > 0 && !fitsF(cur, pages.length === 1, takipTable(rest.slice(0, k)))) k--;
+    if (k) { lastFoot = takipTable(rest.slice(0, k)); rest = rest.slice(k); }
+    while (rest.length) { let n = rest.length; while (n > 1 && !fitsF([], false, takipTable(rest.slice(0, n), true))) n--; chunks.push(rest.slice(0, n)); rest = rest.slice(n); }
+    const total = pages.length + chunks.length;
     return (z, fixed) => pages.map((idx, n) => { const list = idx.map(i => items[i]), first = n === 0, last = n === pages.length - 1;
-      return wrap(p.head + (first ? p.first : "") + (list.length ? descBox(group(list)) : first && !items.length ? descBox(NONE) : "") + (last ? p.foot : ""), z, FIX + (fixed && !last ? "break-after:page;" : ""), `Sayfa ${n + 1}/${pages.length}`); }).join("");
+      return wrap(p.head + (first ? p.first : "") + (list.length ? descBox(group(list)) : first && !items.length ? descBox(NONE) : "") + (last ? lastFoot : ""), z, FIX + (fixed && (n < total - 1) ? "break-after:page;" : ""), `Sayfa ${n + 1}/${total}`); }).join("")
+      + chunks.map((rs, n) => wrap(p.head + takipTable(rs, true), z, FIX + (fixed && n < chunks.length - 1 ? "break-after:page;" : ""), `Sayfa ${pages.length + n + 1}/${total}`)).join("");
   };
   const stl = document.createElement("style"); stl.id = "pstyle";
   stl.textContent = `#psheet{display:none}@media print{@page{size:${size} ${orient};margin:${M * 0.2646}mm}html,body{background:#fff!important;margin:0!important;padding:0!important}body>*:not(#psheet){display:none!important}#psheet{display:block!important;width:${cw * z}px;-webkit-print-color-adjust:exact;print-color-adjust:exact}}`;

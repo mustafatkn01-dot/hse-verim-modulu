@@ -1,7 +1,7 @@
 // Arşiv işlemleri: fotoğraf küçültme (1000 / 1200 px), ZIP yedek, silme ve depolama kartı.
 // Her şey tarayıcıda çalışır; fotoğraflar sayfa sayfa okunur, işlem kesilirse kaldığı yerden devam eder.
-import * as S from "./store.js?v=20261022y";
-import { esc, toast } from "./ui.js?v=20261022y";
+import * as S from "./store.js?v=20261022z";
+import { esc, toast } from "./ui.js?v=20261022z";
 
 const GIB = 1073741824, PART = 150 * 1024 * 1024, SAVE = { 1200: 0.3, 1000: 0.2 }; // özgün boyutun kalan oranı
 const nf = n => Number(n).toLocaleString("tr-TR");
