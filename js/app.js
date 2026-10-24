@@ -1,21 +1,21 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261024a";
-import * as S from "./store.js?v=20261024a";
-import * as Prim from "./primary.js?v=20261024a";
-import * as Denetim from "./denetim.js?v=20261024a";
-import * as Kaza from "./kaza.js?v=20261024a";
-import * as Konusma from "./konusma.js?v=20261024a";
-import * as Ramak from "./ramak.js?v=20261024a";
-import * as Genel from "./genel.js?v=20261024a";
-import * as Rapor from "./rapor.js?v=20261024a";
-import * as Verim from "./verim.js?v=20261024a";
-import * as Isbasi from "./isbasi.js?v=20261024a";
-import * as Guest from "./guest.js?v=20261024a";
-import * as Yontem from "./yontem.js?v=20261024a";
-import * as Tatil from "./tatil.js?v=20261024a";
-import * as Gorev from "./gorev.js?v=20261024a";
-import * as Arsiv from "./arsiv.js?v=20261024a";
-import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261024a";
-import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261024a";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261024b";
+import * as S from "./store.js?v=20261024b";
+import * as Prim from "./primary.js?v=20261024b";
+import * as Denetim from "./denetim.js?v=20261024b";
+import * as Kaza from "./kaza.js?v=20261024b";
+import * as Konusma from "./konusma.js?v=20261024b";
+import * as Ramak from "./ramak.js?v=20261024b";
+import * as Genel from "./genel.js?v=20261024b";
+import * as Rapor from "./rapor.js?v=20261024b";
+import * as Verim from "./verim.js?v=20261024b";
+import * as Isbasi from "./isbasi.js?v=20261024b";
+import * as Guest from "./guest.js?v=20261024b";
+import * as Yontem from "./yontem.js?v=20261024b";
+import * as Tatil from "./tatil.js?v=20261024b";
+import * as Gorev from "./gorev.js?v=20261024b";
+import * as Arsiv from "./arsiv.js?v=20261024b";
+import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261024b";
+import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261024b";
 const PEND_META = { isbasig: ["isbasi", "İşbaşı Eğitim"], konusmag: ["konusma", "Eğitim Konuşması"], kazag: ["kaza", "İş Kazası"] };
 
 const VERSION = "1.8.5";
@@ -53,7 +53,7 @@ $("loginForm").addEventListener("submit", async e => {
 $("showPw").addEventListener("change", e => { $("pw").type = e.target.checked ? "text" : "password"; });
 $("btnGuest").addEventListener("click", () => {
   showOnly("none");
-  Guest.showInviteEntry(({ owner, code }) => Guest.showRequest({ owner, code }, () => { const u = auth.currentUser; if (u) startGuest(owner, u); }), () => { Guest.hideRequest(); showOnly("login"); });
+  Guest.showInviteEntry(({ owner, code, personal }) => personal ? (Guest.storeOwner(owner), Guest.pLogin({ owner, code })) : Guest.showRequest({ owner, code }, () => { const u = auth.currentUser; if (u) startGuest(owner, u); }), () => { Guest.hideRequest(); showOnly("login"); });
 });
 $("btnLink").addEventListener("click", async () => {
   const em = $("em").value.trim();

@@ -3,8 +3,8 @@
 //   users/{sahip}/invites/{kod}        davet (e-posta ayarı kopyası)
 //   users/{sahip}/guestReqs/{misafirUid}  onay isteği {gid, code, name, unit, status, at}
 //   users/{sahip}/members/{misafirUid}    onaylı üye {name, unit, factories[], mode, expires|null}
-import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously, signInWithEmailAndPassword, createAuxUser } from "./firebase.js?v=20261024a";
-import { esc, toast, confirmBox } from "./ui.js?v=20261024a";
+import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously, signInWithEmailAndPassword, createAuxUser } from "./firebase.js?v=20261024b";
+import { esc, toast, confirmBox } from "./ui.js?v=20261024b";
 
 const Q = new URLSearchParams(location.search);
 export const linkInfo = () => {
@@ -48,7 +48,7 @@ const boxHtml = inner => `<div class="box"><div class="stripe" style="border-rad
   <div class="brand" style="margin-bottom:10px"><div><h1 style="font-size:20px">HSE Verim Modülü</h1><span class="muted" style="font-size:12px">Misafir erişimi</span></div></div>${inner}</div>`;
 
 // Davet bağlantısı yapıştırma ekranı (ana ekran uygulaması gibi bağlantısız açılan yerlerde)
-const parseInvite = t => { t = String(t || "").trim(); try { const m = new URL(t).searchParams.get("misafir"); if (m) t = m; } catch {} const [owner, code] = t.split("."); return owner && code ? { owner, code } : null; };
+const parseInvite = t => { t = String(t || "").trim(); let personal = false; try { const u = new URL(t), d = u.searchParams.get("d"), m = u.searchParams.get("misafir"); if (d) { t = d; personal = true; } else if (m) t = m; } catch {} const [owner, code] = t.split("."); if (!(owner && code)) return null; return { owner, code, personal: personal || code.length === 16 }; };
 export function showInviteEntry(onProceed, onBack) {
   const s = screen();
   s.innerHTML = boxHtml(`<div class="muted" style="line-height:1.55;margin-bottom:10px">Yetkili kullanıcının size gönderdiği <b>davet bağlantısını</b> aşağıya yapıştırın. Sonraki ekranda bilgilerinizi yazıp onaya göndereceksiniz.</div>
@@ -221,7 +221,7 @@ const newPid = taken => { // 6 hane, serbest dizilim; en az 2 harf ve en az 2 ra
 };
 // Önceki kayıtları bul: kişi kaydı (ID) + adı eşleşen, sahibi artık üye olmayan (sahipsiz) taslaklar
 async function findPrev(o, name, gid) {
-  const S = await import("./store.js?v=20261024a"), n = normName(name);
+  const S = await import("./store.js?v=20261024b"), n = normName(name);
   const people = (await loadPeople(o)).filter(p => p.norm === n);
   const mems = await getDocs(collection(db, `users/${o}/members`)).then(s => new Set(s.docs.map(d => d.id))).catch(() => new Set());
   const uids = new Set(); people.forEach(p => (p.uids || []).forEach(u => { if (u !== gid && !mems.has(u)) uids.add(u); }));
@@ -235,7 +235,7 @@ async function findPrev(o, name, gid) {
   return { person: people[0] || null, pid: people[0]?.id || null, uids, count };
 }
 async function migrateGuest(oldUids, newUid, name) {
-  const S = await import("./store.js?v=20261024a"); let n = 0;
+  const S = await import("./store.js?v=20261024b"); let n = 0;
   for (const f of await S.listFactories()) for (const y of await S.listYears(f.id)) for (const c of GCOLLS) {
     const all = await S.listMonthDocs(f.id, y, c), ids = new Set(all.map(d => d.id));
     for (const d of all) {
