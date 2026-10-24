@@ -1,11 +1,11 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261023a";
-import { esc } from "./ui.js?v=20261023a";
-import { bandOf, DEFAULT_PARAMS, num, isgMonth, makTier, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261023a";
-import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261023a";
-import { CATS } from "./isgcats.js?v=20261023a";
-import * as Gorev from "./gorev.js?v=20261023a";
-import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261023a";
+import * as S from "./store.js?v=20261023b";
+import { esc } from "./ui.js?v=20261023b";
+import { bandOf, DEFAULT_PARAMS, num, isgMonth, makTier, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261023b";
+import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261023b";
+import { CATS } from "./isgcats.js?v=20261023b";
+import * as Gorev from "./gorev.js?v=20261023b";
+import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261023b";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -309,10 +309,10 @@ async function printSheet(info, { size, orient, pics = false, file = false, scop
   const takipAll = () => ttab ? DET.filter(g => g.mod === "İSG Denetim").flatMap(g => g.items) : [];
   // Takip tablosu: satır listesi verilirse yalnızca o satırlar (sayfalara bölünebilir); devam sayfasında başlık "(devam)"
   const takipTable = (list, cont = false) => { const rows = list || takipAll();
-    if (!rows.length) return ""; const th = "padding:5px 6px;text-align:left;font-size:10.5px;color:#546964;border-bottom:1.5px solid #D5E0DC", td = "padding:5px 6px;border-bottom:1px solid #E6EDEA;vertical-align:top;font-size:11px;line-height:1.4";
-    return `<div style="border-top:1px solid #D5E0DC;padding-top:10px;display:flex;flex-direction:column;gap:5px"><div style="font-weight:800;font-size:12px;letter-spacing:.8px;color:#3E534E">BULGU TERMİN TAKİP TABLOSU${cont ? " (devam)" : ""}</div>
+    if (!rows.length) return ""; const th = "padding:5px 6px;text-align:left;font-size:10.5px;font-weight:800;color:#3E534E;border-bottom:1.5px solid #D5E0DC", td = "padding:5px 6px;border-bottom:1px solid #E6EDEA;vertical-align:top;font-size:11px;line-height:1.4";
+    return `<div style="border-top:1px solid #D5E0DC;padding-top:10px;display:flex;flex-direction:column;gap:5px"><div style="font-weight:800;font-size:12px;letter-spacing:.8px;color:#10201C;-webkit-text-stroke:.3px #10201C">BULGU TERMİN TAKİP TABLOSU${cont ? " (devam)" : ""}</div>
       <table style="border-collapse:collapse;width:100%"><tr><th style="${th}">Bölüm</th><th style="${th}">Bulgu</th><th style="${th}">Sorumlu</th><th style="${th}">Termin</th><th style="${th}">Durum</th></tr>${rows.map(a => { const sh = shOf(a), dn = !!a.fx, tm = dueOf(sh, a), lt = !dn && tm && tm < todayIso;
-      return `<tr style="break-inside:avoid"><td style="${td};white-space:nowrap">${esc(a.dept)}</td><td style="${td}">${esc(a.cat && a.text.startsWith(a.cat + ": ") ? a.text.slice(a.cat.length + 2) : a.text)}</td><td style="${td}">${esc(whoOf(sh, a) || "-")}</td><td style="${td};white-space:nowrap">${tm ? fdm(tm) : "-"}</td><td style="${td};white-space:nowrap;font-weight:700;color:${dn ? "#0B6E4F" : lt ? "#B3261E" : "#3E534E"}">${dn ? "Aksiyon alındı" : lt ? "Gecikti" : "Açık"}</td></tr>`; }).join("")}</table></div>`; };
+      return `<tr style="break-inside:avoid"><td style="${td};white-space:nowrap">${esc(a.dept)}</td><td style="${td}">${esc(a.cat && a.text.startsWith(a.cat + ": ") ? a.text.slice(a.cat.length + 2) : a.text)}</td><td style="${td}">${esc(whoOf(sh, a) || "-")}</td><td style="${td};white-space:nowrap">${tm ? fdm(tm) : "-"}</td><td style="${td};white-space:nowrap;font-weight:700;color:${dn ? "#0B6E4F" : "#B3261E"}">${dn ? "Aksiyon alındı" : lt ? "Gecikti" : "Açık"}</td></tr>`; }).join("")}</table></div>`; };
   const usePics = pics && DET.some(g => g.items.some(i => i.pics?.length || i.fx?.ph?.length)), PH = {};
   if (usePics) await Promise.all(DET.flatMap(g => g.items.flatMap(i => [...(i.pics || []), ...(i.fx?.ph || [])])).map(async p => { try { PH[p.id] = await S.getPhoto(info.fid, info.year, p.id); } catch { } }));
   const psz = file ? 227 : Math.round(227 / z); // 6 cm yükseklik
