@@ -1,9 +1,9 @@
 // Kurulum sayfasındaki katlanabilir "Hesaplama Yöntemi" kartı (parametrelerden canlı; PDF indirilebilir)
-import { dotCss } from "./tatil.js?v=20261022x";
-import { esc, noticeBox } from "./ui.js?v=20261022x";
-import { num, c2, empCoef, RISK, DEFAULT_PARAMS } from "./scoring.js?v=20261022x";
-import { T as KAZA } from "./kaza.js?v=20261022x";
-import { askFormat, savePdf, printCurrent } from "./pdf.js?v=20261022x";
+import { dotCss } from "./tatil.js?v=20261022y";
+import { esc, noticeBox } from "./ui.js?v=20261022y";
+import { num, c2, empCoef, RISK, DEFAULT_PARAMS } from "./scoring.js?v=20261022y";
+import { T as KAZA } from "./kaza.js?v=20261022y";
+import { askFormat, savePdf, printCurrent } from "./pdf.js?v=20261022y";
 
 const Y = { open: false };
 export const reset = () => { Y.open = false; };

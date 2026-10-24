@@ -1,13 +1,13 @@
 // İSG Denetim Listesi sayfası
-import * as Guest from "./guest.js?v=20261022x";
-import * as Gorev from "./gorev.js?v=20261022x";
-import * as S from "./store.js?v=20261022x";
-import * as Ramak from "./ramak.js?v=20261022x";
-import * as Paylas from "./paylas.js?v=20261022x";
-import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261022x";
-import { CATS } from "./isgcats.js?v=20261022x";
-import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261022x";
-import { calcIsg, isgMonth, isgAudits, fxInTime, makTier, katsayi, bandOf, num, surecVar, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261022x";
+import * as Guest from "./guest.js?v=20261022y";
+import * as Gorev from "./gorev.js?v=20261022y";
+import * as S from "./store.js?v=20261022y";
+import * as Ramak from "./ramak.js?v=20261022y";
+import * as Paylas from "./paylas.js?v=20261022y";
+import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261022y";
+import { CATS } from "./isgcats.js?v=20261022y";
+import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261022y";
+import { calcIsg, isgMonth, isgAudits, fxInTime, makTier, katsayi, bandOf, num, surecVar, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261022y";
 
 const COLL = "isg";
 const D = { pk: { open: false, view: 0, cnt: {} }, fxEditing: new Set(), fxDraft: {}, fxOpen: new Set(), fxList: [], gfxOpen: false, key: "", setup: null, doc: null, dept: null, month: null, open: {}, ro: false, timer: null, saved: true, msg: "" };
@@ -444,11 +444,11 @@ async function respDialog() {
   const m = document.createElement("div"); m.className = "mod";
   const draw2 = () => {
     m.innerHTML = `<div class="mbox" role="dialog" aria-modal="true" style="gap:12px"><h2 style="font-size:20px">Sorumlu seç</h2>
-      ${mem.length ? mem.map(g => `<label class="chk" style="padding:6px 0"><input type="checkbox" data-rg="${g.id}" ${sel.some(r => r.id === g.id) ? "checked" : ""}><span>${esc(g.name || "Misafir")}${g.unit ? `<small>${esc(g.unit)}</small>` : ""}</span></label>`).join("") : '<div class="muted" style="font-size:13px">Kayıtlı misafir yok. Aşağıya ad yazabilirsiniz.</div>'}
+      ${mem.length ? `<div class="col1" style="gap:6px">${mem.map(g => { const on = sel.some(r => r.id === g.id); return `<label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid ${on ? "var(--gd)" : "var(--line)"};border-radius:12px;margin:0;cursor:pointer;${on ? "background:#EAF7F1" : ""}"><input type="checkbox" data-rg="${g.id}" ${on ? "checked" : ""} style="width:20px;height:20px;margin:0;flex:0 0 20px;accent-color:#0B6E4F"><span style="flex:1;min-width:0"><b style="font-size:14px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(g.name || "Misafir")}</b>${g.unit ? `<span style="font-style:italic;font-size:12px;color:var(--muted);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(g.unit)}</span>` : ""}</span></label>`; }).join("")}</div>`: '<div class="muted" style="font-size:13px">Kayıtlı misafir yok. Aşağıya ad yazabilirsiniz.</div>'}
       <div><label class="hd" for="rgO" style="margin:0">BAŞKA KİŞİ</label><input id="rgO" class="inp" style="margin-top:4px" placeholder="Uygulama hesabı olmayan kişi" value="${esc(sel.filter(r => !r.id).map(r => r.name).join(", "))}"></div>
       <div class="muted" style="font-size:12.5px">Başka kişi takip tablosunda görünür, paylaşıma eklenmez.</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button class="sec" data-c>Vazgeç</button><button data-ok>Tamam</button></div></div>`;
-    m.querySelectorAll("[data-rg]").forEach(c => c.onchange = () => { const g = mem.find(x => x.id === c.dataset.rg); sel = c.checked ? [...sel, { id: g.id, name: g.name || "Misafir" }] : sel.filter(r => r.id !== g.id); });
+    m.querySelectorAll("[data-rg]").forEach(c => c.onchange = () => { const g = mem.find(x => x.id === c.dataset.rg); sel = c.checked ? [...sel, { id: g.id, name: g.name || "Misafir" }] : sel.filter(r => r.id !== g.id); const o = m.querySelector("#rgO").value; draw2(); m.querySelector("#rgO").value = o; });
     m.querySelector("[data-c]").onclick = () => m.remove();
     m.querySelector("[data-ok]").onclick = () => { const o = m.querySelector("#rgO").value.split(",").map(x => x.trim()).filter(Boolean); doc.resp = [...sel.filter(r => r.id), ...o.map(name => ({ id: "", name }))]; m.remove(); persist(); draw(); };
     m.addEventListener("mousedown", e => { if (e.target === m) m.remove(); });
@@ -750,7 +750,7 @@ function bind(v, c) {
   on("[data-reopen]", async el => {
     const no = +el.dataset.reopen, t = doc.sessions.find(x => x.no === no); if (!t) return;
     if (doc.draft.on !== false && Object.keys(doc.draft.marks || {}).length && doc.draft.edit !== no) {
-      const { confirmBox } = await import("./ui.js?v=20261022x");
+      const { confirmBox } = await import("./ui.js?v=20261022y");
       if (!(await confirmBox(`${no}. denetim açılsın mı?`, "Şu an açık olan denetimde kaydedilmemiş değişiklikler varsa kaybolur. Önce “Kaydet”e basmanız önerilir.", "Yine de aç"))) return;
     }
     if (t.no === doc.sessions.length) t.closed = false;
@@ -768,7 +768,7 @@ function bind(v, c) {
   });
   const gAll = async () => (await S.listMonthDocs(st.fid, st.year, "isgg").catch(() => [])).filter(g => g.id.startsWith(`${pad(D.month)}_${D.dept}_`));
   on("[data-delsess]", async el => {
-    const { confirmBox } = await import("./ui.js?v=20261022x");
+    const { confirmBox } = await import("./ui.js?v=20261022y");
     const no = +el.dataset.delsess, ix = doc.sessions.findIndex(x => x.no === no); if (ix < 0) return;
     const gone = doc.sessions[ix], later = ix < doc.sessions.length - 1, all = await gAll(), gAp = all.filter(g => g.status === "approved" && g.no === gone.no);
     let mode = "all";
@@ -793,7 +793,7 @@ function bind(v, c) {
   });
   // Sahip: misafir taslağını tamamen sil (denetime ve rapora hiç girmez)
   const delG = async g => {
-    const { confirmBox } = await import("./ui.js?v=20261022x");
+    const { confirmBox } = await import("./ui.js?v=20261022y");
     if (!(await confirmBox("Misafir taslağı silinsin mi?", `${g.guestName} taslağı ve fotoğrafları kalıcı olarak silinir; denetime ve rapora hiç girmez. Misafir isterse yeniden yazabilir.`, "Evet, tamamen sil", true))) return false;
     Object.values(g.draft?.photos || {}).flat().forEach(p => S.deletePhoto(st.fid, st.year, p.id).catch(() => {}));
     await S.deleteMonthDoc(st.fid, st.year, "isgg", g.id); await Guest.inboxDelete(`${g.guestUid}_${st.fid}_${st.year}_${+g.month}_${g.dept}`);
@@ -804,7 +804,7 @@ function bind(v, c) {
   const holOK = async date => {
     if (!date || GUEST.on || D.okHol?.has(date)) return true;
     const h = tatilMap(await tatilYukle(st.fid, st.year).catch(() => null)).get(date); if (!h || h.yarim) return true;
-    const { confirmBox } = await import("./ui.js?v=20261022x");
+    const { confirmBox } = await import("./ui.js?v=20261022y");
     if (!(await confirmBox("İzin / tatil günü", `${fmtTarih(date)} tarihi "${h.ad}" olarak izinli/tatil işaretli. Yine de bu tarihle denetim yapılsın mı?`, "Evet, kabul et"))) return false;
     (D.okHol ||= new Set()).add(date); return true;
   };
@@ -961,7 +961,7 @@ function bind(v, c) {
   });
   on("[data-fxdel]", async el => {
     const { s, id, j, fk } = fxSess(el.dataset.fxdel); if (!s?.fixed?.[fk]) return;
-    const { confirmBox } = await import("./ui.js?v=20261022x");
+    const { confirmBox } = await import("./ui.js?v=20261022y");
     if (!(await confirmBox("Aksiyon kaldırılsın mı?", "Aksiyon bilgisi silinir; bulgu yeniden cezaya sayılır.", "Evet, kaldır", true))) return;
     const old = s.fixed[fk], oldOff = s.fixedOff?.[fk]; delete s.fixed[fk];
     // Otomatik (görev takip) aksiyon elle kaldırıldıysa, aynı kapanış için yeniden otomatik eklenmesin
