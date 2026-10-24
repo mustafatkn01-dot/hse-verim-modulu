@@ -43,6 +43,9 @@ service cloud.firestore {
     // Onaylı üye kaydı: misafir yalnızca kendi kaydını okur
     match /users/{owner}/members/{gid} {
       allow get: if request.auth != null && request.auth.uid == gid;
+      // Son görülme: misafir yalnızca kendi kaydındaki lastSeen alanını günceller
+      allow update: if request.auth != null && request.auth.uid == gid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastSeen']);
     }
 
     // Denetim gelen kutusu: misafir yalnızca kendi satırını (id'si kendi uid'si ile başlar), yetkili olduğu fabrika için yazar

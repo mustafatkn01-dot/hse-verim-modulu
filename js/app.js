@@ -1,21 +1,21 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261023c";
-import * as S from "./store.js?v=20261023c";
-import * as Prim from "./primary.js?v=20261023c";
-import * as Denetim from "./denetim.js?v=20261023c";
-import * as Kaza from "./kaza.js?v=20261023c";
-import * as Konusma from "./konusma.js?v=20261023c";
-import * as Ramak from "./ramak.js?v=20261023c";
-import * as Genel from "./genel.js?v=20261023c";
-import * as Rapor from "./rapor.js?v=20261023c";
-import * as Verim from "./verim.js?v=20261023c";
-import * as Isbasi from "./isbasi.js?v=20261023c";
-import * as Guest from "./guest.js?v=20261023c";
-import * as Yontem from "./yontem.js?v=20261023c";
-import * as Tatil from "./tatil.js?v=20261023c";
-import * as Gorev from "./gorev.js?v=20261023c";
-import * as Arsiv from "./arsiv.js?v=20261023c";
-import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261023c";
-import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261023c";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261023d";
+import * as S from "./store.js?v=20261023d";
+import * as Prim from "./primary.js?v=20261023d";
+import * as Denetim from "./denetim.js?v=20261023d";
+import * as Kaza from "./kaza.js?v=20261023d";
+import * as Konusma from "./konusma.js?v=20261023d";
+import * as Ramak from "./ramak.js?v=20261023d";
+import * as Genel from "./genel.js?v=20261023d";
+import * as Rapor from "./rapor.js?v=20261023d";
+import * as Verim from "./verim.js?v=20261023d";
+import * as Isbasi from "./isbasi.js?v=20261023d";
+import * as Guest from "./guest.js?v=20261023d";
+import * as Yontem from "./yontem.js?v=20261023d";
+import * as Tatil from "./tatil.js?v=20261023d";
+import * as Gorev from "./gorev.js?v=20261023d";
+import * as Arsiv from "./arsiv.js?v=20261023d";
+import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261023d";
+import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261023d";
 const PEND_META = { isbasig: ["isbasi", "İşbaşı Eğitim"], konusmag: ["konusma", "Eğitim Konuşması"], kazag: ["kaza", "İş Kazası"] };
 
 const VERSION = "1.8.5";
@@ -101,6 +101,12 @@ async function guestOut(note) {
   if (note) { try { sessionStorage.setItem("hse_gnote", note); } catch {} }
   location.href = location.pathname;
 }
+// Misafir "son görülme": açılışta ve sekmeye dönünce, en fazla 10 dakikada bir
+let seenAt = 0;
+function seenPing(owner, gid) {
+  const go = () => { if (Date.now() - seenAt > 6e5) { seenAt = Date.now(); Guest.touchSeen(owner, gid); } };
+  go(); if (!seenPing.bound) { seenPing.bound = true; document.addEventListener("visibilitychange", () => { if (!document.hidden && GUEST.on) go(); }); }
+}
 async function startGuest(owner, user) {
   const m = await Guest.getMember(owner, user.uid);
   if (!Guest.isLive(m)) {
@@ -110,6 +116,7 @@ async function startGuest(owner, user) {
     return Guest.showExpired({ owner, code: LINK?.code || rq?.code, member: m }, () => startGuest(owner, user));
   }
   Guest.hideRequest(); Guest.storeOwner(owner);
+  seenPing(owner, user.uid);
   S.setOwner(owner, m.factories || []);
   Guest.setGuestCtx({ owner, uid: user.uid, name: m.name, ntfy: m.ntfy || null });
   GUEST.on = true; GUEST.name = m.name; GUEST.uid = user.uid; st.role = "guest"; st.guest = { uid: user.uid, name: m.name, email: m.unit || m.email || "", member: m };
