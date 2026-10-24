@@ -1,7 +1,7 @@
 // Veri katmanı: users/{uid}/factories/{fid}/years/{yıl}/setup/main
-import { auth, db, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, updateDoc, query, orderBy, serverTimestamp, onSnapshot, FS } from "./firebase.js?v=20261022t";
-import { shrinkDataUrl } from "./ui.js?v=20261022t";
-import { setSurec } from "./scoring.js?v=20261022t";
+import { auth, db, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, updateDoc, query, orderBy, serverTimestamp, onSnapshot, FS } from "./firebase.js?v=20261022u";
+import { shrinkDataUrl } from "./ui.js?v=20261022u";
+import { setSurec } from "./scoring.js?v=20261022u";
 
 const uid = () => auth.currentUser.uid;
 // Veri sahibi: misafir kullanıcıda davet eden hesabın uid'si; kendi oturum/profil kayıtları ise her zaman kendi hesabında
@@ -243,4 +243,5 @@ export async function listShares(fid, year, month) { const s = await getDocs(sha
 export const deleteShare = id => deleteDoc(doc(db, `${mine()}/shares/${id}`));
 export async function listMembers() { const s = await getDocs(collection(db, `${mine()}/members`)); return s.docs.map(d => ({ id: d.id, ...d.data() })); }
 // Misafir: kendisiyle paylaşılanlar (kural: yalnızca guests listesinde olduğu paylaşımlar okunur)
+export async function myAllShares() { const s = await getDocs(query(collection(db, `${base()}/shares`), FS.where("guests", "array-contains", uid()))); return s.docs.map(d => d.data()); }
 export async function myShares(fid, year) { const s = await getDocs(query(collection(db, `${base()}/shares`), FS.where("guests", "array-contains", uid()))); return s.docs.map(d => d.data()).filter(x => x.fid === fid && String(x.year) === String(year)).sort((a, b) => b.at - a.at); }

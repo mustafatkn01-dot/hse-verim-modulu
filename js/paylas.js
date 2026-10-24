@@ -1,10 +1,10 @@
 // Bulgu paylaşımı: yetkili, seçtiği bölümlerin açık bulgularını seçtiği misafirlerle paylaşır; misafir kendi ekranında görür ve
 // mevcut "Aksiyon bildir" akışıyla aksiyon alır (yetkili onayı mevcut Aksiyon bildirimleri panelinde).
 // Puan kuralı mevcut sistemdeki gibi: aksiyonun gönderim zamanı denetim haftası içindeyse (en geç cumartesi) ve yetkili kabul ederse puana işlenir.
-import * as S from "./store.js?v=20261022t";
-import { esc, ic, toast, confirmBox, compressImage, showPhoto } from "./ui.js?v=20261022t";
-import * as Guest from "./guest.js?v=20261022t";
-import { CATS } from "./isgcats.js?v=20261022t";
+import * as S from "./store.js?v=20261022u";
+import { esc, ic, toast, confirmBox, compressImage, showPhoto } from "./ui.js?v=20261022u";
+import * as Guest from "./guest.js?v=20261022u";
+import { CATS } from "./isgcats.js?v=20261022u";
 
 const pad = n => String(n).padStart(2, "0"), iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const addDays = (s, n) => { const d = new Date(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10)); d.setDate(d.getDate() + n); return iso(d); };
@@ -110,11 +110,11 @@ export async function openShare({ fid, year, month, rows, factoryName = "", onDo
 }
 
 // Bölüm kaydı + aksiyon istekleri → bulgu listesi: ok (aksiyon alındı) / on (aksiyon bildirildi, onay bekliyor) / ac (açık)
-export function buildItems(isg, fixDocs) {
+export function buildItems(isg, fixDocs, since = "") {
   const reqs = {};
   for (const d of fixDocs || []) Object.entries(d?.draft?.fixReqs || {}).forEach(([k, r]) => { if (!reqs[k] || r.at > reqs[k].at) reqs[k] = r; });
   const items = [];
-  for (const s of isg?.sessions || []) for (const [id, arr] of Object.entries(s.fails || {})) (arr || []).forEach((t, j) => {
+  for (const s of isg?.sessions || []) if (!since || (s.date && monOf(s.date) >= since) || Object.entries(s.fails || {}).some(([id, arr]) => (arr || []).some((t, j) => t && s.fixed?.[id + "|" + j]?.st !== "ok"))) for (const [id, arr] of Object.entries(s.fails || {})) (arr || []).forEach((t, j) => {
     if (!t) return; const k = id + "|" + j, f = s.fixed?.[k], r = reqs[`${s.no}|${k}`], ok = !!(f && f.t === t && f.st === "ok"), pend = !ok && !!r && r.t === t && !(f && (f.rat || 0) >= r.at);
     items.push({ no: s.no, id, j, t, st: ok ? "ok" : pend ? "on" : "ac", before: s.photos?.[k] || [], after: ok ? (f.ph || []) : [] });
   });
@@ -125,12 +125,12 @@ export async function watchGuest(fid, year, uid, cb, allRows = []) {
   const shares = await S.myShares(fid, year).catch(() => []), map = new Map();
   for (const sh of shares) for (const d of (sh.all && allRows.length ? allRows : sh.depts || [])) {
     const k = sh.month + "|" + d.id, role = sh.roles?.[uid] || "aks", e = map.get(k);
-    if (!e) map.set(k, { at: sh.at || 0, key: k, month: sh.month, id: d.id, name: d.name, termin: sh.termin, note: sh.note || "", role, gs: new Set(sh.guests || []) });
-    else { e.at = Math.max(e.at, sh.at || 0); if (role === "aks") e.role = "aks"; (sh.guests || []).forEach(g => e.gs.add(g)); }
+    if (!e) map.set(k, { at: sh.at || 0, since: monOf(iso(new Date(sh.at || 0))), key: k, month: sh.month, id: d.id, name: d.name, termin: sh.termin, note: sh.note || "", role, gs: new Set(sh.guests || []) });
+    else { e.at = Math.max(e.at, sh.at || 0); { const w = monOf(iso(new Date(sh.at || 0))); if (w < e.since) e.since = w; } if (role === "aks") e.role = "aks"; (sh.guests || []).forEach(g => e.gs.add(g)); }
   }
   const rows = [...map.values()], st = {}, offs = [], today = iso(new Date());
   const emit = () => cb(rows.map(r => {
-    const x = st[r.key] || {}, items = buildItems(x.isg, Object.values(x.fix || {})), ds = (x.isg?.sessions || []).map(s => s.date).filter(Boolean).sort(), own = x.own;
+    const x = st[r.key] || {}, items = buildItems(x.isg, Object.values(x.fix || {}), r.since), ds = (x.isg?.sessions || []).map(s => s.date).filter(Boolean).sort(), own = x.own;
     const mine = own && own.status === "review" ? Object.entries(own.draft?.marks || {}).filter(([, v]) => v === "x").flatMap(([id]) => (own.draft.notes?.[id] || []).map(t => String(t || "").trim()).filter(Boolean)) : [];
     return { at: r.at, key: r.key, month: r.month, id: r.id, name: r.name, termin: r.termin, note: r.note, role: r.role, items, mine, done: !!(x.isg?.sessions?.length), no: (x.isg?.sessions?.length || 0) + 1,
       n: items.length, ok: items.filter(i => i.st === "ok").length, on: items.filter(i => i.st === "on").length, ac: items.filter(i => i.st === "ac").length,
