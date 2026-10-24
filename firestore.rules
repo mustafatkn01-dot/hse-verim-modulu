@@ -48,6 +48,17 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastSeen']);
     }
 
+    // Misafir cihaz kaydı: misafir yalnızca kendi cihazını bir kez kaydeder ve "son görülme"sini günceller; engelleme (blocked) yalnızca sahip tarafından yazılır
+    match /users/{owner}/members/{gid}/devices/{dev} {
+      allow get: if request.auth != null && request.auth.uid == gid;
+      allow create: if request.auth != null && request.auth.uid == gid
+        && request.resource.data.keys().hasOnly(['label', 'first', 'last'])
+        && request.resource.data.label is string && request.resource.data.label.size() < 60
+        && exists(/databases/$(database)/documents/users/$(owner)/members/$(gid));
+      allow update: if request.auth != null && request.auth.uid == gid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['last']);
+    }
+
     // Denetim gelen kutusu: misafir yalnızca kendi satırını (id'si kendi uid'si ile başlar), yetkili olduğu fabrika için yazar
     match /users/{owner}/inbox/{id} {
       allow create, update: if request.auth != null

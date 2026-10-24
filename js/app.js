@@ -1,21 +1,21 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261024e";
-import * as S from "./store.js?v=20261024e";
-import * as Prim from "./primary.js?v=20261024e";
-import * as Denetim from "./denetim.js?v=20261024e";
-import * as Kaza from "./kaza.js?v=20261024e";
-import * as Konusma from "./konusma.js?v=20261024e";
-import * as Ramak from "./ramak.js?v=20261024e";
-import * as Genel from "./genel.js?v=20261024e";
-import * as Rapor from "./rapor.js?v=20261024e";
-import * as Verim from "./verim.js?v=20261024e";
-import * as Isbasi from "./isbasi.js?v=20261024e";
-import * as Guest from "./guest.js?v=20261024e";
-import * as Yontem from "./yontem.js?v=20261024e";
-import * as Tatil from "./tatil.js?v=20261024e";
-import * as Gorev from "./gorev.js?v=20261024e";
-import * as Arsiv from "./arsiv.js?v=20261024e";
-import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261024e";
-import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261024e";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261024f";
+import * as S from "./store.js?v=20261024f";
+import * as Prim from "./primary.js?v=20261024f";
+import * as Denetim from "./denetim.js?v=20261024f";
+import * as Kaza from "./kaza.js?v=20261024f";
+import * as Konusma from "./konusma.js?v=20261024f";
+import * as Ramak from "./ramak.js?v=20261024f";
+import * as Genel from "./genel.js?v=20261024f";
+import * as Rapor from "./rapor.js?v=20261024f";
+import * as Verim from "./verim.js?v=20261024f";
+import * as Isbasi from "./isbasi.js?v=20261024f";
+import * as Guest from "./guest.js?v=20261024f";
+import * as Yontem from "./yontem.js?v=20261024f";
+import * as Tatil from "./tatil.js?v=20261024f";
+import * as Gorev from "./gorev.js?v=20261024f";
+import * as Arsiv from "./arsiv.js?v=20261024f";
+import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261024f";
+import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261024f";
 const PEND_META = { isbasig: ["isbasi", "İşbaşı Eğitim"], konusmag: ["konusma", "Eğitim Konuşması"], kazag: ["kaza", "İş Kazası"] };
 
 const VERSION = "1.8.5";
@@ -77,6 +77,7 @@ async function doSignOut() {
 }
 const LINK = Guest.linkInfo();
 let closedNote = null;
+let unwatchDev = null;
 let unwatchG = null, guestTimer = null, unwatchReq = null, unwatchInb = null, unwatchFb = null;
 try { navigator.serviceWorker?.register("./sw.js"); } catch {}
 // Ana ekrana ekle / uygulamayı kur (tarayıcı destekliyorsa doğrudan, desteklemiyorsa kısa yönerge)
@@ -98,7 +99,7 @@ function showOnly(which) { // "login" | "app" | "none"
 }
 async function guestOut(note, manual) {
   const eg = Guest.isEmailGuest(auth.currentUser) && LINK?.type === "pguest";
-  unwatchG?.(); clearInterval(guestTimer); Guest.storeOwner(null); st.role = null; GUEST.on = false; S.setOwner(null);
+  unwatchG?.(); unwatchDev?.(); clearInterval(guestTimer); Guest.storeOwner(null); st.role = null; GUEST.on = false; S.setOwner(null);
   if (eg) closedNote = manual ? { title: "Çıkış yapıldı", text: "Tekrar girmek için size gönderilen bağlantıya dokunun ya da aşağıdaki düğmeye basın.", retry: true } : { title: "Erişim sona erdi", text: note || "Bu bağlantı kapatıldı." };
   try { await signOut(auth); } catch {}
   if (eg) return;
@@ -122,6 +123,12 @@ async function startGuest(owner, user) {
   }
   Guest.hideRequest(); Guest.storeOwner(owner);
   const first = !m.lastSeen && Guest.isEmailGuest(user); if (LINK?.type === "pguest") Guest.pinManifest();
+  if (Guest.isEmailGuest(user)) {
+    const g = await Guest.deviceGate(owner, user, m, first);
+    if (g === "rot") { await signOut(auth).catch(() => {}); return; }
+    if (g === "blocked") { closedNote = { title: "Cihaz engellendi", text: "Bu cihazın erişimi yetkili kişi tarafından engellendi. Erişim için yetkili kişiyle iletişime geçin." }; Guest.showEnded(closedNote); showOnly("none"); await signOut(auth).catch(() => {}); return; }
+    unwatchDev?.(); unwatchDev = Guest.watchDevice(owner, user.uid, d => { if (d?.blocked) guestOut("Bu cihazın erişimi yetkili kişi tarafından engellendi."); });
+  }
   seenPing(owner, user.uid); if (first) toast(`Hoş geldiniz, ${m.name}.`);
   S.setOwner(owner, m.factories || []);
   Guest.setGuestCtx({ owner, uid: user.uid, name: m.name, ntfy: m.ntfy || null });
@@ -129,7 +136,7 @@ async function startGuest(owner, user) {
   showOnly("app"); document.body.classList.add("is-guest");
   unwatchG?.(); clearInterval(guestTimer);
   const check = mm => { if (!Guest.isLive(mm)) guestOut(mm ? "Erişim süreniz doldu." : "Erişiminiz yetkili kullanıcı tarafından kaldırıldı."); };
-  unwatchG = Guest.watchMember(owner, user.uid, mm => { if (!mm) return check(null); st.guest.member = mm; Guest.setGuestCtx({ ntfy: mm.ntfy || null }); check(mm); });
+  unwatchG = Guest.watchMember(owner, user.uid, mm => { if (!mm) return check(null); if (Guest.isEmailGuest(user) && Guest.rotated(user, mm)) return guestOut("Bu bağlantı yenilendi. Size gönderilen yeni bağlantıya dokunun."); st.guest.member = mm; Guest.setGuestCtx({ ntfy: mm.ntfy || null }); check(mm); });
   guestTimer = setInterval(() => check(st.guest.member), 30000);
   await loadContext(); go(location.hash.slice(1) || "genel");
 }
@@ -143,7 +150,7 @@ onAuthStateChanged(auth, async user => {
   }
   if (Guest.isGuestUser(user)) {
     if (Guest.isSending()) return; // istek gönderilirken bekle
-    if (LINK?.type === "pguest" && Guest.isEmailGuest(user) && user.email !== Guest.pEmail(LINK.code)) { await signOut(auth); return; } // bu cihazda başka misafir açıktı
+    if (LINK?.type === "pguest" && Guest.isEmailGuest(user) && user.email !== Guest.pEmail(LINK.ek || LINK.code)) { await signOut(auth); return; } // bu cihazda başka misafir açıktı
     const owner = LINK?.type === "guest" || LINK?.type === "pguest" ? LINK.owner : Guest.storedOwner();
     if (!owner) { await signOut(auth); return; }
     return startGuest(owner, user);
