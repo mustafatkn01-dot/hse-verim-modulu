@@ -1,10 +1,10 @@
 // Bulgu paylaşımı: yetkili, seçtiği bölümlerin açık bulgularını seçtiği misafirlerle paylaşır; misafir kendi ekranında görür ve
 // mevcut "Aksiyon bildir" akışıyla aksiyon alır (yetkili onayı mevcut Aksiyon bildirimleri panelinde).
 // Puan kuralı mevcut sistemdeki gibi: aksiyonun gönderim zamanı denetim haftası içindeyse (en geç cumartesi) ve yetkili kabul ederse puana işlenir.
-import * as S from "./store.js?v=20261022s";
-import { esc, ic, toast, confirmBox, compressImage, showPhoto } from "./ui.js?v=20261022s";
-import * as Guest from "./guest.js?v=20261022s";
-import { CATS } from "./isgcats.js?v=20261022s";
+import * as S from "./store.js?v=20261022t";
+import { esc, ic, toast, confirmBox, compressImage, showPhoto } from "./ui.js?v=20261022t";
+import * as Guest from "./guest.js?v=20261022t";
+import { CATS } from "./isgcats.js?v=20261022t";
 
 const pad = n => String(n).padStart(2, "0"), iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const addDays = (s, n) => { const d = new Date(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10)); d.setDate(d.getDate() + n); return iso(d); };
@@ -125,14 +125,14 @@ export async function watchGuest(fid, year, uid, cb, allRows = []) {
   const shares = await S.myShares(fid, year).catch(() => []), map = new Map();
   for (const sh of shares) for (const d of (sh.all && allRows.length ? allRows : sh.depts || [])) {
     const k = sh.month + "|" + d.id, role = sh.roles?.[uid] || "aks", e = map.get(k);
-    if (!e) map.set(k, { key: k, month: sh.month, id: d.id, name: d.name, termin: sh.termin, note: sh.note || "", role, gs: new Set(sh.guests || []) });
-    else { if (role === "aks") e.role = "aks"; (sh.guests || []).forEach(g => e.gs.add(g)); }
+    if (!e) map.set(k, { at: sh.at || 0, key: k, month: sh.month, id: d.id, name: d.name, termin: sh.termin, note: sh.note || "", role, gs: new Set(sh.guests || []) });
+    else { e.at = Math.max(e.at, sh.at || 0); if (role === "aks") e.role = "aks"; (sh.guests || []).forEach(g => e.gs.add(g)); }
   }
   const rows = [...map.values()], st = {}, offs = [], today = iso(new Date());
   const emit = () => cb(rows.map(r => {
     const x = st[r.key] || {}, items = buildItems(x.isg, Object.values(x.fix || {})), ds = (x.isg?.sessions || []).map(s => s.date).filter(Boolean).sort(), own = x.own;
     const mine = own && own.status === "review" ? Object.entries(own.draft?.marks || {}).filter(([, v]) => v === "x").flatMap(([id]) => (own.draft.notes?.[id] || []).map(t => String(t || "").trim()).filter(Boolean)) : [];
-    return { key: r.key, month: r.month, id: r.id, name: r.name, termin: r.termin, note: r.note, role: r.role, items, mine, done: !!(x.isg?.sessions?.length), no: (x.isg?.sessions?.length || 0) + 1,
+    return { at: r.at, key: r.key, month: r.month, id: r.id, name: r.name, termin: r.termin, note: r.note, role: r.role, items, mine, done: !!(x.isg?.sessions?.length), no: (x.isg?.sessions?.length || 0) + 1,
       n: items.length, ok: items.filter(i => i.st === "ok").length, on: items.filter(i => i.st === "on").length, ac: items.filter(i => i.st === "ac").length,
       lt: items.filter(i => i.st === "ac" && r.termin < today).length, cut: ds.length ? addDays(monOf(ds[ds.length - 1]), 5) : "" };
   }));
@@ -200,4 +200,18 @@ export function obsDialog({ fid, year, row, uid, name, factoryName = "", onDone 
     close(); toast("Gözlem yetkiliye gönderildi."); onDone();
   };
   draw();
+}
+
+// Yeni paylaşım bilgi şeridi: son kapatılandan sonra gelen paylaşım varsa görünür
+const seenKey = uid => "hse_shseen_" + uid;
+const seenAt = uid => { try { return +localStorage.getItem(seenKey(uid)) || 0; } catch { return 0; } };
+export function shareBanner(rows, uid) {
+  const fresh = (rows || []).filter(r => (r.at || 0) > seenAt(uid));
+  if (!fresh.length) return "";
+  const n = fresh.reduce((a, r) => a + r.ac + r.on, 0), names = [...new Set(fresh.map(r => r.name))].join(", ");
+  return `<div class="okbar" style="display:flex;align-items:center;gap:10px"><span style="flex:1;min-width:0;line-height:1.45">Size yeni bir paylaşım yapıldı: ${esc(names)} · ${n} açık bulgu</span><button type="button" class="sec" data-shrx style="flex:0 0 auto;height:34px;padding:0 12px;font-size:12.5px">Kapat</button></div>`;
+}
+export function dismissBanner(rows, uid) {
+  const m = Math.max(0, ...(rows || []).map(r => r.at || 0));
+  try { localStorage.setItem(seenKey(uid), String(m)); } catch { }
 }
