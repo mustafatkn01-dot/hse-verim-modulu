@@ -3,8 +3,8 @@
 //   users/{sahip}/invites/{kod}        davet (e-posta ayarı kopyası)
 //   users/{sahip}/guestReqs/{misafirUid}  onay isteği {gid, code, name, unit, status, at}
 //   users/{sahip}/members/{misafirUid}    onaylı üye {name, unit, factories[], mode, expires|null}
-import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously } from "./firebase.js?v=20261023b";
-import { esc, toast, confirmBox } from "./ui.js?v=20261023b";
+import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously } from "./firebase.js?v=20261023c";
+import { esc, toast, confirmBox } from "./ui.js?v=20261023c";
 
 const Q = new URLSearchParams(location.search);
 export const linkInfo = () => {
@@ -44,6 +44,17 @@ export function hideRequest() { document.getElementById("guestReq")?.remove(); }
 const boxHtml = inner => `<div class="box"><div class="stripe" style="border-radius:4px;overflow:hidden;margin-bottom:18px"><i></i><i></i><i></i><i></i></div>
   <div class="brand" style="margin-bottom:10px"><div><h1 style="font-size:20px">HSE Verim Modülü</h1><span class="muted" style="font-size:12px">Misafir erişimi</span></div></div>${inner}</div>`;
 
+// Davet bağlantısı yapıştırma ekranı (ana ekran uygulaması gibi bağlantısız açılan yerlerde)
+const parseInvite = t => { t = String(t || "").trim(); try { const m = new URL(t).searchParams.get("misafir"); if (m) t = m; } catch {} const [owner, code] = t.split("."); return owner && code ? { owner, code } : null; };
+export function showInviteEntry(onProceed, onBack) {
+  const s = screen();
+  s.innerHTML = boxHtml(`<div class="muted" style="line-height:1.55;margin-bottom:10px">Yetkili kullanıcının size gönderdiği <b>davet bağlantısını</b> aşağıya yapıştırın. Sonraki ekranda bilgilerinizi yazıp onaya göndereceksiniz.</div>
+    <label for="gInv">Davet bağlantısı</label><input id="gInv" autocomplete="off" autocapitalize="off" placeholder="https://…?misafir=…">
+    <div class="err" id="gErr"></div>
+    <div class="row"><button type="button" id="gGo">Devam</button><button type="button" class="sec" id="gBack">Geri dön</button></div>`);
+  document.getElementById("gGo").onclick = () => { const r = parseInvite(document.getElementById("gInv").value); if (!r) { document.getElementById("gErr").textContent = "Bağlantı geçerli görünmüyor. Size gönderilen davet bağlantısının tamamını yapıştırın."; return; } onProceed(r); };
+  document.getElementById("gBack").onclick = onBack;
+}
 // owner/code: bağlantıdan veya daha önce kaydedilenden gelir. onApproved: onaylanınca çağrılır.
 export function showRequest({ owner, code, note = "" }, onApproved) {
   const s = screen(), prev = (() => { try { return JSON.parse(localStorage.getItem("hse_gname") || "{}"); } catch { return {}; } })();
@@ -207,7 +218,7 @@ const newPid = taken => { // 6 hane, serbest dizilim; en az 2 harf ve en az 2 ra
 };
 // Önceki kayıtları bul: kişi kaydı (ID) + adı eşleşen, sahibi artık üye olmayan (sahipsiz) taslaklar
 async function findPrev(o, name, gid) {
-  const S = await import("./store.js?v=20261023b"), n = normName(name);
+  const S = await import("./store.js?v=20261023c"), n = normName(name);
   const people = (await loadPeople(o)).filter(p => p.norm === n);
   const mems = await getDocs(collection(db, `users/${o}/members`)).then(s => new Set(s.docs.map(d => d.id))).catch(() => new Set());
   const uids = new Set(); people.forEach(p => (p.uids || []).forEach(u => { if (u !== gid && !mems.has(u)) uids.add(u); }));
@@ -221,7 +232,7 @@ async function findPrev(o, name, gid) {
   return { person: people[0] || null, pid: people[0]?.id || null, uids, count };
 }
 async function migrateGuest(oldUids, newUid, name) {
-  const S = await import("./store.js?v=20261023b"); let n = 0;
+  const S = await import("./store.js?v=20261023c"); let n = 0;
   for (const f of await S.listFactories()) for (const y of await S.listYears(f.id)) for (const c of GCOLLS) {
     const all = await S.listMonthDocs(f.id, y, c), ids = new Set(all.map(d => d.id));
     for (const d of all) {
