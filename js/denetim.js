@@ -125,7 +125,7 @@ export async function render(v, ctx) {
       const fxd = await S.getMonthDoc(st.fid, st.year, "isgg", `${gid}_fix_${GUEST.uid}`).catch(() => null);
       D.fxList = Object.entries(fxd?.draft?.fixReqs || {}).map(([key, req]) => ({ guestUid: GUEST.uid, guestName: GUEST.name, key, req }));
       D.unwatchSh?.(); D.shRows = D.shRows || [];
-      Paylas.watchGuest(st.fid, st.year, GUEST.uid, rows => { D.shRows = rows; if (D.v?.isConnected && D.v.querySelector("#bolum") && !document.querySelector(".mod")) draw(); }).then(u => { D.unwatchSh = u; }).catch(() => {});
+      Paylas.watchGuest(st.fid, st.year, GUEST.uid, rows => { D.shRows = rows; if (D.v?.isConnected && D.v.querySelector("#bolum") && !document.querySelector(".mod")) draw(); }, D.setup.rows.map(r => ({ id: r.id, name: r.name }))).then(u => { D.unwatchSh = u; }).catch(() => {});
       D.unwatchFx?.(); D.fxSeen = null;
       D.unwatchFx = S.watchMonthDoc(st.fid, st.year, COLL, gid, d => fxWatch(d));
     } else {

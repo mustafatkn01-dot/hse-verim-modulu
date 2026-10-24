@@ -37,17 +37,17 @@ export async function openShare({ fid, year, month, rows, factoryName = "", onDo
     Promise.all(rows.map(r => S.getMonthDoc(fid, year, "isg", keyOf(month, r.id)).catch(() => null)))]);
   const live = mem.filter(x => (x.factories || []).includes(fid) && (x.expires == null || (x.expires.toMillis ? x.expires.toMillis() : +x.expires) > Date.now()));
   const info = Object.fromEntries(rows.map((r, i) => [r.id, openInfo(docs[i])]));
-  const st = { g: [], b: [], t: addDays(iso(new Date()), 7), note: "", old, roles: {} };
+  const st = { g: [], b: [], t: addDays(iso(new Date()), 7), note: "", old, roles: {}, all: false };
   const cutOf = ids => ids.map(i => info[i].cut).filter(Boolean).sort().pop() || "";
   const draw = () => {
-    const all = rows.filter(r => info[r.id].n > 0), nOpen = st.b.reduce((a, i) => a + info[i].n, 0);
+    const all = rows, nOpen = st.b.reduce((a, i) => a + info[i].n, 0);
     box.innerHTML = `<h2 style="margin:0;font-size:20px">Bulguları paylaş</h2>
       <div class="muted" style="font-size:13px;line-height:1.5">${esc(factoryName)} · seçtiğiniz bölümlerin açık bulguları, seçtiğiniz kişilerle paylaşılır. Kişi bulgulara aksiyon girer, onayı siz verirsiniz.</div>
       <span class="hd">KİME</span>
       ${live.length ? `<div class="col1" style="gap:6px">${live.map(g => { const on = st.g.includes(g.id); return `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid ${on ? "var(--gd)" : "var(--line)"};border-radius:12px;${on ? "background:#EAF7F1" : ""}"><input type="checkbox" data-g="${g.id}" aria-label="${esc(g.name || "Misafir")}" ${on ? "checked" : ""} style="width:20px;height:20px;margin:0;flex:0 0 20px;accent-color:#0B6E4F"><span style="flex:1;min-width:0"><b style="font-size:14px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(g.name || "Misafir")}</b>${g.unit ? `<span style="font-style:italic;font-size:12px;color:var(--muted);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(g.unit)}</span>` : ""}</span>${on ? `<button type="button" class="sec" data-role="${g.id}" style="flex:0 0 auto;height:34px;min-width:96px;padding:0 10px;font-size:12.5px">${st.roles[g.id] === "izle" ? "Yalnızca izler" : "Aksiyon alır"}</button>` : ""}</div>`; }).join("")}</div><div style="border-radius:12px;padding:10px 12px;font-size:12.5px;line-height:1.5;background:#E3F0F9;border:1px solid #BCD6EA;color:#143B5B"><b>Aksiyon alır:</b> bulguya aksiyon ve kanıt girer. <b>Yalnızca izler:</b> canlı takip görür, aksiyon düğmesi çıkmaz. İki rol de kendi gözlemini yeni bulgu olarak ekleyebilir, onayı siz verirsiniz.</div>` : '<div class="muted" style="font-size:13px">Bu fabrikaya yetkili onaylı misafir yok. Ayarlar &gt; Misafir erişimi bölümünden davet edin.</div>'}
       <span class="hd">HANGİ BÖLÜMLER</span>
-      <div class="col1" style="gap:6px">${all.length ? `<label style="display:flex;gap:10px;align-items:center;padding:10px 12px;border:1px solid ${st.b.length === all.length ? "var(--gd)" : "var(--line)"};border-radius:12px;cursor:pointer;margin:0;${st.b.length === all.length ? "background:#EAF7F1" : ""}"><input type="checkbox" data-ball ${st.b.length === all.length ? "checked" : ""} style="width:20px;height:20px;flex:0 0 20px;accent-color:#0B6E4F"><b style="font-size:14px">Tüm bölümler</b></label>` : ""}
-      ${rows.map(r => { const n = info[r.id].n, on = st.b.includes(r.id); return `<label style="display:flex;gap:10px;align-items:center;padding:10px 12px;border:1px solid ${on ? "var(--gd)" : "var(--line)"};border-radius:12px;cursor:${n ? "pointer" : "default"};margin:0;${on ? "background:#EAF7F1;" : ""}${n ? "" : "opacity:.5"}"><input type="checkbox" data-b="${r.id}" ${on ? "checked" : ""} ${n ? "" : "disabled"} style="width:20px;height:20px;flex:0 0 20px;accent-color:#0B6E4F"><span style="flex:1;min-width:0"><b style="font-size:14px">${esc(r.name)}</b></span><span class="muted" style="font-size:12.5px;white-space:nowrap">${n ? n + " açık bulgu" : "açık bulgu yok"}</span></label>`; }).join("")}</div>
+      <div class="col1" style="gap:6px">${all.length ? `<label style="display:flex;gap:10px;align-items:center;padding:10px 12px;border:1px solid ${st.all ? "var(--gd)" : "var(--line)"};border-radius:12px;cursor:pointer;margin:0;${st.all ? "background:#EAF7F1" : ""}"><input type="checkbox" data-ball ${st.all ? "checked" : ""} style="width:20px;height:20px;flex:0 0 20px;accent-color:#0B6E4F"><b style="font-size:14px">Tüm bölümler</b></label>` : ""}
+      ${rows.map(r => { const n = info[r.id].n, on = st.b.includes(r.id); return `<label style="display:flex;gap:10px;align-items:center;padding:10px 12px;border:1px solid ${on ? "var(--gd)" : "var(--line)"};border-radius:12px;cursor:${n || st.all ? "pointer" : "default"};margin:0;${on ? "background:#EAF7F1;" : ""}${n || st.all ? "" : "opacity:.5"}"><input type="checkbox" data-b="${r.id}" ${on ? "checked" : ""} ${n || st.all ? "" : "disabled"} style="width:20px;height:20px;flex:0 0 20px;accent-color:#0B6E4F"><span style="flex:1;min-width:0"><b style="font-size:14px">${esc(r.name)}</b></span><span class="muted" style="font-size:12.5px;white-space:nowrap">${n ? n + " açık bulgu" : "açık bulgu yok"}</span></label>`; }).join("")}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:end"><div><label class="hd" for="shT" style="margin:0">TERMİN</label><input type="date" id="shT" class="inp" value="${st.t}" min="${iso(new Date())}" style="margin-top:4px"></div><span class="muted" style="font-size:12.5px;line-height:1.4">Takip içindir. Puan için hafta kuralı geçerlidir.</span></div>
       <div><label class="hd" for="shN" style="margin:0">NOT (İSTEĞE BAĞLI)</label><textarea id="shN" class="inp" style="margin-top:4px;height:auto;min-height:64px;padding:10px;resize:vertical" placeholder="Örn. Önce yaya yolu ve yangın söndürücü önü.">${esc(st.note)}</textarea></div>
       ${st.g.length && st.b.length ? `<div style="border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.5;background:#E3F0F9;border:1px solid #BCD6EA;color:#143B5B">${st.g.length} kişi · ${st.b.length} bölüm · ${nOpen} açık bulgu. ${cutOf(st.b) ? (cutOf(st.b) >= iso(new Date()) ? `Puan için aksiyon en geç ${fd(cutOf(st.b))} gününe kadar girilmeli.` : "Denetim haftası kapandı: aksiyon görünür ama puan değişmez.") : ""}</div>` : ""}
@@ -56,8 +56,8 @@ export async function openShare({ fid, year, month, rows, factoryName = "", onDo
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button class="sec" data-c>Vazgeç</button><button data-go ${st.g.length && st.b.length ? "" : "disabled"}>Gönder</button></div>`;
     box.querySelectorAll("[data-g]").forEach(x => x.onchange = () => { keep(); st.g = x.checked ? [...st.g, x.dataset.g] : st.g.filter(i => i !== x.dataset.g); draw(); });
     box.querySelectorAll("[data-role]").forEach(x => x.onclick = () => { keep(); st.roles[x.dataset.role] = st.roles[x.dataset.role] === "izle" ? "aks" : "izle"; draw(); });
-    box.querySelectorAll("[data-b]").forEach(x => x.onchange = () => { keep(); st.b = x.checked ? [...st.b, x.dataset.b] : st.b.filter(i => i !== x.dataset.b); draw(); });
-    const ba = box.querySelector("[data-ball]"); if (ba) ba.onchange = () => { keep(); st.b = ba.checked ? all.map(r => r.id) : []; draw(); };
+    box.querySelectorAll("[data-b]").forEach(x => x.onchange = () => { keep(); st.all = false; st.b = x.checked ? [...st.b, x.dataset.b] : st.b.filter(i => i !== x.dataset.b); draw(); });
+    const ba = box.querySelector("[data-ball]"); if (ba) ba.onchange = () => { keep(); st.all = ba.checked; st.b = ba.checked ? all.map(r => r.id) : []; draw(); };
     box.querySelectorAll("[data-rm]").forEach(x => x.onclick = async () => {
       if (!(await confirmBox("Paylaşım kaldırılsın mı?", "Kişi bu paylaşımı artık göremez. Girdiği aksiyonlar sizde kalır.", "Kaldır", true))) return;
       try { await S.deleteShare(x.dataset.rm); st.old = st.old.filter(o => o.id !== x.dataset.rm); toast("Paylaşım kaldırıldı."); } catch { toast("Kaldırılamadı."); } draw();
@@ -69,7 +69,7 @@ export async function openShare({ fid, year, month, rows, factoryName = "", onDo
   const send = async () => {
     keep(); const btn = box.querySelector("[data-go]"); btn.disabled = true;
     const depts = rows.filter(r => st.b.includes(r.id)).map(r => ({ id: r.id, name: r.name })), names = Object.fromEntries(st.g.map(g => [g, live.find(x => x.id === g)?.name || "Misafir"]));
-    try { await S.addShare({ fid, year: String(year), month: +month, depts, guests: st.g, names, roles: Object.fromEntries(st.g.map(g => [g, st.roles[g] || "aks"])), termin: st.t, note: st.note.trim() }); }
+    try { await S.addShare({ fid, year: String(year), month: +month, depts, guests: st.g, names, roles: Object.fromEntries(st.g.map(g => [g, st.roles[g] || "aks"])), all: !!st.all, termin: st.t, note: st.note.trim() }); }
     catch (e) { btn.disabled = false; return toast("Paylaşılamadı: " + (e.message || e)); }
     done(depts, names);
   };
@@ -88,7 +88,7 @@ export async function openShare({ fid, year, month, rows, factoryName = "", onDo
   // Durum özeti: bu ayın paylaşımlarındaki bölümler için canlı sayılar; kişi başına WhatsApp / e-posta simgeleri
   const summary = async () => {
     sm0();
-    const ids = [...new Set(st.old.flatMap(o => o.depts.map(d => d.id)))], isgg = await S.listMonthDocs(fid, year, "isgg").catch(() => []);
+    const ids = [...new Set(st.old.flatMap(o => o.all ? rows.map(r => r.id) : o.depts.map(d => d.id)))], isgg = await S.listMonthDocs(fid, year, "isgg").catch(() => []);
     const lines = []; let T = 0, K = 0, O = 0, A = 0;
     for (const id of ids) {
       const isg = await S.getMonthDoc(fid, year, "isg", keyOf(month, id)).catch(() => null);
@@ -121,9 +121,9 @@ export function buildItems(isg, fixDocs) {
   return items;
 }
 // Misafir: paylaşımdaki bölümler canlı izlenir (bölüm kaydı + aksiyon istekleri + kendi gözlem taslağı); her değişiklikte cb(rows)
-export async function watchGuest(fid, year, uid, cb) {
+export async function watchGuest(fid, year, uid, cb, allRows = []) {
   const shares = await S.myShares(fid, year).catch(() => []), map = new Map();
-  for (const sh of shares) for (const d of sh.depts || []) {
+  for (const sh of shares) for (const d of (sh.all && allRows.length ? allRows : sh.depts || [])) {
     const k = sh.month + "|" + d.id, role = sh.roles?.[uid] || "aks", e = map.get(k);
     if (!e) map.set(k, { key: k, month: sh.month, id: d.id, name: d.name, termin: sh.termin, note: sh.note || "", role, gs: new Set(sh.guests || []) });
     else { if (role === "aks") e.role = "aks"; (sh.guests || []).forEach(g => e.gs.add(g)); }
@@ -132,7 +132,7 @@ export async function watchGuest(fid, year, uid, cb) {
   const emit = () => cb(rows.map(r => {
     const x = st[r.key] || {}, items = buildItems(x.isg, Object.values(x.fix || {})), ds = (x.isg?.sessions || []).map(s => s.date).filter(Boolean).sort(), own = x.own;
     const mine = own && own.status === "review" ? Object.entries(own.draft?.marks || {}).filter(([, v]) => v === "x").flatMap(([id]) => (own.draft.notes?.[id] || []).map(t => String(t || "").trim()).filter(Boolean)) : [];
-    return { key: r.key, month: r.month, id: r.id, name: r.name, termin: r.termin, note: r.note, role: r.role, items, mine, no: (x.isg?.sessions?.length || 0) + 1,
+    return { key: r.key, month: r.month, id: r.id, name: r.name, termin: r.termin, note: r.note, role: r.role, items, mine, done: !!(x.isg?.sessions?.length), no: (x.isg?.sessions?.length || 0) + 1,
       n: items.length, ok: items.filter(i => i.st === "ok").length, on: items.filter(i => i.st === "on").length, ac: items.filter(i => i.st === "ac").length,
       lt: items.filter(i => i.st === "ac" && r.termin < today).length, cut: ds.length ? addDays(monOf(ds[ds.length - 1]), 5) : "" };
   }));
@@ -160,7 +160,7 @@ export function guestCard(rows, ui = {}) {
     ${!onlyWatch && cut && cut >= today ? `<div style="border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.5;background:#E3F0F9;border:1px solid #BCD6EA;color:#143B5B"><b>Puan için:</b> Aksiyonu en geç ${fd(cut)} gününe kadar girin. Sonrasında aksiyon görünür, ama puan değişmez.</div>` : ""}
     ${rows.map(r => { const o = ui.openB === r.key; return `<div class="sess" style="flex-direction:column;align-items:stretch;gap:8px"><button type="button" data-shrb="${r.key}" aria-expanded="${o}" style="display:flex;align-items:center;gap:10px;width:100%;min-height:44px;height:auto;padding:0;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer;font-weight:400"><span style="flex:1;min-width:0"><b style="font:600 15px Sora,sans-serif;display:block">${esc(r.name)}</b><span class="muted" style="font-size:12.5px">${r.ok}/${r.n} aksiyon alındı${r.lt ? ` · <b style="color:#B3261E">${r.lt} gecikti</b>` : ""}</span></span><span style="transform:rotate(${o ? 180 : 0}deg);display:flex">${ic('<path d="M6 9l6 6 6-6"/>')}</span></button>${stack(r)}
       ${o ? `${r.note ? `<div style="font-style:italic;font-size:12.5px;color:var(--muted)">${esc(r.note)}</div>` : ""}${r.items.map(i => { const [bg, fg, tx] = PILL[i.st], late = i.st === "ac" && r.termin < today; return `<div style="border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:6px;background:var(--card)"><div style="font-size:14px;line-height:1.45">${esc(i.t)}</div>${i.st === "ok" && (i.before.length || i.after.length) ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px"><div><span class="hd" style="font-size:11px">ÖNCE</span><div class="phs" style="padding:0">${th(i.before)}</div></div><div><span class="hd" style="font-size:11px">SONRA</span><div class="phs" style="padding:0">${th(i.after)}</div></div></div>` : ""}<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:var(--muted)"><span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:99px;background:${bg};color:${fg}">${tx}</span>${late ? '<span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:99px;background:#D6382E;color:#fff">Gecikti</span>' : ""}<span>Termin: ${fd(r.termin)}</span></div></div>`; }).join("")}
-        ${r.mine.map(t => `<div style="border:1px dashed var(--inl);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:6px"><div style="font-size:14px;line-height:1.45">${esc(t)}</div><span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:99px;background:#FFF3D6;color:#6B3F00;align-self:flex-start">Yeni bulgu · onay bekliyor</span></div>`).join("")}
+        ${!r.done ? '<div style="font-style:italic;font-size:12.5px;color:var(--muted);line-height:1.5">Henüz denetim yapılmadı. Bulgular kaydedildiğinde canlı olarak aktarılacaktır.</div>' : ""}${r.mine.map(t => `<div style="border:1px dashed var(--inl);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:6px"><div style="font-size:14px;line-height:1.45">${esc(t)}</div><span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:99px;background:#FFF3D6;color:#6B3F00;align-self:flex-start">Yeni bulgu · onay bekliyor</span></div>`).join("")}
         <div style="display:grid;grid-template-columns:${r.role === "aks" && r.ac ? "1fr 1fr" : "1fr"};gap:8px">${r.role === "aks" && r.ac ? `<button class="sec" data-shr="${r.month}|${r.id}" style="height:42px">Aksiyon bildir</button>` : ""}<button class="sec" data-shro="${r.key}" style="height:42px">+ Gözlemimi ekle</button></div>` : ""}</div>`; }).join("")}` : ""}</div>`;
 }
 // Misafir: kendi gözlemini bulgu olarak ekler → mevcut misafir taslağına yazılır ve onay için yetkiliye gider
