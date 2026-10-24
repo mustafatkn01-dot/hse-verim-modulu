@@ -1,21 +1,21 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261023d";
-import * as S from "./store.js?v=20261023d";
-import * as Prim from "./primary.js?v=20261023d";
-import * as Denetim from "./denetim.js?v=20261023d";
-import * as Kaza from "./kaza.js?v=20261023d";
-import * as Konusma from "./konusma.js?v=20261023d";
-import * as Ramak from "./ramak.js?v=20261023d";
-import * as Genel from "./genel.js?v=20261023d";
-import * as Rapor from "./rapor.js?v=20261023d";
-import * as Verim from "./verim.js?v=20261023d";
-import * as Isbasi from "./isbasi.js?v=20261023d";
-import * as Guest from "./guest.js?v=20261023d";
-import * as Yontem from "./yontem.js?v=20261023d";
-import * as Tatil from "./tatil.js?v=20261023d";
-import * as Gorev from "./gorev.js?v=20261023d";
-import * as Arsiv from "./arsiv.js?v=20261023d";
-import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261023d";
-import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261023d";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261024a";
+import * as S from "./store.js?v=20261024a";
+import * as Prim from "./primary.js?v=20261024a";
+import * as Denetim from "./denetim.js?v=20261024a";
+import * as Kaza from "./kaza.js?v=20261024a";
+import * as Konusma from "./konusma.js?v=20261024a";
+import * as Ramak from "./ramak.js?v=20261024a";
+import * as Genel from "./genel.js?v=20261024a";
+import * as Rapor from "./rapor.js?v=20261024a";
+import * as Verim from "./verim.js?v=20261024a";
+import * as Isbasi from "./isbasi.js?v=20261024a";
+import * as Guest from "./guest.js?v=20261024a";
+import * as Yontem from "./yontem.js?v=20261024a";
+import * as Tatil from "./tatil.js?v=20261024a";
+import * as Gorev from "./gorev.js?v=20261024a";
+import * as Arsiv from "./arsiv.js?v=20261024a";
+import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261024a";
+import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261024a";
 const PEND_META = { isbasig: ["isbasi", "İşbaşı Eğitim"], konusmag: ["konusma", "Eğitim Konuşması"], kazag: ["kaza", "İş Kazası"] };
 
 const VERSION = "1.8.5";
@@ -76,11 +76,12 @@ async function doSignOut() {
   K.key = ""; await signOut(auth);
 }
 const LINK = Guest.linkInfo();
+let closedNote = null;
 let unwatchG = null, guestTimer = null, unwatchReq = null, unwatchInb = null, unwatchFb = null;
 try { navigator.serviceWorker?.register("./sw.js"); } catch {}
 // Ana ekrana ekle / uygulamayı kur (tarayıcı destekliyorsa doğrudan, desteklemiyorsa kısa yönerge)
 let DEFER = null;
-window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); DEFER = e; });
+window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); DEFER = e; if (GUEST.on && st.page === "genel") render(); });
 window.addEventListener("appinstalled", () => { DEFER = null; });
 const standalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
 async function installApp() {
@@ -95,9 +96,12 @@ function showOnly(which) { // "login" | "app" | "none"
   $("login").classList.toggle("hide", which !== "login");
   $("app").classList.toggle("hide", which !== "app");
 }
-async function guestOut(note) {
+async function guestOut(note, manual) {
+  const eg = Guest.isEmailGuest(auth.currentUser) && LINK?.type === "pguest";
   unwatchG?.(); clearInterval(guestTimer); Guest.storeOwner(null); st.role = null; GUEST.on = false; S.setOwner(null);
+  if (eg) closedNote = manual ? { title: "Çıkış yapıldı", text: "Tekrar girmek için size gönderilen bağlantıya dokunun ya da aşağıdaki düğmeye basın.", retry: true } : { title: "Erişim sona erdi", text: note || "Bu bağlantı kapatıldı." };
   try { await signOut(auth); } catch {}
+  if (eg) return;
   if (note) { try { sessionStorage.setItem("hse_gnote", note); } catch {} }
   location.href = location.pathname;
 }
@@ -112,11 +116,13 @@ async function startGuest(owner, user) {
   if (!Guest.isLive(m)) {
     const rq = await Guest.pendingState(owner, user.uid);
     showOnly("none");
+    if (Guest.isEmailGuest(user)) { closedNote = { title: m ? "Erişim süreniz doldu" : "Bağlantı kapatıldı", text: m ? "Yeniden erişim için yetkili kişiyle iletişime geçin." : "Bu bağlantı yetkili kişi tarafından kapatılmış. Erişim için yetkili kişiyle iletişime geçin." }; Guest.showEnded(closedNote); await signOut(auth).catch(() => {}); return; }
     if (rq?.status === "pending") return Guest.waiting({ owner, gid: user.uid, code: rq.code }, () => startGuest(owner, user));
     return Guest.showExpired({ owner, code: LINK?.code || rq?.code, member: m }, () => startGuest(owner, user));
   }
   Guest.hideRequest(); Guest.storeOwner(owner);
-  seenPing(owner, user.uid);
+  const first = !m.lastSeen && Guest.isEmailGuest(user); if (LINK?.type === "pguest") Guest.pinManifest();
+  seenPing(owner, user.uid); if (first) toast(`Hoş geldiniz, ${m.name}.`);
   S.setOwner(owner, m.factories || []);
   Guest.setGuestCtx({ owner, uid: user.uid, name: m.name, ntfy: m.ntfy || null });
   GUEST.on = true; GUEST.name = m.name; GUEST.uid = user.uid; st.role = "guest"; st.guest = { uid: user.uid, name: m.name, email: m.unit || m.email || "", member: m };
@@ -130,12 +136,15 @@ async function startGuest(owner, user) {
 onAuthStateChanged(auth, async user => {
   if (!user) {
     unwatchG?.(); clearInterval(guestTimer);
+    if (closedNote) { showOnly("none"); Guest.showEnded(closedNote); return; }
+    if (LINK?.type === "pguest") { showOnly("none"); Guest.pLogin(LINK); return; }
     if (LINK?.type === "guest") { showOnly("none"); Guest.showRequest({ owner: LINK.owner, code: LINK.code, note: (() => { try { const n = sessionStorage.getItem("hse_gnote"); sessionStorage.removeItem("hse_gnote"); return n || ""; } catch { return ""; } })() }, () => { const u = auth.currentUser; if (u) startGuest(LINK.owner, u); }); return; }
     showOnly("login"); return;
   }
-  if (user.isAnonymous) {
+  if (Guest.isGuestUser(user)) {
     if (Guest.isSending()) return; // istek gönderilirken bekle
-    const owner = LINK?.type === "guest" ? LINK.owner : Guest.storedOwner();
+    if (LINK?.type === "pguest" && Guest.isEmailGuest(user) && user.email !== Guest.pEmail(LINK.code)) { await signOut(auth); return; } // bu cihazda başka misafir açıktı
+    const owner = LINK?.type === "guest" || LINK?.type === "pguest" ? LINK.owner : Guest.storedOwner();
     if (!owner) { await signOut(auth); return; }
     return startGuest(owner, user);
   }
@@ -275,6 +284,7 @@ async function render() {
   if (st.page === "denetim") return Denetim.render(v, { st });
   await Genel.render(v, { st });
   if (tok !== renderTok) return; // daha yeni bir çizim başladı; kutuları ikinci kez ekleme
+  if (st.role === "guest") Guest.installCard(v, { standalone: standalone(), hasPrompt: () => !!DEFER, install: installApp });
   if (st.role === "owner") {
     v.querySelectorAll("#inboxBox,#pendBox").forEach(x => x.remove());
     const b = document.createElement("div"); b.id = "inboxBox"; v.prepend(b); Guest.renderInbox(b, { ownerUid: auth.currentUser.uid, onOpen: openAudit });
@@ -484,7 +494,7 @@ function pageGuestAyarlar(v) {
   <div class="cd"><h2>Görünüm</h2><div class="th">${THEMES.map(([k, n, sd, bg, cd]) => `<button class="tb ${k === theme ? "on" : ""}" data-theme="${k}" aria-pressed="${k === theme}"><div class="pv"><div style="flex:0 0 28%;background:${sd}"></div><div style="flex:1;background:${bg};display:flex;flex-direction:column;gap:5px;padding:7px"><div style="height:8px;border-radius:4px;background:${cd}"></div><div style="height:8px;width:60%;border-radius:4px;background:#17A06F"></div></div></div><b>${n}</b></button>`).join("")}</div></div>`;
   instBind();
   v.querySelectorAll("[data-theme]").forEach(b => b.onclick = () => { S.pref.set("theme", b.dataset.theme); applyTheme(); pageGuestAyarlar(v); });
-  $("gOut").onclick = async () => { if (await confirmBox("Çıkış yapılsın mı?", "Tekrar girmek için yeniden onay gerekir.", "Çıkış yap")) guestOut(); };
+  $("gOut").onclick = async () => { const eg = Guest.isEmailGuest(auth.currentUser); if (await confirmBox("Çıkış yapılsın mı?", eg ? "Tekrar girmek için size gönderilen bağlantıya dokunmanız yeterlidir." : "Tekrar girmek için yeniden onay gerekir.", "Çıkış yap")) guestOut(null, true); };
 }
 
 let yilKeep = false, yilSel = null;

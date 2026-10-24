@@ -1,5 +1,5 @@
 // Firebase başlatma (web config herkese açıktır; güvenlik Firestore kurallarındadır)
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
   signOut, sendPasswordResetEmail, setPersistence, browserLocalPersistence,
   sendSignInLinkToEmail, EmailAuthProvider, reauthenticateWithCredential, signInWithEmailLink, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
@@ -23,6 +23,12 @@ setPersistence(auth, browserLocalPersistence).catch(() => {});
 
 // Ek işlevler (toplama sorguları, sayfalama): ad alanı olarak, bir ad bulunamazsa undefined olur
 export const FS = FSX;
+// Yetkili oturumunu bozmadan ikinci bir uygulama örneğiyle yeni bir (misafir) Auth kullanıcısı oluşturur; uid döner
+export async function createAuxUser(email, pw) {
+  const a = initializeApp(firebaseConfig, "aux" + Date.now()), au = getAuth(a);
+  try { const c = await createUserWithEmailAndPassword(au, email, pw); const uid = c.user.uid; await signOut(au).catch(() => {}); return uid; }
+  finally { deleteApp(a).catch(() => {}); }
+}
 export const apiKey = firebaseConfig.apiKey, authDomain = firebaseConfig.authDomain;
 export { signInAnonymously, signInWithEmailLink, sendSignInLinkToEmail, EmailAuthProvider, reauthenticateWithCredential, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut,
   sendPasswordResetEmail, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, updateDoc,
