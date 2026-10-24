@@ -1,11 +1,11 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261022u";
-import { esc } from "./ui.js?v=20261022u";
-import { bandOf, DEFAULT_PARAMS, num, isgMonth, makTier, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261022u";
-import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261022u";
-import { CATS } from "./isgcats.js?v=20261022u";
-import * as Gorev from "./gorev.js?v=20261022u";
-import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261022u";
+import * as S from "./store.js?v=20261022v";
+import { esc } from "./ui.js?v=20261022v";
+import { bandOf, DEFAULT_PARAMS, num, isgMonth, makTier, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261022v";
+import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261022v";
+import { CATS } from "./isgcats.js?v=20261022v";
+import * as Gorev from "./gorev.js?v=20261022v";
+import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261022v";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -300,7 +300,7 @@ async function printSheet(info, { size, orient, pics = false, file = false, scop
   }
   // Paylaşım bilgisi (sorumlu · termin): bölüm adı + ay ile eşleşen en yeni paylaşım
   const SH = trow || ttab ? await S.listShares(info.fid, info.year).catch(() => []) : [];
-  const shOf = a => SH.find(x => +x.month === +a.bm && (x.depts || []).some(d => d.name === a.dept));
+  const shOf = a => SH.find(x => +x.month === +a.bm + 1 && (x.depts || []).some(d => d.name === a.dept));
   const fdm = t => new Date(t + "T00:00:00").toLocaleDateString("tr-TR", { day: "numeric", month: "long" }), todayIso = new Date().toISOString().slice(0, 10);
   const whoOf = sh => sh ? Object.values(sh.names || {}).join(", ") : "";
   const takipRow = a => { if (!trow) return ""; const sh = shOf(a); return `<div style="margin-top:3px;font-size:11px;color:#546964;font-style:italic">Sorumlu: <b style="font-style:normal;color:#3E534E">${esc(whoOf(sh) || "-")}</b> · Termin: <b style="font-style:normal;color:#3E534E">${sh ? fdm(sh.termin) : "-"}</b></div>`; };
