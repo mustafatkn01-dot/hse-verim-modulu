@@ -1,11 +1,11 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261022z";
-import { esc } from "./ui.js?v=20261022z";
-import { bandOf, DEFAULT_PARAMS, num, isgMonth, makTier, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261022z";
-import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261022z";
-import { CATS } from "./isgcats.js?v=20261022z";
-import * as Gorev from "./gorev.js?v=20261022z";
-import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261022z";
+import * as S from "./store.js?v=20261023a";
+import { esc } from "./ui.js?v=20261023a";
+import { bandOf, DEFAULT_PARAMS, num, isgMonth, makTier, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261023a";
+import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261023a";
+import { CATS } from "./isgcats.js?v=20261023a";
+import * as Gorev from "./gorev.js?v=20261023a";
+import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261023a";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -302,7 +302,8 @@ async function printSheet(info, { size, orient, pics = false, file = false, scop
   const SH = trow || ttab ? await S.listShares(info.fid, info.year).catch(() => []) : [];
   const shOf = a => SH.find(x => +x.month === +a.bm + 1 && (x.depts || []).some(d => d.name === a.dept));
   const fdm = t => new Date(t + "T00:00:00").toLocaleDateString("tr-TR", { day: "numeric", month: "long" }), todayIso = new Date().toISOString().slice(0, 10);
-  const whoOf = (sh, a) => [...new Set([...(a?.rs ? a.rs.split(", ") : []), ...(sh ? Object.values(sh.names || {}) : [])])].join(", ");
+  // Sorumlu yalnızca denetim kaydında seçilen kişidir; paylaşılan kişiler otomatik sorumlu sayılmaz
+  const whoOf = (sh, a) => a?.rs || "";
   const dueOf = (sh, a) => sh?.termin || a?.du || "";
   const takipRow = a => { if (!trow) return ""; const sh = shOf(a); return `<div style="margin-top:3px;font-size:11px;color:#546964;font-style:italic">Sorumlu: <b style="font-style:normal;color:#3E534E">${esc(whoOf(sh, a) || "-")}</b> · Termin: <b style="font-style:normal;color:#3E534E">${dueOf(sh, a) ? fdm(dueOf(sh, a)) : "-"}</b></div>`; };
   const takipAll = () => ttab ? DET.filter(g => g.mod === "İSG Denetim").flatMap(g => g.items) : [];
