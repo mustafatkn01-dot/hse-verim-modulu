@@ -1,10 +1,10 @@
 // Bulgu paylaşımı: yetkili, seçtiği bölümlerin açık bulgularını seçtiği misafirlerle paylaşır; misafir kendi ekranında görür ve
 // mevcut "Aksiyon bildir" akışıyla aksiyon alır (yetkili onayı mevcut Aksiyon bildirimleri panelinde).
 // Puan kuralı mevcut sistemdeki gibi: aksiyonun gönderim zamanı denetim haftası içindeyse (en geç cumartesi) ve yetkili kabul ederse puana işlenir.
-import * as S from "./store.js?v=20261022v";
-import { esc, ic, toast, confirmBox, compressImage, showPhoto } from "./ui.js?v=20261022v";
-import * as Guest from "./guest.js?v=20261022v";
-import { CATS } from "./isgcats.js?v=20261022v";
+import * as S from "./store.js?v=20261022w";
+import { esc, ic, toast, confirmBox, compressImage, showPhoto } from "./ui.js?v=20261022w";
+import * as Guest from "./guest.js?v=20261022w";
+import { CATS } from "./isgcats.js?v=20261022w";
 
 const pad = n => String(n).padStart(2, "0"), iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const addDays = (s, n) => { const d = new Date(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10)); d.setDate(d.getDate() + n); return iso(d); };
@@ -38,6 +38,8 @@ export async function openShare({ fid, year, month, rows, factoryName = "", onDo
   const live = mem.filter(x => (x.factories || []).includes(fid) && (x.expires == null || (x.expires.toMillis ? x.expires.toMillis() : +x.expires) > Date.now()));
   const info = Object.fromEntries(rows.map((r, i) => [r.id, openInfo(docs[i])]));
   const st = { g: [], b: [], t: addDays(iso(new Date()), 7), note: "", old, roles: {}, all: false };
+  // Denetim kaydındaki sorumlu ve termin, bölüm seçilince hazır gelir (elle değiştirilebilir)
+  const autoFill = ids => { for (const id of ids) { const d = docs[rows.findIndex(r => r.id === id)]; (d?.resp || []).forEach(r => { if (r.id && live.some(g => g.id === r.id) && !st.g.includes(r.id)) st.g = [...st.g, r.id]; }); if (d?.due && !st.tUser && d.due >= iso(new Date())) st.t = d.due; } };
   const cutOf = ids => ids.map(i => info[i].cut).filter(Boolean).sort().pop() || "";
   const draw = () => {
     const all = rows, nOpen = st.b.reduce((a, i) => a + info[i].n, 0);
@@ -56,8 +58,8 @@ export async function openShare({ fid, year, month, rows, factoryName = "", onDo
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button class="sec" data-c>Vazgeç</button><button data-go ${st.g.length && st.b.length ? "" : "disabled"}>Gönder</button></div>`;
     box.querySelectorAll("[data-g]").forEach(x => x.onchange = () => { keep(); st.g = x.checked ? [...st.g, x.dataset.g] : st.g.filter(i => i !== x.dataset.g); draw(); });
     box.querySelectorAll("[data-role]").forEach(x => x.onclick = () => { keep(); st.roles[x.dataset.role] = st.roles[x.dataset.role] === "izle" ? "aks" : "izle"; draw(); });
-    box.querySelectorAll("[data-b]").forEach(x => x.onchange = () => { keep(); st.all = false; st.b = x.checked ? [...st.b, x.dataset.b] : st.b.filter(i => i !== x.dataset.b); draw(); });
-    const ba = box.querySelector("[data-ball]"); if (ba) ba.onchange = () => { keep(); st.all = ba.checked; st.b = ba.checked ? all.map(r => r.id) : []; draw(); };
+    box.querySelectorAll("[data-b]").forEach(x => x.onchange = () => { keep(); st.all = false; st.b = x.checked ? [...st.b, x.dataset.b] : st.b.filter(i => i !== x.dataset.b); if (x.checked) autoFill([x.dataset.b]); draw(); });
+    const ba = box.querySelector("[data-ball]"); if (ba) ba.onchange = () => { keep(); st.all = ba.checked; st.b = ba.checked ? all.map(r => r.id) : []; if (ba.checked) autoFill(st.b); draw(); };
     box.querySelectorAll("[data-rm]").forEach(x => x.onclick = async () => {
       if (!(await confirmBox("Paylaşım kaldırılsın mı?", "Kişi bu paylaşımı artık göremez. Girdiği aksiyonlar sizde kalır.", "Kaldır", true))) return;
       try { await S.deleteShare(x.dataset.rm); st.old = st.old.filter(o => o.id !== x.dataset.rm); toast("Paylaşım kaldırıldı."); } catch { toast("Kaldırılamadı."); } draw();
@@ -65,7 +67,7 @@ export async function openShare({ fid, year, month, rows, factoryName = "", onDo
     box.querySelector("[data-c]").onclick = close; box.querySelector("[data-go]").onclick = send;
     const sm = box.querySelector("[data-sum]"); if (sm) sm.onclick = summary;
   };
-  const keep = () => { const t = box.querySelector("#shT"), n = box.querySelector("#shN"); if (t?.value) st.t = t.value; if (n) st.note = n.value; };
+  const keep = () => { const t = box.querySelector("#shT"), n = box.querySelector("#shN"); if (t?.value) { if (t.value !== st.t) st.tUser = true; st.t = t.value; } if (n) st.note = n.value; };
   const send = async () => {
     keep(); const btn = box.querySelector("[data-go]"); btn.disabled = true;
     const depts = rows.filter(r => st.b.includes(r.id)).map(r => ({ id: r.id, name: r.name })), names = Object.fromEntries(st.g.map(g => [g, live.find(x => x.id === g)?.name || "Misafir"]));
@@ -115,8 +117,8 @@ export function buildItems(isg, fixDocs, since = "") {
   for (const d of fixDocs || []) Object.entries(d?.draft?.fixReqs || {}).forEach(([k, r]) => { if (!reqs[k] || r.at > reqs[k].at) reqs[k] = r; });
   const items = [];
   for (const s of isg?.sessions || []) if (!since || (s.date && monOf(s.date) >= since) || Object.entries(s.fails || {}).some(([id, arr]) => (arr || []).some((t, j) => t && s.fixed?.[id + "|" + j]?.st !== "ok"))) for (const [id, arr] of Object.entries(s.fails || {})) (arr || []).forEach((t, j) => {
-    if (!t) return; const k = id + "|" + j, f = s.fixed?.[k], r = reqs[`${s.no}|${k}`], ok = !!(f && f.t === t && f.st === "ok"), pend = !ok && !!r && r.t === t && !(f && (f.rat || 0) >= r.at);
-    items.push({ no: s.no, id, j, t, st: ok ? "ok" : pend ? "on" : "ac", before: s.photos?.[k] || [], after: ok ? (f.ph || []) : [] });
+    if (!t) return; const k = id + "|" + j, f = s.fixed?.[k], r = reqs[`${s.no}|${k}`], ok = !!(f && f.t === t && f.st === "ok"), pend = !ok && !!r && r.t === t && !(f && (f.rat || 0) >= r.at), rej = !ok && !pend && !!(f && f.st === "rej" && f.t === t);
+    items.push({ no: s.no, id, j, t, st: ok ? "ok" : pend ? "on" : rej ? "rej" : "ac", why: rej ? (f.rej || "") : "", before: s.photos?.[k] || [], after: ok ? (f.ph || []) : [] });
   });
   return items;
 }
@@ -133,8 +135,8 @@ export async function watchGuest(fid, year, uid, cb, allRows = []) {
     const x = st[r.key] || {}, items = buildItems(x.isg, Object.values(x.fix || {}), r.since), ds = (x.isg?.sessions || []).map(s => s.date).filter(Boolean).sort(), own = x.own;
     const mine = own && own.status === "review" ? Object.entries(own.draft?.marks || {}).filter(([, v]) => v === "x").flatMap(([id]) => (own.draft.notes?.[id] || []).map(t => String(t || "").trim()).filter(Boolean)) : [];
     return { at: r.at, key: r.key, month: r.month, id: r.id, name: r.name, termin: r.termin, note: r.note, role: r.role, items, mine, done: !!(x.isg?.sessions?.length), no: (x.isg?.sessions?.length || 0) + 1,
-      n: items.length, ok: items.filter(i => i.st === "ok").length, on: items.filter(i => i.st === "on").length, ac: items.filter(i => i.st === "ac").length,
-      lt: items.filter(i => i.st === "ac" && r.termin < today).length, cut: ds.length ? addDays(monOf(ds[ds.length - 1]), 5) : "" };
+      n: items.length, ok: items.filter(i => i.st === "ok").length, on: items.filter(i => i.st === "on").length, ac: items.filter(i => i.st === "ac" || i.st === "rej").length,
+      lt: items.filter(i => (i.st === "ac" || i.st === "rej") && r.termin < today).length, cut: ds.length ? addDays(monOf(ds[ds.length - 1]), 5) : "" };
   }));
   for (const r of rows) {
     st[r.key] = { fix: {} }; const base = keyOf(r.month, r.id);
@@ -146,22 +148,24 @@ export async function watchGuest(fid, year, uid, cb, allRows = []) {
   return () => offs.forEach(f => { try { f && f(); } catch { } });
 }
 const stack = c => `<div style="display:flex;height:10px;border-radius:99px;overflow:hidden;background:#EEF3F1">${[[c.ok, "#17A06F"], [c.on, "#F5B700"], [c.ac, "#C3D1CC"]].map(([v, bg]) => c.n ? `<i style="display:block;height:100%;width:${v / c.n * 100}%;background:${bg}"></i>` : "").join("")}</div>`;
-const PILL = { ok: ["#D9F1E6", "#0B6E4F", "Aksiyon alındı"], on: ["#FFF3D6", "#6B3F00", "Onay bekliyor"], ac: ["#EEF3F1", "#3E534E", "Açık"] };
+const PILL = { ok: ["#D9F1E6", "#0B6E4F", "Aksiyon alındı"], on: ["#FFF3D6", "#6B3F00", "Onay bekliyor"], ac: ["#EEF3F1", "#3E534E", "Açık"], rej: ["#FDECEA", "#7A1C14", "Reddedildi"] };
 const th = l => l.map(p => `<span class="pth"><img src="${p.t}" data-pv="${p.id}" alt="Fotoğraf"></span>`).join("");
 // ui: { open, openB } – kart varsayılan kapalı, bölümler varsayılan kapalı
 export function guestCard(rows, ui = {}) {
   if (!rows?.length) return "";
   const T = rows.reduce((a, r) => ({ n: a.n + r.n, ok: a.ok + r.ok, on: a.on + r.on, ac: a.ac + r.ac, lt: a.lt + r.lt }), { n: 0, ok: 0, on: 0, ac: 0, lt: 0 }), open = !!ui.open;
   const cut = rows.map(r => r.cut).filter(Boolean).sort().pop() || "", today = iso(new Date()), onlyWatch = rows.every(r => r.role === "izle");
-  const pct = T.n ? Math.round(T.ok / T.n * 100) : 0;
+  const pct = T.n ? Math.round(T.ok / T.n * 100) : 0, flt = ui.flt || "ac";
+  const chips = [["ac", "Açık"], ["on", "Onay bekliyor"], ["all", "Tümü"]].map(([k, l]) => `<button type="button" data-shf="${k}" style="flex:0 0 auto;height:34px;padding:0 14px;border-radius:99px;font-size:13px;font-weight:700;${flt === k ? "background:#0B2230;color:#fff;border:1px solid #0B2230" : "background:var(--card);color:var(--text);border:1px solid var(--inl)"}">${l}</button>`).join("");
   return `<div class="cd" style="padding:16px 20px;gap:10px"><button type="button" data-shrt aria-expanded="${open}" style="display:flex;align-items:center;gap:12px;width:100%;min-height:44px;height:auto;padding:0;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer;font-weight:400"><span style="flex:1;min-width:0"><b style="font:600 16px Sora,sans-serif;display:block">Bana paylaşılanlar (${T.ac + T.on})</b><span class="muted" style="font-size:12.5px;line-height:1.5">${onlyWatch ? "Yalnızca izlersiniz. " : ""}${T.ok}/${T.n} aksiyon alındı</span></span><span style="transform:rotate(${open ? 180 : 0}deg);display:flex">${ic('<path d="M6 9l6 6 6-6"/>')}</span></button>
     ${open ? `<div style="display:flex;align-items:center;justify-content:space-between"><span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#0B6E4F"><b style="width:8px;height:8px;border-radius:50%;background:#17A06F;display:inline-block"></b>Canlı takip</span><b style="font:700 18px Sora,sans-serif;color:#0B6E4F">%${pct}</b></div>${stack(T)}
     <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted)"><span>Aksiyon alındı ${T.ok}</span><span>Onay bekliyor ${T.on}</span><span>Açık ${T.ac}</span>${T.lt ? `<span style="color:#B3261E;font-weight:700">Gecikti ${T.lt}</span>` : ""}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">${chips}</div>
     ${!onlyWatch && cut && cut >= today ? `<div style="border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.5;background:#E3F0F9;border:1px solid #BCD6EA;color:#143B5B"><b>Puan için:</b> Aksiyonu en geç ${fd(cut)} gününe kadar girin. Sonrasında aksiyon görünür, ama puan değişmez.</div>` : ""}
     ${rows.map(r => { const o = ui.openB === r.key; return `<div class="sess" style="flex-direction:column;align-items:stretch;gap:8px"><button type="button" data-shrb="${r.key}" aria-expanded="${o}" style="display:flex;align-items:center;gap:10px;width:100%;min-height:44px;height:auto;padding:0;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer;font-weight:400"><span style="flex:1;min-width:0"><b style="font:600 15px Sora,sans-serif;display:block">${esc(r.name)}</b><span class="muted" style="font-size:12.5px">${r.ok}/${r.n} aksiyon alındı${r.lt ? ` · <b style="color:#B3261E">${r.lt} gecikti</b>` : ""}</span></span><span style="transform:rotate(${o ? 180 : 0}deg);display:flex">${ic('<path d="M6 9l6 6 6-6"/>')}</span></button>${stack(r)}
-      ${o ? `${r.note ? `<div style="font-style:italic;font-size:12.5px;color:var(--muted)">${esc(r.note)}</div>` : ""}${r.items.map(i => { const [bg, fg, tx] = PILL[i.st], late = i.st === "ac" && r.termin < today; return `<div style="border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:6px;background:var(--card)"><div style="font-size:14px;line-height:1.45">${esc(i.t)}</div>${i.st === "ok" && (i.before.length || i.after.length) ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px"><div><span class="hd" style="font-size:11px">ÖNCE</span><div class="phs" style="padding:0">${th(i.before)}</div></div><div><span class="hd" style="font-size:11px">SONRA</span><div class="phs" style="padding:0">${th(i.after)}</div></div></div>` : ""}<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:var(--muted)"><span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:99px;background:${bg};color:${fg}">${tx}</span>${late ? '<span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:99px;background:#D6382E;color:#fff">Gecikti</span>' : ""}<span>Termin: ${fd(r.termin)}</span></div></div>`; }).join("")}
+      ${o ? `${r.note ? `<div style="font-style:italic;font-size:12.5px;color:var(--muted)">${esc(r.note)}</div>` : ""}${r.items.filter(i => flt === "all" || (flt === "ac" ? i.st === "ac" || i.st === "rej" : i.st === flt)).map(i => { const [bg, fg, tx] = PILL[i.st], late = (i.st === "ac" || i.st === "rej") && r.termin < today; return `<div style="border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:6px;background:var(--card)"><div style="font-size:14px;line-height:1.45">${esc(i.t)}</div>${i.st === "rej" ? `<div style="background:#FDECEA;border:1px solid #F3B8B2;color:#7A1C14;border-radius:10px;padding:8px 10px;font-size:12.5px;line-height:1.45"><b>Gerekçe:</b> ${esc(i.why || "Belirtilmedi")}</div>` : ""}${i.st === "ok" && (i.before.length || i.after.length) ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px"><div><span class="hd" style="font-size:11px">ÖNCE</span><div class="phs" style="padding:0">${th(i.before)}</div></div><div><span class="hd" style="font-size:11px">SONRA</span><div class="phs" style="padding:0">${th(i.after)}</div></div></div>` : ""}<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:var(--muted)"><span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:99px;background:${bg};color:${fg}">${tx}</span>${late ? '<span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:99px;background:#D6382E;color:#fff">Gecikti</span>' : ""}<span>Termin: ${fd(r.termin)}</span></div>${r.role === "aks" && (i.st === "ac" || i.st === "rej") ? `<button class="sec" data-gfxk="${r.month}|${r.id}|${i.no}|${i.id}|${i.j}" style="height:42px">${i.st === "rej" ? "Düzeltip yeniden gönder" : "Aksiyon bildir"}</button>` : ""}</div>`; }).join("")}
         ${!r.done ? '<div style="font-style:italic;font-size:12.5px;color:var(--muted);line-height:1.5">Henüz denetim yapılmadı. Bulgular kaydedildiğinde canlı olarak aktarılacaktır.</div>' : ""}${r.mine.map(t => `<div style="border:1px dashed var(--inl);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:6px"><div style="font-size:14px;line-height:1.45">${esc(t)}</div><span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:99px;background:#FFF3D6;color:#6B3F00;align-self:flex-start">Yeni bulgu · onay bekliyor</span></div>`).join("")}
-        <div style="display:grid;grid-template-columns:${r.role === "aks" && r.ac ? "1fr 1fr" : "1fr"};gap:8px">${r.role === "aks" && r.ac ? `<button class="sec" data-shr="${r.month}|${r.id}" style="height:42px">Aksiyon bildir</button>` : ""}<button class="sec" data-shro="${r.key}" style="height:42px">+ Gözlemimi ekle</button></div>` : ""}</div>`; }).join("")}` : ""}</div>`;
+        <button class="sec" data-shro="${r.key}" style="height:42px">+ Gözlemimi ekle</button>` : ""}</div>`; }).join("")}` : ""}</div>`;
 }
 // Misafir: kendi gözlemini bulgu olarak ekler → mevcut misafir taslağına yazılır ve onay için yetkiliye gider
 export function obsDialog({ fid, year, row, uid, name, factoryName = "", onDone = () => {} }) {

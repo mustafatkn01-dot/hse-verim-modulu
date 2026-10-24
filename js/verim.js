@@ -1,11 +1,11 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261022v";
-import { esc } from "./ui.js?v=20261022v";
-import { bandOf, DEFAULT_PARAMS, num, isgMonth, makTier, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261022v";
-import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261022v";
-import { CATS } from "./isgcats.js?v=20261022v";
-import * as Gorev from "./gorev.js?v=20261022v";
-import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261022v";
+import * as S from "./store.js?v=20261022w";
+import { esc } from "./ui.js?v=20261022w";
+import { bandOf, DEFAULT_PARAMS, num, isgMonth, makTier, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261022w";
+import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261022w";
+import { CATS } from "./isgcats.js?v=20261022w";
+import * as Gorev from "./gorev.js?v=20261022w";
+import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261022w";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -50,7 +50,7 @@ export async function load(st, setup) {
     d.sessions.forEach(se => Object.entries(se.fails || {}).forEach(([key, arr]) => { const o = (items[key] ||= { list: new Map(), c: 0 }); o.c++;
       const L = (arr || []).length ? arr : [""];
       L.forEach((t, j) => { const k = String(t || "").trim(), e = o.list.get(k) || { c: 0, pics: [], at: j, by: {} }; e.c++;
-        const ph0 = (se.photos || {})[key + "|" + j] || [], bs = e.by[se.no] || (e.by[se.no] = { no: se.no, m: mOf(d), date: se.date || "", pics: [], gk: k ? Gorev.noteKey("d", st.fid, st.year, mOf(d) + 1, id, `${key}_${se.no}`, k, L.slice(0, j).filter(x => String(x || "").trim() === k).length) : "" });
+        const ph0 = (se.photos || {})[key + "|" + j] || [], bs = e.by[se.no] || (e.by[se.no] = { no: se.no, m: mOf(d), rs: (d.resp || []).map(r => r.name).join(", "), du: d.due || "", date: se.date || "", pics: [], gk: k ? Gorev.noteKey("d", st.fid, st.year, mOf(d) + 1, id, `${key}_${se.no}`, k, L.slice(0, j).filter(x => String(x || "").trim() === k).length) : "" });
         ph0.forEach(ph => { if (!e.pics.some(x => x.id === ph.id)) e.pics.push(ph); if (!bs.pics.some(x => x.id === ph.id)) bs.pics.push(ph); });
         const fxo = (se.fixed || {})[key + "|" + j]; if (fxo && fxo.st === "ok" && fxo.t === k && (fxo.tx || "").trim()) bs.fx = { tx: fxo.tx.trim(), ph: (fxo.ph || []).map(ph => ({ ...ph })), at: fxo.at || 0 };
         o.list.set(k, e); }); }));
@@ -296,19 +296,20 @@ async function printSheet(info, { size, orient, pics = false, file = false, scop
   const sl = info.sess || [], sc = scope || "all";
   if (sl.length) {
     const want = sc === "all" ? sl : sl.filter(x => sc === "s:" + x.k || sc === "last:" + x.k);
-    DET = info.details.flatMap(g => g.mod !== "İSG Denetim" ? [g] : want.map(w => ({ mod: g.mod, sub: w.label, items: g.items.flatMap(it => Object.values(it.by || {}).filter(b => info.wkOf(b) === w.k).map(b => ({ ...it, pics: b.pics, fx: b.fx, extra: "", done: done(b.gk), mon: "", bm: b.m }))) })).filter(x => x.items.length));
+    DET = info.details.flatMap(g => g.mod !== "İSG Denetim" ? [g] : want.map(w => ({ mod: g.mod, sub: w.label, items: g.items.flatMap(it => Object.values(it.by || {}).filter(b => info.wkOf(b) === w.k).map(b => ({ ...it, pics: b.pics, fx: b.fx, extra: "", done: done(b.gk), mon: "", bm: b.m, rs: b.rs, du: b.du }))) })).filter(x => x.items.length));
   }
   // Paylaşım bilgisi (sorumlu · termin): bölüm adı + ay ile eşleşen en yeni paylaşım
   const SH = trow || ttab ? await S.listShares(info.fid, info.year).catch(() => []) : [];
   const shOf = a => SH.find(x => +x.month === +a.bm + 1 && (x.depts || []).some(d => d.name === a.dept));
   const fdm = t => new Date(t + "T00:00:00").toLocaleDateString("tr-TR", { day: "numeric", month: "long" }), todayIso = new Date().toISOString().slice(0, 10);
-  const whoOf = sh => sh ? Object.values(sh.names || {}).join(", ") : "";
-  const takipRow = a => { if (!trow) return ""; const sh = shOf(a); return `<div style="margin-top:3px;font-size:11px;color:#546964;font-style:italic">Sorumlu: <b style="font-style:normal;color:#3E534E">${esc(whoOf(sh) || "-")}</b> · Termin: <b style="font-style:normal;color:#3E534E">${sh ? fdm(sh.termin) : "-"}</b></div>`; };
+  const whoOf = (sh, a) => [...new Set([...(a?.rs ? a.rs.split(", ") : []), ...(sh ? Object.values(sh.names || {}) : [])])].join(", ");
+  const dueOf = (sh, a) => sh?.termin || a?.du || "";
+  const takipRow = a => { if (!trow) return ""; const sh = shOf(a); return `<div style="margin-top:3px;font-size:11px;color:#546964;font-style:italic">Sorumlu: <b style="font-style:normal;color:#3E534E">${esc(whoOf(sh, a) || "-")}</b> · Termin: <b style="font-style:normal;color:#3E534E">${dueOf(sh, a) ? fdm(dueOf(sh, a)) : "-"}</b></div>`; };
   const takipTable = () => { if (!ttab) return ""; const rows = DET.filter(g => g.mod === "İSG Denetim").flatMap(g => g.items);
     if (!rows.length) return ""; const th = "padding:5px 6px;text-align:left;font-size:10.5px;color:#546964;border-bottom:1.5px solid #D5E0DC", td = "padding:5px 6px;border-bottom:1px solid #E6EDEA;vertical-align:top;font-size:11px;line-height:1.4";
     return `<div style="border-top:1px solid #D5E0DC;padding-top:10px;display:flex;flex-direction:column;gap:5px"><div style="font-weight:800;font-size:12px;letter-spacing:.8px;color:#3E534E">BULGU TERMİN TAKİP TABLOSU</div>
-      <table style="border-collapse:collapse;width:100%"><tr><th style="${th}">Bölüm</th><th style="${th}">Bulgu</th><th style="${th}">Sorumlu</th><th style="${th}">Termin</th><th style="${th}">Durum</th></tr>${rows.map(a => { const sh = shOf(a), dn = !!a.fx, lt = !dn && sh && sh.termin < todayIso;
-      return `<tr style="break-inside:avoid"><td style="${td};white-space:nowrap">${esc(a.dept)}</td><td style="${td}">${esc(a.cat && a.text.startsWith(a.cat + ": ") ? a.text.slice(a.cat.length + 2) : a.text)}</td><td style="${td}">${esc(whoOf(sh) || "-")}</td><td style="${td};white-space:nowrap">${sh ? fdm(sh.termin) : "-"}</td><td style="${td};white-space:nowrap;font-weight:700;color:${dn ? "#0B6E4F" : lt ? "#B3261E" : "#3E534E"}">${dn ? "Aksiyon alındı" : lt ? "Gecikti" : "Açık"}</td></tr>`; }).join("")}</table></div>`; };
+      <table style="border-collapse:collapse;width:100%"><tr><th style="${th}">Bölüm</th><th style="${th}">Bulgu</th><th style="${th}">Sorumlu</th><th style="${th}">Termin</th><th style="${th}">Durum</th></tr>${rows.map(a => { const sh = shOf(a), dn = !!a.fx, tm = dueOf(sh, a), lt = !dn && tm && tm < todayIso;
+      return `<tr style="break-inside:avoid"><td style="${td};white-space:nowrap">${esc(a.dept)}</td><td style="${td}">${esc(a.cat && a.text.startsWith(a.cat + ": ") ? a.text.slice(a.cat.length + 2) : a.text)}</td><td style="${td}">${esc(whoOf(sh, a) || "-")}</td><td style="${td};white-space:nowrap">${tm ? fdm(tm) : "-"}</td><td style="${td};white-space:nowrap;font-weight:700;color:${dn ? "#0B6E4F" : lt ? "#B3261E" : "#3E534E"}">${dn ? "Aksiyon alındı" : lt ? "Gecikti" : "Açık"}</td></tr>`; }).join("")}</table></div>`; };
   const usePics = pics && DET.some(g => g.items.some(i => i.pics?.length || i.fx?.ph?.length)), PH = {};
   if (usePics) await Promise.all(DET.flatMap(g => g.items.flatMap(i => [...(i.pics || []), ...(i.fx?.ph || [])])).map(async p => { try { PH[p.id] = await S.getPhoto(info.fid, info.year, p.id); } catch { } }));
   const psz = file ? 227 : Math.round(227 / z); // 6 cm yükseklik

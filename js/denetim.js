@@ -1,13 +1,13 @@
 // İSG Denetim Listesi sayfası
-import * as Guest from "./guest.js?v=20261022v";
-import * as Gorev from "./gorev.js?v=20261022v";
-import * as S from "./store.js?v=20261022v";
-import * as Ramak from "./ramak.js?v=20261022v";
-import * as Paylas from "./paylas.js?v=20261022v";
-import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261022v";
-import { CATS } from "./isgcats.js?v=20261022v";
-import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261022v";
-import { calcIsg, isgMonth, isgAudits, fxInTime, makTier, katsayi, bandOf, num, surecVar, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261022v";
+import * as Guest from "./guest.js?v=20261022w";
+import * as Gorev from "./gorev.js?v=20261022w";
+import * as S from "./store.js?v=20261022w";
+import * as Ramak from "./ramak.js?v=20261022w";
+import * as Paylas from "./paylas.js?v=20261022w";
+import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261022w";
+import { CATS } from "./isgcats.js?v=20261022w";
+import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261022w";
+import { calcIsg, isgMonth, isgAudits, fxInTime, makTier, katsayi, bandOf, num, surecVar, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261022w";
 
 const COLL = "isg";
 const D = { pk: { open: false, view: 0, cnt: {} }, fxEditing: new Set(), fxDraft: {}, fxOpen: new Set(), fxList: [], gfxOpen: false, key: "", setup: null, doc: null, dept: null, month: null, open: {}, ro: false, timer: null, saved: true, msg: "" };
@@ -165,7 +165,7 @@ async function rkLoad() {
 }
 
 // "Bu hafta" şeridi: bugünün haftasında her bölümün denetim durumu (yalnızca gösterim; bölüme dokununca o bölüme geçilir)
-export const reset = () => { WK.open = false; D.open = {}; D.fxOpen = new Set(); D.fxEditing = new Set(); D.gfxOpen = false; D.shrOpen = false; D.shrB = ""; D.unwatchSh?.(); D.unwatchSh = null; };
+export const reset = () => { WK.open = false; D.open = {}; D.fxOpen = new Set(); D.fxEditing = new Set(); D.gfxOpen = false; D.shrOpen = false; D.shrB = ""; D.shF = "ac"; D.unwatchSh?.(); D.unwatchSh = null; };
 const WK = { open: false, rows: null, mon: "", t: 0, days: {} };
 async function loadWk(force = false) {
   const { st } = D.ctx || {}; if (!st || !D.setup) return;
@@ -435,6 +435,26 @@ const gVis = s => {
   const w = D.shScope.get(D.month + "|" + D.dept); if (!w) return false;
   return (s.date && monOf(s.date) >= w) || Object.entries(s.fails || {}).some(([id, arr]) => (arr || []).some((t, j) => t && s.fixed?.[id + "|" + j]?.st !== "ok"));
 };
+// Yetkili: bölüm sorumlusu / termin varsayılanı (son denetimden 7 gün sonrası)
+const defDue = doc => { const ds = (doc.sessions || []).map(x => x.date).filter(Boolean).sort(); return addDays(ds.length ? ds[ds.length - 1] : (doc.draft?.date || iso(new Date())), 7); };
+async function respDialog() {
+  const { st } = D.ctx, doc = D.doc;
+  const mem = (await S.listMembers().catch(() => [])).filter(x => (x.factories || []).includes(st.fid) && (x.expires == null || (x.expires.toMillis ? x.expires.toMillis() : +x.expires) > Date.now()));
+  let sel = [...(doc.resp || [])];
+  const m = document.createElement("div"); m.className = "mod";
+  const draw2 = () => {
+    m.innerHTML = `<div class="mbox" role="dialog" aria-modal="true" style="gap:12px"><h2 style="font-size:20px">Sorumlu seç</h2>
+      ${mem.length ? mem.map(g => `<label class="chk" style="padding:6px 0"><input type="checkbox" data-rg="${g.id}" ${sel.some(r => r.id === g.id) ? "checked" : ""}><span>${esc(g.name || "Misafir")}${g.unit ? `<small>${esc(g.unit)}</small>` : ""}</span></label>`).join("") : '<div class="muted" style="font-size:13px">Kayıtlı misafir yok. Aşağıya ad yazabilirsiniz.</div>'}
+      <div><label class="hd" for="rgO" style="margin:0">BAŞKA KİŞİ</label><input id="rgO" class="inp" style="margin-top:4px" placeholder="Uygulama hesabı olmayan kişi" value="${esc(sel.filter(r => !r.id).map(r => r.name).join(", "))}"></div>
+      <div class="muted" style="font-size:12.5px">Başka kişi takip tablosunda görünür, paylaşıma eklenmez.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button class="sec" data-c>Vazgeç</button><button data-ok>Tamam</button></div></div>`;
+    m.querySelectorAll("[data-rg]").forEach(c => c.onchange = () => { const g = mem.find(x => x.id === c.dataset.rg); sel = c.checked ? [...sel, { id: g.id, name: g.name || "Misafir" }] : sel.filter(r => r.id !== g.id); });
+    m.querySelector("[data-c]").onclick = () => m.remove();
+    m.querySelector("[data-ok]").onclick = () => { const o = m.querySelector("#rgO").value.split(",").map(x => x.trim()).filter(Boolean); doc.resp = [...sel.filter(r => r.id), ...o.map(name => ({ id: "", name }))]; m.remove(); persist(); draw(); };
+    m.addEventListener("mousedown", e => { if (e.target === m) m.remove(); });
+  };
+  document.body.appendChild(m); draw2();
+}
 function gfxRows() {
   const rows = [], pend = fxPending();
   D.doc.sessions.filter(gVis).forEach(s => Object.entries(s.fails || {}).forEach(([id, arr]) => arr.forEach((t, j) => {
@@ -445,7 +465,7 @@ function gfxRows() {
   return rows;
 }
 function gfxPanel() {
-  if (!GUEST.on) return "";
+  if (!GUEST.on || D.shScope) return "";
   const rows = gfxRows(); if (!rows.length) return "";
   const open = D.gfxOpen;
   return `<div class="cd" style="padding:16px 20px;gap:10px"><button type="button" data-gfxt aria-expanded="${open}" style="display:flex;align-items:center;gap:12px;width:100%;min-height:44px;height:auto;padding:0;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer;font-weight:400"><span style="flex:1;min-width:0"><b style="font:600 16px Sora,sans-serif;display:block">Aksiyon bildir · açık bulgular (${rows.length})</b><span class="muted" style="font-size:12.5px;line-height:1.5">Bir bulguyla ilgili önlem aldıysanız aksiyonu fotoğrafla yetkiliye bildirin.</span></span><span style="transform:rotate(${open ? 180 : 0}deg);display:flex">${ic('<path d="M6 9l6 6 6-6"/>')}</span></button>
@@ -582,7 +602,7 @@ function draw() {
   ${GUEST.on && D.gstatus === "approved" ? `<div class="okbar"><span>Taslağınız onaylandı ve denetime eklendi.</span>${guestLock(st.year, D.month) ? "" : '<button class="sec" id="newGDraft">Yeni taslak başlat</button>'}</div>` : ""}
   ${gPanel(D.gdocs)}
   ${fxPanel(D.fxPend)}
-  ${GUEST.on ? Paylas.shareBanner(D.shRows, GUEST.uid) + Paylas.guestCard(D.shRows, { open: D.shrOpen, openB: D.shrB }) : ""}
+  ${GUEST.on ? Paylas.shareBanner(D.shRows, GUEST.uid) + Paylas.guestCard(D.shRows, { open: D.shrOpen, openB: D.shrB, flt: D.shF }) : ""}
   ${gfxPanel()}
   <div class="cd" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px 10px;padding:14px;align-items:start">
     <div class="sf"><label class="hd" for="bolum">BÖLÜM</label><select id="bolum" class="inp">${setup.rows.map(r => `<option value="${r.id}" ${r.id === D.dept ? "selected" : ""}>${esc(r.name)}</option>`).join("")}</select></div>
@@ -615,7 +635,8 @@ function draw() {
         <div class="muted" style="font-size:12.5px">${doc.bonusMan ? "Kademe elle seçildi, bildirim sayısından hesaplanan kademenin yerine geçer." : "Kademe, onaylı bildirim kayıtlarından otomatik hesaplanır."}</div>
         ${D.rkOpen && !GUEST.on && !D.ro ? `<div class="row" style="gap:8px">${["Yok", "Ayda 1", "2 Haftada 1", "Haftalık"].map((l, i) => `<button class="bn" data-bonus="${i}" style="${seg(doc.bonus === i, "#0B2230", "#FFF")}"><span>${l}</span><span style="font-size:12px;font-weight:600">+${c.bonusVals[i]} puan</span></button>`).join("")}</div>` : ""}
         <div class="row" style="gap:10px;flex-wrap:nowrap">${D.ro ? "" : `<button id="rkAdd" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px"><b style="font-size:20px;line-height:1">+</b> Bildirim ekle</button>`}<button class="sec" id="rkSee" style="flex:1">Kayıtlar (${D.rk.filter(r => r.status !== "rejected" && (!GUEST.on || r.status === "approved" || r.guestUid === GUEST.uid)).length})</button></div>
-        ${GUEST.on || D.ro ? "" : `<button class="lnk" id="rkMan">${doc.bonusMan ? "Otomatik hesaba dön" : D.rkOpen ? "Kademe seçimini gizle" : "Kademeyi elle değiştir"}</button>`}</div>
+        ${GUEST.on || D.ro ? "" : `<button class="lnk" id="rkMan">${doc.bonusMan ? "Otomatik hesaba dön" : D.rkOpen ? "Kademe seçimini gizle" : "Kademeyi elle değiştir"}</button>`}
+        ${GUEST.on || D.ro ? "" : `<div style="border-top:1px solid var(--line);padding-top:10px;display:flex;flex-direction:column;gap:6px"><span class="hd">SORUMLU VE TERMİN</span><div style="display:grid;grid-template-columns:minmax(0,1fr) 138px;gap:8px;align-items:center"><button type="button" class="sec" id="rsBtn" style="height:40px;min-width:0;padding:0 10px;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;text-align:left">${esc((doc.resp || []).map(r => r.name).join(", ") || "Sorumlu seç")}</button><button type="button" class="inp fld" id="rdBtn" aria-label="Termin" style="padding:0 8px;font-size:13px"><span>${esc(fmtTarih(doc.due || defDue(doc)))}</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0B6E4F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></button></div></div>`}</div>
       <div class="cd" style="padding:20px;gap:12px"><b style="font:600 16px Sora,sans-serif">${curNo}. Denetim · Kaydetmeden Önce</b>
         ${[["İşaretlenmeyen madde", c.unmarked], ["Açıklaması eksik uygunsuz madde", c.missing], ["Gerekçesi eksik Y.D. kategori", c.ydMissing], ["Tarih geçersiz (dönem dışı veya ileri tarih)", dateOk ? 0 : 1]].map(([t, n]) => `<div class="row sp"><span>${t}</span><span class="pill" style="min-width:34px;text-align:center;background:${n === 0 ? "#D9F1E6" : "#FADAD7"};color:${n === 0 ? "#0B6E4F" : "#B3261E"}">${n}</span></div>`).join("")}
         <button class="go2" id="saveSess" ${D.ro ? "disabled" : ""} style="${canPart ? "" : "opacity:.55"}">${GUEST.on ? "Taslağı Kaydet" : curNo + ". Denetimi Kaydet"}</button>
@@ -729,7 +750,7 @@ function bind(v, c) {
   on("[data-reopen]", async el => {
     const no = +el.dataset.reopen, t = doc.sessions.find(x => x.no === no); if (!t) return;
     if (doc.draft.on !== false && Object.keys(doc.draft.marks || {}).length && doc.draft.edit !== no) {
-      const { confirmBox } = await import("./ui.js?v=20261022v");
+      const { confirmBox } = await import("./ui.js?v=20261022w");
       if (!(await confirmBox(`${no}. denetim açılsın mı?`, "Şu an açık olan denetimde kaydedilmemiş değişiklikler varsa kaybolur. Önce “Kaydet”e basmanız önerilir.", "Yine de aç"))) return;
     }
     if (t.no === doc.sessions.length) t.closed = false;
@@ -747,7 +768,7 @@ function bind(v, c) {
   });
   const gAll = async () => (await S.listMonthDocs(st.fid, st.year, "isgg").catch(() => [])).filter(g => g.id.startsWith(`${pad(D.month)}_${D.dept}_`));
   on("[data-delsess]", async el => {
-    const { confirmBox } = await import("./ui.js?v=20261022v");
+    const { confirmBox } = await import("./ui.js?v=20261022w");
     const no = +el.dataset.delsess, ix = doc.sessions.findIndex(x => x.no === no); if (ix < 0) return;
     const gone = doc.sessions[ix], later = ix < doc.sessions.length - 1, all = await gAll(), gAp = all.filter(g => g.status === "approved" && g.no === gone.no);
     let mode = "all";
@@ -772,7 +793,7 @@ function bind(v, c) {
   });
   // Sahip: misafir taslağını tamamen sil (denetime ve rapora hiç girmez)
   const delG = async g => {
-    const { confirmBox } = await import("./ui.js?v=20261022v");
+    const { confirmBox } = await import("./ui.js?v=20261022w");
     if (!(await confirmBox("Misafir taslağı silinsin mi?", `${g.guestName} taslağı ve fotoğrafları kalıcı olarak silinir; denetime ve rapora hiç girmez. Misafir isterse yeniden yazabilir.`, "Evet, tamamen sil", true))) return false;
     Object.values(g.draft?.photos || {}).flat().forEach(p => S.deletePhoto(st.fid, st.year, p.id).catch(() => {}));
     await S.deleteMonthDoc(st.fid, st.year, "isgg", g.id); await Guest.inboxDelete(`${g.guestUid}_${st.fid}_${st.year}_${+g.month}_${g.dept}`);
@@ -783,7 +804,7 @@ function bind(v, c) {
   const holOK = async date => {
     if (!date || GUEST.on || D.okHol?.has(date)) return true;
     const h = tatilMap(await tatilYukle(st.fid, st.year).catch(() => null)).get(date); if (!h || h.yarim) return true;
-    const { confirmBox } = await import("./ui.js?v=20261022v");
+    const { confirmBox } = await import("./ui.js?v=20261022w");
     if (!(await confirmBox("İzin / tatil günü", `${fmtTarih(date)} tarihi "${h.ad}" olarak izinli/tatil işaretli. Yine de bu tarihle denetim yapılsın mı?`, "Evet, kabul et"))) return false;
     (D.okHol ||= new Set()).add(date); return true;
   };
@@ -940,7 +961,7 @@ function bind(v, c) {
   });
   on("[data-fxdel]", async el => {
     const { s, id, j, fk } = fxSess(el.dataset.fxdel); if (!s?.fixed?.[fk]) return;
-    const { confirmBox } = await import("./ui.js?v=20261022v");
+    const { confirmBox } = await import("./ui.js?v=20261022w");
     if (!(await confirmBox("Aksiyon kaldırılsın mı?", "Aksiyon bilgisi silinir; bulgu yeniden cezaya sayılır.", "Evet, kaldır", true))) return;
     const old = s.fixed[fk], oldOff = s.fixedOff?.[fk]; delete s.fixed[fk];
     // Otomatik (görev takip) aksiyon elle kaldırıldıysa, aynı kapanış için yeniden otomatik eklenmesin
@@ -948,8 +969,17 @@ function bind(v, c) {
     if ((await persist(true)) === false) { s.fixed[fk] = old; if (oldOff === undefined) delete s.fixedOff?.[fk]; else s.fixedOff[fk] = oldOff; return toast("Kaydedilemedi."); }
     draw(); toast("Aksiyon kaldırıldı.");
   });
+  const rsb = v.querySelector("#rsBtn"); if (rsb) rsb.onclick = respDialog;
+  const rdb = v.querySelector("#rdBtn"); if (rdb) rdb.onclick = async () => { const r = await pickDate({ title: "Termin", min: iso(new Date()), a: doc.due || defDue(doc), view: doc.due || defDue(doc) }); if (r?.a) { doc.due = r.a; persist(); draw(); } };
   on("[data-gfxt]", () => { D.gfxOpen = !D.gfxOpen; draw(); });
   on("[data-shrx]", () => { Paylas.dismissBanner(D.shRows, GUEST.uid); draw(); });
+  on("[data-shf]", el => { D.shF = el.dataset.shf; draw(); });
+  on("[data-gfxk]", async el => {
+    const [m, dp, no, id, j] = el.dataset.gfxk.split("|"), want = `${no}|${id}|${j}`;
+    const open = () => { const r = gfxRows().find(x => `${x.s.no}|${x.id}|${x.j}` === want); if (r) gfxForm(r); else toast("Bulgu bulunamadı, sayfa yenilenince tekrar deneyin."); };
+    if (+m === D.month && dp === D.dept) return open();
+    D.month = +m; D.dept = dp; D.key = ""; await render(D.v, D.ctx); open();
+  });
   on("[data-shrt]", () => { D.shrOpen = !D.shrOpen; draw(); });
   on("[data-shrb]", el => { D.shrB = D.shrB === el.dataset.shrb ? "" : el.dataset.shrb; draw(); });
   on("[data-shro]", el => { const row = (D.shRows || []).find(r => r.key === el.dataset.shro); if (row) Paylas.obsDialog({ fid: st.fid, year: st.year, row, uid: GUEST.uid, name: GUEST.name, factoryName: st.factories?.find(f => f.id === st.fid)?.name || "" }); });
