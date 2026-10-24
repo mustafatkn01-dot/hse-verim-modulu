@@ -3,8 +3,8 @@
 //   users/{sahip}/invites/{kod}        davet (e-posta ayarı kopyası)
 //   users/{sahip}/guestReqs/{misafirUid}  onay isteği {gid, code, name, unit, status, at}
 //   users/{sahip}/members/{misafirUid}    onaylı üye {name, unit, factories[], mode, expires|null}
-import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously, signInWithEmailAndPassword, createAuxUser } from "./firebase.js?v=20261024d";
-import { esc, toast, confirmBox } from "./ui.js?v=20261024d";
+import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously, signInWithEmailAndPassword, createAuxUser } from "./firebase.js?v=20261024e";
+import { esc, toast, confirmBox } from "./ui.js?v=20261024e";
 
 const Q = new URLSearchParams(location.search);
 export const linkInfo = () => {
@@ -221,7 +221,7 @@ const newPid = taken => { // 6 hane, serbest dizilim; en az 2 harf ve en az 2 ra
 };
 // Önceki kayıtları bul: kişi kaydı (ID) + adı eşleşen, sahibi artık üye olmayan (sahipsiz) taslaklar
 async function findPrev(o, name, gid) {
-  const S = await import("./store.js?v=20261024d"), n = normName(name);
+  const S = await import("./store.js?v=20261024e"), n = normName(name);
   const people = (await loadPeople(o)).filter(p => p.norm === n);
   const mems = await getDocs(collection(db, `users/${o}/members`)).then(s => new Set(s.docs.map(d => d.id))).catch(() => new Set());
   const uids = new Set(); people.forEach(p => (p.uids || []).forEach(u => { if (u !== gid && !mems.has(u)) uids.add(u); }));
@@ -235,7 +235,7 @@ async function findPrev(o, name, gid) {
   return { person: people[0] || null, pid: people[0]?.id || null, uids, count };
 }
 async function migrateGuest(oldUids, newUid, name) {
-  const S = await import("./store.js?v=20261024d"); let n = 0;
+  const S = await import("./store.js?v=20261024e"); let n = 0;
   for (const f of await S.listFactories()) for (const y of await S.listYears(f.id)) for (const c of GCOLLS) {
     const all = await S.listMonthDocs(f.id, y, c), ids = new Set(all.map(d => d.id));
     for (const d of all) {
@@ -308,7 +308,9 @@ let memOpen = false;
 const memWrap = (n, inner) => n >= 2
   ? `<details id="gMemBox" ${memOpen ? "open" : ""}><summary style="cursor:pointer;font-weight:700">Misafirler (${n})</summary><div class="col1" style="gap:8px;margin-top:10px">${inner}</div></details>`
   : `<div class="col1" style="gap:8px"><span class="hd">MİSAFİRLER (${n})</span>${inner}</div>`;
+let unMem = null;
 export async function renderSettings(box, { ownerUid, factories, onChange }) {
+  unMem?.(); unMem = null;
   const invs = await getDocs(collection(db, `users/${ownerUid}/invites`)).then(s => s.docs.map(d => ({ id: d.id, ...d.data() }))).catch(() => []);
   const cfgD = await getDoc(doc(db, `users/${ownerUid}/meta/guestcfg`)).catch(() => null), cfg = cfgD?.exists() ? cfgD.data() : {};
   const reqs = await getDocs(collection(db, `users/${ownerUid}/guestReqs`)).then(s => s.docs.map(d => ({ id: d.id, ...d.data() }))).catch(() => []);
@@ -348,6 +350,14 @@ export async function renderSettings(box, { ownerUid, factories, onChange }) {
       <div class="muted" style="font-size:12.5px;line-height:1.55">Ücretsiz <b>EmailJS</b> hesabıyla e-posta da gönderilebilir. Service ID, Template ID ve Public Key'i girin. Şablonda <code>{{guest_name}}</code>, <code>{{guest_unit}}</code> ve <code>{{approve_link}}</code> değişkenleri kullanılır. Boş bırakırsanız e-posta gitmez.</div>
       <input class="inp" id="gSvc" placeholder="Service ID" value="${esc(cfg.service || "")}"><input class="inp" id="gTpl" placeholder="Template ID" value="${esc(cfg.template || "")}"><input class="inp" id="gKey" placeholder="Public Key" value="${esc(cfg.key || "")}">
       <div><button class="sm" id="gCfg">Kaydet</button></div></div></details>`;
+  { // Canlı durum: bir misafir girince (son görülme, yeni üye) sayfa yenilemeden listeyi güncelle
+    let first = true, t = null;
+    unMem = onSnapshot(collection(db, `users/${ownerUid}/members`), () => {
+      if (first) { first = false; return; }
+      if (!box.isConnected) { unMem?.(); unMem = null; return; }
+      clearTimeout(t); t = setTimeout(() => { if (box.isConnected && !box.contains(document.activeElement && document.activeElement.matches("input,textarea,select") ? document.activeElement : null)) renderSettings(box, { ownerUid, factories, onChange }); }, 500);
+    }, () => {});
+  }
   box.querySelector("#gMemBox")?.addEventListener("toggle", e => { memOpen = e.target.open; });
   const q = s => box.querySelector(s), refresh = () => { renderSettings(box, { ownerUid, factories, onChange }); onChange?.(); };
   const mk = async () => {
