@@ -220,7 +220,7 @@ body,html{background:#fff!important}#app{display:block!important}.pg{padding:0!i
 
 [data-fgb][hidden]{display:none!important}
 
-[data-ua][hidden],[data-acc]+[hidden]{display:none!important}
+[data-ua][hidden],[data-acc]+[hidden],#gAccB[hidden]{display:none!important}
 
 [data-pob][hidden]{display:none!important}
 /* Tarih seçici (pickDate) */

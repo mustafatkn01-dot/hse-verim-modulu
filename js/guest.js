@@ -3,8 +3,8 @@
 //   users/{sahip}/invites/{kod}        davet (e-posta ayarı kopyası)
 //   users/{sahip}/guestReqs/{misafirUid}  onay isteği {gid, code, name, unit, status, at}
 //   users/{sahip}/members/{misafirUid}    onaylı üye {name, unit, factories[], mode, expires|null}
-import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously, signInWithEmailAndPassword, createAuxUser, changeAuxPassword, serverTimestamp } from "./firebase.js?v=20261024f";
-import { esc, toast, confirmBox } from "./ui.js?v=20261024f";
+import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously, signInWithEmailAndPassword, createAuxUser, changeAuxPassword, serverTimestamp } from "./firebase.js?v=20261024h";
+import { esc, toast, confirmBox } from "./ui.js?v=20261024h";
 
 const Q = new URLSearchParams(location.search);
 export const linkInfo = () => {
@@ -223,7 +223,7 @@ const newPid = taken => { // 6 hane, serbest dizilim; en az 2 harf ve en az 2 ra
 };
 // Önceki kayıtları bul: kişi kaydı (ID) + adı eşleşen, sahibi artık üye olmayan (sahipsiz) taslaklar
 async function findPrev(o, name, gid) {
-  const S = await import("./store.js?v=20261024f"), n = normName(name);
+  const S = await import("./store.js?v=20261024h"), n = normName(name);
   const people = (await loadPeople(o)).filter(p => p.norm === n);
   const mems = await getDocs(collection(db, `users/${o}/members`)).then(s => new Set(s.docs.map(d => d.id))).catch(() => new Set());
   const uids = new Set(); people.forEach(p => (p.uids || []).forEach(u => { if (u !== gid && !mems.has(u)) uids.add(u); }));
@@ -237,7 +237,7 @@ async function findPrev(o, name, gid) {
   return { person: people[0] || null, pid: people[0]?.id || null, uids, count };
 }
 async function migrateGuest(oldUids, newUid, name) {
-  const S = await import("./store.js?v=20261024f"); let n = 0;
+  const S = await import("./store.js?v=20261024h"); let n = 0;
   for (const f of await S.listFactories()) for (const y of await S.listYears(f.id)) for (const c of GCOLLS) {
     const all = await S.listMonthDocs(f.id, y, c), ids = new Set(all.map(d => d.id));
     for (const d of all) {
@@ -310,7 +310,8 @@ let memOpen = false;
 const memWrap = (n, inner) => n >= 2
   ? `<details id="gMemBox" ${memOpen ? "open" : ""}><summary style="cursor:pointer;font-weight:700">Misafirler (${n})</summary><div class="col1" style="gap:8px;margin-top:10px">${inner}</div></details>`
   : `<div class="col1" style="gap:8px"><span class="hd">MİSAFİRLER (${n})</span>${inner}</div>`;
-let unMem = null;
+let unMem = null, boxOpen = false;
+export const reset = () => { boxOpen = false; memOpen = false; };
 export async function renderSettings(box, { ownerUid, factories, onChange }) {
   unMem?.(); unMem = null;
   const invs = await getDocs(collection(db, `users/${ownerUid}/invites`)).then(s => s.docs.map(d => ({ id: d.id, ...d.data() }))).catch(() => []);
@@ -332,7 +333,9 @@ export async function renderSettings(box, { ownerUid, factories, onChange }) {
   const legacy = mems.filter(m => !m.inv), pins = await getDocs(collection(db, `users/${ownerUid}/pinvites`)).then(s => s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => b.createdAt - a.createdAt)).catch(() => []);
   await Promise.all(pins.map(async p => { devs[p.id] = await getDocs(collection(db, `users/${ownerUid}/members/${p.uid}/devices`)).then(s => s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => b.last - a.last)).catch(() => []); }));
   const pend = reqs.filter(r => r.status === "pending").sort((a, b) => b.at - a.at);
-  box.innerHTML = `<div><h2>Misafir Kullanıcılar</h2><div class="muted" style="font-size:13px;line-height:1.5">Saha yardımcınıza veya denetim yapacak yetkiliye bağlantıyı gönderin. Adını ve bölümünü yazıp <b>Onay Gönder</b>'e basar; siz Süresiz veya 24 saatlik onay verirsiniz. Misafir fabrika bazlı yetkilendirilir.</div></div>
+  const nAkt = pins.filter(p => { const m = mems.find(x => x.id === p.uid); return m && !p.closed && isLive(m); }).length, sub = [`${pins.length} kişi`, nAkt ? `${nAkt} aktif` : "", pend.length ? `${pend.length} onay bekliyor` : ""].filter(Boolean).join(" · ");
+  box.innerHTML = `<button type="button" id="gAcc" aria-expanded="${boxOpen}" aria-label="Misafir Kullanıcılar bölümünü ${boxOpen ? "kapat" : "aç"}" style="display:flex;align-items:center;gap:12px;width:100%;min-height:40px;height:auto;padding:0;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer"><span style="flex:1;min-width:0"><h2 style="margin:0">Misafir Kullanıcılar</h2><div class="muted" style="font-size:13px;margin-top:4px;font-weight:600">${sub}</div></span><span style="flex:0 0 40px;width:40px;height:40px;border-radius:12px;border:1.5px solid var(--gd);color:var(--gd);box-sizing:border-box;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="transition:transform .15s;${boxOpen ? "transform:rotate(180deg)" : ""}"><path d="M6 9l6 6 6-6"/></svg></span></button>
+    <div class="col1" id="gAccB" ${boxOpen ? "" : "hidden"} style="gap:14px;border-top:1px solid var(--line);padding-top:14px"><div class="muted" style="font-size:13px;line-height:1.5">Saha yardımcınıza veya denetim yapacak yetkiliye kişiye özel davet bağlantısı gönderin; bağlantıya dokunan onay beklemeden girer. Misafir fabrika bazlı yetkilendirilir.</div>
     <div class="col1" style="gap:8px"><span class="hd">KİŞİYE ÖZEL DAVET (önerilen)</span>
       <div class="muted" style="font-size:12.5px;line-height:1.55">Her misafir için ayrı bağlantı üretilir. Misafir bağlantıya dokunur, onay beklemeden doğrudan girer; hangi tarayıcı veya telefonda açarsa açsın aynı kişi olarak tanınır.</div>
       <div><button class="sm" id="pNew">Misafir davet et</button></div>
@@ -354,7 +357,8 @@ export async function renderSettings(box, { ownerUid, factories, onChange }) {
     <details><summary style="cursor:pointer;font-weight:700">E-posta bildirimi (isteğe bağlı)</summary><div class="col1" style="gap:8px;margin-top:10px">
       <div class="muted" style="font-size:12.5px;line-height:1.55">Ücretsiz <b>EmailJS</b> hesabıyla e-posta da gönderilebilir. Service ID, Template ID ve Public Key'i girin. Şablonda <code>{{guest_name}}</code>, <code>{{guest_unit}}</code> ve <code>{{approve_link}}</code> değişkenleri kullanılır. Boş bırakırsanız e-posta gitmez.</div>
       <input class="inp" id="gSvc" placeholder="Service ID" value="${esc(cfg.service || "")}"><input class="inp" id="gTpl" placeholder="Template ID" value="${esc(cfg.template || "")}"><input class="inp" id="gKey" placeholder="Public Key" value="${esc(cfg.key || "")}">
-      <div><button class="sm" id="gCfg">Kaydet</button></div></div></details>`;
+      <div><button class="sm" id="gCfg">Kaydet</button></div></div></details></div>`;
+  box.querySelector("#gAcc").onclick = e => { const b = e.currentTarget, body = box.querySelector("#gAccB"); boxOpen = body.hidden; body.hidden = !boxOpen; b.setAttribute("aria-expanded", boxOpen); b.setAttribute("aria-label", "Misafir Kullanıcılar bölümünü " + (boxOpen ? "kapat" : "aç")); b.querySelector("svg").style.transform = boxOpen ? "rotate(180deg)" : ""; };
   { // Canlı durum: bir misafir girince (son görülme, yeni üye) sayfa yenilemeden listeyi güncelle
     let first = true, t = null;
     unMem = onSnapshot(collection(db, `users/${ownerUid}/members`), () => {
