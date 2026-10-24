@@ -1,10 +1,10 @@
 // Bulgu paylaşımı: yetkili, seçtiği bölümlerin açık bulgularını seçtiği misafirlerle paylaşır; misafir kendi ekranında görür ve
 // mevcut "Aksiyon bildir" akışıyla aksiyon alır (yetkili onayı mevcut Aksiyon bildirimleri panelinde).
 // Puan kuralı mevcut sistemdeki gibi: aksiyonun gönderim zamanı denetim haftası içindeyse (en geç cumartesi) ve yetkili kabul ederse puana işlenir.
-import * as S from "./store.js?v=20261022r";
-import { esc, ic, toast, confirmBox, compressImage, showPhoto } from "./ui.js?v=20261022r";
-import * as Guest from "./guest.js?v=20261022r";
-import { CATS } from "./isgcats.js?v=20261022r";
+import * as S from "./store.js?v=20261022s";
+import { esc, ic, toast, confirmBox, compressImage, showPhoto } from "./ui.js?v=20261022s";
+import * as Guest from "./guest.js?v=20261022s";
+import { CATS } from "./isgcats.js?v=20261022s";
 
 const pad = n => String(n).padStart(2, "0"), iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const addDays = (s, n) => { const d = new Date(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10)); d.setDate(d.getDate() + n); return iso(d); };
@@ -12,6 +12,7 @@ const monOf = s => { const g = new Date(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.s
 export const fd = s => new Date(s + "T00:00:00").toLocaleDateString("tr-TR", { day: "numeric", month: "long" });
 const WA = '<path d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-7l-5 4v-4H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/><path d="M8 10h8M8 13h5"/>';
 const ML = '<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3.5 7l8.5 6 8.5-6"/>';
+const PB = "display:flex;align-items:center;justify-content:center;gap:5px;height:44px;padding:0 8px;min-width:0;white-space:nowrap;border:1px solid var(--inl);border-radius:10px;color:var(--text);font-weight:700;font-size:12.5px;cursor:pointer;background:var(--card)";
 const IB = "flex:0 0 40px;width:40px;height:40px;padding:0;display:grid;place-items:center;min-height:0";
 
 // Bir bölüm kaydındaki açık (aksiyonu kabul edilmemiş) bulgu sayısı ve son denetim haftasının cumartesisi
@@ -75,12 +76,12 @@ export async function openShare({ fid, year, month, rows, factoryName = "", onDo
   const done = (depts, names) => {
     const link = `${location.origin}${location.pathname}?denetim=${fid}.${year}.${month}.${depts[0].id}`, n = depts.reduce((a, d) => a + info[d.id].n, 0), cut = cutOf(depts.map(d => d.id));
     const wk = cut && cut >= iso(new Date()) ? `Puan için aksiyonu en geç ${fd(cut)} gününe kadar girin. ` : "";
-    const msgFor = nm => `Merhaba ${nm.split(" ")[0]},\n${depts.map(d => d.name).join(", ")} bölümünde ${n} açık İSG bulgusu sizinle paylaşıldı. ${wk}Termin: ${fd(st.t)}.${st.note.trim() ? "\nNot: " + st.note.trim() : ""}\nBağlantı: ${link}`;
+    const msgFor = (nm, g) => `Sayın ${nm},\n${depts.map(d => d.name).join(", ")} bölümünde ${n} açık İSG bulgusu sizinle paylaşıldı. ${st.roles[g] === "izle" ? "Durumu uygulamadan canlı takip edebilirsiniz. " : wk ? wk.replace("Puan için aksiyonu en geç", "Puan için aksiyonunuzu en geç").replace("girin. ", "girmenizi rica ederiz. ") : ""}Termin: ${fd(st.t)}.${st.note.trim() ? "\nNot: " + st.note.trim() : ""}\nBağlantı: ${link}\nİyi çalışmalar dileriz.`;
     box.innerHTML = `<h2 style="margin:0;font-size:20px">Paylaşıldı</h2>
       <div class="muted" style="font-size:13px;line-height:1.5">Kişiler uygulamayı açtığında paylaşımı görür. İsterseniz mesajı ayrıca WhatsApp veya e-posta ile gönderin.</div>
       ${st.g.map(g => { const nm = names[g]; return `<div style="display:flex;align-items:center;gap:8px"><span style="flex:1;min-width:0"><b style="font-size:14px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(nm)}</b>${live.find(x => x.id === g)?.unit ? `<span style="font-style:italic;font-size:12px;color:var(--muted);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(live.find(x => x.id === g).unit)}</span>` : ""}</span>
-        <a href="https://wa.me/?text=${encodeURIComponent(msgFor(nm))}" target="_blank" rel="noopener" aria-label="${esc(nm)} için WhatsApp mesajı" title="WhatsApp"><button type="button" class="sec" style="${IB}">${ic(WA, 17)}</button></a>
-        <a href="mailto:?subject=${encodeURIComponent("İSG bulguları paylaşıldı")}&body=${encodeURIComponent(msgFor(nm))}" aria-label="${esc(nm)} için e-posta" title="E-posta"><button type="button" class="sec" style="${IB}">${ic(ML, 17)}</button></a></div>`; }).join("")}
+        <a href="https://wa.me/?text=${encodeURIComponent(msgFor(nm, g))}" target="_blank" rel="noopener" aria-label="${esc(nm)} için WhatsApp mesajı" title="WhatsApp"><button type="button" class="sec" style="${IB}">${ic(WA, 17)}</button></a>
+        <a href="mailto:?subject=${encodeURIComponent("İSG bulguları paylaşıldı")}&body=${encodeURIComponent(msgFor(nm, g))}" aria-label="${esc(nm)} için e-posta" title="E-posta"><button type="button" class="sec" style="${IB}">${ic(ML, 17)}</button></a></div>`; }).join("")}
       <button data-c>Kapat</button>`;
     box.querySelector("[data-c]").onclick = close;
   };
@@ -95,12 +96,12 @@ export async function openShare({ fid, year, month, rows, factoryName = "", onDo
       const k = it.filter(x => x.st === "ok").length, o = it.filter(x => x.st === "on").length, a = it.length - k - o;
       T += it.length; K += k; O += o; A += a; lines.push(`${rows.find(r => r.id === id)?.name || id}: ${k}/${it.length} aksiyon alındı`);
     }
-    const msg = `İSG bulgu durumu\nToplam ${T} bulgu: ${K} aksiyon alındı, ${O} onay bekliyor, ${A} açık.\n${lines.join("\n")}\nBağlantı: ${location.origin}${location.pathname}`.replace(/\\n/g, "\n");
+    const msg0 = `İSG bulgu durumu\nToplam ${T} bulgu: ${K} aksiyon alındı, ${O} onay bekliyor, ${A} açık.\n${lines.join("\n")}\nBağlantı: ${location.origin}${location.pathname}`.replace(/\\n/g, "\n") + "\nİyi çalışmalar dileriz.", msg = msg0;
     const people = [...new Map(st.old.flatMap(o => Object.entries(o.names || {}))).entries()];
     box.innerHTML = `<h2 style="margin:0;font-size:20px">Durum özeti</h2><div style="background:var(--calc);border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.55;white-space:pre-line">${esc(msg)}</div>
       ${people.map(([g, nm]) => `<div style="display:flex;align-items:center;gap:8px"><span style="flex:1;min-width:0"><b style="font-size:14px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(nm)}</b>${live.find(x => x.id === g)?.unit ? `<span style="font-style:italic;font-size:12px;color:var(--muted);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(live.find(x => x.id === g).unit)}</span>` : ""}</span>
-        <a href="https://wa.me/?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener" aria-label="${esc(nm)} için WhatsApp mesajı"><button type="button" class="sec" style="${IB}">${ic(WA, 17)}</button></a>
-        <a href="mailto:?subject=${encodeURIComponent("İSG bulgu durumu")}&body=${encodeURIComponent(msg)}" aria-label="${esc(nm)} için e-posta"><button type="button" class="sec" style="${IB}">${ic(ML, 17)}</button></a></div>`).join("")}
+        <a href="https://wa.me/?text=${encodeURIComponent(`Sayın ${nm},\n` + msg)}" target="_blank" rel="noopener" aria-label="${esc(nm)} için WhatsApp mesajı"><button type="button" class="sec" style="${IB}">${ic(WA, 17)}</button></a>
+        <a href="mailto:?subject=${encodeURIComponent("İSG bulgu durumu")}&body=${encodeURIComponent(`Sayın ${nm},\n` + msg)}" aria-label="${esc(nm)} için e-posta"><button type="button" class="sec" style="${IB}">${ic(ML, 17)}</button></a></div>`).join("")}
       <button data-c>Kapat</button>`;
     box.querySelector("[data-c]").onclick = close;
   };
@@ -174,12 +175,13 @@ export function obsDialog({ fid, year, row, uid, name, factoryName = "", onDone 
       <div><label class="hd" for="obI" style="margin:0">MADDE</label><select id="obI" class="inp" style="margin-top:4px">${CATS[d.ci].items.map((t, i) => `<option value="${i}" ${i === d.ii ? "selected" : ""}>${esc(t)}</option>`).join("")}</select></div>
       <div><label class="hd" for="obT" style="margin:0">BULGU</label><textarea id="obT" class="inp" style="margin-top:4px;height:auto;min-height:72px;padding:10px;resize:vertical" placeholder="Gözlemlediğiniz bulguyu yazın">${esc(d.t)}</textarea></div>
       ${d.ph ? `<div class="phs" style="padding:0"><span class="pth"><img src="${d.ph.t}" alt="Fotoğraf"></span></div>` : ""}
-      <label class="pbtn" style="justify-content:center">${ic('<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.5"/><path d="M21 16l-5-5-8 9"/>', 18)}<i>${d.ph ? "Fotoğraf eklendi · değiştir" : "Fotoğraf ekle"}</i><input type="file" accept="image/*" id="obF" hidden></label>
+      <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px"><label style="${PB}">${ic('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.6"/>', 24).replace("currentColor", "#0B6E4F")}<span>Fotoğraf çek</span><input type="file" accept="image/*" capture="environment" id="obF" hidden></label><label style="${PB}">${ic('<rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="9" cy="10" r="1.8"/><path d="M21 16l-5-5-9 9"/>', 24).replace("currentColor", "#2A82C4")}<span>Galeriden seç</span><input type="file" accept="image/*" id="obG" hidden></label></div>${d.ph ? '<div class="muted" style="font-size:12.5px;text-align:center">Fotoğraf eklendi. Değiştirmek için tekrar çekin veya seçin.</div>' : ""}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button class="sec" data-c>Vazgeç</button><button data-go ${d.t.trim() && d.ph ? "" : "disabled"}>Onaya gönder</button></div>`;
     box.querySelector("#obC").onchange = e => { d.t = box.querySelector("#obT").value; d.ci = +e.target.value; d.ii = 0; draw(); };
     box.querySelector("#obI").onchange = e => { d.ii = +e.target.value; };
     box.querySelector("#obT").oninput = e => { d.t = e.target.value; box.querySelector("[data-go]").disabled = !(d.t.trim() && d.ph); };
-    box.querySelector("#obF").onchange = async e => { const f = e.target.files[0]; if (!f) return; d.t = box.querySelector("#obT").value; try { const { full, thumb } = await compressImage(f), pid = "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); await S.savePhoto(fid, year, pid, full); d.ph = { id: pid, t: thumb }; } catch (er) { toast("Fotoğraf eklenemedi: " + (er.message || er)); } draw(); };
+    const pick = async e => { const f = e.target.files[0]; if (!f) return; d.t = box.querySelector("#obT").value; try { const { full, thumb } = await compressImage(f), pid = "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); await S.savePhoto(fid, year, pid, full); d.ph = { id: pid, t: thumb }; } catch (er) { toast("Fotoğraf eklenemedi: " + (er.message || er)); } draw(); };
+    box.querySelector("#obF").onchange = pick; box.querySelector("#obG").onchange = pick;
     box.querySelector("[data-c]").onclick = close; box.querySelector("[data-go]").onclick = send;
   };
   const send = async () => {
