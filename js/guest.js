@@ -3,8 +3,8 @@
 //   users/{sahip}/invites/{kod}        davet (e-posta ayarı kopyası)
 //   users/{sahip}/guestReqs/{misafirUid}  onay isteği {gid, code, name, unit, status, at}
 //   users/{sahip}/members/{misafirUid}    onaylı üye {name, unit, factories[], mode, expires|null}
-import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously, signInWithEmailAndPassword, createAuxUser, changeAuxPassword, serverTimestamp } from "./firebase.js?v=20261024h";
-import { esc, toast, confirmBox } from "./ui.js?v=20261024h";
+import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously, signInWithEmailAndPassword, createAuxUser, changeAuxPassword, serverTimestamp } from "./firebase.js?v=20261025a";
+import { esc, toast, confirmBox } from "./ui.js?v=20261025a";
 
 const Q = new URLSearchParams(location.search);
 export const linkInfo = () => {
@@ -223,7 +223,7 @@ const newPid = taken => { // 6 hane, serbest dizilim; en az 2 harf ve en az 2 ra
 };
 // Önceki kayıtları bul: kişi kaydı (ID) + adı eşleşen, sahibi artık üye olmayan (sahipsiz) taslaklar
 async function findPrev(o, name, gid) {
-  const S = await import("./store.js?v=20261024h"), n = normName(name);
+  const S = await import("./store.js?v=20261025a"), n = normName(name);
   const people = (await loadPeople(o)).filter(p => p.norm === n);
   const mems = await getDocs(collection(db, `users/${o}/members`)).then(s => new Set(s.docs.map(d => d.id))).catch(() => new Set());
   const uids = new Set(); people.forEach(p => (p.uids || []).forEach(u => { if (u !== gid && !mems.has(u)) uids.add(u); }));
@@ -237,7 +237,7 @@ async function findPrev(o, name, gid) {
   return { person: people[0] || null, pid: people[0]?.id || null, uids, count };
 }
 async function migrateGuest(oldUids, newUid, name) {
-  const S = await import("./store.js?v=20261024h"); let n = 0;
+  const S = await import("./store.js?v=20261025a"); let n = 0;
   for (const f of await S.listFactories()) for (const y of await S.listYears(f.id)) for (const c of GCOLLS) {
     const all = await S.listMonthDocs(f.id, y, c), ids = new Set(all.map(d => d.id));
     for (const d of all) {
@@ -487,7 +487,7 @@ const devId = () => { try { let d = localStorage.getItem("hse_dev"); if (!d) { d
 const devLabel = () => {
   const ua = navigator.userAgent, ios = /iphone|ipad|ipod/i.test(ua), and = /android/i.test(ua), pc = ios ? (/ipad/i.test(ua) ? "iPad" : "iPhone") : and ? "Android" : /windows/i.test(ua) ? "Windows" : /mac/i.test(ua) ? "Mac" : "Cihaz";
   const sa = matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
-  const br = sa ? "Ana ekran kısayolu" : /whatsapp/i.test(ua) ? "WhatsApp" : /fban|fbav|instagram/i.test(ua) ? "Uygulama içi tarayıcı" : /edg/i.test(ua) ? "Edge" : /crios|chrome/i.test(ua) ? "Chrome" : /fxios|firefox/i.test(ua) ? "Firefox" : /safari/i.test(ua) ? "Safari" : "Tarayıcı";
+  const br = sa ? "Ana ekran kısayolu" : /whatsapp/i.test(ua) ? "WhatsApp" : ios && !/safari/i.test(ua) ? "Uygulama içi tarayıcı" : /fban|fbav|instagram/i.test(ua) ? "Uygulama içi tarayıcı" : /edg/i.test(ua) ? "Edge" : /crios|chrome/i.test(ua) ? "Chrome" : /fxios|firefox/i.test(ua) ? "Firefox" : /safari/i.test(ua) ? "Safari" : "Tarayıcı";
   return `${pc} · ${br}`;
 };
 export const rotated = (user, m) => { const lat = Date.parse(user?.metadata?.lastSignInTime || "") || 0, rot = m?.rot ? ms(m.rot) : 0; return !!(rot && lat && lat + 2000 < rot); };
