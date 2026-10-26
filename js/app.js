@@ -1,21 +1,21 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261025a";
-import * as S from "./store.js?v=20261025a";
-import * as Prim from "./primary.js?v=20261025a";
-import * as Denetim from "./denetim.js?v=20261025a";
-import * as Kaza from "./kaza.js?v=20261025a";
-import * as Konusma from "./konusma.js?v=20261025a";
-import * as Ramak from "./ramak.js?v=20261025a";
-import * as Genel from "./genel.js?v=20261025a";
-import * as Rapor from "./rapor.js?v=20261025a";
-import * as Verim from "./verim.js?v=20261025a";
-import * as Isbasi from "./isbasi.js?v=20261025a";
-import * as Guest from "./guest.js?v=20261025a";
-import * as Yontem from "./yontem.js?v=20261025a";
-import * as Tatil from "./tatil.js?v=20261025a";
-import * as Gorev from "./gorev.js?v=20261025a";
-import * as Arsiv from "./arsiv.js?v=20261025a";
-import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261025a";
-import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261025a";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261026b";
+import * as S from "./store.js?v=20261026b";
+import * as Prim from "./primary.js?v=20261026b";
+import * as Denetim from "./denetim.js?v=20261026b";
+import * as Kaza from "./kaza.js?v=20261026b";
+import * as Konusma from "./konusma.js?v=20261026b";
+import * as Ramak from "./ramak.js?v=20261026b";
+import * as Genel from "./genel.js?v=20261026b";
+import * as Rapor from "./rapor.js?v=20261026b";
+import * as Verim from "./verim.js?v=20261026b";
+import * as Isbasi from "./isbasi.js?v=20261026b";
+import * as Guest from "./guest.js?v=20261026b";
+import * as Yontem from "./yontem.js?v=20261026b";
+import * as Tatil from "./tatil.js?v=20261026b";
+import * as Gorev from "./gorev.js?v=20261026b";
+import * as Arsiv from "./arsiv.js?v=20261026b";
+import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261026b";
+import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261026b";
 const PEND_META = { isbasig: ["isbasi", "İşbaşı Eğitim"], konusmag: ["konusma", "Eğitim Konuşması"], kazag: ["kaza", "İş Kazası"] };
 
 const VERSION = "1.8.5";
@@ -126,6 +126,7 @@ async function startGuest(owner, user) {
   if (Guest.isEmailGuest(user)) {
     const g = await Guest.deviceGate(owner, user, m, first);
     if (g === "rot") { await signOut(auth).catch(() => {}); return; }
+    if (g === "pending") { showOnly("none"); unwatchDev?.(); unwatchDev = Guest.showPending(owner, user.uid, () => startGuest(owner, user), () => { closedNote = { title: "Cihaz engellendi", text: "Bu cihazın erişimi yetkili kişi tarafından engellendi. Erişim için yetkili kişiyle iletişime geçin." }; Guest.showEnded(closedNote); signOut(auth).catch(() => {}); }); return; }
     if (g === "blocked") { closedNote = { title: "Cihaz engellendi", text: "Bu cihazın erişimi yetkili kişi tarafından engellendi. Erişim için yetkili kişiyle iletişime geçin." }; Guest.showEnded(closedNote); showOnly("none"); await signOut(auth).catch(() => {}); return; }
     unwatchDev?.(); unwatchDev = Guest.watchDevice(owner, user.uid, d => { if (d?.blocked) guestOut("Bu cihazın erişimi yetkili kişi tarafından engellendi."); });
   }

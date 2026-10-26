@@ -50,9 +50,9 @@ service cloud.firestore {
 
     // Misafir cihaz kaydı: misafir yalnızca kendi cihazını bir kez kaydeder ve "son görülme"sini günceller; engelleme (blocked) yalnızca sahip tarafından yazılır
     match /users/{owner}/members/{gid}/devices/{dev} {
-      allow get: if request.auth != null && request.auth.uid == gid;
+      allow read: if request.auth != null && request.auth.uid == gid;
       allow create: if request.auth != null && request.auth.uid == gid
-        && request.resource.data.keys().hasOnly(['label', 'first', 'last'])
+        && request.resource.data.keys().hasOnly(['label', 'first', 'last', 'plat', 'app', 'ok'])
         && request.resource.data.label is string && request.resource.data.label.size() < 60
         && exists(/databases/$(database)/documents/users/$(owner)/members/$(gid));
       allow update: if request.auth != null && request.auth.uid == gid

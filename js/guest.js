@@ -3,8 +3,8 @@
 //   users/{sahip}/invites/{kod}        davet (e-posta ayarı kopyası)
 //   users/{sahip}/guestReqs/{misafirUid}  onay isteği {gid, code, name, unit, status, at}
 //   users/{sahip}/members/{misafirUid}    onaylı üye {name, unit, factories[], mode, expires|null}
-import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously, signInWithEmailAndPassword, createAuxUser, changeAuxPassword, serverTimestamp } from "./firebase.js?v=20261025a";
-import { esc, toast, confirmBox } from "./ui.js?v=20261025a";
+import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously, signInWithEmailAndPassword, createAuxUser, changeAuxPassword, serverTimestamp } from "./firebase.js?v=20261026b";
+import { esc, toast, confirmBox } from "./ui.js?v=20261026b";
 
 const Q = new URLSearchParams(location.search);
 export const linkInfo = () => {
@@ -27,6 +27,8 @@ export const leftText = m => {
   const h = Math.floor(d / 36e5), mi = Math.floor((d % 36e5) / 6e4);
   return h ? `${h} sa ${mi} dk kaldı` : `${mi} dk kaldı`;
 };
+const hleft = d => { const h = Math.ceil(d / 36e5); return h > 48 ? Math.ceil(h / 24) + " gün" : h + " saat"; };
+const isPend = d => d.ok === false && !d.ap && !d.blocked, pendOf = l => (l || []).filter(isPend).length;
 const ago = t => new Date(t).toLocaleString("tr-TR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 const REQ = (o, g) => doc(db, `users/${o}/guestReqs/${g}`), MEM = (o, g) => doc(db, `users/${o}/members/${g}`);
 export const getMember = async (o, g) => { try { const d = await getDoc(MEM(o, g)); return d.exists() ? d.data() : null; } catch { return null; } };
@@ -50,7 +52,7 @@ const boxHtml = inner => `<div class="box"><div class="stripe" style="border-rad
   <div class="brand" style="margin-bottom:10px"><div><h1 style="font-size:20px">HSE Verim Modülü</h1><span class="muted" style="font-size:12px">Misafir erişimi</span></div></div>${inner}</div>`;
 
 // Davet bağlantısı yapıştırma ekranı (ana ekran uygulaması gibi bağlantısız açılan yerlerde)
-const parseInvite = t => { t = String(t || "").trim(); let personal = false, ek = ""; try { const u = new URL(t), d = u.searchParams.get("d"), m = u.searchParams.get("misafir"); if (d) { t = d; personal = true; ek = u.searchParams.get("k") || ""; } else if (m) t = m; } catch {} const [owner, code] = t.split("."); if (!(owner && code)) return null; return { owner, code, ek, personal: personal || code.length === 16 }; };
+const parseInvite = t => { t = String(t || "").trim(); { const u = t.match(/https?:\/\/[^\s]+/); if (u) t = u[0]; } let personal = false, ek = ""; try { const u = new URL(t), d = u.searchParams.get("d"), m = u.searchParams.get("misafir"); if (d) { t = d; personal = true; ek = u.searchParams.get("k") || ""; } else if (m) t = m; } catch {} const [owner, code] = t.split("."); if (!(owner && code)) return null; return { owner, code, ek, personal: personal || code.length === 16 }; };
 export function showInviteEntry(onProceed, onBack) {
   const s = screen();
   s.innerHTML = boxHtml(`<div class="muted" style="line-height:1.55;margin-bottom:10px">Yetkili kullanıcının size gönderdiği <b>davet bağlantısını</b> aşağıya yapıştırın. Sonraki ekranda bilgilerinizi yazıp onaya göndereceksiniz.</div>
@@ -223,7 +225,7 @@ const newPid = taken => { // 6 hane, serbest dizilim; en az 2 harf ve en az 2 ra
 };
 // Önceki kayıtları bul: kişi kaydı (ID) + adı eşleşen, sahibi artık üye olmayan (sahipsiz) taslaklar
 async function findPrev(o, name, gid) {
-  const S = await import("./store.js?v=20261025a"), n = normName(name);
+  const S = await import("./store.js?v=20261026b"), n = normName(name);
   const people = (await loadPeople(o)).filter(p => p.norm === n);
   const mems = await getDocs(collection(db, `users/${o}/members`)).then(s => new Set(s.docs.map(d => d.id))).catch(() => new Set());
   const uids = new Set(); people.forEach(p => (p.uids || []).forEach(u => { if (u !== gid && !mems.has(u)) uids.add(u); }));
@@ -237,7 +239,7 @@ async function findPrev(o, name, gid) {
   return { person: people[0] || null, pid: people[0]?.id || null, uids, count };
 }
 async function migrateGuest(oldUids, newUid, name) {
-  const S = await import("./store.js?v=20261025a"); let n = 0;
+  const S = await import("./store.js?v=20261026b"); let n = 0;
   for (const f of await S.listFactories()) for (const y of await S.listYears(f.id)) for (const c of GCOLLS) {
     const all = await S.listMonthDocs(f.id, y, c), ids = new Set(all.map(d => d.id));
     for (const d of all) {
@@ -313,7 +315,7 @@ const memWrap = (n, inner) => n >= 2
 let unMem = null, boxOpen = false;
 export const reset = () => { boxOpen = false; memOpen = false; };
 export async function renderSettings(box, { ownerUid, factories, onChange }) {
-  unMem?.(); unMem = null;
+  unMem?.();
   const invs = await getDocs(collection(db, `users/${ownerUid}/invites`)).then(s => s.docs.map(d => ({ id: d.id, ...d.data() }))).catch(() => []);
   const cfgD = await getDoc(doc(db, `users/${ownerUid}/meta/guestcfg`)).catch(() => null), cfg = cfgD?.exists() ? cfgD.data() : {};
   const reqs = await getDocs(collection(db, `users/${ownerUid}/guestReqs`)).then(s => s.docs.map(d => ({ id: d.id, ...d.data() }))).catch(() => []);
@@ -333,16 +335,16 @@ export async function renderSettings(box, { ownerUid, factories, onChange }) {
   const legacy = mems.filter(m => !m.inv), pins = await getDocs(collection(db, `users/${ownerUid}/pinvites`)).then(s => s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => b.createdAt - a.createdAt)).catch(() => []);
   await Promise.all(pins.map(async p => { devs[p.id] = await getDocs(collection(db, `users/${ownerUid}/members/${p.uid}/devices`)).then(s => s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => b.last - a.last)).catch(() => []); }));
   const pend = reqs.filter(r => r.status === "pending").sort((a, b) => b.at - a.at);
-  const nAkt = pins.filter(p => { const m = mems.find(x => x.id === p.uid); return m && !p.closed && isLive(m); }).length, sub = [`${pins.length} kişi`, nAkt ? `${nAkt} aktif` : "", pend.length ? `${pend.length} onay bekliyor` : ""].filter(Boolean).join(" · ");
+  const nAkt = pins.filter(p => { const m = mems.find(x => x.id === p.uid); return m && !p.closed && isLive(m); }).length, sub = [`${pins.length} kişi`, nAkt ? `${nAkt} aktif` : "", (pend.length + pins.reduce((n, p) => n + pendOf(devs[p.id]), 0)) ? `${pend.length + pins.reduce((n, p) => n + pendOf(devs[p.id]), 0)} onay bekliyor` : ""].filter(Boolean).join(" · ");
   box.innerHTML = `<button type="button" id="gAcc" aria-expanded="${boxOpen}" aria-label="Misafir Kullanıcılar bölümünü ${boxOpen ? "kapat" : "aç"}" style="display:flex;align-items:center;gap:12px;width:100%;min-height:40px;height:auto;padding:0;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer"><span style="flex:1;min-width:0"><h2 style="margin:0">Misafir Kullanıcılar</h2><div class="muted" style="font-size:13px;margin-top:4px;font-weight:600">${sub}</div></span><span style="flex:0 0 40px;width:40px;height:40px;border-radius:12px;border:1.5px solid var(--gd);color:var(--gd);box-sizing:border-box;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="transition:transform .15s;${boxOpen ? "transform:rotate(180deg)" : ""}"><path d="M6 9l6 6 6-6"/></svg></span></button>
     <div class="col1" id="gAccB" ${boxOpen ? "" : "hidden"} style="gap:14px;border-top:1px solid var(--line);padding-top:14px"><div class="muted" style="font-size:13px;line-height:1.5">Saha yardımcınıza veya denetim yapacak yetkiliye kişiye özel davet bağlantısı gönderin; bağlantıya dokunan onay beklemeden girer. Misafir fabrika bazlı yetkilendirilir.</div>
     <div class="col1" style="gap:8px"><span class="hd">KİŞİYE ÖZEL DAVET (önerilen)</span>
-      <div class="muted" style="font-size:12.5px;line-height:1.55">Her misafir için ayrı bağlantı üretilir. Misafir bağlantıya dokunur, onay beklemeden doğrudan girer; hangi tarayıcı veya telefonda açarsa açsın aynı kişi olarak tanınır.</div>
+      <div class="muted" style="font-size:12.5px;line-height:1.55">Her misafir için ayrı bağlantı üretilir. Bağlantı geçerlilik süresi içinde kişinin kendi cihazları (iPhone 2, Android 1) onaysız girer; sonradan gelen yeni cihaz sizin onayınızı bekler.</div>
       <div><button class="sm" id="pNew">Misafir davet et</button></div>
       ${pins.length ? pins.map(p => { const m = mems.find(x => x.id === p.uid), dead = p.closed || !m, exp = m && !isLive(m); const stt = dead ? ["Kapatıldı", "background:#FADAD7;color:#8E1B16"] : exp ? ["Süresi doldu", "background:#FADAD7;color:#8E1B16"] : m.lastSeen ? ["Aktif", ""] : ["Link açılmadı", "background:#FBE9C6;color:#6B3F00"];
-        return `<div class="it" style="gap:10px;flex-wrap:wrap"><div class="grow"><b>${esc(p.name)}</b> <span class="tag" style="${stt[1]}">${stt[0]}</span>${(p.pid || m?.pid) ? ` <span class="muted" style="font-size:12px">ID ${esc(p.pid || m.pid)}</span>` : ""}<div class="muted" style="font-size:12.5px">${[esc(fname(p.factories)), m && !dead ? esc(leftText(m)) : ""].filter(Boolean).join(" · ")}</div><div class="muted" style="font-size:12.5px">${m?.lastSeen ? "Son görülme: " + ago(m.lastSeen) : "Gönderildi: " + ago(p.createdAt)}</div></div>
+        return `<div class="it" style="gap:10px;flex-wrap:wrap"><div class="grow"><b>${esc(p.name)}</b> <span class="tag" style="${stt[1]}">${stt[0]}</span>${(p.pid || m?.pid) ? ` <span class="muted" style="font-size:12px">ID ${esc(p.pid || m.pid)}</span>` : ""}<div class="muted" style="font-size:12.5px">${[esc(fname(p.factories)), m && !dead ? esc(leftText(m)) : ""].filter(Boolean).join(" · ")}</div>${p.linkUntil && !dead ? `<div class="muted" style="font-size:12.5px">${ms(p.linkUntil) > Date.now() ? "Bağlantı " + hleft(ms(p.linkUntil) - Date.now()) + " geçerli" : "Bağlantı süresi doldu (yeni cihaz onay ister)"}</div>` : ""}<div class="muted" style="font-size:12.5px">${m?.lastSeen ? "Son görülme: " + ago(m.lastSeen) : "Gönderildi: " + ago(p.createdAt)}</div></div>
         <div class="row" style="gap:6px">${dead || exp ? `<button class="sm sec" data-pre="${p.id}">Yeniden aç</button><button class="sm sec" data-pdel="${p.id}" style="color:#B3261E;border-color:#B3261E">Sil</button>` : `<button class="sm sec" data-psend="${p.id}">Mesajı yeniden gönder</button><button class="sm sec" data-prot="${p.id}">Yeni link üret</button><button class="sm sec" data-pcl="${p.id}" style="color:#B3261E;border-color:#B3261E">Linki kapat</button>`}</div>
-        ${(devs[p.id] || []).length ? `<details data-pdv="${p.id}" ${devOpen.has(p.id) ? "open" : ""} style="width:100%"><summary style="cursor:pointer;font-weight:700;font-size:13px">Cihazlar (${devs[p.id].length})</summary><div class="col1" style="gap:6px;margin-top:8px">${devs[p.id].map(d => `<div class="row" style="gap:8px;flex-wrap:nowrap;justify-content:space-between;align-items:center"><div style="min-width:0"><b style="font-size:13px">${esc(d.label || "Cihaz")}</b>${d.blocked ? ' <span class="tag" style="background:#FADAD7;color:#8E1B16">Engelli</span>' : ""}<div class="muted" style="font-size:12px">İlk giriş ${ago(d.first)} · Son ${ago(d.last)}</div></div><button class="sm sec" data-dblk="${p.uid}|${d.id}|${d.blocked ? 0 : 1}" style="flex:0 0 auto;${d.blocked ? "" : "color:#B3261E;border-color:#B3261E"}">${d.blocked ? "Engeli kaldır" : "Engelle"}</button></div>`).join("")}</div></details>` : ""}</div>`; }).join("") : ""}</div>
+        ${(devs[p.id] || []).length ? `<details data-pdv="${p.id}" ${devOpen.has(p.id) ? "open" : ""} style="width:100%"><summary style="cursor:pointer;font-weight:700;font-size:13px">Cihazlar (${devs[p.id].length})${pendOf(devs[p.id]) ? ` <span class="tag" style="background:#FBE9C6;color:#6B3F00">${pendOf(devs[p.id])} onay bekliyor</span>` : ""}</summary><div class="col1" style="gap:6px;margin-top:8px">${devs[p.id].map(d => `<div class="row" style="gap:8px;flex-wrap:nowrap;justify-content:space-between;align-items:center"><div style="min-width:0"><b style="font-size:13px">${esc(d.label || "Cihaz")}</b>${d.blocked ? ' <span class="tag" style="background:#FADAD7;color:#8E1B16">Engelli</span>' : isPend(d) ? ' <span class="tag" style="background:#FBE9C6;color:#6B3F00">Onay bekliyor</span>' : ""}<div class="muted" style="font-size:12px">İlk giriş ${ago(d.first)} · Son ${ago(d.last)}</div></div><div class="row" style="gap:6px;flex:0 0 auto;flex-wrap:nowrap">${isPend(d) ? `<button class="sm" data-dap="${p.uid}|${d.id}">Onayla</button>` : ""}<button class="sm sec" data-dblk="${p.uid}|${d.id}|${d.blocked ? 0 : 1}" style="${d.blocked ? "" : "color:#B3261E;border-color:#B3261E"}">${d.blocked ? "Engeli kaldır" : "Engelle"}</button></div></div>`).join("")}</div></details>` : ""}</div>`; }).join("") : ""}</div>
     <details><summary style="cursor:pointer;font-weight:700">Ortak davet bağlantısı (onay isteyen yöntem)</summary><div class="col1" style="gap:12px;margin-top:10px">
     <div class="col1" style="gap:8px"><span class="hd">DAVET BAĞLANTISI</span>
       ${inv ? `<div class="row" style="flex-wrap:nowrap;gap:10px;align-items:stretch"><input class="inp" id="gLink" readonly value="${esc(link)}" onfocus="this.select()" style="flex:1;min-width:0"><button class="sm" id="gClose" aria-label="Davet bağlantısını kapat" title="Davet bağlantısını kapat" style="flex:0 0 32px;width:32px;height:32px;min-height:0;align-self:center;padding:0;background:#B3261E;border-color:#B3261E;color:#fff;font-size:26px;font-weight:400;line-height:1;display:grid;place-items:center;margin-right:6px">×</button></div><div class="row"><button class="sm" id="gCopy">Kopyala</button><button class="sm sec" id="gShare">Paylaş</button><button class="sm sec" id="gRegen">Bağlantıyı yenile</button></div>
@@ -359,13 +361,16 @@ export async function renderSettings(box, { ownerUid, factories, onChange }) {
       <input class="inp" id="gSvc" placeholder="Service ID" value="${esc(cfg.service || "")}"><input class="inp" id="gTpl" placeholder="Template ID" value="${esc(cfg.template || "")}"><input class="inp" id="gKey" placeholder="Public Key" value="${esc(cfg.key || "")}">
       <div><button class="sm" id="gCfg">Kaydet</button></div></div></details></div>`;
   box.querySelector("#gAcc").onclick = e => { const b = e.currentTarget, body = box.querySelector("#gAccB"); boxOpen = body.hidden; body.hidden = !boxOpen; b.setAttribute("aria-expanded", boxOpen); b.setAttribute("aria-label", "Misafir Kullanıcılar bölümünü " + (boxOpen ? "kapat" : "aç")); b.querySelector("svg").style.transform = boxOpen ? "rotate(180deg)" : ""; };
-  { // Canlı durum: bir misafir girince (son görülme, yeni üye) sayfa yenilemeden listeyi güncelle
-    let first = true, t = null;
-    unMem = onSnapshot(collection(db, `users/${ownerUid}/members`), () => {
-      if (first) { first = false; return; }
-      if (!box.isConnected) { unMem?.(); unMem = null; return; }
+  { // Canlı durum: misafir girince / yeni cihaz onay isteyince sayfa yenilemeden listeyi güncelle
+    let t = null; const offs = [];
+    const fire = () => {
+      if (!box.isConnected) { unMem?.(); return; }
       clearTimeout(t); t = setTimeout(() => { if (box.isConnected && !box.contains(document.activeElement && document.activeElement.matches("input,textarea,select") ? document.activeElement : null)) renderSettings(box, { ownerUid, factories, onChange }); }, 500);
-    }, () => {});
+    };
+    const watch = c => { let first = true; offs.push(onSnapshot(c, () => { if (first) { first = false; return; } fire(); }, () => {})); };
+    watch(collection(db, `users/${ownerUid}/members`));
+    pins.forEach(p => watch(collection(db, `users/${ownerUid}/members/${p.uid}/devices`)));
+    unMem = () => { offs.forEach(o => o()); clearTimeout(t); unMem = null; };
   }
   box.querySelector("#gMemBox")?.addEventListener("toggle", e => { memOpen = e.target.open; });
   const q = s => box.querySelector(s), refresh = () => { renderSettings(box, { ownerUid, factories, onChange }); onChange?.(); };
@@ -397,6 +402,7 @@ export async function renderSettings(box, { ownerUid, factories, onChange }) {
   q("#pNew").onclick = () => inviteDialog(ownerUid, factories, refresh);
   const pin = id => pins.find(p => p.id === id);
   box.querySelectorAll("[data-pdv]").forEach(d => d.addEventListener("toggle", () => { d.open ? devOpen.add(d.dataset.pdv) : devOpen.delete(d.dataset.pdv); }));
+  box.querySelectorAll("[data-dap]").forEach(b => b.onclick = async () => { const [u, dv] = b.dataset.dap.split("|"); await updateDoc(doc(db, `users/${ownerUid}/members/${u}/devices/${dv}`), { ap: true }).catch(e => toast("Kaydedilemedi: " + (e.message || e))); toast("Cihaz onaylandı."); refresh(); });
   box.querySelectorAll("[data-dblk]").forEach(b => b.onclick = async () => { const [u, dv, v] = b.dataset.dblk.split("|"); await updateDoc(doc(db, `users/${ownerUid}/members/${u}/devices/${dv}`), { blocked: v === "1" }).catch(e => toast("Kaydedilemedi: " + (e.message || e))); toast(v === "1" ? "Cihaz engellendi." : "Engel kaldırıldı."); refresh(); });
   box.querySelectorAll("[data-prot]").forEach(b => b.onclick = async () => { const p = pin(b.dataset.prot);
     if (!(await confirmBox("Yeni link üretilsin mi?", `${p.name} için eski bağlantı ve eski bağlantıyla açılmış tüm oturumlar geçersiz olur. Kişi ve paylaşımları korunur; yeni bağlantıyı ona göndermeniz gerekir.`, "Yeni link üret", true))) return;
@@ -404,10 +410,11 @@ export async function renderSettings(box, { ownerUid, factories, onChange }) {
     try {
       const np = tokGen(), ek = p.ek || p.token;
       await changeAuxPassword(pEmail(ek), p.token, np);
-      await updateDoc(PIN(ownerUid, p.uid), { token: np, ek });
-      await updateDoc(MEM(ownerUid, p.uid), { rot: serverTimestamp() }).catch(() => {});
+      const lh = p.linkH || 24, lu = Date.now() + lh * 36e5;
+      await updateDoc(PIN(ownerUid, p.uid), { token: np, ek, linkH: lh, linkUntil: lu });
+      await updateDoc(MEM(ownerUid, p.uid), { rot: serverTimestamp(), linkUntil: lu }).catch(() => {});
       for (const d of devs[p.id] || []) await deleteDoc(doc(db, `users/${ownerUid}/members/${p.uid}/devices/${d.id}`)).catch(() => {});
-      toast("Yeni link üretildi."); const np2 = { ...p, token: np, ek }; refresh(); sendDialog(ownerUid, np2);
+      toast("Yeni link üretildi."); const np2 = { ...p, token: np, ek, linkH: lh, linkUntil: lu }; refresh(); sendDialog(ownerUid, np2);
     } catch (e) { b.disabled = false; toast("Üretilemedi: " + (e.code === "auth/invalid-credential" ? "Hesap şifresi eşleşmedi." : e.message || e)); }
   });
   box.querySelectorAll("[data-psend]").forEach(b => b.onclick = () => sendDialog(ownerUid, pin(b.dataset.psend)));
@@ -441,15 +448,17 @@ const PIN = (o, id) => doc(db, `users/${o}/pinvites/${id}`);
 const tokGen = () => Array.from(crypto.getRandomValues(new Uint8Array(16)), b => "abcdefghjkmnpqrstuvwxyz23456789"[b % 31]).join("");
 const pLink = (o, tok, ek) => `${location.origin}${location.pathname}?d=${o}.${tok}${ek && ek !== tok ? "&k=" + ek : ""}`;
 const phoneNo = p => { let d = String(p || "").replace(/\D/g, ""); if (!d) return ""; if (d.startsWith("00")) d = d.slice(2); else if (d.startsWith("0")) d = "90" + d.slice(1); else if (d.length === 10) d = "90" + d; return d; };
-const pMsg = (name, link) => `Sayın ${name},\nHSE Verim Modülü denetim ekranınız hazır. Açmak için bağlantıya dokunmanız yeterlidir:\n${link}\n\nBu bağlantı size özeldir, lütfen başkasıyla paylaşmayınız.\nİyi çalışmalar dileriz.`;
+const VALID = [[24, "24 saat"], [48, "48 saat"], [168, "7 gün"]], validTxt = h => (VALID.find(v => v[0] === +h) || [0, ""])[1];
+// WhatsApp için kalın yazı *…*; e-postada düz metin
+const pMsg = (name, link, h, wa = true) => { const b = t => (wa ? `*${t}*` : t), v = validTxt(h); return `${b(`Sayın ${name},`)}\nHSE Verim Modülü davet bağlantınız hazır. Açmak için bağlantıya dokunmanız yeterlidir:\n${link}\nBu bağlantı size özeldir, lütfen başkasıyla paylaşmayınız.${v ? `\nDavet bağlantısı ${v} geçerlidir.` : ""}\n${b("İyi çalışmalar dileriz.")}`; };
 
 export function sendDialog(ownerUid, p) {
-  const link = pLink(ownerUid, p.token, p.ek), msg = pMsg(p.name, link), no = phoneNo(p.phone);
+  const link = pLink(ownerUid, p.token, p.ek), msg = pMsg(p.name, link, p.linkH), mail = pMsg(p.name, link, p.linkH, false), no = phoneNo(p.phone);
   const m = modal(`<h2>Davet hazır</h2><div class="muted" style="font-size:12.5px;line-height:1.5">${esc(p.name)} için kişiye özel bağlantı. Mesaj hazır gelir, siz yalnızca gönderirsiniz.</div>
-    <div style="background:var(--calc,#EEF3F1);border-radius:12px;padding:10px 12px;font-size:12.5px;line-height:1.55;white-space:pre-line;overflow-wrap:anywhere">${esc(msg)}</div>
+    <div style="background:var(--calc,#EEF3F1);border-radius:12px;padding:10px 12px;font-size:12.5px;line-height:1.55;white-space:pre-line;overflow-wrap:anywhere">${esc(msg).replace(/\*([^*]+)\*/g, "<b>$1</b>")}</div>
     <div class="col1" style="gap:8px"><button data-wa>WhatsApp ile gönder</button><div class="row2" style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button class="sec" data-ml style="white-space:nowrap;padding:0 6px;font-size:13px">Mail ile gönder</button><button class="sec" data-cp style="white-space:nowrap;padding:0 6px;font-size:13px">Bağlantıyı kopyala</button></div><button class="sec" data-x>Kapat</button></div>`);
   m.querySelector("[data-wa]").onclick = () => { window.open(`https://wa.me/${no}?text=${encodeURIComponent(msg)}`, "_blank"); };
-  m.querySelector("[data-ml]").onclick = () => { location.href = `mailto:?subject=${encodeURIComponent("HSE Verim Modülü davet bağlantınız")}&body=${encodeURIComponent(msg)}`; };
+  m.querySelector("[data-ml]").onclick = () => { location.href = `mailto:?subject=${encodeURIComponent("HSE Verim Modülü davet bağlantınız")}&body=${encodeURIComponent(mail)}`; };
   m.querySelector("[data-cp]").onclick = async () => { try { await navigator.clipboard.writeText(link); toast("Bağlantı kopyalandı."); } catch { toast("Kopyalanamadı."); } };
   m.querySelector("[data-x]").onclick = () => m.remove();
 }
@@ -458,12 +467,13 @@ export function inviteDialog(ownerUid, factories, done) {
     <div class="col1" style="gap:8px"><label class="hd">AD SOYAD *</label><input class="inp" id="pnN" autocomplete="off" maxlength="60">
     <label class="hd">TELEFON (WHATSAPP İÇİN, İSTEĞE BAĞLI)</label><input class="inp" id="pnP" inputmode="tel" autocomplete="off" placeholder="05xx xxx xx xx">
     ${factories.length > 1 ? `<label class="hd">FABRİKA</label><select class="inp" id="pnF" style="font-weight:600">${factories.map(f => `<option value="${f.id}">${esc(f.name)}</option>`).join("")}</select>` : ""}
-    <label class="hd">SÜRE</label><select class="inp" id="pnD" style="font-weight:600"><option value="30">30 gün</option><option value="7">7 gün</option><option value="0">Süresiz</option></select>
+    <label class="hd">BAĞLANTI GEÇERLİLİĞİ</label><select class="inp" id="pnH" style="font-weight:600">${VALID.map(v => `<option value="${v[0]}">${v[1]}</option>`).join("")}</select>
+    <label class="hd">ERİŞİM SÜRESİ</label><select class="inp" id="pnD" style="font-weight:600"><option value="30">30 gün</option><option value="7">7 gün</option><option value="0">Süresiz</option></select>
     <div class="muted" style="font-size:12.5px;line-height:1.5">Hangi bölümleri göreceği ve yetkisi, denetim sayfasındaki Paylaş ekranından belirlenir.</div></div>
     <div class="row" style="justify-content:flex-end;gap:8px"><button class="sec" data-x>Vazgeç</button><button data-s>Davet oluştur</button></div>`);
   m.querySelector("[data-x]").onclick = () => m.remove();
   m.querySelector("[data-s]").onclick = async e => {
-    const name = m.querySelector("#pnN").value.trim(), phone = m.querySelector("#pnP").value.trim(), days = +m.querySelector("#pnD").value;
+    const name = m.querySelector("#pnN").value.trim(), phone = m.querySelector("#pnP").value.trim(), days = +m.querySelector("#pnD").value, lh = +m.querySelector("#pnH").value;
     if (name.length < 3) return toast("Ad soyadı yazın.");
     const fs = m.querySelector("#pnF") ? [m.querySelector("#pnF").value] : factories.slice(0, 1).map(f => f.id);
     if (!fs.length) return toast("Önce bir fabrika oluşturun.");
@@ -472,8 +482,8 @@ export function inviteDialog(ownerUid, factories, done) {
       const token = tokGen(), uid = await createAuxUser(pEmail(token), token), expires = days ? new Date(Date.now() + days * 864e5) : null;
       const cg = await getDoc(doc(db, `users/${ownerUid}/meta/guestcfg`)).catch(() => null), ppl = await loadPeople(ownerUid), pid = newPid(new Set(ppl.map(p => p.id)));
       await setDoc(PPL(ownerUid, pid), { name, norm: normName(name), unit: "", createdAt: Date.now(), uids: [uid] });
-      await setDoc(MEM(ownerUid, uid), { ntfy: cg?.exists() ? cg.data().ntfy || null : null, name, unit: "", pid, inv: true, factories: fs, mode: expires ? "24h" : "perm", expires, createdAt: Date.now() });
-      const p = { name, phone, uid, token, ek: token, pid, factories: fs, expires, closed: false, createdAt: Date.now() };
+      await setDoc(MEM(ownerUid, uid), { ntfy: cg?.exists() ? cg.data().ntfy || null : null, name, unit: "", pid, inv: true, factories: fs, mode: expires ? "24h" : "perm", expires, linkUntil: Date.now() + lh * 36e5, createdAt: Date.now() });
+      const p = { name, phone, uid, token, ek: token, pid, factories: fs, expires, closed: false, linkH: lh, linkUntil: Date.now() + lh * 36e5, createdAt: Date.now() };
       await setDoc(PIN(ownerUid, uid), p);
       m.remove(); done?.(); sendDialog(ownerUid, p);
     } catch (er) { e.target.disabled = false; e.target.textContent = "Davet oluştur"; toast("Oluşturulamadı: " + (er.code === "auth/operation-not-allowed" ? "E-posta/Parola girişi Firebase'de kapalı." : er.message || er)); }
@@ -483,26 +493,59 @@ export function inviteDialog(ownerUid, factories, done) {
 // ---------------- Misafir: bağlantıdan giriş / kapalı ekranı / kısayol kartı ----------------
 
 // ---- Cihaz kaydı: her tarayıcı ortamı (Safari, kısayol, Chrome…) bir kez kaydedilir; yeni cihazda yetkiliye bildirim, yetkili cihazı engelleyebilir ----
-const devId = () => { try { let d = localStorage.getItem("hse_dev"); if (!d) { d = Array.from(crypto.getRandomValues(new Uint8Array(8)), b => b.toString(16).padStart(2, "0")).join(""); localStorage.setItem("hse_dev", d); } return d; } catch { return "x" + Math.random().toString(16).slice(2, 12); } };
-const devLabel = () => {
+const fpId = () => { const t = [navigator.userAgent, screen.width + "x" + screen.height, Intl.DateTimeFormat().resolvedOptions().timeZone, navigator.language].join("|"); let h = 5381; for (let i = 0; i < t.length; i++) h = ((h * 33) ^ t.charCodeAt(i)) >>> 0; return "f" + h.toString(16); };
+// Cihaz numarası: yerel hafıza → çerez → (ikisi de kapalıysa) cihaz özelliklerinden türetilen sabit numara
+const devId = () => {
+  let d = null; try { d = localStorage.getItem("hse_dev"); } catch {}
+  if (!d) { const m = document.cookie.match(/(?:^|; )hse_dev=([^;]+)/); d = m ? m[1] : null; }
+  if (!d) d = Array.from(crypto.getRandomValues(new Uint8Array(8)), b => b.toString(16).padStart(2, "0")).join("");
+  let ok = false; try { localStorage.setItem("hse_dev", d); ok = localStorage.getItem("hse_dev") === d; } catch {}
+  try { document.cookie = `hse_dev=${d}; max-age=31536000; path=/; SameSite=Lax`; if (!ok && document.cookie.includes("hse_dev=" + d)) ok = true; } catch {}
+  return ok ? d : fpId();
+};
+const devInfo = () => {
   const ua = navigator.userAgent, ios = /iphone|ipad|ipod/i.test(ua), and = /android/i.test(ua), pc = ios ? (/ipad/i.test(ua) ? "iPad" : "iPhone") : and ? "Android" : /windows/i.test(ua) ? "Windows" : /mac/i.test(ua) ? "Mac" : "Cihaz";
   const sa = matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
-  const br = sa ? "Ana ekran kısayolu" : /whatsapp/i.test(ua) ? "WhatsApp" : ios && !/safari/i.test(ua) ? "Uygulama içi tarayıcı" : /fban|fbav|instagram/i.test(ua) ? "Uygulama içi tarayıcı" : /edg/i.test(ua) ? "Edge" : /crios|chrome/i.test(ua) ? "Chrome" : /fxios|firefox/i.test(ua) ? "Firefox" : /safari/i.test(ua) ? "Safari" : "Tarayıcı";
-  return `${pc} · ${br}`;
+  const inapp = !sa && (/whatsapp|fban|fbav|instagram/i.test(ua) || (ios && !/safari/i.test(ua)));
+  const br = sa ? "Ana ekran kısayolu" : inapp ? "Uygulama içi tarayıcı" : /edg/i.test(ua) ? "Edge" : /crios|chrome/i.test(ua) ? "Chrome" : /fxios|firefox/i.test(ua) ? "Firefox" : /safari/i.test(ua) ? "Safari" : "Tarayıcı";
+  return { label: `${pc} · ${br}`, plat: ios ? "ios" : and ? "and" : "pc", app: inapp };
 };
+const HAK = { ios: 2, and: 1, pc: 1 };
 export const rotated = (user, m) => { const lat = Date.parse(user?.metadata?.lastSignInTime || "") || 0, rot = m?.rot ? ms(m.rot) : 0; return !!(rot && lat && lat + 2000 < rot); };
-// "ok" | "blocked" | "rot"
+// "ok" | "blocked" | "rot" | "pending"
+// Kurallar: pencere içinde (bağlantı geçerliliği) platforma göre cihaz hakkı (iPhone 2, Android 1, bilgisayar 1; uygulama içi tarayıcı sayılmaz);
+// ilk cihazdan farklı platform veya pencere sonrası yeni cihaz → yetkili onayı
 export async function deviceGate(owner, user, m, first) {
   if (rotated(user, m)) return "rot";
   DEV.id = devId();
-  const ref = doc(db, `users/${owner}/members/${user.uid}/devices/${DEV.id}`); let d = null;
+  const col = collection(db, `users/${owner}/members/${user.uid}/devices`), ref = doc(db, `users/${owner}/members/${user.uid}/devices/${DEV.id}`); let d = null, all = [];
   try { d = await getDoc(ref); } catch {}
-  if (d?.exists() && d.data().blocked) return "blocked";
-  if (d && !d.exists()) {
-    const label = devLabel();
-    try { await setDoc(ref, { label, first: Date.now(), last: Date.now() }); if (!first) pushRaw(m.ntfy, { title: "HSE Verim · Yeni cihaz", message: `${m.name} yeni bir cihazdan girdi (${label}). Tanımıyorsanız Ayarlar'dan engelleyin.`, click: `${location.origin}${location.pathname}`, priority: 4, tags: ["warning"] }); } catch {}
+  if (d?.exists()) {
+    const x = d.data();
+    if (x.blocked) return "blocked";
+    if (x.ok === false && !x.ap) return "pending";
+    return "ok";
   }
-  return "ok";
+  if (!d) return "ok"; // okunamadı (kural yayınlanmamış): girişe dokunma
+  try { all = (await getDocs(col)).docs.map(z => z.data()); } catch {}
+  const i = devInfo(), now = Date.now(), until = m.linkUntil ? ms(m.linkUntil) : 0, inWin = !until || now <= until;
+  const okd = all.filter(z => z.ok !== false || z.ap).sort((a, b) => a.first - b.first), f0 = okd[0];
+  let ok = true;
+  if (f0 && f0.plat && f0.plat !== i.plat) ok = false;
+  else if (!inWin && okd.length) ok = false;
+  else if (!i.app && okd.filter(z => !z.app && !z.blocked).length >= HAK[f0?.plat || i.plat]) ok = false;
+  try {
+    await setDoc(ref, { label: i.label, plat: i.plat, app: i.app, ok, first: now, last: now });
+    if (!first || !ok) pushRaw(m.ntfy, { title: ok ? "HSE Verim · Yeni cihaz" : "HSE Verim · Cihaz onayı bekliyor", message: ok ? `${m.name} yeni bir cihazdan girdi (${i.label}). Tanımıyorsanız Ayarlar'dan engelleyin.` : `${m.name} yeni bir cihazdan girmek istiyor (${i.label}). Ayarlar > Misafir Kullanıcılar'dan onaylayın veya engelleyin.`, click: `${location.origin}${location.pathname}`, priority: 4, tags: ["warning"] });
+  } catch { return "ok"; }
+  return ok ? "ok" : "pending";
+}
+// Onay bekleme ekranı: yetkili onaylayınca kendiliğinden açılır
+export function showPending(owner, uid, onOk, onBlocked) {
+  const s = screen();
+  s.innerHTML = boxHtml(`<h2 style="margin-bottom:6px">Onay bekleniyor</h2><div class="muted" style="line-height:1.55">Bu bağlantı bu cihazda otomatik açılmıyor. İsteğiniz yetkili kişiye iletildi. Onaylanınca bu ekran kendiliğinden açılır. Sayfayı kapatabilirsiniz.</div>`);
+  const off = onSnapshot(doc(db, `users/${owner}/members/${uid}/devices/${DEV.id}`), sn => { const x = sn.data(); if (!x) return; if (x.blocked) { off(); onBlocked?.(); } else if (x.ap) { off(); hideRequest(); onOk(); } }, () => {});
+  return off;
 }
 export function showEnded({ title, text, retry }) {
   const s = screen();
