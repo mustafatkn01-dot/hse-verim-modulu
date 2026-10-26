@@ -1,16 +1,16 @@
 // İş Kazası · Aylık Giriş
-import * as S from "./store.js?v=20261026c";
-import * as Gorev from "./gorev.js?v=20261026c";
-import { esc, ic, toast, guestLock, roText, GUEST } from "./ui.js?v=20261026c";
-import * as Guest from "./guest.js?v=20261026c";
-import * as K from "./kayit.js?v=20261026c";
-import { katsayi, bandOf, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261026c";
+import * as S from "./store.js?v=20261026d";
+import * as Gorev from "./gorev.js?v=20261026d";
+import { esc, ic, toast, guestLock, roText, GUEST } from "./ui.js?v=20261026d";
+import * as Guest from "./guest.js?v=20261026d";
+import * as K from "./kayit.js?v=20261026d";
+import { katsayi, bandOf, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261026d";
 
 const COLL = "kaza";
 export const T = [["Gün kayıpsız", 2], ["1-5 gün kayıplı", 5], ["5-20 gün kayıplı", 10], ["20+ gün kayıplı", 20], ["Uzuv kaybı", 50], ["Ölüm", 100]];
 const BAND = { Mükemmel: ["#0B6E4F", "#D9F1E6"], İyi: ["#145F96", "#DCEAF7"], Orta: ["#6B3F00", "#FBE9C6"], Kritik: ["#B3261E", "#FADAD7"] };
 const pad = n => String(n).padStart(2, "0");
-export const reset = () => { D.kOpen = false; };
+export const reset = () => { D.kOpen = false; D.unw?.(); D.unw = null; };
 const D = { key: "", month: null, rows: {}, g: [], kOpen: false, exists: false, saved: true, timer: null, msg: "" };
 const f1 = n => n.toFixed(1).replace(".", ",");
 
@@ -39,6 +39,8 @@ export async function render(v, ctx) {
     });
   }
   D.g = await K.loadGuest(st.fid, st.year, "kaza", D.month);
+  D.unw?.(); D.unw = null;
+  if (GUEST.on) D.unw = S.watchColl(st.fid, st.year, "kazag", rows => { const g = rows.filter(x => +x.month === +D.month); if (JSON.stringify(g) !== JSON.stringify(D.g) && !document.querySelector(".mod")) { D.g = g; draw(); } });
   if (!GUEST.on && D.g.some(x => x.status === "pending")) D.kOpen = true;
   D.ctx = ctx; D.v = v; D.setup = setup; D.ro = String(st.year) !== String(st.active) || guestLock(st.year, D.month);
   draw();

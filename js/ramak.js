@@ -1,12 +1,12 @@
 // Ramak Kala bildirimleri: ay bazında kayıt, bildiren bölümün bonus kademesi, misafir kaydı için yetkili onayı
 // Koleksiyon "ramak": her bildirim ayrı kayıt. status: approved (yetkili kaydı / onaylı) | pending (misafir, onay bekliyor) | rejected
-import * as S from "./store.js?v=20261026c";
-import * as Guest from "./guest.js?v=20261026c";
-import * as Gorev from "./gorev.js?v=20261026c";
-import { esc, toast, pickDate, fmtTarih, compressImage, showPhoto, confirmBox, GUEST, guestLock, roText } from "./ui.js?v=20261026c";
-import { CATS } from "./isgcats.js?v=20261026c";
-import { isgMonth, makTier, katsayi, bandOf, surecVar, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261026c";
-import { askFormat, savePdf } from "./pdf.js?v=20261026c";
+import * as S from "./store.js?v=20261026d";
+import * as Guest from "./guest.js?v=20261026d";
+import * as Gorev from "./gorev.js?v=20261026d";
+import { esc, toast, pickDate, fmtTarih, compressImage, showPhoto, confirmBox, GUEST, guestLock, roText } from "./ui.js?v=20261026d";
+import { CATS } from "./isgcats.js?v=20261026d";
+import { isgMonth, makTier, katsayi, bandOf, surecVar, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261026d";
+import { askFormat, savePdf } from "./pdf.js?v=20261026d";
 
 export const COLL = "ramak";
 export const TIER = ["Yok", "Ayda 1", "2 Haftada 1", "Haftalık"];
@@ -134,7 +134,7 @@ export function openForm({ st, setup, month, dept = "", recs = [], edit = null }
 }
 
 // ---- Sayfa ----
-export const reset = () => { R.open = false; R.bo = false; R.sum.open = false; R.sum.exp = null; };
+export const reset = () => { R.unw?.(); R.unw = null; R.open = false; R.bo = false; R.sum.open = false; R.sum.exp = null; };
 const R = { key: "", month: null, recs: [], setup: null, open: false, bo: false, sum: { open: false, mode: "yil", exp: null, rows: null, isg: null, key: "" }, ctx: null, v: null };
 export function focus(month) { R.month = +month; R.key = ""; }
 const dmy = s => (s ? fmtTarih(s) : "");
@@ -191,6 +191,8 @@ export async function render(v, ctx) {
   if (!R.month) { const n = new Date(); R.month = +st.year === n.getFullYear() ? n.getMonth() + 1 : 1; }
   R.setup = setup; R.ctx = ctx; R.v = v;
   R.recs = await load(st.fid, st.year, R.month).catch(() => []);
+  R.unw?.(); R.unw = null;
+  if (GUEST.on) R.unw = S.watchColl(st.fid, st.year, COLL, rows => { const g = rows.filter(x => +x.month === +R.month); if (JSON.stringify(g) !== JSON.stringify(R.recs) && !document.querySelector(".mod")) { R.recs = g; draw(); } });
   R.ro = String(st.year) !== String(st.active) || guestLock(st.year, R.month);
   draw();
   // Dönem Özeti verisini arka planda hazırla; kart açıldığında bekletmesin

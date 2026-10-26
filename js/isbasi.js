@@ -1,14 +1,14 @@
 // İşbaşı Eğitim · Aylık Giriş
-import * as S from "./store.js?v=20261026c";
-import { esc, ic, toast, noteEditor, guestLock, roText, GUEST, pickDate, fmtTarih } from "./ui.js?v=20261026c";
-import * as Guest from "./guest.js?v=20261026c";
-import * as K from "./kayit.js?v=20261026c";
-import { katsayi, ztfRamp, rampTol, isbasiZtf, isbasiSayilir, surecVar, kayitAyi, degerAy, ayOf, gunFark, ztfGun, addGun, bandOf, num, c2, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261026c";
+import * as S from "./store.js?v=20261026d";
+import { esc, ic, toast, noteEditor, guestLock, roText, GUEST, pickDate, fmtTarih } from "./ui.js?v=20261026d";
+import * as Guest from "./guest.js?v=20261026d";
+import * as K from "./kayit.js?v=20261026d";
+import { katsayi, ztfRamp, rampTol, isbasiZtf, isbasiSayilir, surecVar, kayitAyi, degerAy, ayOf, gunFark, ztfGun, addGun, bandOf, num, c2, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261026d";
 
 const COLL = "isbasi";
 const BAND = { Mükemmel: ["#17A06F", "#0B6E4F", "#D9F1E6"], İyi: ["#2A82C4", "#145F96", "#DCEAF7"], Orta: ["#E8A512", "#6B3F00", "#FBE9C6"], Kritik: ["#D6382E", "#B3261E", "#FADAD7"] };
 const pad = n => String(n).padStart(2, "0");
-export const reset = () => { D.kOpen = false; };
+export const reset = () => { D.kOpen = false; D.unw?.(); D.unw = null; };
 const D = { key: "", month: null, rows: {}, g: [], kOpen: false, exists: false, saved: true, timer: null, msg: "" };
 const f1 = n => n.toFixed(1).replace(".", ",");
 const isInt = s => /^[0-9]+$/.test(String(s).trim());
@@ -97,6 +97,8 @@ export async function render(v, ctx) {
     normRows(D.rows);
   }
   D.g = await K.loadGuest(st.fid, st.year, "isbasi", D.month);
+  D.unw?.(); D.unw = null;
+  if (GUEST.on) D.unw = S.watchColl(st.fid, st.year, "isbasig", rows => { const g = rows.filter(x => +x.month === +D.month); if (JSON.stringify(g) !== JSON.stringify(D.g) && !document.querySelector(".mod")) { D.g = g; draw(); } });
   if (!GUEST.on && D.g.some(x => x.status === "pending")) D.kOpen = true;
   D.ctx = ctx; D.v = v; D.setup = setup; D.ro = String(st.year) !== String(st.active) || guestLock(st.year, D.month);
   draw();
