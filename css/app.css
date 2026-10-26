@@ -391,3 +391,18 @@ details.ak.neu{background:#fff;border:1px solid #C3D1CC}
 .ar-yr{display:grid;grid-template-columns:44px 1fr 74px;gap:10px;align-items:center;font-size:13.5px}
 #dpB[hidden]{display:none!important}
 .ar-act{border-top:1px solid var(--line);padding-top:14px;display:flex;flex-direction:column;gap:10px}
+
+/* Bildirim şeridi (üstten kayar, 4 sn) */
+#bnr{position:fixed;left:8px;right:8px;top:calc(env(safe-area-inset-top,0px) + 8px);margin:0 auto;max-width:520px;z-index:200;border-radius:14px;padding:10px 14px 12px;border:1px solid;display:flex;gap:10px;align-items:flex-start;transform:translateY(-160%);transition:transform .35s cubic-bezier(.2,.8,.2,1);box-shadow:0 10px 30px rgba(11,34,48,.22);cursor:pointer;overflow:hidden}
+#bnr.show{transform:translateY(0)}
+#bnr b{display:block;font:600 14px Sora,system-ui,sans-serif}
+#bnr .m{display:block;font-size:12.5px;line-height:1.4}
+#bnr .dot{flex:0 0 22px;height:22px;border-radius:50%;background:currentColor;display:grid;place-items:center;margin-top:1px}
+#bnr .dot svg{width:14px;height:14px;stroke:#fff;fill:none;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+#bnr .pr{position:absolute;left:0;right:0;bottom:0;height:3px;background:currentColor;opacity:.35;transform-origin:left;transform:scaleX(0)}
+#bnr.show .pr{animation:bnrpr 4s linear forwards}
+@keyframes bnrpr{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+#bnr.g{background:#E3F4EA;border-color:#A9DBBE;color:#0B5A3C}
+#bnr.y{background:#FFF3D6;border-color:#EBD08A;color:#6B3F00}
+#bnr.r{background:#FDECEA;border-color:#F3B8B2;color:#7A1C14}
+@media(prefers-reduced-motion:reduce){#bnr{transition:none}#bnr.show .pr{animation:none}}

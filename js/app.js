@@ -1,22 +1,23 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261026e";
-import * as S from "./store.js?v=20261026e";
-import * as Prim from "./primary.js?v=20261026e";
-import * as Denetim from "./denetim.js?v=20261026e";
-import * as Kaza from "./kaza.js?v=20261026e";
-import * as Konusma from "./konusma.js?v=20261026e";
-import * as Ramak from "./ramak.js?v=20261026e";
-import * as Genel from "./genel.js?v=20261026e";
-import * as Rapor from "./rapor.js?v=20261026e";
-import * as Verim from "./verim.js?v=20261026e";
-import * as Isbasi from "./isbasi.js?v=20261026e";
-import * as Guest from "./guest.js?v=20261026e";
-import * as Yontem from "./yontem.js?v=20261026e";
-import * as Tatil from "./tatil.js?v=20261026e";
-import * as Gorev from "./gorev.js?v=20261026e";
-import * as Arsiv from "./arsiv.js?v=20261026e";
-import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261026e";
-import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261026e";
-const PEND_META = { isbasig: ["isbasi", "İşbaşı Eğitim"], konusmag: ["konusma", "Eğitim Konuşması"], kazag: ["kaza", "İş Kazası"] };
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261026f";
+import * as S from "./store.js?v=20261026f";
+import * as Prim from "./primary.js?v=20261026f";
+import * as Denetim from "./denetim.js?v=20261026f";
+import * as Kaza from "./kaza.js?v=20261026f";
+import * as Konusma from "./konusma.js?v=20261026f";
+import * as Ramak from "./ramak.js?v=20261026f";
+import * as Genel from "./genel.js?v=20261026f";
+import * as Rapor from "./rapor.js?v=20261026f";
+import * as Verim from "./verim.js?v=20261026f";
+import * as Isbasi from "./isbasi.js?v=20261026f";
+import * as Guest from "./guest.js?v=20261026f";
+import * as Yontem from "./yontem.js?v=20261026f";
+import * as Tatil from "./tatil.js?v=20261026f";
+import * as Gorev from "./gorev.js?v=20261026f";
+import { banner, bannerInit, guestWatch, stop as bnStop, linkRenewed } from "./bildirim.js?v=20261026f";
+import * as Arsiv from "./arsiv.js?v=20261026f";
+import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261026f";
+import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261026f";
+const PEND_META = { isbasig: ["isbasi", "İşbaşı Eğitim"], konusmag: ["konusma", "Eğitim Konuşması"], kazag: ["kaza", "İş Kazası"], ramak: ["ramak", "Ramak Kala"] };
 
 const VERSION = "1.8.5";
 const st = { factories: [], years: [], fid: null, year: null, page: "genel", profile: {}, lastSync: new Date() };
@@ -98,6 +99,7 @@ function showOnly(which) { // "login" | "app" | "none"
   $("app").classList.toggle("hide", which !== "app");
 }
 async function guestOut(note, manual) {
+  bnStop();
   const eg = Guest.isEmailGuest(auth.currentUser) && LINK?.type === "pguest";
   unwatchG?.(); unwatchDev?.(); clearInterval(guestTimer); Guest.storeOwner(null); st.role = null; GUEST.on = false; S.setOwner(null);
   if (eg) closedNote = manual ? { title: "Çıkış yapıldı", text: "Tekrar girmek için size gönderilen bağlantıya dokunun ya da aşağıdaki düğmeye basın.", retry: true } : { title: "Erişim sona erdi", text: note || "Bu bağlantı kapatıldı." };
@@ -132,7 +134,7 @@ async function startGuest(owner, user) {
   }
   seenPing(owner, user.uid); if (first) toast(`Hoş geldiniz, ${m.name}.`);
   S.setOwner(owner, m.factories || []);
-  Guest.setGuestCtx({ owner, uid: user.uid, name: m.name, ntfy: m.ntfy || null });
+  Guest.setGuestCtx({ owner, uid: user.uid, name: m.name, ntfy: m.ntfy || null }); linkRenewed(user.uid, m.rot);
   GUEST.on = true; GUEST.name = m.name; GUEST.uid = user.uid; st.role = "guest"; st.guest = { uid: user.uid, name: m.name, email: m.unit || m.email || "", member: m };
   showOnly("app"); document.body.classList.add("is-guest");
   unwatchG?.(); clearInterval(guestTimer);
@@ -143,7 +145,7 @@ async function startGuest(owner, user) {
 }
 onAuthStateChanged(auth, async user => {
   if (!user) {
-    unwatchG?.(); clearInterval(guestTimer);
+    bnStop(); unwatchG?.(); clearInterval(guestTimer);
     if (closedNote) { showOnly("none"); Guest.showEnded(closedNote); return; }
     if (LINK?.type === "pguest") { showOnly("none"); Guest.pLogin(LINK); return; }
     if (LINK?.type === "guest") { showOnly("none"); Guest.showRequest({ owner: LINK.owner, code: LINK.code, note: (() => { try { const n = sessionStorage.getItem("hse_gnote"); sessionStorage.removeItem("hse_gnote"); return n || ""; } catch { return ""; } })() }, () => { const u = auth.currentUser; if (u) startGuest(LINK.owner, u); }); return; }
@@ -170,20 +172,20 @@ onAuthStateChanged(auth, async user => {
     unwatchReq = Guest.watchRequests(user.uid, (list, initial) => {
       const r = list[list.length - 1], n = list.length;
       const msg = initial ? `${n} misafir isteği onay bekliyor.` : `${r.name} misafir erişimi istiyor.`;
-      toast(msg); Guest.notify("HSE Verim · Misafir onay isteği", msg, `${location.pathname}?onay=${r.gid}`);
+      initial ? bannerInit(["y", "Yeni misafir kaydı", msg]) : banner("y", "Yeni misafir kaydı", msg); Guest.notify("HSE Verim · Misafir onay isteği", msg, `${location.pathname}?onay=${r.gid}`);
       if (!initial && !document.querySelector(".mod")) Guest.approvalDialog(user.uid, r.gid, st.all, () => { if (st.page === "ayarlar") render(); });
       else if (st.page === "ayarlar") render();
     });
-    unwatchInb?.();
+    unwatchInb?.(); let inbFirst = true;
     unwatchInb = Guest.watchInbox(user.uid, list => {
       const r = list[list.length - 1], msg = r.no === 0 ? `${r.byName} · ${r.deptName}${r.wk ? " · " + r.wk + ". hafta" : ""}: aksiyon bildirdi.` : `${r.byName} · ${r.deptName}: ${r.no}. denetim ${r.kind === "review" ? "tamamlanmasını istiyor" : "kaydedildi"}.`;
-      toast(msg); Guest.notify("HSE Verim · Misafir denetimi", msg, `${location.pathname}?denetim=${[r.fid, r.year, r.month, r.dept].join(".")}`);
+      inbFirst ? (inbFirst = false, bannerInit(["y", "Aksiyon incelemesi bekliyor", msg])) : banner("y", r.no === 0 ? "Aksiyon incelemesi bekliyor" : "Misafir denetimi", msg); Guest.notify("HSE Verim · Misafir denetimi", msg, `${location.pathname}?denetim=${[r.fid, r.year, r.month, r.dept].join(".")}`);
       if (st.page === "genel") render(); else if (st.page === "denetim") Denetim.reload();
     });
     unwatchFb?.(); st.fb = []; let fbFirst = true;
     unwatchFb = Guest.watchFeedback(user.uid, list => {
       const before = (st.fb || []).filter(x => !x.read).length; st.fb = list; const now = list.filter(x => !x.read).length;
-      if (!fbFirst && now > before) { const r = list.find(x => !x.read); toast(`${r.name}: yeni geri bildirim.`); Guest.notify("HSE Verim · Geri bildirim", `${r.name}: ${r.text.slice(0, 100)}`, location.pathname); }
+      if (!fbFirst && now > before) { const r = list.find(x => !x.read); banner("y", "Yeni geri bildirim", `${r.name}`); Guest.notify("HSE Verim · Geri bildirim", `${r.name}: ${r.text.slice(0, 100)}`, location.pathname); }
       fbFirst = false; drawNav();
     });
     if (LINK?.type === "audit") { Guest.clearLink(); openAudit(LINK); }
@@ -247,8 +249,8 @@ function ensurePend() {
       const pend = rows.filter(x => x.status === "pending"); st.pendBy[c] = pend;
       const fresh = pend.filter(x => !pendSeen[c + x.id]); pend.forEach(x => { pendSeen[c + x.id] = 1; });
       pendRecalc(); drawNav();
-      if (!pendFirst[c]) { pendFirst[c] = 1; if (fresh.length && !pendNoteDone) { pendNoteDone = 1; toast(`${fresh.length} misafir kaydı onay bekliyor.`); } }
-      else if (fresh.length) { const m = PEND_META[c][1], x = fresh[fresh.length - 1], msg = `${x.guestName || "Misafir"} · ${m}: onayınızı bekliyor.`; toast(msg); Guest.notify("HSE Verim · " + m, msg, location.pathname + "#" + PEND_META[c][0]); }
+      if (!pendFirst[c]) { pendFirst[c] = 1; if (fresh.length && !pendNoteDone) { pendNoteDone = 1; bannerInit(["y", "Onay bekleyen misafir kaydı", `${fresh.length} kayıt onayınızı bekliyor.`]); } }
+      else if (fresh.length) { const m = PEND_META[c][1], x = fresh[fresh.length - 1], msg = `${x.guestName || "Misafir"} · ${m}: onayınızı bekliyor.`; banner("y", c === "ramak" ? "Ramak kala bildirimi geldi" : `${m} onay bekliyor`, `${x.guestName || "Misafir"}`); Guest.notify("HSE Verim · " + m, msg, location.pathname + "#" + PEND_META[c][0]); }
       if (st.page === "genel") render(); else if (st.page === PEND_META[c][0] && !document.querySelector(".mod")) render();
     }));
   });
@@ -258,7 +260,7 @@ async function pendBoxHTML() {
   const L = st.pend?.list || []; if (!L.length) return "";
   let rows = {}; try { (await S.getSetup(st.fid, st.year))?.rows?.forEach(r => { rows[r.id] = r.name; }); } catch {}
   const MN = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
-  const txt = x => x.coll === "isbasig" ? `${x.g ?? 0} giriş / ${x.e ?? 0} eğitim` + (/^\d{4}-\d{2}-\d{2}$/.test(x.hd || "") && x.hd !== x.d ? ` · işe başlama ${+x.hd.slice(8)} ${MN[+x.hd.slice(5, 7) - 1].slice(0, 3)}` : "") : x.coll === "konusmag" ? `${x.min} dk` : "kaza kaydı";
+  const txt = x => x.coll === "isbasig" ? `${x.g ?? 0} giriş / ${x.e ?? 0} eğitim` + (/^\d{4}-\d{2}-\d{2}$/.test(x.hd || "") && x.hd !== x.d ? ` · işe başlama ${+x.hd.slice(8)} ${MN[+x.hd.slice(5, 7) - 1].slice(0, 3)}` : "") : x.coll === "konusmag" ? `${x.min} dk` : x.coll === "ramak" ? String(x.txt || "").slice(0, 60) : "kaza kaydı";
   return `<div class="cd" style="gap:12px"><div><h2>Onay bekleyen misafir kayıtları (${L.length})</h2><div class="muted" style="font-size:13px">Onaylanana kadar verim hesabına katılmaz.</div></div>
     <div class="col1" style="gap:8px">${L.sort((a, b) => (b.at || 0) - (a.at || 0)).map(x => `<div class="it" style="gap:10px;flex-wrap:wrap"><div class="grow"><b>${esc(rows[x.dept] || "—")}</b> <span class="tag" style="background:#FBE9C6;color:#6B3F00">${PEND_META[x.coll][1]}</span>
       <div class="muted" style="font-size:12.5px">${esc(txt(x))} · ${MN[(+x.month || 1) - 1]} · ${esc(x.guestName || "Misafir")}</div></div><button class="sm" data-pg="${PEND_META[x.coll][0]}" data-pm="${+x.month || ""}">Aç</button></div>`).join("")}</div></div>`;
@@ -275,7 +277,7 @@ function drawNav() {
 let renderTok = 0;
 async function render() {
   const tok = ++renderTok;
-  ensurePend(); drawNav();
+  ensurePend(); if (st.role === "guest" && st.guest) guestWatch({ fid: st.fid, year: st.year, uid: st.guest.uid }); drawNav();
   const v = $("view");
   if (st.page === "ayarlar") return st.role === "guest" ? pageGuestAyarlar(v) : pageAyarlar(v);
   if (!st.fid || !st.year) {
