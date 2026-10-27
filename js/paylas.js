@@ -1,10 +1,10 @@
 // Bulgu paylaşımı: yetkili, seçtiği bölümlerin açık bulgularını seçtiği misafirlerle paylaşır; misafir kendi ekranında görür ve
 // mevcut "Aksiyon bildir" akışıyla aksiyon alır (yetkili onayı mevcut Aksiyon bildirimleri panelinde).
 // Puan kuralı mevcut sistemdeki gibi: aksiyonun gönderim zamanı denetim haftası içindeyse (en geç cumartesi) ve yetkili kabul ederse puana işlenir.
-import * as S from "./store.js?v=20261026m";
-import { esc, ic, toast, confirmBox, compressImage, showPhoto, GUEST } from "./ui.js?v=20261026m";
-import * as Guest from "./guest.js?v=20261026m";
-import { CATS } from "./isgcats.js?v=20261026m";
+import * as S from "./store.js?v=20261027a";
+import { esc, ic, toast, confirmBox, compressImage, showPhoto, GUEST, pickDate, fmtTarih } from "./ui.js?v=20261027a";
+import * as Guest from "./guest.js?v=20261027a";
+import { CATS } from "./isgcats.js?v=20261027a";
 
 const pad = n => String(n).padStart(2, "0"), iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const addDays = (s, n) => { const d = new Date(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10)); d.setDate(d.getDate() + n); return iso(d); };
@@ -57,7 +57,7 @@ export async function openShare({ fid, year, month, rows, factoryName = "", onDo
       ${live.length ? dd("k", "Kime", st.g.length ? st.g.length + " kişi seçili" : "Kişi seçin", kb) : '<div class="muted">Bu fabrikaya yetkili aktif misafir yok.</div>'}
       ${st.g.length ? `<div class="gchips">${st.g.map(id => { const g = live.find(x => x.id === id), iz = st.roles[id] === "izle"; return `<span class="gcx"><span class="n">${esc(short(g?.name))}</span><button type="button" class="role${iz ? " iz" : ""}" data-role="${id}">${iz ? "İzler" : "Aksiyon alır"}</button><button type="button" class="x" data-rmg="${id}" aria-label="Çıkar">×</button></span>`; }).join("")}</div><div class="muted" style="font-size:12.5px;line-height:1.45">Etikete dokununca rol değişir. Aksiyon alır: aksiyon ve kanıt girer. İzler: yalnızca canlı takip.</div>` : ""}
       ${all.length ? dd("b", "Hangi bölümler", bval, bb) : ""}
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:end"><div><label class="hd" for="shT" style="margin:0">TERMİN</label><input type="date" id="shT" class="inp" value="${st.t}" min="${iso(new Date())}" style="margin-top:4px"></div><span class="muted" style="font-size:12.5px;line-height:1.4">Takip içindir. Puan için hafta kuralı geçerlidir.</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:end"><div><label class="hd" for="shT" style="margin:0">TERMİN</label><button type="button" id="shT" class="sec" style="margin-top:4px;width:100%;justify-content:center">${fmtTarih(st.t)}</button></div><span class="muted" style="font-size:12.5px;line-height:1.4">Takip içindir. Puan için hafta kuralı geçerlidir.</span></div>
       ${st.not || st.note ? `<div><label class="hd" for="shN" style="margin:0">NOT</label><textarea id="shN" class="inp" style="margin-top:4px;height:auto;min-height:64px;padding:10px;resize:vertical" placeholder="Örn. Önce yaya yolu ve yangın söndürücü önü.">${esc(st.note)}</textarea></div>` : '<button type="button" class="gl" data-not>+ Not ekle</button>'}
       ${st.g.length && st.b.length ? `<div style="border-radius:12px;padding:8px 12px;font-size:12.5px;line-height:1.5;background:#E3F0F9;border:1px solid #BCD6EA;color:#143B5B">${st.g.length} kişi · ${st.b.length} bölüm · ${nOpen} açık bulgu. ${cutOf(st.b) ? (cutOf(st.b) >= iso(new Date()) ? `Puan için aksiyon en geç ${fd(cutOf(st.b))} gününe kadar girilmeli.` : "Denetim haftası kapandı: aksiyon görünür ama puan değişmez.") : ""}</div>` : ""}
       ${st.old.length ? `<div class="gacc${st.acc ? " open" : ""}"><button type="button" class="gacch" data-acc aria-expanded="${!!st.acc}"><b style="flex:1;font-size:13.5px">Bu ayın paylaşımları (${shRows.length})</b>${CHV}</button>${st.acc ? `<div class="gaccb"><div class="glst">${shRows.map(({ o, g }) => { const nm = o.names?.[g] || live.find(x => x.id === g)?.name || "Misafir", sc = o.all ? `Tüm bölümler (${rows.length})` : o.depts.map(d => d.name).join(", "); return `<div style="display:flex;align-items:center;gap:8px"><span style="flex:1;min-width:0;font-size:13px;line-height:1.4"><b>${esc(nm)}</b><span class="muted" style="display:block;font-size:12.5px">${esc(sc)} · ${fd(o.termin)}</span>${!o.all && allG.has(g) ? '<span class="tag" style="background:#FFF3D6;color:#6B3F00">Zaten tüm bölümlerde · bu satır gereksiz</span>' : ""}</span><button type="button" class="sec sm" data-rm="${o.id}|${g}" style="flex:0 0 auto;min-width:0;height:28px;min-height:28px;padding:0 9px;font-size:12px;border-radius:8px;color:#B3261E;border-color:#B3261E">Kaldır</button></div>`; }).join("")}</div><button type="button" class="sec" data-sum>Durum özetini gönder</button></div>` : ""}</div>` : ""}</div>
@@ -81,8 +81,9 @@ export async function openShare({ fid, year, month, rows, factoryName = "", onDo
     });
     box.querySelector("[data-c]").onclick = close; box.querySelector("[data-go]").onclick = send;
     const sm = box.querySelector("[data-sum]"); if (sm) sm.onclick = summary;
+    const tb = box.querySelector("#shT"); if (tb) tb.onclick = async () => { keep(); const r = await pickDate({ title: "Termin", min: iso(new Date()), a: st.t, view: st.t }); if (r?.a) { st.t = r.a; st.tUser = true; } draw(); };
   };
-  const keep = () => { const t = box.querySelector("#shT"), n = box.querySelector("#shN"); if (t?.value) { if (t.value !== st.t) st.tUser = true; st.t = t.value; } if (n) st.note = n.value; };
+  const keep = () => { const n = box.querySelector("#shN"); if (n) st.note = n.value; };
   const send = async () => {
     keep(); const btn = box.querySelector("[data-go]"); btn.disabled = true;
     const depts = rows.filter(r => st.b.includes(r.id)).map(r => ({ id: r.id, name: r.name })), names = Object.fromEntries(st.g.map(g => [g, live.find(x => x.id === g)?.name || "Misafir"]));

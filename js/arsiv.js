@@ -1,7 +1,7 @@
 // Arşiv işlemleri: fotoğraf küçültme (1000 / 1200 px), ZIP yedek, silme ve depolama kartı.
 // Her şey tarayıcıda çalışır; fotoğraflar sayfa sayfa okunur, işlem kesilirse kaldığı yerden devam eder.
-import * as S from "./store.js?v=20261026m";
-import { esc, toast } from "./ui.js?v=20261026m";
+import * as S from "./store.js?v=20261027a";
+import { esc, toast, pickDate } from "./ui.js?v=20261027a";
 
 const GIB = 1073741824, PART = 150 * 1024 * 1024, SAVE = { 1200: 0.3, 1000: 0.2 }; // özgün boyutun kalan oranı
 const nf = n => Number(n).toLocaleString("tr-TR");
@@ -160,7 +160,7 @@ export async function openAktif({ fid, y, onDone }) {
       <div class="muted" style="font-size:13px;line-height:1.5">Seçilen tarihe kadar yüklenen fotoğraflar küçültülür. Sonrakilere dokunulmaz. Veriler ve kayıtlar aynı kalır, eski kalite geri getirilemez.</div>
       <span class="hd">HANGİ TARİHE KADAR</span>
       <div class="ar-sw">${PER.map(([k, n2, d, ms]) => { const ok = ms <= today.getTime(); return `<button type="button" data-p="${k}" class="${per === k ? "on" : ""}" ${ok ? "" : "disabled"}>${n2}<small>${ok ? d : "devam ediyor"}</small></button>`; }).join("")}<button type="button" data-p="tar" class="${per === "tar" ? "on" : ""}">Tarih seç<small>${per === "tar" && dt ? fdate(dt + "T00:00:00") : "kendiniz belirleyin"}</small></button></div>
-      ${per === "tar" ? `<div class="row" style="flex-wrap:nowrap"><input type="date" id="arDt" class="inp" min="${yy}-01-01" max="${maxIso}" value="${dt}"><span class="muted" style="font-size:12.5px;flex:0 0 auto">en geç ${fdate(maxIso + "T00:00:00")}</span></div>` : ""}
+      ${per === "tar" ? `<div class="row" style="flex-wrap:nowrap"><button type="button" id="arDt" class="sec" style="flex:1">${dt ? fdate(dt + "T00:00:00") + " " + dt.slice(0,4) : "Tarih seçin"}</button><span class="muted" style="font-size:12.5px;flex:0 0 auto">en geç ${fdate(maxIso + "T00:00:00")}</span></div>` : ""}
       <span class="hd">KÜÇÜLTME BOYUTU</span>
       <div class="ar-sw"><button type="button" data-s="1200" class="${px === 1200 ? "on" : ""}">1200 px<small>yaklaşık %70 kazanç</small></button><button type="button" data-s="1000" class="${px === 1000 ? "on" : ""}">1000 px<small>yaklaşık %80 kazanç</small></button></div>
       <div class="ar-eff ${ready ? "" : "no"}">${est}</div>
@@ -170,7 +170,7 @@ export async function openAktif({ fid, y, onDone }) {
     const keep = () => { bk = ui.$("#arBk").checked; };
     ui.box.querySelectorAll("[data-p]").forEach(b => b.onclick = async () => { keep(); per = b.dataset.p; if (per !== "tar") await load(); render(); });
     ui.box.querySelectorAll("[data-s]").forEach(b => b.onclick = () => { keep(); px = +b.dataset.s; render(); });
-    const di = ui.$("#arDt"); if (di) di.onchange = async () => { keep(); dt = di.value; await load(); render(); };
+    const di = ui.$("#arDt"); if (di) di.onclick = async () => { keep(); const r = await pickDate({ title: "Tarih seçin", min: `${yy}-01-01`, max: maxIso, a: dt, view: dt || maxIso }); if (r?.a) { dt = r.a; await load(); } render(); };
     ui.$("[data-c]").onclick = ui.close;
     ui.$("[data-go]").onclick = () => { keep(); if (bk) go(); else warn(); };
   };
