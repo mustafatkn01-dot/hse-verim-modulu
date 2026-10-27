@@ -1,22 +1,22 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261026g";
-import * as S from "./store.js?v=20261026g";
-import * as Prim from "./primary.js?v=20261026g";
-import * as Denetim from "./denetim.js?v=20261026g";
-import * as Kaza from "./kaza.js?v=20261026g";
-import * as Konusma from "./konusma.js?v=20261026g";
-import * as Ramak from "./ramak.js?v=20261026g";
-import * as Genel from "./genel.js?v=20261026g";
-import * as Rapor from "./rapor.js?v=20261026g";
-import * as Verim from "./verim.js?v=20261026g";
-import * as Isbasi from "./isbasi.js?v=20261026g";
-import * as Guest from "./guest.js?v=20261026g";
-import * as Yontem from "./yontem.js?v=20261026g";
-import * as Tatil from "./tatil.js?v=20261026g";
-import * as Gorev from "./gorev.js?v=20261026g";
-import { banner, bannerInit, guestWatch, stop as bnStop, linkRenewed } from "./bildirim.js?v=20261026g";
-import * as Arsiv from "./arsiv.js?v=20261026g";
-import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261026g";
-import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261026g";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261026i";
+import * as S from "./store.js?v=20261026i";
+import * as Prim from "./primary.js?v=20261026i";
+import * as Denetim from "./denetim.js?v=20261026i";
+import * as Kaza from "./kaza.js?v=20261026i";
+import * as Konusma from "./konusma.js?v=20261026i";
+import * as Ramak from "./ramak.js?v=20261026i";
+import * as Genel from "./genel.js?v=20261026i";
+import * as Rapor from "./rapor.js?v=20261026i";
+import * as Verim from "./verim.js?v=20261026i";
+import * as Isbasi from "./isbasi.js?v=20261026i";
+import * as Guest from "./guest.js?v=20261026i";
+import * as Yontem from "./yontem.js?v=20261026i";
+import * as Tatil from "./tatil.js?v=20261026i";
+import * as Gorev from "./gorev.js?v=20261026i";
+import { banner, bannerInit, guestWatch, stop as bnStop, linkRenewed } from "./bildirim.js?v=20261026i";
+import * as Arsiv from "./arsiv.js?v=20261026i";
+import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261026i";
+import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261026i";
 const PEND_META = { isbasig: ["isbasi", "İşbaşı Eğitim"], konusmag: ["konusma", "Eğitim Konuşması"], kazag: ["kaza", "İş Kazası"], ramak: ["ramak", "Ramak Kala"] };
 
 const VERSION = "1.8.5";
@@ -138,7 +138,7 @@ async function startGuest(owner, user) {
   GUEST.on = true; GUEST.name = m.name; GUEST.uid = user.uid; st.role = "guest"; st.guest = { uid: user.uid, name: m.name, email: m.unit || m.email || "", member: m };
   showOnly("app"); document.body.classList.add("is-guest");
   unwatchG?.(); clearInterval(guestTimer);
-  const check = mm => { if (!Guest.isLive(mm)) guestOut(mm ? "Erişim süreniz doldu." : "Erişiminiz yetkili kullanıcı tarafından kaldırıldı."); };
+  const check = mm => { if (!Guest.isLive(mm)) guestOut(mm?.stopped ? "Erişiminiz yetkili kişi tarafından durduruldu." : mm ? "Erişim süreniz doldu." : "Erişiminiz yetkili kullanıcı tarafından kaldırıldı."); };
   unwatchG = Guest.watchMember(owner, user.uid, mm => { if (!mm) return check(null); if (Guest.isEmailGuest(user) && Guest.rotated(user, mm)) return guestOut("Bu bağlantı yenilendi. Size gönderilen yeni bağlantıya dokunun."); st.guest.member = mm; Guest.setGuestCtx({ ntfy: mm.ntfy || null }); check(mm); });
   guestTimer = setInterval(() => check(st.guest.member), 30000);
   await loadContext(); go(location.hash.slice(1) || "genel");
@@ -593,7 +593,15 @@ async function pageAyarlar(v) {
   if (yOpen) v.querySelector("[data-acc=yil]")?.click();
   $("uaTg").onclick = () => { const b = $("uaBody"), o = b.hidden; b.hidden = !o; $("uaTg").setAttribute("aria-expanded", o); $("uaTg").setAttribute("aria-label", "Uygulama ve Senkronizasyon bölümünü " + (o ? "kapat" : "aç")); $("uaCh").style.transform = o ? "rotate(180deg)" : ""; };
   const say = t => { $("noteT").textContent = t; $("note").classList.remove("hide"); };
-  Guest.renderSettings($("guestBox"), { ownerUid: auth.currentUser.uid, factories: st.all }).catch(() => {});
+  const scope = !st.fid || !st.year ? null : (() => {
+    const fid = st.fid, year = st.year, month = new Date().getMonth() + 1; let rows = null;
+    const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`, t7 = new Date(); t7.setDate(t7.getDate() + 7);
+    const sc = { rows: async () => rows ||= ((await S.getSetup(fid, year))?.rows || []).filter(r => r.id && r.name).map(r => ({ id: r.id, name: r.name })),
+      get: async uid => { const rs = await sc.rows(), sh = (await S.listShares(fid, year, month)).filter(x => (x.guests || []).includes(uid)); return sh.some(x => x.all) ? rs.map(r => r.id) : [...new Set(sh.flatMap(x => (x.depts || []).map(d => d.id)))]; },
+      set: async (uid, name, secs) => S.setGuestScope(uid, name, fid, year, month, secs, (await sc.rows()).length, iso(t7)) };
+    return sc;
+  })();
+  Guest.renderSettings($("guestBox"), { ownerUid: auth.currentUser.uid, factories: st.all, scope }).catch(() => {});
   $("noteX").onclick = () => $("note").classList.add("hide");
   $("saveName").onclick = async () => { await S.saveProfile({ name: $("adSoyad").value.trim() }); say("Adınız kaydedildi."); pageAyarlar(v); };
   $("resetPw").onclick = async () => { try { await sendPasswordResetEmail(auth, email); say("Şifre sıfırlama bağlantısı e-postanıza gönderildi."); } catch (e) { say(errMsg(e)); } };

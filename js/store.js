@@ -1,7 +1,7 @@
 // Veri katmanı: users/{uid}/factories/{fid}/years/{yıl}/setup/main
-import { auth, db, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, updateDoc, query, orderBy, serverTimestamp, onSnapshot, FS } from "./firebase.js?v=20261026g";
-import { shrinkDataUrl } from "./ui.js?v=20261026g";
-import { setSurec } from "./scoring.js?v=20261026g";
+import { auth, db, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, updateDoc, query, orderBy, serverTimestamp, onSnapshot, FS } from "./firebase.js?v=20261026i";
+import { shrinkDataUrl } from "./ui.js?v=20261026i";
+import { setSurec } from "./scoring.js?v=20261026i";
 
 const uid = () => auth.currentUser.uid;
 // Veri sahibi: misafir kullanıcıda davet eden hesabın uid'si; kendi oturum/profil kayıtları ise her zaman kendi hesabında
@@ -240,6 +240,26 @@ export async function photoUsage(fid, y) {
 const shareCol = () => collection(db, `${mine()}/shares`);
 export async function addShare(data) { const id = Math.random().toString(36).slice(2, 10); await setDoc(doc(db, `${mine()}/shares/${id}`), { ...data, id, at: Date.now() }); return id; }
 export async function listShares(fid, year, month) { const s = await getDocs(shareCol()); return s.docs.map(d => d.data()).filter(x => x.fid === fid && String(x.year) === String(year) && (month == null || +x.month === +month)).sort((a, b) => b.at - a.at); }
+// Paylaşımdan tek kişiyi çıkarır (başka kişi kalmadıysa paylaşım silinir)
+export async function removeShareGuest(id, g) {
+  const ref = doc(db, `${mine()}/shares/${id}`), s = await getDoc(ref); if (!s.exists()) return;
+  const left = (s.data().guests || []).filter(x => x !== g);
+  if (!left.length) return deleteDoc(ref);
+  await updateDoc(ref, { guests: left, [`roles.${g}`]: FS.deleteField(), [`names.${g}`]: FS.deleteField() });
+}
+// Bir misafirin bu aydaki bölüm kapsamını değiştirir (düzenleme ekranı). secs: [{id,name}], nRows: toplam bölüm sayısı
+export async function setGuestScope(g, name, fid, year, month, secs, nRows, termin) {
+  const all = (await listShares(fid, year, month)).filter(x => (x.guests || []).includes(g));
+  const before = new Set(all.flatMap(x => (x.all ? ["*"] : (x.depts || []).map(d => d.id))));
+  const own = all.find(x => (x.guests || []).length === 1);
+  for (const x of all) if (x !== own) await removeShareGuest(x.id, g);
+  if (!secs.length) { if (own) await removeShareGuest(own.id, g); return; }
+  const added = secs.some(d => !before.has(d.id) && !before.has("*")) || (before.size === 0);
+  const base = { depts: secs, all: secs.length === nRows };
+  if (own) { await updateDoc(doc(db, `${mine()}/shares/${own.id}`), { ...base, ...(added ? { at: Date.now() } : {}) }); return; }
+  const src = all[0] || {};
+  await addShare({ fid, year: String(year), month: +month, ...base, guests: [g], names: { [g]: name }, roles: { [g]: src.roles?.[g] || "aks" }, termin: src.termin || termin, note: src.note || "" });
+}
 export const deleteShare = id => deleteDoc(doc(db, `${mine()}/shares/${id}`));
 export async function listMembers() { const s = await getDocs(collection(db, `${mine()}/members`)); return s.docs.map(d => ({ id: d.id, ...d.data() })); }
 // Misafir: kendisiyle paylaşılanlar (kural: yalnızca guests listesinde olduğu paylaşımlar okunur)

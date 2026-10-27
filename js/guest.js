@@ -3,8 +3,8 @@
 //   users/{sahip}/invites/{kod}        davet (e-posta ayarı kopyası)
 //   users/{sahip}/guestReqs/{misafirUid}  onay isteği {gid, code, name, unit, status, at}
 //   users/{sahip}/members/{misafirUid}    onaylı üye {name, unit, factories[], mode, expires|null}
-import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously, signInWithEmailAndPassword, createAuxUser, changeAuxPassword, serverTimestamp } from "./firebase.js?v=20261026g";
-import { esc, toast, confirmBox } from "./ui.js?v=20261026g";
+import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously, signInWithEmailAndPassword, createAuxUser, changeAuxPassword, serverTimestamp } from "./firebase.js?v=20261026i";
+import { esc, toast, confirmBox } from "./ui.js?v=20261026i";
 
 const Q = new URLSearchParams(location.search);
 export const linkInfo = () => {
@@ -19,7 +19,7 @@ export const storedOwner = () => { try { return localStorage.getItem("hse_gowner
 export const storeOwner = o => { try { o ? localStorage.setItem("hse_gowner", o) : localStorage.removeItem("hse_gowner"); } catch {} };
 
 const ms = x => (x == null ? null : x.toMillis ? x.toMillis() : x instanceof Date ? x.getTime() : (typeof x === "string" ? Date.parse(x) : +x));
-export const isLive = m => !!m && (m.expires == null || ms(m.expires) > Date.now());
+export const isLive = m => !!m && !m.stopped && (m.expires == null || ms(m.expires) > Date.now());
 export const leftText = m => {
   if (!m) return "";
   if (m.expires == null) return "Süresiz";
@@ -225,7 +225,7 @@ const newPid = taken => { // 6 hane, serbest dizilim; en az 2 harf ve en az 2 ra
 };
 // Önceki kayıtları bul: kişi kaydı (ID) + adı eşleşen, sahibi artık üye olmayan (sahipsiz) taslaklar
 async function findPrev(o, name, gid) {
-  const S = await import("./store.js?v=20261026g"), n = normName(name);
+  const S = await import("./store.js?v=20261026i"), n = normName(name);
   const people = (await loadPeople(o)).filter(p => p.norm === n);
   const mems = await getDocs(collection(db, `users/${o}/members`)).then(s => new Set(s.docs.map(d => d.id))).catch(() => new Set());
   const uids = new Set(); people.forEach(p => (p.uids || []).forEach(u => { if (u !== gid && !mems.has(u)) uids.add(u); }));
@@ -239,7 +239,7 @@ async function findPrev(o, name, gid) {
   return { person: people[0] || null, pid: people[0]?.id || null, uids, count };
 }
 async function migrateGuest(oldUids, newUid, name) {
-  const S = await import("./store.js?v=20261026g"); let n = 0;
+  const S = await import("./store.js?v=20261026i"); let n = 0;
   for (const f of await S.listFactories()) for (const y of await S.listYears(f.id)) for (const c of GCOLLS) {
     const all = await S.listMonthDocs(f.id, y, c), ids = new Set(all.map(d => d.id));
     for (const d of all) {
@@ -314,7 +314,7 @@ const memWrap = (n, inner) => n >= 2
   : `<div class="col1" style="gap:8px"><span class="hd">MİSAFİRLER (${n})</span>${inner}</div>`;
 let unMem = null, boxOpen = false;
 export const reset = () => { boxOpen = false; memOpen = false; };
-export async function renderSettings(box, { ownerUid, factories, onChange }) {
+export async function renderSettings(box, { ownerUid, factories, onChange, scope }) {
   unMem?.();
   const invs = await getDocs(collection(db, `users/${ownerUid}/invites`)).then(s => s.docs.map(d => ({ id: d.id, ...d.data() }))).catch(() => []);
   const cfgD = await getDoc(doc(db, `users/${ownerUid}/meta/guestcfg`)).catch(() => null), cfg = cfgD?.exists() ? cfgD.data() : {};
@@ -335,23 +335,26 @@ export async function renderSettings(box, { ownerUid, factories, onChange }) {
   const legacy = mems.filter(m => !m.inv), pins = await getDocs(collection(db, `users/${ownerUid}/pinvites`)).then(s => s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => b.createdAt - a.createdAt)).catch(() => []);
   await Promise.all(pins.map(async p => { devs[p.id] = await getDocs(collection(db, `users/${ownerUid}/members/${p.uid}/devices`)).then(s => s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => b.last - a.last)).catch(() => []); }));
   const pend = reqs.filter(r => r.status === "pending").sort((a, b) => b.at - a.at);
+  const PEN = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg>';
+  const people = [...pins.map(p => { const m = mems.find(x => x.id === p.uid); return { kind: "inv", uid: p.uid, name: p.name, pid: p.pid || m?.pid, p, m, factories: p.factories, stop: !!(p.closed || !m), devs: devs[p.id] || [] }; }),
+    ...legacy.map(m => ({ kind: "ort", uid: m.id, name: m.name, pid: m.pid, p: null, m, factories: m.factories, stop: !!m.stopped, devs: [] }))];
+  people.forEach(x => { x.exp = !x.stop && !isLive(x.m); });
+  const card = x => { const np = pendOf(x.devs), stt = x.stop ? ["Durduruldu", "background:#FBE9C6;color:#6B3F00"] : x.exp ? ["Süresi doldu", "background:#FADAD7;color:#8E1B16"] : x.m.lastSeen ? ["Aktif", ""] : x.kind === "inv" ? ["Link açılmadı", "background:#FBE9C6;color:#6B3F00"] : ["Aktif", ""];
+    return `<div class="it" style="gap:10px;flex-wrap:nowrap;align-items:flex-start"><div class="grow" style="min-width:0"><div><b>${esc(x.name)}</b> <span class="tag" style="${stt[1]}">${stt[0]}</span></div>${x.pid ? `<div class="muted" style="font-size:12px">ID ${esc(x.pid)}</div>` : ""}<div class="muted" style="font-size:12.5px">${[esc(fname(x.factories)), x.m && !x.stop ? "Erişim: " + esc(leftText(x.m)) : ""].filter(Boolean).join(" · ")}</div>${x.kind === "inv" && x.p.linkUntil && !x.stop ? `<div class="muted" style="font-size:12.5px">${ms(x.p.linkUntil) > Date.now() ? "Bağlantı " + hleft(ms(x.p.linkUntil) - Date.now()) + " geçerli" : "Bağlantı süresi doldu (yeni cihaz onay ister)"}</div>` : ""}${np ? `<div><span class="tag" style="background:#FBE9C6;color:#6B3F00">${np} cihaz onay bekliyor</span></div>` : ""}<div class="muted" style="font-size:12.5px">${x.m?.lastSeen ? "Son görülme: " + ago(x.m.lastSeen) : x.p ? "Gönderildi: " + ago(x.p.createdAt) : "Henüz görülmedi"}</div></div><button type="button" class="gedit" data-edit="${x.uid}" aria-label="${esc(x.name)} düzenle">${PEN}</button></div>`; };
   const nAkt = pins.filter(p => { const m = mems.find(x => x.id === p.uid); return m && !p.closed && isLive(m); }).length, sub = [`${pins.length} kişi`, nAkt ? `${nAkt} aktif` : "", (pend.length + pins.reduce((n, p) => n + pendOf(devs[p.id]), 0)) ? `${pend.length + pins.reduce((n, p) => n + pendOf(devs[p.id]), 0)} onay bekliyor` : ""].filter(Boolean).join(" · ");
   box.innerHTML = `<button type="button" id="gAcc" aria-expanded="${boxOpen}" aria-label="Misafir Kullanıcılar bölümünü ${boxOpen ? "kapat" : "aç"}" style="display:flex;align-items:center;gap:12px;width:100%;min-height:40px;height:auto;padding:0;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer"><span style="flex:1;min-width:0"><h2 style="margin:0">Misafir Kullanıcılar</h2><div class="muted" style="font-size:13px;margin-top:4px;font-weight:600">${sub}</div></span><span style="flex:0 0 40px;width:40px;height:40px;border-radius:12px;border:1.5px solid var(--gd);color:var(--gd);box-sizing:border-box;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="transition:transform .15s;${boxOpen ? "transform:rotate(180deg)" : ""}"><path d="M6 9l6 6 6-6"/></svg></span></button>
     <div class="col1" id="gAccB" ${boxOpen ? "" : "hidden"} style="gap:14px;border-top:1px solid var(--line);padding-top:14px"><div class="muted" style="font-size:13px;line-height:1.5">Saha yardımcınıza veya denetim yapacak yetkiliye kişiye özel davet bağlantısı gönderin; bağlantıya dokunan onay beklemeden girer. Misafir fabrika bazlı yetkilendirilir.</div>
     <div class="col1" style="gap:8px"><span class="hd">KİŞİYE ÖZEL DAVET (önerilen)</span>
       <div class="muted" style="font-size:12.5px;line-height:1.55">Her misafir için ayrı bağlantı üretilir. Bağlantı geçerlilik süresi içinde kişinin kendi cihazları (iPhone 2, Android 1) onaysız girer; sonradan gelen yeni cihaz sizin onayınızı bekler.</div>
       <div><button class="sm" id="pNew">Misafir davet et</button></div>
-      ${pins.length ? pins.map(p => { const m = mems.find(x => x.id === p.uid), dead = p.closed || !m, exp = m && !isLive(m); const stt = dead ? ["Kapatıldı", "background:#FADAD7;color:#8E1B16"] : exp ? ["Süresi doldu", "background:#FADAD7;color:#8E1B16"] : m.lastSeen ? ["Aktif", ""] : ["Link açılmadı", "background:#FBE9C6;color:#6B3F00"];
-        return `<div class="it" style="gap:10px;flex-wrap:wrap"><div class="grow"><b>${esc(p.name)}</b> <span class="tag" style="${stt[1]}">${stt[0]}</span>${(p.pid || m?.pid) ? ` <span class="muted" style="font-size:12px">ID ${esc(p.pid || m.pid)}</span>` : ""}<div class="muted" style="font-size:12.5px">${[esc(fname(p.factories)), m && !dead ? esc(leftText(m)) : ""].filter(Boolean).join(" · ")}</div>${p.linkUntil && !dead ? `<div class="muted" style="font-size:12.5px">${ms(p.linkUntil) > Date.now() ? "Bağlantı " + hleft(ms(p.linkUntil) - Date.now()) + " geçerli" : "Bağlantı süresi doldu (yeni cihaz onay ister)"}</div>` : ""}<div class="muted" style="font-size:12.5px">${m?.lastSeen ? "Son görülme: " + ago(m.lastSeen) : "Gönderildi: " + ago(p.createdAt)}</div></div>
-        <div class="row" style="gap:6px">${dead || exp ? `<button class="sm sec" data-pre="${p.id}">Yeniden aç</button><button class="sm sec" data-pdel="${p.id}" style="color:#B3261E;border-color:#B3261E">Sil</button>` : `<button class="sm sec" data-psend="${p.id}">Mesajı yeniden gönder</button><button class="sm sec" data-prot="${p.id}">Yeni link üret</button><button class="sm sec" data-pcl="${p.id}" style="color:#B3261E;border-color:#B3261E">Linki kapat</button>`}</div>
-        ${(devs[p.id] || []).length ? `<details data-pdv="${p.id}" ${devOpen.has(p.id) ? "open" : ""} style="width:100%"><summary style="cursor:pointer;font-weight:700;font-size:13px">Cihazlar (${devs[p.id].length})${pendOf(devs[p.id]) ? ` <span class="tag" style="background:#FBE9C6;color:#6B3F00">${pendOf(devs[p.id])} onay bekliyor</span>` : ""}</summary><div class="col1" style="gap:6px;margin-top:8px">${devs[p.id].map(d => `<div class="row" style="gap:8px;flex-wrap:nowrap;justify-content:space-between;align-items:center"><div style="min-width:0"><b style="font-size:13px">${esc(d.label || "Cihaz")}</b>${d.blocked ? ' <span class="tag" style="background:#FADAD7;color:#8E1B16">Engelli</span>' : isPend(d) ? ' <span class="tag" style="background:#FBE9C6;color:#6B3F00">Onay bekliyor</span>' : ""}<div class="muted" style="font-size:12px">İlk giriş ${ago(d.first)} · Son ${ago(d.last)}</div></div><div class="row" style="gap:6px;flex:0 0 auto;flex-wrap:nowrap">${isPend(d) ? `<button class="sm" data-dap="${p.uid}|${d.id}">Onayla</button>` : ""}<button class="sm sec" data-dblk="${p.uid}|${d.id}|${d.blocked ? 0 : 1}" style="${d.blocked ? "" : "color:#B3261E;border-color:#B3261E"}">${d.blocked ? "Engeli kaldır" : "Engelle"}</button></div></div>`).join("")}</div></details>` : ""}</div>`; }).join("") : ""}</div>
+</div>
+    <div class="col1" id="gPeople" style="gap:8px"><span class="hd">MİSAFİRLER (${people.length})</span>${people.map(card).join("") || '<span class="muted">Henüz misafir yok.</span>'}</div>
     <details><summary style="cursor:pointer;font-weight:700">Ortak davet bağlantısı (onay isteyen yöntem)</summary><div class="col1" style="gap:12px;margin-top:10px">
     <div class="col1" style="gap:8px"><span class="hd">DAVET BAĞLANTISI</span>
       ${inv ? `<div class="row" style="flex-wrap:nowrap;gap:10px;align-items:stretch"><input class="inp" id="gLink" readonly value="${esc(link)}" onfocus="this.select()" style="flex:1;min-width:0"><button class="sm" id="gClose" aria-label="Davet bağlantısını kapat" title="Davet bağlantısını kapat" style="flex:0 0 32px;width:32px;height:32px;min-height:0;align-self:center;padding:0;background:#B3261E;border-color:#B3261E;color:#fff;font-size:26px;font-weight:400;line-height:1;display:grid;place-items:center;margin-right:6px">×</button></div><div class="row"><button class="sm" id="gCopy">Kopyala</button><button class="sm sec" id="gShare">Paylaş</button><button class="sm sec" id="gRegen">Bağlantıyı yenile</button></div>
         <div class="muted" style="font-size:12.5px">“Yenile” eski bağlantıyı geçersiz kılar, kırmızı × bağlantıyı kapatır (onaylı misafirler etkilenmez).</div>` : `<div><button id="gMake">Davet bağlantısı oluştur</button></div>`}</div>
     ${pend.length ? `<div class="col1" style="gap:8px"><span class="hd">ONAY BEKLEYEN İSTEKLER (${pend.length})</span>${pend.map(r => `<div class="it" style="gap:10px;flex-wrap:wrap"><div class="grow"><b>${esc(r.name)}</b><div class="muted" style="font-size:12.5px">${[esc(r.unit || r.email || ""), ago(r.at)].filter(Boolean).join(" · ")}</div></div><button class="sm" data-rv="${r.id}">İncele ve onayla</button></div>`).join("")}</div>` : ""}
-    ${memWrap(legacy.length, `${legacy.map(m => { const live = isLive(m); return `<div class="it" style="gap:10px;flex-wrap:wrap"><div class="grow"><b>${esc(m.name)}</b> <span class="tag" style="${live ? "" : "background:#FADAD7;color:#8E1B16"}">${esc(leftText(m))}</span>${m.pid ? ` <span class="muted" style="font-size:12px">ID ${esc(m.pid)}</span>` : ""}<div class="muted" style="font-size:12.5px">${[esc(m.unit || m.email || ""), esc(fname(m.factories))].filter(Boolean).join(" · ")}</div><div class="muted" style="font-size:12.5px">Son görülme: ${m.lastSeen ? ago(m.lastSeen) : "henüz görülmedi"}</div></div>
-        <div class="row" style="gap:6px"><button class="sm sec" data-perm="${m.id}">Süresiz yap</button><button class="sm sec" data-h24="${m.id}">24 saat</button><button class="sm sec" data-fac="${m.id}">Fabrikalar</button><button class="sm sec" data-rm="${m.id}" style="color:#B3261E;border-color:#B3261E">Erişimi kaldır</button></div></div>`; }).join("") || '<span class="muted">Henüz onaylı misafir yok.</span>'}`)}
+    <div class="muted" style="font-size:12.5px;line-height:1.5">Bu bağlantıyla gelip onaylanan kişiler yukarıdaki Misafirler listesinde görünür.</div>
     </div></details>
     <details ${cfg.ntfy ? "" : "open"}><summary style="cursor:pointer;font-weight:700">Telefon bildirimi (önerilen, ücretsiz)</summary><div class="col1" style="gap:8px;margin-top:10px">
       <div class="muted" style="font-size:12.5px;line-height:1.6">Misafir “Onay Gönder”e bastığında telefonunuza anında bildirim gelir; uygulama kapalı olsa bile. Bildirime dokununca onay ekranı açılır.<br><b>1.</b> Telefonunuza <b>ntfy</b> uygulamasını kurun (Play Store / App Store).<br><b>2.</b> Aşağıdan “Bildirim kodu oluştur”a basın.<br><b>3.</b> ntfy'de <b>+</b> ile aşağıdaki kodu abone olun (sunucu: ntfy.sh).<br><b>4.</b> “Test bildirimi gönder” ile deneyin.</div>
@@ -365,7 +368,7 @@ export async function renderSettings(box, { ownerUid, factories, onChange }) {
     let t = null; const offs = [];
     const fire = () => {
       if (!box.isConnected) { unMem?.(); return; }
-      clearTimeout(t); t = setTimeout(() => { if (box.isConnected && !box.contains(document.activeElement && document.activeElement.matches("input,textarea,select") ? document.activeElement : null)) renderSettings(box, { ownerUid, factories, onChange }); }, 500);
+      clearTimeout(t); t = setTimeout(() => { if (box.isConnected && !box.contains(document.activeElement && document.activeElement.matches("input,textarea,select") ? document.activeElement : null)) renderSettings(box, { ownerUid, factories, onChange, scope }); }, 500);
     };
     const watch = c => { let first = true; offs.push(onSnapshot(c, () => { if (first) { first = false; return; } fire(); }, () => {})); };
     watch(collection(db, `users/${ownerUid}/members`));
@@ -373,7 +376,7 @@ export async function renderSettings(box, { ownerUid, factories, onChange }) {
     unMem = () => { offs.forEach(o => o()); clearTimeout(t); unMem = null; };
   }
   box.querySelector("#gMemBox")?.addEventListener("toggle", e => { memOpen = e.target.open; });
-  const q = s => box.querySelector(s), refresh = () => { renderSettings(box, { ownerUid, factories, onChange }); onChange?.(); };
+  const q = s => box.querySelector(s), refresh = () => { renderSettings(box, { ownerUid, factories, onChange, scope }); onChange?.(); };
   const mk = async () => {
     for (const i of invs) await deleteDoc(doc(db, `users/${ownerUid}/invites/${i.id}`)).catch(() => {});
     const c = cfgD?.exists() ? cfg : {}; await setDoc(doc(db, `users/${ownerUid}/invites/${rnd()}`), { createdAt: Date.now(), ntfy: c.ntfy || null, emailjs: c.service && c.template && c.key ? { service: c.service, template: c.template, key: c.key } : null });
@@ -401,40 +404,94 @@ export async function renderSettings(box, { ownerUid, factories, onChange }) {
   q("#gTest") && (q("#gTest").onclick = async () => { const ok = await sendPush(cfg.ntfy, { name: "Test Kullanıcı", unit: "Test Bölümü", link: location.origin + location.pathname }); toast(ok ? "Test bildirimi gönderildi; telefonunuza gelmesi gerekir." : "Gönderilemedi; internet bağlantısını kontrol edin."); });
   q("#pNew").onclick = () => inviteDialog(ownerUid, factories, refresh);
   const pin = id => pins.find(p => p.id === id);
-  box.querySelectorAll("[data-pdv]").forEach(d => d.addEventListener("toggle", () => { d.open ? devOpen.add(d.dataset.pdv) : devOpen.delete(d.dataset.pdv); }));
-  box.querySelectorAll("[data-dap]").forEach(b => b.onclick = async () => { const [u, dv] = b.dataset.dap.split("|"); await updateDoc(doc(db, `users/${ownerUid}/members/${u}/devices/${dv}`), { ap: true }).catch(e => toast("Kaydedilemedi: " + (e.message || e))); toast("Cihaz onaylandı."); refresh(); });
-  box.querySelectorAll("[data-dblk]").forEach(b => b.onclick = async () => { const [u, dv, v] = b.dataset.dblk.split("|"); await updateDoc(doc(db, `users/${ownerUid}/members/${u}/devices/${dv}`), { blocked: v === "1" }).catch(e => toast("Kaydedilemedi: " + (e.message || e))); toast(v === "1" ? "Cihaz engellendi." : "Engel kaldırıldı."); refresh(); });
-  box.querySelectorAll("[data-prot]").forEach(b => b.onclick = async () => { const p = pin(b.dataset.prot);
-    if (!(await confirmBox("Yeni link üretilsin mi?", `${p.name} için eski bağlantı ve eski bağlantıyla açılmış tüm oturumlar geçersiz olur. Kişi ve paylaşımları korunur; yeni bağlantıyı ona göndermeniz gerekir.`, "Yeni link üret", true))) return;
-    b.disabled = true;
+  // ---- Kalem: ortak düzenleme alt sayfası (davetli ve ortak bağlantı aynı ekran) ----
+  const ACC = ["Süresiz", "24 saat", "7 gün"], accTxt = m => !m ? "—" : m.expires == null ? "Süresiz" : leftText(m);
+  const CH = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+  const newLink = async x => {
+    const p = x.p;
+    if (!(await confirmBox("Yeni link üretilsin mi?", `${p.name} için eski bağlantı ve eski bağlantıyla açılmış tüm oturumlar geçersiz olur. Kişi ve paylaşımları korunur; yeni bağlantıyı ona göndermeniz gerekir.`, "Yeni link üret", true))) return false;
     try {
       const np = tokGen(), ek = p.ek || p.token;
       await changeAuxPassword(pEmail(ek), p.token, np);
       const lh = p.linkH || 24, lu = Date.now() + lh * 36e5;
       await updateDoc(PIN(ownerUid, p.uid), { token: np, ek, linkH: lh, linkUntil: lu });
       await updateDoc(MEM(ownerUid, p.uid), { rot: serverTimestamp(), linkUntil: lu }).catch(() => {});
-      for (const d of devs[p.id] || []) await deleteDoc(doc(db, `users/${ownerUid}/members/${p.uid}/devices/${d.id}`)).catch(() => {});
-      toast("Yeni link üretildi."); const np2 = { ...p, token: np, ek, linkH: lh, linkUntil: lu }; refresh(); sendDialog(ownerUid, np2);
-    } catch (e) { b.disabled = false; toast("Üretilemedi: " + (e.code === "auth/invalid-credential" ? "Hesap şifresi eşleşmedi." : e.message || e)); }
-  });
-  box.querySelectorAll("[data-psend]").forEach(b => b.onclick = () => sendDialog(ownerUid, pin(b.dataset.psend)));
-  box.querySelectorAll("[data-pcl]").forEach(b => b.onclick = async () => { const p = pin(b.dataset.pcl); if (!(await confirmBox("Link kapatılsın mı?", `${p.name} için bağlantı kapatılır; tüm cihazlarının erişimi hemen sona erer. Diğer misafirler etkilenmez.`, "Kapat", true))) return; await deleteDoc(MEM(ownerUid, p.uid)).catch(() => {}); await updateDoc(PIN(ownerUid, p.uid), { closed: true }); toast("Link kapatıldı."); refresh(); });
-  box.querySelectorAll("[data-pre]").forEach(b => b.onclick = async () => { const p = pin(b.dataset.pre), m0 = mems.find(x => x.id === p.uid);
-    const expires = p.expires && ms(p.expires) > Date.now() ? p.expires : (p.expires ? new Date(Date.now() + 30 * 864e5) : null);
-    await setDoc(MEM(ownerUid, p.uid), { ntfy: cfg.ntfy || null, name: p.name, unit: "", pid: p.pid || m0?.pid || null, inv: true, factories: p.factories, mode: expires ? "24h" : "perm", expires, createdAt: m0?.createdAt || Date.now(), ...(m0?.lastSeen ? { lastSeen: m0.lastSeen } : {}) });
-    await updateDoc(PIN(ownerUid, p.uid), { closed: false, expires }); toast("Link yeniden açıldı."); refresh(); });
-  box.querySelectorAll("[data-pdel]").forEach(b => b.onclick = async () => { const p = pin(b.dataset.pdel); if (!(await confirmBox("Kayıt silinsin mi?", `${p.name} davet kaydı listeden kalkar.`, "Sil", true))) return; await deleteDoc(MEM(ownerUid, p.uid)).catch(() => {}); await deleteDoc(PIN(ownerUid, p.uid)); refresh(); });
-  box.querySelectorAll("[data-rv]").forEach(b => b.onclick = () => approvalDialog(ownerUid, b.dataset.rv, factories, refresh));
-  box.querySelectorAll("[data-perm]").forEach(b => b.onclick = async () => { await updateDoc(MEM(ownerUid, b.dataset.perm), { mode: "perm", expires: null }); toast("Erişim süresiz yapıldı."); refresh(); });
-  box.querySelectorAll("[data-h24]").forEach(b => b.onclick = async () => { await updateDoc(MEM(ownerUid, b.dataset.h24), { mode: "24h", expires: new Date(Date.now() + 864e5) }); toast("Erişim 24 saat uzatıldı."); refresh(); });
-  box.querySelectorAll("[data-rm]").forEach(b => b.onclick = async () => { if (!(await confirmBox("Erişim kaldırılsın mı?", "Bu misafirin erişimi kaldırılır.", "Kaldır", true))) return; await deleteDoc(MEM(ownerUid, b.dataset.rm)); await deleteDoc(REQ(ownerUid, b.dataset.rm)).catch(() => {}); toast("Erişim kaldırıldı."); refresh(); });
-  box.querySelectorAll("[data-fac]").forEach(b => b.onclick = () => {
-    const m0 = mems.find(x => x.id === b.dataset.fac), md = document.createElement("div"); md.className = "mod";
-    md.innerHTML = `<div class="mbox" style="gap:12px"><h2>${esc(m0.name)} · Fabrikalar</h2>${factories.map(f => `<label style="display:flex;align-items:center;gap:10px;font-weight:600"><input type="checkbox" data-f="${f.id}" ${(m0.factories || []).includes(f.id) ? "checked" : ""} style="width:20px;height:20px"> ${esc(f.name)}</label>`).join("")}
-      <div class="row" style="justify-content:flex-end"><button class="sec" data-x>İptal</button><button data-s>Kaydet</button></div></div>`;
-    document.body.appendChild(md); md.querySelector("[data-x]").onclick = () => md.remove();
-    md.querySelector("[data-s]").onclick = async () => { const fs = [...md.querySelectorAll("[data-f]:checked")].map(x => x.dataset.f); if (!fs.length) return toast("Fabrika bulunamadı."); await updateDoc(MEM(ownerUid, b.dataset.fac), { factories: fs }); md.remove(); toast("Fabrikalar güncellendi."); refresh(); };
-  });
+      for (const d of x.devs) await deleteDoc(doc(db, `users/${ownerUid}/members/${p.uid}/devices/${d.id}`)).catch(() => {});
+      toast("Yeni link üretildi."); const np2 = { ...p, token: np, ek, linkH: lh, linkUntil: lu }; refresh(); sendDialog(ownerUid, np2); return true;
+    } catch (e) { toast("Üretilemedi: " + (e.code === "auth/invalid-credential" ? "Hesap şifresi eşleşmedi." : e.message || e)); return false; }
+  };
+  const openEdit = async uid => {
+    const x = people.find(y => y.uid === uid); if (!x) return;
+    const md = document.createElement("div"); md.className = "mod"; document.body.appendChild(md);
+    const e = { acc: null, lv: null, fab: [...(x.factories || [])], sec: null, secRows: [], dd: null, dev: false }; let secOrig = null;
+    const close = () => md.remove();
+    md.addEventListener("mousedown", ev => { if (ev.target === md) close(); });
+    const dd = (id, label, val, items, multi) => { const o = e.dd === id; return `<div class="gdd${o ? " open" : ""}"><button type="button" class="gddb" data-dd="${id}" aria-expanded="${o}"><span style="flex:1;min-width:0"><span class="hd" style="display:block;font-size:10.5px;margin:0">${esc(label)}</span><b style="font-size:13.5px">${esc(val)}</b></span>${CH}</button>${o ? `<div class="gddl">${items.map((it, k) => `<button type="button" class="gopt" data-opt="${id}|${k}"><i>${it[2] ? "✓" : ""}</i>${esc(it[1])}</button>`).join("")}</div>` : ""}</div>`; };
+    const loadDevs = () => getDocs(collection(db, `users/${ownerUid}/members/${x.uid}/devices`)).then(s => s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => b.last - a.last)).catch(() => x.devs);
+    const draw = () => {
+      const accVal = e.acc || accTxt(x.m), lvVal = validTxt(e.lv || x.p?.linkH || 24), np = pendOf(x.devs);
+      const secOn = !!(e.sec && e.secRows.length), allOn = secOn && e.sec.length === e.secRows.length;
+      const secVal = allOn ? `Tüm bölümler (${e.secRows.length})` : e.sec?.length ? `${e.sec.length} / ${e.secRows.length} bölüm` : "Paylaşım yok";
+      md.innerHTML = `<div class="mbox" role="dialog" aria-modal="true" style="gap:12px"><div class="row" style="flex-wrap:nowrap;align-items:flex-start;gap:10px"><div class="grow" style="min-width:0"><h2 style="margin:0;font-size:18px">${esc(x.name)}</h2><div class="muted" style="font-size:12.5px">${x.pid ? "ID " + esc(x.pid) + " · " : ""}${x.kind === "inv" ? "Kişiye özel davet" : "Ortak bağlantı"}</div></div><button type="button" class="sm sec" data-x>Kapat</button></div>
+      ${x.stop ? '<div class="muted" style="font-size:13px;line-height:1.5">Erişim durduruldu. Kayıt listede duruyor; yeniden açabilir veya silebilirsiniz.</div>' : `<div class="gddrow">${dd("acc", "Erişim süresi", accVal, ACC.map(a => [a, a, a === accVal]), 0)}${x.kind === "inv" ? dd("lv", "Bağlantı geçerliliği", lvVal, VALID.map(v => [v[0], v[1], v[1] === lvVal]), 0) : ""}</div>
+        ${dd("fab", "Fabrikalar", `${e.fab.length} / ${factories.length} fabrika seçili`, factories.map(f => [f.id, f.name, e.fab.includes(f.id)]), 1)}
+        ${secOn ? dd("sec", "Paylaşılan bölümler (bu ay)", secVal, [["*", "Tüm bölümler", allOn], ...e.secRows.map(r => [r.id, r.name, e.sec.includes(r.id)])], 1) : ""}
+        ${x.devs.length ? `<div class="gdd${e.dev ? " open" : ""}"><button type="button" class="gddb" data-dev aria-expanded="${e.dev}"><span style="flex:1;min-width:0"><span class="hd" style="display:block;font-size:10.5px;margin:0">Cihazlar</span><b style="font-size:13.5px">${x.devs.length} cihaz${np ? ` · ${np} onay bekliyor` : ""}</b></span>${CH}</button>${e.dev ? `<div class="gddl" style="max-height:none;padding:6px">${x.devs.map(d => `<div class="row" style="gap:8px;flex-wrap:nowrap;justify-content:space-between;align-items:center;padding:4px"><div style="min-width:0"><b style="font-size:13px">${esc(d.label || "Cihaz")}</b>${d.blocked ? ' <span class="tag" style="background:#FADAD7;color:#8E1B16">Engelli</span>' : isPend(d) ? ' <span class="tag" style="background:#FBE9C6;color:#6B3F00">Onay bekliyor</span>' : ""}<div class="muted" style="font-size:12px">İlk giriş ${ago(d.first)} · Son ${ago(d.last)}</div></div><div class="row" style="gap:6px;flex:0 0 auto;flex-wrap:nowrap">${isPend(d) ? `<button type="button" class="sm" data-dap="${d.id}">Onayla</button>` : ""}<button type="button" class="sm sec" data-dblk="${d.id}|${d.blocked ? 0 : 1}" style="${d.blocked ? "" : "color:#B3261E;border-color:#B3261E"}">${d.blocked ? "Engeli kaldır" : "Engelle"}</button></div></div>`).join("")}</div>` : ""}</div>` : ""}`}
+      <div class="gtwo">${x.stop ? '<button type="button" class="sec" data-reopen>Yeniden aç</button>' : `${x.kind === "inv" ? '<button type="button" class="sec" data-newlink>Yeni link üret</button><button type="button" class="sec" data-resend>Mesajı gönder</button>' : ""}<button type="button" class="sec" data-stop>Erişimi durdur</button>`}<button type="button" class="sec" data-del style="color:#B3261E;border-color:#B3261E">Kişiyi sil</button></div>
+      ${x.stop ? "" : '<button type="button" data-save>Kaydet</button>'}</div>`;
+      const q = s => md.querySelector(s), on = (s, f) => md.querySelectorAll(s).forEach(b => b.onclick = () => f(b));
+      q("[data-x]").onclick = close;
+      on("[data-dd]", b => { e.dd = e.dd === b.dataset.dd ? null : b.dataset.dd; draw(); });
+      on("[data-dev]", () => { e.dev = !e.dev; draw(); });
+      on("[data-opt]", b => {
+        const [id, k] = b.dataset.opt.split("|"), i = +k;
+        if (id === "acc") { e.acc = ACC[i]; e.dd = null; }
+        else if (id === "lv") { e.lv = VALID[i][0]; e.dd = null; }
+        else if (id === "fab") { const f = factories[i].id, at = e.fab.indexOf(f); if (at > -1) { if (e.fab.length > 1) e.fab.splice(at, 1); } else e.fab.push(f); }
+        else if (id === "sec") { if (i === 0) e.sec = e.sec.length === e.secRows.length ? [] : e.secRows.map(r => r.id); else { const f = e.secRows[i - 1].id, at = e.sec.indexOf(f); if (at > -1) e.sec.splice(at, 1); else e.sec.push(f); } }
+        draw();
+      });
+      on("[data-dap]", async b => { await updateDoc(doc(db, `users/${ownerUid}/members/${x.uid}/devices/${b.dataset.dap}`), { ap: true }).catch(er => toast("Kaydedilemedi: " + (er.message || er))); toast("Cihaz onaylandı."); x.devs = await loadDevs(); draw(); refresh(); });
+      on("[data-dblk]", async b => { const [dv, v] = b.dataset.dblk.split("|");
+        if (v === "1" && !(await confirmBox("Cihaz engellensin mi?", "Bu cihazın erişimi hemen biter. Kişi diğer cihazlarını kullanmaya devam eder.", "Engelle", true))) return;
+        await updateDoc(doc(db, `users/${ownerUid}/members/${x.uid}/devices/${dv}`), { blocked: v === "1" }).catch(er => toast("Kaydedilemedi: " + (er.message || er))); toast(v === "1" ? "Cihaz engellendi." : "Engel kaldırıldı."); x.devs = await loadDevs(); draw(); refresh(); });
+      on("[data-newlink]", async () => { if (await newLink(x)) close(); });
+      on("[data-resend]", () => { close(); sendDialog(ownerUid, x.p); });
+      on("[data-stop]", async () => {
+        if (!(await confirmBox("Erişim durdurulsun mu?", `${x.name} için tüm cihazların erişimi hemen biter. Kayıt listede "Durduruldu" olarak kalır; istediğinizde yeniden açabilirsiniz.`, "Durdur", true))) return;
+        try { if (x.p) { await deleteDoc(MEM(ownerUid, x.uid)).catch(() => {}); await updateDoc(PIN(ownerUid, x.p.uid), { closed: true }); } else await updateDoc(MEM(ownerUid, x.uid), { stopped: true }); }
+        catch (er) { return toast("Kaydedilemedi: " + (er.message || er)); }
+        toast("Erişim durduruldu."); close(); refresh(); });
+      on("[data-reopen]", async () => {
+        try {
+          if (x.p) { const p = x.p, m0 = x.m, expires = p.expires && ms(p.expires) > Date.now() ? p.expires : (p.expires ? new Date(Date.now() + 30 * 864e5) : null);
+            await setDoc(MEM(ownerUid, p.uid), { ntfy: cfg.ntfy || null, name: p.name, unit: "", pid: p.pid || m0?.pid || null, inv: true, factories: p.factories, mode: expires ? "24h" : "perm", expires, createdAt: m0?.createdAt || Date.now(), ...(m0?.lastSeen ? { lastSeen: m0.lastSeen } : {}) });
+            await updateDoc(PIN(ownerUid, p.uid), { closed: false, expires }); }
+          else await updateDoc(MEM(ownerUid, x.uid), { stopped: false });
+        } catch (er) { return toast("Kaydedilemedi: " + (er.message || er)); }
+        toast("Erişim yeniden açıldı."); close(); refresh(); });
+      on("[data-del]", async () => {
+        if (!(await confirmBox("Kişi silinsin mi?", `${x.name} için erişim biter ve kayıt tamamen kalkar. Geri alınamaz.`, "Sil", true))) return;
+        try { await deleteDoc(MEM(ownerUid, x.uid)).catch(() => {}); if (x.p) await deleteDoc(PIN(ownerUid, x.p.uid)); else await deleteDoc(REQ(ownerUid, x.uid)).catch(() => {}); }
+        catch (er) { return toast("Silinemedi: " + (er.message || er)); }
+        toast("Kişi silindi."); close(); refresh(); });
+      on("[data-save]", async b => {
+        b.disabled = true; const mUp = {}, pUp = {};
+        try {
+          if (e.acc && e.acc !== accTxt(x.m)) { const A = { "Süresiz": ["perm", null], "24 saat": ["24h", new Date(Date.now() + 864e5)], "7 gün": ["7d", new Date(Date.now() + 7 * 864e5)] }[e.acc]; mUp.mode = A[0]; mUp.expires = A[1]; if (x.p) pUp.expires = A[1]; }
+          if (e.lv && x.p && +e.lv !== +(x.p.linkH || 24)) { const lu = Date.now() + e.lv * 36e5; pUp.linkH = +e.lv; pUp.linkUntil = lu; mUp.linkUntil = lu; }
+          if ([...e.fab].sort().join() !== [...(x.factories || [])].sort().join()) { mUp.factories = e.fab; if (x.p) pUp.factories = e.fab; }
+          if (Object.keys(mUp).length) await updateDoc(MEM(ownerUid, x.uid), mUp);
+          if (x.p && Object.keys(pUp).length) await updateDoc(PIN(ownerUid, x.p.uid), pUp);
+          if (scope && secOrig && e.sec && [...e.sec].sort().join() !== [...secOrig].sort().join()) await scope.set(x.uid, x.name, e.secRows.filter(r => e.sec.includes(r.id)));
+        } catch (er) { b.disabled = false; return toast("Kaydedilemedi: " + (er.message || er)); }
+        toast("Kaydedildi."); close(); refresh();
+      });
+    };
+    draw();
+    if (scope && !x.stop) { try { const [rows, cur] = await Promise.all([scope.rows(), scope.get(x.uid)]); if (rows.length) { e.secRows = rows; e.sec = cur.slice(); secOrig = cur.slice(); draw(); } } catch {} }
+  };
+  box.querySelectorAll("[data-edit]").forEach(b => b.onclick = () => openEdit(b.dataset.edit));
 }
 
 // ---------------- Kişiye özel davet (her misafir için ayrı Firebase hesabı; bağlantı = giriş anahtarı) ----------------

@@ -406,3 +406,15 @@ details.ak.neu{background:#fff;border:1px solid #C3D1CC}
 #bnr.y{background:#FFF3D6;border-color:#EBD08A;color:#6B3F00}
 #bnr.r{background:#FDECEA;border-color:#F3B8B2;color:#7A1C14}
 @media(prefers-reduced-motion:reduce){#bnr{transition:none}#bnr.show .pr{animation:none}}
+
+/* Misafir kartı kalem simgesi ve düzenleme açılır listeleri */
+.gedit{flex:0 0 32px;width:32px;height:32px;min-height:0;padding:0;border-radius:10px;border:1px solid #E8A21A;background:#FFF1D0;color:#C98200;display:grid;place-items:center;cursor:pointer}
+.gddrow{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:start}
+.gdd{position:relative;min-width:0}
+.gddb{width:100%;display:flex;align-items:center;gap:6px;min-height:46px;height:auto;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--text);padding:4px 10px;text-align:left;cursor:pointer;font-weight:400}
+.gdd.open .gddb{border-color:var(--gd)}.gdd.open .gddb svg{transform:rotate(180deg)}
+.gddl{margin-top:4px;border:1px solid var(--line);border-radius:12px;background:var(--card);max-height:176px;overflow:auto;padding:4px;display:flex;flex-direction:column;gap:2px}
+.gopt{display:flex;align-items:center;gap:8px;min-height:38px;height:auto;border:0;background:transparent;color:var(--text);font-weight:500;font-size:14px;text-align:left;padding:0 8px;border-radius:8px;cursor:pointer;justify-content:flex-start}
+.gopt:hover{background:var(--bg)}.gopt i{width:16px;color:var(--gd);font-style:normal;font-weight:700}
+.gtwo{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.gtwo button{min-height:42px;height:auto}
