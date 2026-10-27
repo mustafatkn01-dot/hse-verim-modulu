@@ -1,11 +1,11 @@
 // Genel Bakış · yıllık özet panosu (gerçek verilerden)
-import * as S from "./store.js?v=20261026i";
-import { esc, noticeBox } from "./ui.js?v=20261026i";
-import { CATS } from "./isgcats.js?v=20261026i";
-import { bandOf, calcIsg, makTier, katsayi, surecVar, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261026i";
-import { load } from "./verim.js?v=20261026i";
-import * as T from "./tatil.js?v=20261026i";
-import * as Gorev from "./gorev.js?v=20261026i";
+import * as S from "./store.js?v=20261026j";
+import { esc, noticeBox } from "./ui.js?v=20261026j";
+import { CATS } from "./isgcats.js?v=20261026j";
+import { bandOf, calcIsg, makTier, katsayi, surecVar, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261026j";
+import { load } from "./verim.js?v=20261026j";
+import * as T from "./tatil.js?v=20261026j";
+import * as Gorev from "./gorev.js?v=20261026j";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -207,7 +207,7 @@ export async function render(v, ctx) {
 function lightbox(list, st, i0 = 0) {
   let i = i0; const lb = document.createElement("div"); lb.className = "mod"; lb.style.zIndex = 70;
   const show = async () => {
-    lb.innerHTML = `<div style="position:relative;display:flex;flex-direction:column;align-items:center;gap:12px;max-width:96vw"><button data-x aria-label="Kapat" style="position:absolute;top:-14px;right:-6px;z-index:2;width:34px;height:34px;min-width:0;padding:0;background:#B3261E;border-color:#B3261E;color:#fff;font-size:24px;line-height:1;display:grid;place-items:center;border-radius:50%">×</button><img src="${list[i].t}" alt="Fotoğraf" style="max-width:96vw;max-height:78vh;border-radius:10px;background:#000"><div class="row" style="gap:10px;justify-content:center;${list.length < 2 ? "display:none" : ""}"><button class="sec" data-p>‹ Önceki</button><span style="color:#fff;font-weight:700">${i + 1} / ${list.length}</span><button class="sec" data-n>Sonraki ›</button></div></div>`;
+    lb.innerHTML = `<div style="position:relative;display:flex;flex-direction:column;align-items:center;gap:12px;max-width:calc(100vw - 32px)"><button data-x aria-label="Kapat" style="position:absolute;top:-14px;right:-6px;z-index:2;width:34px;height:34px;min-width:0;padding:0;background:#B3261E;border-color:#B3261E;color:#fff;font-size:24px;line-height:1;display:grid;place-items:center;border-radius:50%">×</button><img src="${list[i].t}" alt="Fotoğraf" style="max-width:calc(100vw - 32px);max-height:78vh;border-radius:10px;background:#000"><div class="row" style="gap:10px;justify-content:center;${list.length < 2 ? "display:none" : ""}"><button class="sec" data-p>‹ Önceki</button><span style="color:#fff;font-weight:700">${i + 1} / ${list.length}</span><button class="sec" data-n>Sonraki ›</button></div></div>`;
     lb.querySelector("[data-x]").onclick = () => lb.remove();
     const p = lb.querySelector("[data-p]"), n = lb.querySelector("[data-n]");
     if (p) p.onclick = () => { i = (i + list.length - 1) % list.length; show(); }; if (n) n.onclick = () => { i = (i + 1) % list.length; show(); };
