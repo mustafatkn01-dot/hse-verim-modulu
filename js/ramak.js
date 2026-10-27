@@ -1,12 +1,12 @@
 // Ramak Kala bildirimleri: ay bazında kayıt, bildiren bölümün bonus kademesi, misafir kaydı için yetkili onayı
 // Koleksiyon "ramak": her bildirim ayrı kayıt. status: approved (yetkili kaydı / onaylı) | pending (misafir, onay bekliyor) | rejected
-import * as S from "./store.js?v=20261026k";
-import * as Guest from "./guest.js?v=20261026k";
-import * as Gorev from "./gorev.js?v=20261026k";
-import { esc, toast, pickDate, fmtTarih, compressImage, showPhoto, confirmBox, GUEST, guestLock, roText } from "./ui.js?v=20261026k";
-import { CATS } from "./isgcats.js?v=20261026k";
-import { isgMonth, makTier, katsayi, bandOf, surecVar, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261026k";
-import { askFormat, savePdf } from "./pdf.js?v=20261026k";
+import * as S from "./store.js?v=20261026l";
+import * as Guest from "./guest.js?v=20261026l";
+import * as Gorev from "./gorev.js?v=20261026l";
+import { esc, toast, pickDate, fmtTarih, compressImage, showPhoto, confirmBox, GUEST, guestLock, roText } from "./ui.js?v=20261026l";
+import { CATS } from "./isgcats.js?v=20261026l";
+import { isgMonth, makTier, katsayi, bandOf, surecVar, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261026l";
+import { askFormat, savePdf } from "./pdf.js?v=20261026l";
 
 export const COLL = "ramak";
 export const TIER = ["Yok", "Ayda 1", "2 Haftada 1", "Haftalık"];

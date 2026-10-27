@@ -1,6 +1,6 @@
 // Bildirim şeridi: üstten kayar, 4 sn görünür, dokununca kapanır. Sarı = bilgi, yeşil = onay, kırmızı = ret.
 // Uygulama açılışında birikmiş olaylar tek şeritte toplanır (bannerInit); sonradan gelenler tek tek gösterilir.
-import * as S from "./store.js?v=20261026k";
+import * as S from "./store.js?v=20261026l";
 
 const ICO = { g: '<path d="M5 12.5l4.2 4.2L19 7"/>', y: '<path d="M12 7v6M12 17v.5"/>', r: '<path d="M7 7l10 10M17 7L7 17"/>' };
 const Q = []; let busy = false, el = null, tm = null, pool = [], poolT = null;
