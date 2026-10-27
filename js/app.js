@@ -1,22 +1,22 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261026l";
-import * as S from "./store.js?v=20261026l";
-import * as Prim from "./primary.js?v=20261026l";
-import * as Denetim from "./denetim.js?v=20261026l";
-import * as Kaza from "./kaza.js?v=20261026l";
-import * as Konusma from "./konusma.js?v=20261026l";
-import * as Ramak from "./ramak.js?v=20261026l";
-import * as Genel from "./genel.js?v=20261026l";
-import * as Rapor from "./rapor.js?v=20261026l";
-import * as Verim from "./verim.js?v=20261026l";
-import * as Isbasi from "./isbasi.js?v=20261026l";
-import * as Guest from "./guest.js?v=20261026l";
-import * as Yontem from "./yontem.js?v=20261026l";
-import * as Tatil from "./tatil.js?v=20261026l";
-import * as Gorev from "./gorev.js?v=20261026l";
-import { banner, bannerInit, guestWatch, stop as bnStop, linkRenewed } from "./bildirim.js?v=20261026l";
-import * as Arsiv from "./arsiv.js?v=20261026l";
-import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261026l";
-import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261026l";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261026m";
+import * as S from "./store.js?v=20261026m";
+import * as Prim from "./primary.js?v=20261026m";
+import * as Denetim from "./denetim.js?v=20261026m";
+import * as Kaza from "./kaza.js?v=20261026m";
+import * as Konusma from "./konusma.js?v=20261026m";
+import * as Ramak from "./ramak.js?v=20261026m";
+import * as Genel from "./genel.js?v=20261026m";
+import * as Rapor from "./rapor.js?v=20261026m";
+import * as Verim from "./verim.js?v=20261026m";
+import * as Isbasi from "./isbasi.js?v=20261026m";
+import * as Guest from "./guest.js?v=20261026m";
+import * as Yontem from "./yontem.js?v=20261026m";
+import * as Tatil from "./tatil.js?v=20261026m";
+import * as Gorev from "./gorev.js?v=20261026m";
+import { banner, bannerInit, guestWatch, stop as bnStop, linkRenewed } from "./bildirim.js?v=20261026m";
+import * as Arsiv from "./arsiv.js?v=20261026m";
+import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261026m";
+import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261026m";
 const PEND_META = { isbasig: ["isbasi", "İşbaşı Eğitim"], konusmag: ["konusma", "Eğitim Konuşması"], kazag: ["kaza", "İş Kazası"], ramak: ["ramak", "Ramak Kala"] };
 
 const VERSION = "1.8.5";
@@ -695,5 +695,10 @@ async function pageAyarlar(v) {
   }
   $("doSync").onclick = async () => { await loadContext(); $("syncT").textContent = "Güncel · " + st.lastSync.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }); say("Veriler buluttan yenilendi."); };
 }
-function applyTheme() { document.documentElement.dataset.theme = S.pref.get("theme") || "light"; }
+function applyTheme() {
+  const t = S.pref.get("theme") || "light"; document.documentElement.dataset.theme = t;
+  // Yerleşik tarih/saat seçicileri uygulama temasını izlesin (Android Chrome meta etiketine bakar)
+  const cs = t === "dark" ? "dark" : t === "auto" ? "light dark" : "light"; document.documentElement.style.colorScheme = cs;
+  let m = document.querySelector('meta[name="color-scheme"]'); if (!m) { m = document.createElement("meta"); m.name = "color-scheme"; document.head.appendChild(m); } m.content = cs;
+}
 applyTheme();
