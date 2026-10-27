@@ -1,10 +1,10 @@
 // Bulgu paylaşımı: yetkili, seçtiği bölümlerin açık bulgularını seçtiği misafirlerle paylaşır; misafir kendi ekranında görür ve
 // mevcut "Aksiyon bildir" akışıyla aksiyon alır (yetkili onayı mevcut Aksiyon bildirimleri panelinde).
 // Puan kuralı mevcut sistemdeki gibi: aksiyonun gönderim zamanı denetim haftası içindeyse (en geç cumartesi) ve yetkili kabul ederse puana işlenir.
-import * as S from "./store.js?v=20261026f";
-import { esc, ic, toast, confirmBox, compressImage, showPhoto } from "./ui.js?v=20261026f";
-import * as Guest from "./guest.js?v=20261026f";
-import { CATS } from "./isgcats.js?v=20261026f";
+import * as S from "./store.js?v=20261026g";
+import { esc, ic, toast, confirmBox, compressImage, showPhoto, GUEST } from "./ui.js?v=20261026g";
+import * as Guest from "./guest.js?v=20261026g";
+import { CATS } from "./isgcats.js?v=20261026g";
 
 const pad = n => String(n).padStart(2, "0"), iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const addDays = (s, n) => { const d = new Date(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10)); d.setDate(d.getDate() + n); return iso(d); };
@@ -119,7 +119,7 @@ export function buildItems(isg, fixDocs, since = "", uid = "", fixMap = {}) {
   for (const s of isg?.sessions || []) if (!since || (s.date && monOf(s.date) >= since) || Object.entries(s.fails || {}).some(([id, arr]) => (arr || []).some((t, j) => t && s.fixed?.[id + "|" + j]?.st !== "ok"))) for (const [id, arr] of Object.entries(s.fails || {})) (arr || []).forEach((t, j) => {
     if (!t) return; const k = id + "|" + j, f = s.fixed?.[k], r = reqs[`${s.no}|${k}`], ok = !!(f && f.t === t && f.st === "ok"), pend = !ok && !!r && r.t === t && !(f && (f.rat || 0) >= r.at), rej0 = !ok && !pend && !!(f && f.st === "rej" && f.t === t),
       // Ret yalnızca reddedilen aksiyonu bildiren misafire görünür; diğer misafirler için bulgu normal açık bulgu gibi kalır
-      rej = rej0 && (!uid || (f.gu ? f.gu === uid : fixMap[uid]?.draft?.fixReqs?.[`${s.no}|${k}`]?.at === f.rat));
+      rej = rej0 && (!uid || (f.gu ? f.gu === uid : f.rat != null ? fixMap[uid]?.draft?.fixReqs?.[`${s.no}|${k}`]?.at === f.rat : !!f.gn && f.gn === GUEST.name));
     items.push({ no: s.no, id, j, t, st: ok ? "ok" : pend ? "on" : rej ? "rej" : "ac", why: rej ? (f.rej || "") : "", by: ok ? (f.gn || "") : "", tx: ok ? (f.tx || "") : "", before: s.photos?.[k] || [], after: ok ? (f.ph || []) : pend ? (r.ph || []) : [] });
   });
   return items;
