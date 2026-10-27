@@ -88,7 +88,7 @@ export async function shrinkDataUrl(src, px) {
 // Tam ekran fotoğraf görüntüleyici
 export function showPhoto(src) {
   const m = document.createElement("div"); m.className = "mod";
-  m.innerHTML = `<div class="mbox" style="gap:12px;align-items:center;max-width:min(96vw,900px)"><img src="${src}" alt="Fotoğraf" style="max-width:100%;max-height:75vh;border-radius:10px"><button data-x>Kapat</button></div>`;
+  m.innerHTML = `<div class="mbox" style="gap:12px;align-items:center;max-width:min(calc(100vw - 32px),900px)"><img src="${src}" alt="Fotoğraf" style="max-width:100%;max-height:75vh;border-radius:10px"><button data-x>Kapat</button></div>`;
   document.body.appendChild(m); const close = () => m.remove();
   m.querySelector("[data-x]").onclick = close; m.addEventListener("mousedown", e => { if (e.target === m) close(); });
 }

@@ -885,7 +885,7 @@ function bind(v, c) {
       return h || '<div class="muted">Uygunsuz madde yok.</div>';
     };
     const draw2 = () => {
-      m.innerHTML = `<div class="mbox" style="max-width:none;width:min(96vw,1100px);height:min(95vh,900px);padding:0;gap:0;overflow:hidden">
+      m.innerHTML = `<div class="mbox" style="max-width:none;width:min(calc(100vw - 32px),1100px);height:min(95vh,900px);padding:0;gap:0;overflow:hidden">
         <div class="row sp" style="padding:16px 20px;border-bottom:1px solid var(--line);flex-wrap:nowrap"><div style="min-width:0"><b style="font:600 18px Sora,sans-serif">${esc(g.guestName)} · detaylı kontrol</b>
           <div class="muted" style="font-size:12.5px">${w.date ? dmy(w.date) : "—"} · ${Object.keys(w.marks).length} madde işaretli · ${nUnf()} uygunsuz · ${nPh()} fotoğraf · ${esc(D.setup.rows.find(r => r.id === D.dept)?.name || "")}</div>${tgt ? `<div style="font-size:12.5px;margin-top:2px;color:var(--gd);font-weight:600">Onaylanınca ${tgt.no}. denetime (${wkNo(tgt.date)}. hafta) eklenir.</div>` : ""}</div>
           <button data-x aria-label="Kapat" style="flex:0 0 32px;width:32px;height:32px;min-width:0;padding:0;background:#B3261E;border-color:#B3261E;color:#fff;font-size:26px;line-height:1;display:grid;place-items:center;border-radius:8px">×</button></div>
