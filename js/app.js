@@ -1,23 +1,23 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261029b";
-import * as S from "./store.js?v=20261029b";
-import * as Prim from "./primary.js?v=20261029b";
-import * as Denetim from "./denetim.js?v=20261029b";
-import * as Kaza from "./kaza.js?v=20261029b";
-import * as Konusma from "./konusma.js?v=20261029b";
-import * as Ramak from "./ramak.js?v=20261029b";
-import * as Genel from "./genel.js?v=20261029b";
-import * as Rapor from "./rapor.js?v=20261029b";
-import * as Verim from "./verim.js?v=20261029b";
-import * as Isbasi from "./isbasi.js?v=20261029b";
-import * as Guest from "./guest.js?v=20261029b";
-import * as Yontem from "./yontem.js?v=20261029b";
-import * as Tatil from "./tatil.js?v=20261029b";
-import * as Gorev from "./gorev.js?v=20261029b";
-import { banner, bannerInit, guestWatch, stop as bnStop, linkRenewed } from "./bildirim.js?v=20261029b";
-import * as Arsiv from "./arsiv.js?v=20261029b";
-import * as FabArsiv from "./fabarsiv.js?v=20261029b";
-import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261029b";
-import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261029b";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261029c";
+import * as S from "./store.js?v=20261029c";
+import * as Prim from "./primary.js?v=20261029c";
+import * as Denetim from "./denetim.js?v=20261029c";
+import * as Kaza from "./kaza.js?v=20261029c";
+import * as Konusma from "./konusma.js?v=20261029c";
+import * as Ramak from "./ramak.js?v=20261029c";
+import * as Genel from "./genel.js?v=20261029c";
+import * as Rapor from "./rapor.js?v=20261029c";
+import * as Verim from "./verim.js?v=20261029c";
+import * as Isbasi from "./isbasi.js?v=20261029c";
+import * as Guest from "./guest.js?v=20261029c";
+import * as Yontem from "./yontem.js?v=20261029c";
+import * as Tatil from "./tatil.js?v=20261029c";
+import * as Gorev from "./gorev.js?v=20261029c";
+import { banner, bannerInit, guestWatch, stop as bnStop, linkRenewed } from "./bildirim.js?v=20261029c";
+import * as Arsiv from "./arsiv.js?v=20261029c";
+import * as FabArsiv from "./fabarsiv.js?v=20261029c";
+import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261029c";
+import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261029c";
 const PEND_META = { isbasig: ["isbasi", "İşbaşı Eğitim"], konusmag: ["konusma", "Eğitim Konuşması"], kazag: ["kaza", "İş Kazası"], ramak: ["ramak", "Ramak Kala"] };
 
 const VERSION = "1.8.5";
@@ -477,6 +477,17 @@ function validateK() {
 // ---------- Ayarlar ----------
 const BUILD = "10.10.2026";
 const fmtDt = t => new Date(t).toLocaleString("tr-TR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+const photoOf = uid => { try { return S.pref.get("photo_" + uid) || ""; } catch { return ""; } };
+const avHtml = (name, photo, id) => `<button type="button" class="av" id="${id}" aria-label="Profil fotoğrafı">${photo ? `<img src="${esc(photo)}" alt="">` : esc(initials(name))}</button>`;
+const readPhoto = file => new Promise((res, rej) => { const im = new Image(), u = URL.createObjectURL(file); im.onload = () => { const m = Math.min(im.width, im.height), c = document.createElement("canvas"); c.width = c.height = 256; c.getContext("2d").drawImage(im, (im.width - m) / 2, (im.height - m) / 2, m, m, 0, 0, 256, 256); URL.revokeObjectURL(u); res(c.toDataURL("image/jpeg", 0.82)); }; im.onerror = () => rej(new Error("Resim okunamadı.")); im.src = u; });
+// Profil fotoğrafı: seç / kaldır. Sonuç: yeni data URL, "" (kaldır) veya null (vazgeç)
+async function pickPhoto(has) {
+  let rm = false;
+  const p = modal(`<h2>Profil fotoğrafı</h2><p class="muted">Fotoğraf yoksa adınızın baş harfleri gösterilir.</p><div class="row" style="justify-content:flex-end"><button class="sec" data-no>Vazgeç</button>${has ? '<button class="sec outred" data-rmp>Kaldır</button>' : ""}<button data-yes>Fotoğraf seç</button></div>`);
+  const b = document.querySelector("[data-rmp]"); if (b) b.onclick = () => { rm = true; document.querySelector(".mod [data-no]").click(); };
+  const r = await p; if (rm) return ""; if (!r) return null;
+  return new Promise(res => { const i = document.createElement("input"); i.type = "file"; i.accept = "image/*"; i.onchange = async () => { const f = i.files[0]; if (!f) return res(null); try { res(await readPhoto(f)); } catch (e) { toast(e.message); res(null); } }; i.oncancel = () => res(null); i.click(); });
+}
 const initials = n => (n || "").split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0].toUpperCase()).join("") || "?";
 const item = (inner, bg = "var(--card)", bd = "var(--line)") => `<div class="it${bg === "var(--card)" ? "" : " lt"}" style="background:${bg};border-color:${bd}">${inner}</div>`;
 const THEMES = [["light", "Açık", "#0B2230", "#EDF2F0", "#fff"], ["dark", "Koyu", "#06121a", "#0d1a22", "#14262f"], ["auto", "Cihaza göre", "#0B2230", "#8aa39b", "#cfdcd7"]];
@@ -499,14 +510,16 @@ function yearMenu(y, { active, archived }) {
 function pageGuestAyarlar(v) {
   const g = st.guest, theme = S.pref.get("theme") || "light";
   v.innerHTML = `<div><h1 class="ttl">Ayarlar</h1><div class="sub">Misafir erişimi</div></div>
-  <div class="cd"><div class="row" style="gap:16px;flex-wrap:nowrap"><div class="av">${esc(initials(g.name))}</div><div style="min-width:0;flex:1"><b style="font-size:17px">${esc(g.name)}</b><div class="muted" style="overflow-wrap:anywhere">${esc(g.email)}</div></div><button class="sm sec" id="gOut" style="flex:0 0 auto">Çıkış yap</button></div>
+  <div class="cd"><div class="row" style="gap:16px;flex-wrap:nowrap">${avHtml(g.name, photoOf(g.uid), "avBtn")}<div style="min-width:0;flex:1"><b style="font-size:17px">${esc(g.name)}</b><div class="muted" style="overflow-wrap:anywhere">${esc(g.email)}</div></div></div>
     <div class="fg"><div><span class="hd">ROL</span><div class="inp ro">Misafir</div></div><div><span class="hd">ERİŞİM</span><div class="inp ro">${esc(Guest.leftText(g.member))}</div></div>
     <div><span class="hd">FABRİKALAR</span><div class="inp ro">${esc(st.all.map(f => f.name).join(", "))}</div></div></div>
-    <div class="muted" style="font-size:12.5px;line-height:1.6">Misafir olarak veri girişi yapabilir, İSG denetimini kaydedebilir, raporları görüp PDF alabilirsiniz. Denetimi tamamlama, silme, kurulum ve yıl/tarih ekleme yetkili kullanıcıdadır.</div></div>
+    <div class="muted" style="font-size:12.5px;line-height:1.6">Misafir olarak veri girişi yapabilir, İSG denetimini kaydedebilir, raporları görüp PDF alabilirsiniz. Denetimi tamamlama, silme, kurulum ve yıl/tarih ekleme yetkili kullanıcıdadır.</div>
+    <div class="row" style="justify-content:flex-end"><button class="sec outred" id="gOut">Çıkış yap</button></div></div>
   <div class="cd" style="gap:12px"><h2>Uygulama</h2><div class="fg">${instState()}</div>${standalone() ? "" : `<div class="muted" style="font-size:13px;line-height:1.55">Ana ekrana ekleyerek uygulama gibi tam ekran kullanabilirsiniz.</div><div class="row">${instBtn()}</div>`}</div>
   <div class="cd"><h2>Görünüm</h2><div class="th">${THEMES.map(([k, n, sd, bg, cd]) => `<button class="tb ${k === theme ? "on" : ""}" data-theme="${k}" aria-pressed="${k === theme}"><div class="pv"><div style="flex:0 0 28%;background:${sd}"></div><div style="flex:1;background:${bg};display:flex;flex-direction:column;gap:5px;padding:7px"><div style="height:8px;border-radius:4px;background:${cd}"></div><div style="height:8px;width:60%;border-radius:4px;background:#17A06F"></div></div></div><b>${n}</b></button>`).join("")}</div></div>`;
   instBind();
   v.querySelectorAll("[data-theme]").forEach(b => b.onclick = () => { S.pref.set("theme", b.dataset.theme); applyTheme(); pageGuestAyarlar(v); });
+  $("avBtn").onclick = async () => { const r = await pickPhoto(!!photoOf(g.uid)); if (r === null) return; S.pref.set("photo_" + g.uid, r); pageGuestAyarlar(v); };
   $("gOut").onclick = async () => { const eg = Guest.isEmailGuest(auth.currentUser); if (await confirmBox("Çıkış yapılsın mı?", eg ? "Tekrar girmek için size gönderilen bağlantıya dokunmanız yeterlidir." : "Tekrar girmek için yeniden onay gerekir.", "Çıkış yap")) guestOut(null, true); };
 }
 
@@ -537,14 +550,14 @@ async function pageAyarlar(v) {
   <div class="two">
   <div class="colw">
     <div class="cd"><div><h2>Hesap</h2><div class="muted" style="font-size:13px">Giriş yaptığınız hesabın bilgileri. E-posta ile giriş yapılır, şifreniz hiçbir yerde gösterilmez.</div></div>
-      <div class="row" style="gap:16px;flex-wrap:nowrap"><div class="av">${esc(initials(name || email))}</div>
-        <div style="min-width:0;flex:1"><b style="font-size:17px">${esc(name || "Adınızı girin")}</b><div class="muted" style="overflow-wrap:anywhere">${esc(email)}</div></div><button class="sm sec" id="askOut" style="flex:0 0 auto">Çıkış yap</button></div>
+      <div class="row" style="gap:16px;flex-wrap:nowrap">${avHtml(name || email, profile.photo, "avBtn")}
+        <div style="min-width:0;flex:1"><b style="font-size:17px">${esc(name || "Adınızı girin")}</b><div class="muted" style="overflow-wrap:anywhere">${esc(email)}</div></div></div>
       <div class="fg">
         <div><label class="hd" for="adSoyad">AD SOYAD</label><input id="adSoyad" class="inp" value="${esc(name)}" placeholder="Ad Soyad"></div>
         <div><span class="hd">E-POSTA</span><div class="inp ro">${esc(email)}</div></div>
         <div><span class="hd">ROL</span><div class="inp ro">Yönetici</div></div>
         <div><span class="hd">GİRİŞ YÖNTEMİ</span><div class="inp ro">E-posta ve şifre</div></div></div>
-      <div class="row"><button class="sec" id="saveName">Adı kaydet</button><button class="sec" id="resetPw">Şifre sıfırlama bağlantısı gönder</button></div></div>
+      <div class="row" style="justify-content:space-between;flex-wrap:nowrap"><button class="sec" id="saveName">Adı kaydet</button><button class="sec outred" id="askOut">Çıkış yap</button></div><div class="row"><button class="sec" id="resetPw">Şifre sıfırlama bağlantısı gönder</button></div></div>
 
     <div class="cd" id="guestBox"></div>
 
@@ -607,6 +620,7 @@ async function pageAyarlar(v) {
   })();
   Guest.renderSettings($("guestBox"), { ownerUid: auth.currentUser.uid, factories: st.all, scope }).catch(() => {});
   $("noteX").onclick = () => $("note").classList.add("hide");
+  $("avBtn").onclick = async () => { const r = await pickPhoto(!!profile.photo); if (r === null) return; try { await S.saveProfile({ photo: r }); } catch (e) { return say("Kaydedilemedi: " + (e.message || e)); } say(r ? "Profil fotoğrafı kaydedildi." : "Profil fotoğrafı kaldırıldı."); pageAyarlar(v); };
   $("saveName").onclick = async () => { await S.saveProfile({ name: $("adSoyad").value.trim() }); say("Adınız kaydedildi."); pageAyarlar(v); };
   $("resetPw").onclick = async () => { try { await sendPasswordResetEmail(auth, email); say("Şifre sıfırlama bağlantısı e-postanıza gönderildi."); } catch (e) { say(errMsg(e)); } };
   v.querySelectorAll("[data-prim]").forEach(b => b.onclick = () => Prim.startTransfer({ id: b.dataset.prim, name: b.dataset.pname }, t => { toast(t); pageAyarlar(v); }));
