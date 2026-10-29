@@ -3,8 +3,8 @@
 //   users/{sahip}/invites/{kod}        davet (e-posta ayarı kopyası)
 //   users/{sahip}/guestReqs/{misafirUid}  onay isteği {gid, code, name, unit, status, at}
 //   users/{sahip}/members/{misafirUid}    onaylı üye {name, unit, factories[], mode, expires|null}
-import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously, signInWithEmailAndPassword, createAuxUser, changeAuxPassword, serverTimestamp } from "./firebase.js?v=20261029c";
-import { esc, toast, confirmBox } from "./ui.js?v=20261029c";
+import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously, signInWithEmailAndPassword, createAuxUser, changeAuxPassword, serverTimestamp } from "./firebase.js?v=20261029d";
+import { esc, toast, confirmBox } from "./ui.js?v=20261029d";
 
 const Q = new URLSearchParams(location.search);
 export const linkInfo = () => {
@@ -225,7 +225,7 @@ const newPid = taken => { // 6 hane, serbest dizilim; en az 2 harf ve en az 2 ra
 };
 // Önceki kayıtları bul: kişi kaydı (ID) + adı eşleşen, sahibi artık üye olmayan (sahipsiz) taslaklar
 async function findPrev(o, name, gid) {
-  const S = await import("./store.js?v=20261029c"), n = normName(name);
+  const S = await import("./store.js?v=20261029d"), n = normName(name);
   const people = (await loadPeople(o)).filter(p => p.norm === n);
   const mems = await getDocs(collection(db, `users/${o}/members`)).then(s => new Set(s.docs.map(d => d.id))).catch(() => new Set());
   const uids = new Set(); people.forEach(p => (p.uids || []).forEach(u => { if (u !== gid && !mems.has(u)) uids.add(u); }));
@@ -239,7 +239,7 @@ async function findPrev(o, name, gid) {
   return { person: people[0] || null, pid: people[0]?.id || null, uids, count };
 }
 async function migrateGuest(oldUids, newUid, name) {
-  const S = await import("./store.js?v=20261029c"); let n = 0;
+  const S = await import("./store.js?v=20261029d"); let n = 0;
   for (const f of await S.listFactories()) for (const y of await S.listYears(f.id)) for (const c of GCOLLS) {
     const all = await S.listMonthDocs(f.id, y, c), ids = new Set(all.map(d => d.id));
     for (const d of all) {
@@ -295,7 +295,7 @@ export async function approvalDialog(ownerUid, gid, factories, done) {
         const cg = await getDoc(doc(db, `users/${ownerUid}/meta/guestcfg`)).catch(() => null);
         const ppl = await loadPeople(ownerUid), pid = prev?.pid || newPid(new Set(ppl.map(p => p.id))), merge = !!(m.querySelector("#gMg")?.checked && prev?.uids?.size);
         await setDoc(PPL(ownerUid, pid), { name: nm, norm: normName(nm), unit: req.unit || "", createdAt: prev?.person?.createdAt || Date.now(), uids: [...new Set([...(prev?.person?.uids || []), ...(merge ? prev.uids : []), gid])] });
-        await setDoc(MEM(ownerUid, gid), { ntfy: cg?.exists() ? cg.data().ntfy || null : null, name: nm, unit: req.unit || "", pid, factories: fs, mode, expires: mode === "24h" ? new Date(Date.now() + 864e5) : null, createdAt: Date.now() });
+        await setDoc(MEM(ownerUid, gid), { ntfy: cg?.exists() ? cg.data().ntfy || null : null, name: nm, unit: req.unit || "", pid, hist: false, factories: fs, mode, expires: mode === "24h" ? new Date(Date.now() + 864e5) : null, createdAt: Date.now() });
         let moved = 0; if (merge) { try { moved = await migrateGuest(prev.uids, gid, nm); } catch (e) { toast("Önceki kayıtlar taşınamadı: " + (e.message || e)); } }
         await updateDoc(REQ(ownerUid, gid), { status: "approved", decidedAt: Date.now() });
         toast(`${nm} için ${mode === "24h" ? "24 saatlik" : "süresiz"} erişim onaylandı.${moved ? " " + moved + " önceki kayıt devam ettirildi." : ""}`);
@@ -423,19 +423,20 @@ export async function renderSettings(box, { ownerUid, factories, onChange, scope
   const openEdit = async uid => {
     const x = people.find(y => y.uid === uid); if (!x) return;
     const md = document.createElement("div"); md.className = "mod"; document.body.appendChild(md);
-    const e = { acc: null, lv: null, fab: [...(x.factories || [])], sec: null, secRows: [], dd: null, dev: false }; let secOrig = null;
+    const e = { acc: null, lv: null, hist: null, fab: [...(x.factories || [])], sec: null, secRows: [], dd: null, dev: false }; let secOrig = null;
     const close = () => md.remove();
     md.addEventListener("mousedown", ev => { if (ev.target === md) close(); });
     const dd = (id, label, val, items, multi) => { const o = e.dd === id; return `<div class="gdd${o ? " open" : ""}"><button type="button" class="gddb" data-dd="${id}" aria-expanded="${o}"><span style="flex:1;min-width:0"><span class="hd" style="display:block;font-size:10.5px;margin:0">${esc(label)}</span><b style="font-size:13.5px">${esc(val)}</b></span>${CH}</button>${o ? `<div class="gddl">${items.map((it, k) => `<button type="button" class="gopt" data-opt="${id}|${k}"><i>${it[2] ? "✓" : ""}</i>${esc(it[1])}</button>`).join("")}</div>` : ""}</div>`; };
     const loadDevs = () => getDocs(collection(db, `users/${ownerUid}/members/${x.uid}/devices`)).then(s => s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => b.last - a.last)).catch(() => x.devs);
     const draw = () => {
       const accVal = e.acc || accTxt(x.m), lvVal = validTxt(e.lv || x.p?.linkH || 24), np = pendOf(x.devs);
-      const secOn = !!(e.sec && e.secRows.length), allOn = secOn && e.sec.length === e.secRows.length;
+      const histVal = (e.hist ?? (x.m?.hist !== false)) ? "Açık" : "Kapalı", secOn = !!(e.sec && e.secRows.length), allOn = secOn && e.sec.length === e.secRows.length;
       const secVal = allOn ? `Tüm bölümler (${e.secRows.length})` : e.sec?.length ? `${e.sec.length} / ${e.secRows.length} bölüm` : "Paylaşım yok";
       md.innerHTML = `<div class="mbox" role="dialog" aria-modal="true" style="gap:12px"><div class="row" style="flex-wrap:nowrap;align-items:flex-start;gap:10px"><div class="grow" style="min-width:0"><h2 style="margin:0;font-size:18px">${esc(x.name)}</h2><div class="muted" style="font-size:12.5px">${x.pid ? "ID " + esc(x.pid) + " · " : ""}${x.kind === "inv" ? "Kişiye özel davet" : "Ortak bağlantı"}</div></div><button type="button" class="sm sec" data-x>Kapat</button></div>
       ${x.stop ? '<div class="muted" style="font-size:13px;line-height:1.5">Erişim durduruldu. Kayıt listede duruyor; yeniden açabilir veya silebilirsiniz.</div>' : `<div class="gddrow">${dd("acc", "Erişim süresi", accVal, ACC.map(a => [a, a, a === accVal]), 0)}${x.kind === "inv" ? dd("lv", "Bağlantı geçerliliği", lvVal, VALID.map(v => [v[0], v[1], v[1] === lvVal]), 0) : ""}</div>
         ${dd("fab", "Fabrikalar", `${e.fab.length} / ${factories.length} fabrika seçili`, factories.map(f => [f.id, f.name, e.fab.includes(f.id)]), 1)}
         ${secOn ? dd("sec", "Paylaşılan bölümler (bu ay)", secVal, [["*", "Tüm bölümler", allOn], ...e.secRows.map(r => [r.id, r.name, e.sec.includes(r.id)])], 1) : ""}
+        ${dd("hist", "Eski bulgular ve aksiyon", histVal, [["0", "Kapalı · yeni denetçi gibi", histVal === "Kapalı"], ["1", "Açık · eski bulguları görür, aksiyon bildirir", histVal === "Açık"]], 0)}
         ${x.devs.length ? `<div class="gdd${e.dev ? " open" : ""}"><button type="button" class="gddb" data-dev aria-expanded="${e.dev}"><span style="flex:1;min-width:0"><span class="hd" style="display:block;font-size:10.5px;margin:0">Cihazlar</span><b style="font-size:13.5px">${x.devs.length} cihaz${np ? ` · ${np} onay bekliyor` : ""}</b></span>${CH}</button>${e.dev ? `<div class="gddl" style="max-height:none;padding:6px">${x.devs.map(d => `<div class="row" style="gap:8px;flex-wrap:nowrap;justify-content:space-between;align-items:center;padding:4px"><div style="min-width:0"><b style="font-size:13px">${esc(d.label || "Cihaz")}</b>${d.blocked ? ' <span class="tag" style="background:#FADAD7;color:#8E1B16">Engelli</span>' : isPend(d) ? ' <span class="tag" style="background:#FBE9C6;color:#6B3F00">Onay bekliyor</span>' : ""}<div class="muted" style="font-size:12px">İlk giriş ${ago(d.first)} · Son ${ago(d.last)}</div></div><div class="row" style="gap:6px;flex:0 0 auto;flex-wrap:nowrap">${isPend(d) ? `<button type="button" class="sm" data-dap="${d.id}">Onayla</button>` : ""}<button type="button" class="sm sec" data-dblk="${d.id}|${d.blocked ? 0 : 1}" style="${d.blocked ? "" : "color:#B3261E;border-color:#B3261E"}">${d.blocked ? "Engeli kaldır" : "Engelle"}</button></div></div>`).join("")}</div>` : ""}</div>` : ""}`}
       <div class="gtwo">${x.stop ? '<button type="button" class="sec" data-reopen>Yeniden aç</button>' : `${x.kind === "inv" ? '<button type="button" class="sec" data-newlink>Yeni link üret</button><button type="button" class="sec" data-resend>Mesajı gönder</button>' : ""}<button type="button" class="sec" data-stop>Erişimi durdur</button>`}<button type="button" class="sec" data-del style="color:#B3261E;border-color:#B3261E">Kişiyi sil</button></div>
       ${x.stop ? "" : '<button type="button" data-save>Kaydet</button>'}</div>`;
@@ -446,6 +447,7 @@ export async function renderSettings(box, { ownerUid, factories, onChange, scope
       on("[data-opt]", b => {
         const [id, k] = b.dataset.opt.split("|"), i = +k;
         if (id === "acc") { e.acc = ACC[i]; e.dd = null; }
+        else if (id === "hist") { e.hist = i === 1; e.dd = null; }
         else if (id === "lv") { e.lv = VALID[i][0]; e.dd = null; }
         else if (id === "fab") { const f = factories[i].id, at = e.fab.indexOf(f); if (at > -1) { if (e.fab.length > 1) e.fab.splice(at, 1); } else e.fab.push(f); }
         else if (id === "sec") { if (i === 0) e.sec = e.sec.length === e.secRows.length ? [] : e.secRows.map(r => r.id); else { const f = e.secRows[i - 1].id, at = e.sec.indexOf(f); if (at > -1) e.sec.splice(at, 1); else e.sec.push(f); } }
@@ -465,7 +467,7 @@ export async function renderSettings(box, { ownerUid, factories, onChange, scope
       on("[data-reopen]", async () => {
         try {
           if (x.p) { const p = x.p, m0 = x.m, expires = p.expires && ms(p.expires) > Date.now() ? p.expires : (p.expires ? new Date(Date.now() + 30 * 864e5) : null);
-            await setDoc(MEM(ownerUid, p.uid), { ntfy: cfg.ntfy || null, name: p.name, unit: "", pid: p.pid || m0?.pid || null, inv: true, factories: p.factories, mode: expires ? "24h" : "perm", expires, createdAt: m0?.createdAt || Date.now(), ...(m0?.lastSeen ? { lastSeen: m0.lastSeen } : {}) });
+            await setDoc(MEM(ownerUid, p.uid), { ntfy: cfg.ntfy || null, name: p.name, unit: "", pid: p.pid || m0?.pid || null, inv: true, ...(m0?.hist !== undefined ? { hist: m0.hist } : {}), factories: p.factories, mode: expires ? "24h" : "perm", expires, createdAt: m0?.createdAt || Date.now(), ...(m0?.lastSeen ? { lastSeen: m0.lastSeen } : {}) });
             await updateDoc(PIN(ownerUid, p.uid), { closed: false, expires }); }
           else await updateDoc(MEM(ownerUid, x.uid), { stopped: false });
         } catch (er) { return toast("Kaydedilemedi: " + (er.message || er)); }
@@ -481,6 +483,7 @@ export async function renderSettings(box, { ownerUid, factories, onChange, scope
           if (e.acc && e.acc !== accTxt(x.m)) { const A = { "Süresiz": ["perm", null], "24 saat": ["24h", new Date(Date.now() + 864e5)], "7 gün": ["7d", new Date(Date.now() + 7 * 864e5)] }[e.acc]; mUp.mode = A[0]; mUp.expires = A[1]; if (x.p) pUp.expires = A[1]; }
           if (e.lv && x.p && +e.lv !== +(x.p.linkH || 24)) { const lu = Date.now() + e.lv * 36e5; pUp.linkH = +e.lv; pUp.linkUntil = lu; mUp.linkUntil = lu; }
           if ([...e.fab].sort().join() !== [...(x.factories || [])].sort().join()) { mUp.factories = e.fab; if (x.p) pUp.factories = e.fab; }
+          if (e.hist !== null && e.hist !== (x.m?.hist !== false)) mUp.hist = e.hist;
           if (Object.keys(mUp).length) await updateDoc(MEM(ownerUid, x.uid), mUp);
           if (x.p && Object.keys(pUp).length) await updateDoc(PIN(ownerUid, x.p.uid), pUp);
           if (scope && secOrig && e.sec && [...e.sec].sort().join() !== [...secOrig].sort().join()) await scope.set(x.uid, x.name, e.secRows.filter(r => e.sec.includes(r.id)));
@@ -539,7 +542,7 @@ export function inviteDialog(ownerUid, factories, done) {
       const token = tokGen(), uid = await createAuxUser(pEmail(token), token), expires = days ? new Date(Date.now() + days * 864e5) : null;
       const cg = await getDoc(doc(db, `users/${ownerUid}/meta/guestcfg`)).catch(() => null), ppl = await loadPeople(ownerUid), pid = newPid(new Set(ppl.map(p => p.id)));
       await setDoc(PPL(ownerUid, pid), { name, norm: normName(name), unit: "", createdAt: Date.now(), uids: [uid] });
-      await setDoc(MEM(ownerUid, uid), { ntfy: cg?.exists() ? cg.data().ntfy || null : null, name, unit: "", pid, inv: true, factories: fs, mode: expires ? "24h" : "perm", expires, linkUntil: Date.now() + lh * 36e5, createdAt: Date.now() });
+      await setDoc(MEM(ownerUid, uid), { ntfy: cg?.exists() ? cg.data().ntfy || null : null, name, unit: "", pid, inv: true, hist: false, factories: fs, mode: expires ? "24h" : "perm", expires, linkUntil: Date.now() + lh * 36e5, createdAt: Date.now() });
       const p = { name, phone, uid, token, ek: token, pid, factories: fs, expires, closed: false, linkH: lh, linkUntil: Date.now() + lh * 36e5, createdAt: Date.now() };
       await setDoc(PIN(ownerUid, uid), p);
       m.remove(); done?.(); sendDialog(ownerUid, p);

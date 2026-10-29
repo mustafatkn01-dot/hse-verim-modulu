@@ -1,13 +1,13 @@
 // İSG Denetim Listesi sayfası
-import * as Guest from "./guest.js?v=20261029c";
-import * as Gorev from "./gorev.js?v=20261029c";
-import * as S from "./store.js?v=20261029c";
-import * as Ramak from "./ramak.js?v=20261029c";
-import * as Paylas from "./paylas.js?v=20261029c";
-import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261029c";
-import { CATS } from "./isgcats.js?v=20261029c";
-import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261029c";
-import { calcIsg, isgMonth, isgAudits, fxInTime, makTier, katsayi, bandOf, num, surecVar, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261029c";
+import * as Guest from "./guest.js?v=20261029d";
+import * as Gorev from "./gorev.js?v=20261029d";
+import * as S from "./store.js?v=20261029d";
+import * as Ramak from "./ramak.js?v=20261029d";
+import * as Paylas from "./paylas.js?v=20261029d";
+import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, GUEST, guestLock, roText } from "./ui.js?v=20261029d";
+import { CATS } from "./isgcats.js?v=20261029d";
+import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261029d";
+import { calcIsg, isgMonth, isgAudits, fxInTime, makTier, katsayi, bandOf, num, surecVar, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261029d";
 
 const COLL = "isg";
 const D = { pk: { open: false, view: 0, cnt: {} }, fxEditing: new Set(), fxDraft: {}, fxOpen: new Set(), fxList: [], gfxOpen: false, key: "", setup: null, doc: null, dept: null, month: null, open: {}, ro: false, timer: null, saved: true, msg: "" };
@@ -431,7 +431,9 @@ function fxReview(pd) {
 // Misafir: açık bulgular listesi (açılır kart) ve aksiyon bildirme formu
 // Misafir görünürlüğü: paylaşım haftası ve sonrası denetimler + hâlâ açık bulgusu olan eski denetimler
 const gVis = s => {
-  if (!GUEST.on || !D.shScope) return true;
+  if (!GUEST.on) return true;
+  if (!GUEST.hist) return false;
+  if (!D.shScope) return true;
   const w = D.shScope.get(D.month + "|" + D.dept); if (!w) return false;
   return (s.date && monOf(s.date) >= w) || Object.entries(s.fails || {}).some(([id, arr]) => (arr || []).some((t, j) => t && s.fixed?.[id + "|" + j]?.st !== "ok"));
 };
@@ -465,7 +467,7 @@ function gfxRows() {
   return rows;
 }
 function gfxPanel() {
-  if (!GUEST.on || D.shScope) return "";
+  if (!GUEST.on || D.shScope || !GUEST.hist) return "";
   const rows = gfxRows(); if (!rows.length) return "";
   const open = D.gfxOpen;
   return `<div class="cd" style="padding:16px 20px;gap:10px"><button type="button" data-gfxt aria-expanded="${open}" style="display:flex;align-items:center;gap:12px;width:100%;min-height:44px;height:auto;padding:0;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer;font-weight:400"><span style="flex:1;min-width:0"><b style="font:600 16px Sora,sans-serif;display:block">Aksiyon bildir · açık bulgular (${rows.length})</b><span class="muted" style="font-size:12.5px;line-height:1.5">Bir bulguyla ilgili önlem aldıysanız aksiyonu fotoğrafla yetkiliye bildirin.</span></span><span style="transform:rotate(${open ? 180 : 0}deg);display:flex">${ic('<path d="M6 9l6 6 6-6"/>')}</span></button>
@@ -750,7 +752,7 @@ function bind(v, c) {
   on("[data-reopen]", async el => {
     const no = +el.dataset.reopen, t = doc.sessions.find(x => x.no === no); if (!t) return;
     if (doc.draft.on !== false && Object.keys(doc.draft.marks || {}).length && doc.draft.edit !== no) {
-      const { confirmBox } = await import("./ui.js?v=20261029c");
+      const { confirmBox } = await import("./ui.js?v=20261029d");
       if (!(await confirmBox(`${no}. denetim açılsın mı?`, "Şu an açık olan denetimde kaydedilmemiş değişiklikler varsa kaybolur. Önce “Kaydet”e basmanız önerilir.", "Yine de aç"))) return;
     }
     if (t.no === doc.sessions.length) t.closed = false;
@@ -768,7 +770,7 @@ function bind(v, c) {
   });
   const gAll = async () => (await S.listMonthDocs(st.fid, st.year, "isgg").catch(() => [])).filter(g => g.id.startsWith(`${pad(D.month)}_${D.dept}_`));
   on("[data-delsess]", async el => {
-    const { confirmBox } = await import("./ui.js?v=20261029c");
+    const { confirmBox } = await import("./ui.js?v=20261029d");
     const no = +el.dataset.delsess, ix = doc.sessions.findIndex(x => x.no === no); if (ix < 0) return;
     const gone = doc.sessions[ix], later = ix < doc.sessions.length - 1, all = await gAll(), gAp = all.filter(g => g.status === "approved" && g.no === gone.no);
     let mode = "all";
@@ -793,7 +795,7 @@ function bind(v, c) {
   });
   // Sahip: misafir taslağını tamamen sil (denetime ve rapora hiç girmez)
   const delG = async g => {
-    const { confirmBox } = await import("./ui.js?v=20261029c");
+    const { confirmBox } = await import("./ui.js?v=20261029d");
     if (!(await confirmBox("Misafir taslağı silinsin mi?", `${g.guestName} taslağı ve fotoğrafları kalıcı olarak silinir; denetime ve rapora hiç girmez. Misafir isterse yeniden yazabilir.`, "Evet, tamamen sil", true))) return false;
     Object.values(g.draft?.photos || {}).flat().forEach(p => S.deletePhoto(st.fid, st.year, p.id).catch(() => {}));
     await S.deleteMonthDoc(st.fid, st.year, "isgg", g.id); await Guest.inboxDelete(`${g.guestUid}_${st.fid}_${st.year}_${+g.month}_${g.dept}`);
@@ -804,7 +806,7 @@ function bind(v, c) {
   const holOK = async date => {
     if (!date || GUEST.on || D.okHol?.has(date)) return true;
     const h = tatilMap(await tatilYukle(st.fid, st.year).catch(() => null)).get(date); if (!h || h.yarim) return true;
-    const { confirmBox } = await import("./ui.js?v=20261029c");
+    const { confirmBox } = await import("./ui.js?v=20261029d");
     if (!(await confirmBox("İzin / tatil günü", `${fmtTarih(date)} tarihi "${h.ad}" olarak izinli/tatil işaretli. Yine de bu tarihle denetim yapılsın mı?`, "Evet, kabul et"))) return false;
     (D.okHol ||= new Set()).add(date); return true;
   };
@@ -961,7 +963,7 @@ function bind(v, c) {
   });
   on("[data-fxdel]", async el => {
     const { s, id, j, fk } = fxSess(el.dataset.fxdel); if (!s?.fixed?.[fk]) return;
-    const { confirmBox } = await import("./ui.js?v=20261029c");
+    const { confirmBox } = await import("./ui.js?v=20261029d");
     if (!(await confirmBox("Aksiyon kaldırılsın mı?", "Aksiyon bilgisi silinir; bulgu yeniden cezaya sayılır.", "Evet, kaldır", true))) return;
     const old = s.fixed[fk], oldOff = s.fixedOff?.[fk]; delete s.fixed[fk];
     // Otomatik (görev takip) aksiyon elle kaldırıldıysa, aynı kapanış için yeniden otomatik eklenmesin
