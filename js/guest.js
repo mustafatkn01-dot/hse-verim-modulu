@@ -3,8 +3,8 @@
 //   users/{sahip}/invites/{kod}        davet (e-posta ayarı kopyası)
 //   users/{sahip}/guestReqs/{misafirUid}  onay isteği {gid, code, name, unit, status, at}
 //   users/{sahip}/members/{misafirUid}    onaylı üye {name, unit, factories[], mode, expires|null}
-import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously, signInWithEmailAndPassword, createAuxUser, changeAuxPassword, serverTimestamp } from "./firebase.js?v=20261029d";
-import { esc, toast, confirmBox } from "./ui.js?v=20261029d";
+import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously, signInWithEmailAndPassword, createAuxUser, changeAuxPassword, serverTimestamp } from "./firebase.js?v=20261029e";
+import { esc, toast, confirmBox } from "./ui.js?v=20261029e";
 
 const Q = new URLSearchParams(location.search);
 export const linkInfo = () => {
@@ -225,7 +225,7 @@ const newPid = taken => { // 6 hane, serbest dizilim; en az 2 harf ve en az 2 ra
 };
 // Önceki kayıtları bul: kişi kaydı (ID) + adı eşleşen, sahibi artık üye olmayan (sahipsiz) taslaklar
 async function findPrev(o, name, gid) {
-  const S = await import("./store.js?v=20261029d"), n = normName(name);
+  const S = await import("./store.js?v=20261029e"), n = normName(name);
   const people = (await loadPeople(o)).filter(p => p.norm === n);
   const mems = await getDocs(collection(db, `users/${o}/members`)).then(s => new Set(s.docs.map(d => d.id))).catch(() => new Set());
   const uids = new Set(); people.forEach(p => (p.uids || []).forEach(u => { if (u !== gid && !mems.has(u)) uids.add(u); }));
@@ -239,7 +239,7 @@ async function findPrev(o, name, gid) {
   return { person: people[0] || null, pid: people[0]?.id || null, uids, count };
 }
 async function migrateGuest(oldUids, newUid, name) {
-  const S = await import("./store.js?v=20261029d"); let n = 0;
+  const S = await import("./store.js?v=20261029e"); let n = 0;
   for (const f of await S.listFactories()) for (const y of await S.listYears(f.id)) for (const c of GCOLLS) {
     const all = await S.listMonthDocs(f.id, y, c), ids = new Set(all.map(d => d.id));
     for (const d of all) {
@@ -340,7 +340,7 @@ export async function renderSettings(box, { ownerUid, factories, onChange, scope
     ...legacy.map(m => ({ kind: "ort", uid: m.id, name: m.name, pid: m.pid, p: null, m, factories: m.factories, stop: !!m.stopped, devs: [] }))];
   people.forEach(x => { x.exp = !x.stop && !isLive(x.m); });
   const card = x => { const np = pendOf(x.devs), stt = x.stop ? ["Durduruldu", "background:#FBE9C6;color:#6B3F00"] : x.exp ? ["Süresi doldu", "background:#FADAD7;color:#8E1B16"] : x.m.lastSeen ? ["Aktif", ""] : x.kind === "inv" ? ["Link açılmadı", "background:#FBE9C6;color:#6B3F00"] : ["Aktif", ""];
-    return `<div class="it" style="gap:10px;flex-wrap:nowrap;align-items:flex-start"><div class="grow" style="min-width:0"><div><b>${esc(x.name)}</b> <span class="tag" style="${stt[1]}">${stt[0]}</span></div>${x.pid ? `<div class="muted" style="font-size:12px">ID ${esc(x.pid)}</div>` : ""}<div class="muted" style="font-size:12.5px">${[esc(fname(x.factories)), x.m && !x.stop ? "Erişim: " + esc(leftText(x.m)) : ""].filter(Boolean).join(" · ")}</div>${x.kind === "inv" && x.p.linkUntil && !x.stop ? `<div class="muted" style="font-size:12.5px">${ms(x.p.linkUntil) > Date.now() ? "Bağlantı " + hleft(ms(x.p.linkUntil) - Date.now()) + " geçerli" : "Bağlantı süresi doldu (yeni cihaz onay ister)"}</div>` : ""}${np ? `<div><span class="tag" style="background:#FBE9C6;color:#6B3F00">${np} cihaz onay bekliyor</span></div>` : ""}<div class="muted" style="font-size:12.5px">${x.m?.lastSeen ? "Son görülme: " + ago(x.m.lastSeen) : x.p ? "Gönderildi: " + ago(x.p.createdAt) : "Henüz görülmedi"}</div></div><button type="button" class="gedit" data-edit="${x.uid}" aria-label="${esc(x.name)} düzenle">${PEN}</button></div>`; };
+    return `<div class="it" style="gap:10px;flex-wrap:nowrap;align-items:flex-start"><div class="grow" style="min-width:0"><div><b>${esc(x.name)}</b> <span class="tag" style="${stt[1]}">${stt[0]}</span></div>${x.pid ? `<div class="muted" style="font-size:12px">ID ${esc(x.pid)}</div>` : ""}<div class="muted" style="font-size:12.5px">${[esc(fname(x.factories)), x.m && !x.stop ? "Erişim: " + esc(leftText(x.m)) : ""].filter(Boolean).join(" · ")}</div>${x.kind === "inv" && x.p.linkUntil && !x.stop && ms(x.p.linkUntil) + 72 * 36e5 > Date.now() ? `<div class="muted" style="font-size:12.5px">${ms(x.p.linkUntil) > Date.now() ? "Bağlantı " + hleft(ms(x.p.linkUntil) - Date.now()) + " geçerli" : "Bağlantı süresi doldu (yeni cihaz onay ister)"}</div>` : ""}${np ? `<div><span class="tag" style="background:#FBE9C6;color:#6B3F00">${np} cihaz onay bekliyor</span></div>` : ""}<div class="muted" style="font-size:12.5px">${x.m?.lastSeen ? "Son görülme: " + ago(x.m.lastSeen) : x.p ? "Gönderildi: " + ago(x.p.createdAt) : "Henüz görülmedi"}</div></div><button type="button" class="gedit" data-edit="${x.uid}" aria-label="${esc(x.name)} düzenle">${PEN}</button></div>`; };
   const nAkt = pins.filter(p => { const m = mems.find(x => x.id === p.uid); return m && !p.closed && isLive(m); }).length, sub = [`${pins.length} kişi`, nAkt ? `${nAkt} aktif` : "", (pend.length + pins.reduce((n, p) => n + pendOf(devs[p.id]), 0)) ? `${pend.length + pins.reduce((n, p) => n + pendOf(devs[p.id]), 0)} onay bekliyor` : ""].filter(Boolean).join(" · ");
   box.innerHTML = `<button type="button" id="gAcc" aria-expanded="${boxOpen}" aria-label="Misafir Kullanıcılar bölümünü ${boxOpen ? "kapat" : "aç"}" style="display:flex;align-items:center;gap:12px;width:100%;min-height:40px;height:auto;padding:0;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer"><span style="flex:1;min-width:0"><h2 style="margin:0">Misafir Kullanıcılar</h2><div class="muted" style="font-size:13px;margin-top:4px;font-weight:600">${sub}</div></span><span style="flex:0 0 40px;width:40px;height:40px;border-radius:12px;border:1.5px solid var(--gd);color:var(--gd);box-sizing:border-box;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="transition:transform .15s;${boxOpen ? "transform:rotate(180deg)" : ""}"><path d="M6 9l6 6 6-6"/></svg></span></button>
     <div class="col1" id="gAccB" ${boxOpen ? "" : "hidden"} style="gap:14px;border-top:1px solid var(--line);padding-top:14px"><div class="muted" style="font-size:13px;line-height:1.5">Saha yardımcınıza veya denetim yapacak yetkiliye kişiye özel davet bağlantısı gönderin; bağlantıya dokunan onay beklemeden girer. Misafir fabrika bazlı yetkilendirilir.</div>
