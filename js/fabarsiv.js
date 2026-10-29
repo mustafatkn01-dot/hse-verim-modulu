@@ -1,13 +1,13 @@
 // Fabrika arşivi: arşivle (isteğe bağlı ZIP paket), arşivlenmiş fabrika özeti, arşivden çıkar, kalıcı silme ve paket yükleme.
 // Veri bulutta olduğu gibi kalır; paket ek bir kopyadır. Paket: manifest.json + veri/{yıl}.json (sıkıştırılmış) + foto/{yıl}/{id}.jpg, parçalar yaklaşık 150 MB.
-import * as S from "./store.js?v=20261029a";
-import * as Guest from "./guest.js?v=20261029a";
-import { FS } from "./firebase.js?v=20261029a";
-import { esc, toast, shrinkDataUrl } from "./ui.js?v=20261029a";
-import { shell, prog, fmtSize, nf, wakeLock, saveBlob, dataToBytes, PART, badges } from "./arsiv.js?v=20261029a";
-import { zipBuild, zipOpen, toBytes, fromBytes } from "./zip.js?v=20261029a";
-import { load } from "./verim.js?v=20261029a";
-import { num, DEFAULT_PARAMS } from "./scoring.js?v=20261029a";
+import * as S from "./store.js?v=20261029b";
+import * as Guest from "./guest.js?v=20261029b";
+import { FS } from "./firebase.js?v=20261029b";
+import { esc, toast, shrinkDataUrl } from "./ui.js?v=20261029b";
+import { shell, prog, fmtSize, nf, wakeLock, saveBlob, dataToBytes, PART, badges } from "./arsiv.js?v=20261029b";
+import { zipBuild, zipOpen, toBytes, fromBytes } from "./zip.js?v=20261029b";
+import { load } from "./verim.js?v=20261029b";
+import { num, DEFAULT_PARAMS } from "./scoring.js?v=20261029b";
 
 const COLLS = ["isg", "isgg", "kaza", "konusma", "isbasi", "ramak", "kazag", "konusmag", "isbasig"];
 const PKG_VER = 1;
@@ -121,7 +121,7 @@ export async function openArsivle(f, { onDone } = {}) {
       <div>${kv([["Denetim · bulgu", `${nf(ov.den)} · ${nf(ov.bul)}`], ["Kaza · ramak kala", `${nf(ov.kaza)} · ${nf(ov.ramak)}`], ["Eğitim konuşması · işbaşı", `${nf(ov.kons)} · ${nf(ov.isb)}`], ["Fotoğraf", `${nf(ov.foto)} adet · ${fmtSize(ov.bytes)}`], ["Misafir erişimi askıya alınır", `${nf(gN)} kişi`]])}</div>
       <label class="ar-chk"><input type="checkbox" id="fPk" ${pk ? "checked" : ""}><span>Arşiv paketi indir<small>Kayıtlar ZIP içinde sıkıştırılır</small></span></label>
       ${pk ? `<span class="hd">FOTOĞRAFLAR</span><div class="ar-sw one">${optHtml(opt)}</div><div class="muted" style="font-size:12.5px;line-height:1.5">${opt === "a" ? `${Math.max(1, Math.ceil(ov.bytes * 0.75 / PART))} parça (150 MB). ` : ""}Bulut verisi olduğu gibi kalır, paket ek bir kopyadır.</div>` : ""}
-      <span class="hd">NOT (İSTEĞE BAĞLI)</span><input id="fNote" class="inp" maxlength="120" placeholder="Ayrılış nedeni / tarih" value="${esc(note)}">
+      <span class="hd">NOT (İSTEĞE BAĞLI)</span><textarea id="fNote" class="inp" rows="3" maxlength="120" placeholder="Ayrılış nedeni / tarih">${esc(note)}</textarea>
       <div class="ar-btns"><button class="sec" data-c>Vazgeç</button><button data-go>${pk ? "Arşivle ve indir" : "Arşivle"}</button></div>`);
     ui.$("#fPk").onchange = e => { note = ui.$("#fNote").value; pk = e.target.checked; render(); };
     ui.box.querySelectorAll("[data-o]").forEach(b => b.onclick = () => { note = ui.$("#fNote").value; opt = b.dataset.o; render(); });
@@ -149,7 +149,7 @@ export async function openArsivle(f, { onDone } = {}) {
   };
   render();
 }
-const uidNow = async () => { const { auth } = await import("./firebase.js?v=20261029a"); return auth.currentUser.uid; };
+const uidNow = async () => { const { auth } = await import("./firebase.js?v=20261029b"); return auth.currentUser.uid; };
 
 // ---------- Paket indir (arşivlenmiş fabrika için) ----------
 async function openPaket(f, { onDone } = {}) {

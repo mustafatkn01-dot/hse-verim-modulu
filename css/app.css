@@ -450,3 +450,6 @@ details.ak.neu{background:#fff;border:1px solid #C3D1CC}
 .ar-st.ok i{background:var(--gd);color:#fff}.ar-st.now{color:var(--text);font-weight:600}.ar-st.now i{background:var(--blue);color:#fff}
 button.it.ar-frow,button.it#arcUp{height:auto;background:var(--card);color:var(--text);font-weight:400;justify-content:space-between}
 #arcBody[hidden]{display:none!important}
+.mbox.ar .ar-sw.one{gap:6px}
+.mbox.ar .ar-sw.one button{min-height:0;padding:7px 12px;gap:0}
+.mbox.ar textarea.inp{height:auto;min-height:76px;padding:10px;resize:vertical;line-height:1.5}
