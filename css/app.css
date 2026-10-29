@@ -438,3 +438,15 @@ details.ak.neu{background:#fff;border:1px solid #C3D1CC}
 .gaccb{padding:10px 12px;display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line)}
 .glst{max-height:190px;overflow:auto;display:flex;flex-direction:column;gap:8px}
 .mbox.pf .gddb{height:auto;min-height:46px;font-size:14px}.mbox.pf .gopt{height:auto;min-height:38px}
+
+/* Fabrika arşivi (fabarsiv.js) */
+.mbox.ar .nfo{font-size:13px;padding:10px 12px;border-radius:12px;background:var(--info);border:1px solid var(--infob);color:var(--infot);line-height:1.5}
+.ar-two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ar-gl{display:flex;flex-direction:column;gap:6px;max-height:180px;overflow:auto}
+.ar-yrw{display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px solid var(--line);border-radius:12px;padding:8px 12px}
+.ar-drop{height:auto;min-height:88px;flex-direction:column;gap:4px;background:var(--card);color:var(--text);border:1.5px dashed var(--inl);border-radius:14px;display:flex;align-items:center;justify-content:center;font-weight:700}
+.ar-st{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.ar-st i{width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-style:normal;flex:0 0 18px;background:var(--line);color:var(--muted)}
+.ar-st.ok i{background:var(--gd);color:#fff}.ar-st.now{color:var(--text);font-weight:600}.ar-st.now i{background:var(--blue);color:#fff}
+button.it.ar-frow,button.it#arcUp{height:auto;background:var(--card);color:var(--text);font-weight:400;justify-content:space-between}
+#arcBody[hidden]{display:none!important}

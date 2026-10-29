@@ -1,25 +1,25 @@
 // Arşiv işlemleri: fotoğraf küçültme (1000 / 1200 px), ZIP yedek, silme ve depolama kartı.
 // Her şey tarayıcıda çalışır; fotoğraflar sayfa sayfa okunur, işlem kesilirse kaldığı yerden devam eder.
-import * as S from "./store.js?v=20261027a";
-import { esc, toast, pickDate } from "./ui.js?v=20261027a";
+import * as S from "./store.js?v=20261029a";
+import { esc, toast, pickDate } from "./ui.js?v=20261029a";
 
-const GIB = 1073741824, PART = 150 * 1024 * 1024, SAVE = { 1200: 0.3, 1000: 0.2 }; // özgün boyutun kalan oranı
-const nf = n => Number(n).toLocaleString("tr-TR");
+export const GIB = 1073741824, PART = 150 * 1024 * 1024, SAVE = { 1200: 0.3, 1000: 0.2 }; // özgün boyutun kalan oranı
+export const nf = n => Number(n).toLocaleString("tr-TR");
 export const fmtSize = b => b >= 100 * 1048576 ? (b / GIB).toFixed(2).replace(".", ",") + " GB" : Math.max(0, Math.round(b / 1048576)) + " MB";
-const sleep = ms => new Promise(r => setTimeout(r, ms));
+export const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 // ---- Yıl sayfasındaki etiketler ----
 export const badges = meta => meta?.noPhotos ? '<span class="tag gray">Fotoğraflar silindi</span>' : meta?.shrink ? `<span class="tag">Küçültüldü · ${meta.shrink.px} px</span>` : "";
 
 // ---- Pencere yardımcıları ----
-function shell() {
+export function shell() {
   const m = document.createElement("div"); m.className = "mod"; m.innerHTML = '<div class="mbox ar" role="dialog" aria-modal="true"></div>'; document.body.appendChild(m);
   const box = m.querySelector(".ar"); let busy = false;
   const api = { box, set: h => { box.innerHTML = h; }, busy: v => { busy = v; }, close: () => m.remove(), $: s => box.querySelector(s) };
   m.addEventListener("mousedown", e => { if (e.target === m && !busy) m.remove(); });
   return api;
 }
-const wakeLock = async () => { try { return await navigator.wakeLock?.request("screen"); } catch { return null; } };
+export const wakeLock = async () => { try { return await navigator.wakeLock?.request("screen"); } catch { return null; } };
 
 // ---- ZIP (depolamasız, kütüphanesiz) ----
 const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
@@ -38,8 +38,8 @@ function zipBuild(files) {
   const end = new DataView(new ArrayBuffer(22)); end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true); end.setUint32(12, cs, true); end.setUint32(16, off, true);
   return new Blob([...parts, ...cen, end.buffer], { type: "application/zip" });
 }
-function dataToBytes(d) { const b = atob(d.slice(d.indexOf(",") + 1)), u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; }
-const saveBlob = (blob, name) => { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 60000); };
+export function dataToBytes(d) { const b = atob(d.slice(d.indexOf(",") + 1)), u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; }
+export const saveBlob = (blob, name) => { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 60000); };
 
 // ---- Yedek: ZIP parçaları (parça başına yaklaşık 150 MB). Her parça için kullanıcı İndir'e basar ----
 async function backup(ui, fid, y, st, upto = 0, nSel = 0) {
@@ -66,7 +66,7 @@ async function backup(ui, fid, y, st, upto = 0, nSel = 0) {
   }
   return await flush();
 }
-const prog = (title, f, rows, stopBtn) => `<h2>${title}</h2><div class="muted" style="font-size:13px;line-height:1.5">Bu pencereyi ve sekmeyi kapatmayın. İptal ederseniz kaldığı yerden devam edilir.</div>
+export const prog = (title, f, rows, stopBtn) => `<h2>${title}</h2><div class="muted" style="font-size:13px;line-height:1.5">Bu pencereyi ve sekmeyi kapatmayın. İptal ederseniz kaldığı yerden devam edilir.</div>
   <div class="ar-bar"><i style="width:${Math.min(100, Math.round(f * 100))}%"></i></div>${rows.map(([k, v]) => `<div class="ar-kv"><span>${k}</span><b>${v}</b></div>`).join("")}
   ${stopBtn ? '<div class="ar-btns"><button class="sec" data-x>İptal</button></div>' : ""}`;
 

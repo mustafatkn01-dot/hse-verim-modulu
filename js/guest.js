@@ -3,8 +3,8 @@
 //   users/{sahip}/invites/{kod}        davet (e-posta ayarı kopyası)
 //   users/{sahip}/guestReqs/{misafirUid}  onay isteği {gid, code, name, unit, status, at}
 //   users/{sahip}/members/{misafirUid}    onaylı üye {name, unit, factories[], mode, expires|null}
-import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously, signInWithEmailAndPassword, createAuxUser, changeAuxPassword, serverTimestamp } from "./firebase.js?v=20261027a";
-import { esc, toast, confirmBox } from "./ui.js?v=20261027a";
+import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously, signInWithEmailAndPassword, createAuxUser, changeAuxPassword, serverTimestamp } from "./firebase.js?v=20261029a";
+import { esc, toast, confirmBox } from "./ui.js?v=20261029a";
 
 const Q = new URLSearchParams(location.search);
 export const linkInfo = () => {
@@ -225,7 +225,7 @@ const newPid = taken => { // 6 hane, serbest dizilim; en az 2 harf ve en az 2 ra
 };
 // Önceki kayıtları bul: kişi kaydı (ID) + adı eşleşen, sahibi artık üye olmayan (sahipsiz) taslaklar
 async function findPrev(o, name, gid) {
-  const S = await import("./store.js?v=20261027a"), n = normName(name);
+  const S = await import("./store.js?v=20261029a"), n = normName(name);
   const people = (await loadPeople(o)).filter(p => p.norm === n);
   const mems = await getDocs(collection(db, `users/${o}/members`)).then(s => new Set(s.docs.map(d => d.id))).catch(() => new Set());
   const uids = new Set(); people.forEach(p => (p.uids || []).forEach(u => { if (u !== gid && !mems.has(u)) uids.add(u); }));
@@ -239,7 +239,7 @@ async function findPrev(o, name, gid) {
   return { person: people[0] || null, pid: people[0]?.id || null, uids, count };
 }
 async function migrateGuest(oldUids, newUid, name) {
-  const S = await import("./store.js?v=20261027a"); let n = 0;
+  const S = await import("./store.js?v=20261029a"); let n = 0;
   for (const f of await S.listFactories()) for (const y of await S.listYears(f.id)) for (const c of GCOLLS) {
     const all = await S.listMonthDocs(f.id, y, c), ids = new Set(all.map(d => d.id));
     for (const d of all) {
@@ -604,9 +604,9 @@ export function showPending(owner, uid, onOk, onBlocked) {
   const off = onSnapshot(doc(db, `users/${owner}/members/${uid}/devices/${DEV.id}`), sn => { const x = sn.data(); if (!x) return; if (x.blocked) { off(); onBlocked?.(); } else if (x.ap) { off(); hideRequest(); onOk(); } }, () => {});
   return off;
 }
-export function showEnded({ title, text, retry }) {
+export function showEnded({ title, text, retry, btn }) {
   const s = screen();
-  s.innerHTML = boxHtml(`<h2 style="margin-bottom:6px">${esc(title)}</h2><div class="muted" style="line-height:1.55">${esc(text)}</div>${retry ? `<div class="row" style="margin-top:14px"><button id="gRe">Yeniden gir</button></div>` : ""}`);
+  s.innerHTML = boxHtml(`<h2 style="margin-bottom:6px">${esc(title)}</h2><div class="muted" style="line-height:1.55">${esc(text)}</div>${retry ? `<div class="row" style="margin-top:14px"><button id="gRe">${esc(btn || "Yeniden gir")}</button></div>` : ""}`);
   document.getElementById("gRe")?.addEventListener("click", () => location.reload());
 }
 export async function pLogin(link) {
@@ -677,3 +677,48 @@ export async function inboxDialog(ownerUid, list, onChange) {
   paint();
   await Promise.all(list.filter(x => !x.read).map(x => updateDoc(doc(db, `users/${ownerUid}/feedback/${x.id}`), { read: true }).catch(() => {})));
 }
+
+// ---- Fabrika arşivi: misafir erişimini askıya alma ve geri açma ----
+// Arşivlenen fabrika üyenin factories listesinden çıkarılır (Firestore kuralları buna bakar) ve üyede arc[] notu bırakılır; misafir bu notu görür.
+const withoutFid = (arr, fid) => (arr || []).filter(x => x !== fid);
+const pinOf = async (o, uid) => { try { const p = await getDoc(PIN(o, uid)); return p.exists() ? p : null; } catch { return null; } };
+// Bu fabrikada şu an aktif olan misafir sayısı
+export async function activeCount(ownerUid, fid) {
+  const s = await getDocs(collection(db, `users/${ownerUid}/members`));
+  return s.docs.filter(d => (d.data().factories || []).includes(fid) && isLive(d.data())).length;
+}
+// Fabrikayı tüm misafirlerden çıkarır. note=true ise misafire "arşivlendi" notu bırakır. Askıya alınırken aktif olanları [{uid,name}] döner
+export async function suspendFactory(ownerUid, fid, fname, note = true) {
+  const out = [], s = await getDocs(collection(db, `users/${ownerUid}/members`));
+  for (const d of s.docs) {
+    const m = d.data(); if (!(m.factories || []).includes(fid)) continue;
+    const up = { factories: withoutFid(m.factories, fid) };
+    if (note) up.arc = [...(m.arc || []).filter(a => a.fid !== fid), { fid, name: fname, at: Date.now() }];
+    await updateDoc(d.ref, up);
+    const p = await pinOf(ownerUid, d.id); if (p && (p.data().factories || []).includes(fid)) await updateDoc(p.ref, { factories: withoutFid(p.data().factories, fid) });
+    if (isLive(m)) out.push({ uid: d.id, name: m.name || "" });
+  }
+  return out;
+}
+// Arşivden çıkarırken: askıya alınanlardan hâlâ aktif olanlar (üyelik duruyor, durdurulmamış/süresi dolmamış, bağlantısı kapatılmamış)
+export async function resumable(ownerUid, susp) {
+  const out = [];
+  for (const x of susp || []) {
+    const m = await getMember(ownerUid, x.uid); if (!isLive(m)) continue;
+    const p = await pinOf(ownerUid, x.uid); if (p?.data().closed) continue;
+    out.push({ uid: x.uid, name: m.name || x.name || "" });
+  }
+  return out;
+}
+// grant: erişimi geri açılacak uid'ler; all: askıya alınan tüm uid'ler (hepsinden arşiv notu kalkar)
+export async function resumeFactory(ownerUid, fid, grant, all) {
+  for (const uid of all) {
+    const m = await getMember(ownerUid, uid); if (!m) continue;
+    const up = { arc: (m.arc || []).filter(a => a.fid !== fid) };
+    if (grant.includes(uid)) up.factories = [...new Set([...(m.factories || []), fid])];
+    await updateDoc(MEM(ownerUid, uid), up);
+    if (grant.includes(uid)) { const p = await pinOf(ownerUid, uid); if (p) await updateDoc(p.ref, { factories: [...new Set([...(p.data().factories || []), fid])] }); }
+  }
+}
+// Misafir tarafı: hiç fabrikası kalmadı ve arşivlenen fabrika notu var → uyarı metni
+export const archivedNote = m => (m && !(m.factories || []).length && (m.arc || []).length ? { title: m.arc[m.arc.length - 1].name || "Fabrika", text: "Bu fabrika yetkili tarafından arşive kaldırılmıştır. Erişiminiz askıya alındı. Bilgi için yetkili ile iletişime geçin." } : null);

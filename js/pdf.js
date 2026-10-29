@@ -1,5 +1,5 @@
 // Ortak PDF yardımcıları: kâğıt boyutu (A4/A3) + sayfa düzeni (dikey/yatay) penceresi
-import { esc } from "./ui.js?v=20261027a";
+import { esc } from "./ui.js?v=20261029a";
 
 // "Paylaş" seçildiyse savePdf dosyayı indirmek yerine paylaşma penceresi açar
 const PDF = { share: false };

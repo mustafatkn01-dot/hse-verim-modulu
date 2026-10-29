@@ -1,22 +1,23 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261027a";
-import * as S from "./store.js?v=20261027a";
-import * as Prim from "./primary.js?v=20261027a";
-import * as Denetim from "./denetim.js?v=20261027a";
-import * as Kaza from "./kaza.js?v=20261027a";
-import * as Konusma from "./konusma.js?v=20261027a";
-import * as Ramak from "./ramak.js?v=20261027a";
-import * as Genel from "./genel.js?v=20261027a";
-import * as Rapor from "./rapor.js?v=20261027a";
-import * as Verim from "./verim.js?v=20261027a";
-import * as Isbasi from "./isbasi.js?v=20261027a";
-import * as Guest from "./guest.js?v=20261027a";
-import * as Yontem from "./yontem.js?v=20261027a";
-import * as Tatil from "./tatil.js?v=20261027a";
-import * as Gorev from "./gorev.js?v=20261027a";
-import { banner, bannerInit, guestWatch, stop as bnStop, linkRenewed } from "./bildirim.js?v=20261027a";
-import * as Arsiv from "./arsiv.js?v=20261027a";
-import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261027a";
-import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261027a";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261029a";
+import * as S from "./store.js?v=20261029a";
+import * as Prim from "./primary.js?v=20261029a";
+import * as Denetim from "./denetim.js?v=20261029a";
+import * as Kaza from "./kaza.js?v=20261029a";
+import * as Konusma from "./konusma.js?v=20261029a";
+import * as Ramak from "./ramak.js?v=20261029a";
+import * as Genel from "./genel.js?v=20261029a";
+import * as Rapor from "./rapor.js?v=20261029a";
+import * as Verim from "./verim.js?v=20261029a";
+import * as Isbasi from "./isbasi.js?v=20261029a";
+import * as Guest from "./guest.js?v=20261029a";
+import * as Yontem from "./yontem.js?v=20261029a";
+import * as Tatil from "./tatil.js?v=20261029a";
+import * as Gorev from "./gorev.js?v=20261029a";
+import { banner, bannerInit, guestWatch, stop as bnStop, linkRenewed } from "./bildirim.js?v=20261029a";
+import * as Arsiv from "./arsiv.js?v=20261029a";
+import * as FabArsiv from "./fabarsiv.js?v=20261029a";
+import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261029a";
+import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261029a";
 const PEND_META = { isbasig: ["isbasi", "İşbaşı Eğitim"], konusmag: ["konusma", "Eğitim Konuşması"], kazag: ["kaza", "İş Kazası"], ramak: ["ramak", "Ramak Kala"] };
 
 const VERSION = "1.8.5";
@@ -124,6 +125,8 @@ async function startGuest(owner, user) {
     return Guest.showExpired({ owner, code: LINK?.code || rq?.code, member: m }, () => startGuest(owner, user));
   }
   Guest.hideRequest(); Guest.storeOwner(owner);
+  const an = Guest.archivedNote(m); // fabrikası arşivlenen misafir: erişim askıda uyarısı; yetkili geri açarsa kendiliğinden devam eder
+  if (an) { unwatchG?.(); clearInterval(guestTimer); showOnly("none"); Guest.showEnded({ ...an, retry: true, btn: "Tamam" }); unwatchG = Guest.watchMember(owner, user.uid, mm => { if (mm && !Guest.archivedNote(mm)) startGuest(owner, user); }); return; }
   const first = !m.lastSeen && Guest.isEmailGuest(user); if (LINK?.type === "pguest") Guest.pinManifest();
   if (Guest.isEmailGuest(user)) {
     const g = await Guest.deviceGate(owner, user, m, first);
@@ -139,7 +142,7 @@ async function startGuest(owner, user) {
   showOnly("app"); document.body.classList.add("is-guest");
   unwatchG?.(); clearInterval(guestTimer);
   const check = mm => { if (!Guest.isLive(mm)) guestOut(mm?.stopped ? "Erişiminiz yetkili kişi tarafından durduruldu." : mm ? "Erişim süreniz doldu." : "Erişiminiz yetkili kullanıcı tarafından kaldırıldı."); };
-  unwatchG = Guest.watchMember(owner, user.uid, mm => { if (!mm) return check(null); if (Guest.isEmailGuest(user) && Guest.rotated(user, mm)) return guestOut("Bu bağlantı yenilendi. Size gönderilen yeni bağlantıya dokunun."); st.guest.member = mm; Guest.setGuestCtx({ ntfy: mm.ntfy || null }); check(mm); });
+  unwatchG = Guest.watchMember(owner, user.uid, mm => { if (!mm) return check(null); if (Guest.archivedNote(mm)) return startGuest(owner, user); if (Guest.isEmailGuest(user) && Guest.rotated(user, mm)) return guestOut("Bu bağlantı yenilendi. Size gönderilen yeni bağlantıya dokunun."); st.guest.member = mm; Guest.setGuestCtx({ ntfy: mm.ntfy || null }); check(mm); });
   guestTimer = setInterval(() => check(st.guest.member), 30000);
   await loadContext(); go(location.hash.slice(1) || "genel");
 }
@@ -557,14 +560,15 @@ async function pageAyarlar(v) {
 
   </div>
   <div class="colw">
-    <div class="cd" style="gap:14px">${accHead("fab", "Fabrikalar", st.all.length + " fabrika" + (cur ? " · aktif: " + esc(cur.name) : ""))}${accBody}<div class="muted" style="font-size:13px">Birden fazla fabrikanın denetimini yapabilirsiniz. Her fabrikanın bölümleri, kayıtları ve raporları ayrı tutulur; fabrika seçerek geçiş yaparsınız.</div>
-      <div class="col1">${st.all.map(f => item(`
+    <div class="cd" style="gap:14px">${accHead("fab", "Fabrikalar", st.factories.length + " fabrika" + (cur ? " · aktif: " + esc(cur.name) : "") + (st.all.length > st.factories.length ? " · " + (st.all.length - st.factories.length) + " arşivde" : ""))}${accBody}<div class="muted" style="font-size:13px">Birden fazla fabrikanın denetimini yapabilirsiniz. Her fabrikanın bölümleri, kayıtları ve raporları ayrı tutulur; fabrika seçerek geçiş yaparsınız.</div>
+      <div class="col1">${st.factories.map(f => item(`
         <div class="grow"><b>${esc(f.name)}${f.archived ? " · arşivde" : ""}</b><div class="muted" style="font-size:12.5px">${esc(f.loc || "Konum yok")} · ${counts[f.id] ?? 0} bölüm</div></div>
         ${f.id === st.fid && !f.archived ? '<span class="tag">Aktif fabrika</span>' : (!f.archived ? `<button class="sm sec" data-act="${f.id}">Aktif yap</button>` : "")}
         <button class="sm sec" data-edit="${f.id}">Düzenle</button>
         <button class="sm sec" data-arc="${f.id}" data-v="${f.archived ? 0 : 1}">${f.archived ? "Arşivden çıkar" : "Arşivle"}</button>
         <button class="sm trash" data-rm="${f.id}" aria-label="Fabrikayı sil" title="Sil">${ic('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>').replace('width="20" height="20"', 'width="16" height="16"')}</button>`,
         f.id === st.fid && !f.archived ? "#F1FAF6" : "var(--card)")).join("") || '<div class="muted">Henüz fabrika yok.</div>'}</div>
+      ${FabArsiv.listHtml(st.all)}
       <div class="col1" style="padding-top:14px;border-top:1px solid var(--line)"><span class="hd">YENİ FABRİKA EKLE</span>
         <div class="fg"><input id="nf" class="inp" placeholder="Fabrika adı" aria-label="Fabrika adı"><input id="nl" class="inp" placeholder="Konum (örn. Gebze)" aria-label="Konum"></div>
         <div><button id="addF">+ Fabrika ekle</button></div></div></div></div>
@@ -628,16 +632,10 @@ async function pageAyarlar(v) {
     if (!r.name.trim()) return say("Fabrika adı boş olamaz.");
     await S.updateFactory(f.id, { name: r.name.trim(), loc: r.loc.trim() }); await loadContext(); say("Fabrika güncellendi."); pageAyarlar(v);
   });
-  v.querySelectorAll("[data-arc]").forEach(b => b.onclick = async () => {
-    const arch = b.dataset.v === "1", f = st.all.find(x => x.id === b.dataset.arc);
-    if (arch && !(await confirmBox("Arşive kaldırılsın mı?", `"${f.name}" arşive alınır ve fabrika seçiminden kalkar. Verileri silinmez, istediğiniz zaman arşivden çıkarabilirsiniz.`, "Evet, arşive kaldır"))) return;
-    await S.setArchived(f.id, arch); await loadContext(); say(arch ? "Fabrika arşive kaldırıldı." : "Fabrika arşivden çıkarıldı."); pageAyarlar(v);
-  });
-  v.querySelectorAll("[data-rm]").forEach(b => b.onclick = async () => {
-    const f = st.all.find(x => x.id === b.dataset.rm);
-    if (!(await confirmBox("Fabrika silinsin mi?", `"${f.name}" ve içindeki tüm yıl, bölüm ve kayıt bilgileri kalıcı olarak silinir. Bu işlem geri alınamaz.`, "Evet, sil", true))) return;
-    await S.deleteFactoryDeep(f.id); if (S.pref.get("fid") === f.id) S.pref.set("fid", ""); K.key = ""; await loadContext(); say("Fabrika ve bilgileri silindi."); pageAyarlar(v);
-  });
+  const fabDone = async () => { await loadContext(); pageAyarlar(v); };
+  FabArsiv.bindList(v, st.all, { onDone: fabDone });
+  v.querySelectorAll("[data-arc]").forEach(b => b.onclick = () => FabArsiv.openArsivle(st.all.find(x => x.id === b.dataset.arc), { onDone: fabDone }));
+  v.querySelectorAll("[data-rm]").forEach(b => b.onclick = () => { const f = st.all.find(x => x.id === b.dataset.rm); FabArsiv.openSil(f, { onDone: async del => { if (del) { if (S.pref.get("fid") === f.id) S.pref.set("fid", ""); K.key = ""; } await fabDone(); } }); });
   $("addF").onclick = async () => {
     const n = $("nf").value.trim(); if (!n) return say("Fabrika adı yazın.");
     const id = await S.addFactory(n, $("nl").value.trim()); S.pref.set("fid", id); await loadContext(); say("Fabrika eklendi."); pageAyarlar(v);

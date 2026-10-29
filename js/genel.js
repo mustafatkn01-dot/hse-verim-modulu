@@ -1,11 +1,12 @@
 // Genel Bakış · yıllık özet panosu (gerçek verilerden)
-import * as S from "./store.js?v=20261027a";
-import { esc, noticeBox } from "./ui.js?v=20261027a";
-import { CATS } from "./isgcats.js?v=20261027a";
-import { bandOf, calcIsg, makTier, katsayi, surecVar, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261027a";
-import { load } from "./verim.js?v=20261027a";
-import * as T from "./tatil.js?v=20261027a";
-import * as Gorev from "./gorev.js?v=20261027a";
+import * as S from "./store.js?v=20261029a";
+import { esc, noticeBox } from "./ui.js?v=20261029a";
+import { CATS } from "./isgcats.js?v=20261029a";
+import { bandOf, calcIsg, makTier, katsayi, surecVar, DEFAULT_PARAMS, MONTHS, num } from "./scoring.js?v=20261029a";
+import { load } from "./verim.js?v=20261029a";
+import * as T from "./tatil.js?v=20261029a";
+import * as Gorev from "./gorev.js?v=20261029a";
+import { yearChart } from "./fabarsiv.js?v=20261029a";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -18,7 +19,7 @@ const TONE = [{ bg: "#DDF1E7", c: "#0B6E4F" }, { bg: "#FBE9C6", c: "#6B3F00" }, 
 const f1 = n => n.toFixed(1).replace(".", ",");
 const pad = n => String(n).padStart(2, "0");
 const iso0 = (() => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; })();
-const G = { cmp: null, key: "", pw: "10", fo: false, po: false };
+const G = { cmp: null, key: "", pw: "10", fo: false, po: false, cf: "" };
 export const reset = () => { G.fo = false; G.po = false; };
 const avgOf = a => { const v = a.filter(x => x !== null && x !== undefined); return v.length ? v.reduce((s, c) => s + c, 0) / v.length : null; };
 
@@ -116,6 +117,13 @@ export async function render(v, ctx) {
         ${both.length < pairs.length ? `<div class="muted" style="font-size:12.5px">Bazı bölümler iki yılda da bulunmadığı veya veri girilmediği için karşılaştırılamadı.</div>` : ""}<div class="muted" style="font-size:12.5px">Toplam verim, o yılda verisi girilen modüllerle hesaplanır; modül sayısı iki yılda farklıysa modül satırlarına bakın.</div></div>`;
     } else cmpHtml = !M.length ? ph(`${st.year} yılında henüz veri girilmedi; veri girildikçe ${G.cmp} ile aynı aylar karşılaştırılır.`) : ph(`${G.cmp} yılı için kurulum (bölüm listesi) bulunamadı. Ayarlar → Yıllar bölümünden o yılı başlatın.`);
   } else cmpHtml = ph("Karşılaştırma için en az iki yıl gerekir. Şu an yalnızca " + st.year + " yılı var. <b>Ayarlar → Yıllar → “" + (Number(st.year) + 1) + " yılını başlat”</b> ile yeni yıl açıldığında, her iki yılda veri girilen aynı aylar bölüm ve modül bazında burada kıyaslanır.");
+  // Arşivlenmiş fabrikalar: karşılaştırma kartında fabrika seçici; arşivli fabrika, arşivleme anındaki yıllık verimle çizilir
+  const arcs = (st.all || []).filter(f => f.archived && (f.arcSum?.years || []).some(y => y.v !== null && y.v !== undefined)), pick = arcs.find(f => f.id === G.cf);
+  if (arcs.length) {
+    const fsel = `<div class="row noprint" style="gap:10px;flex-wrap:nowrap"><span class="hd" style="flex:0 0 auto">FABRİKA</span><select id="cmpF" class="inp" style="font-weight:700" aria-label="Fabrika"><option value="">${esc(fname)}</option>${arcs.map(f => `<option value="${f.id}" ${pick?.id === f.id ? "selected" : ""}>${esc(f.name)} · arşiv</option>`).join("")}</select></div>`;
+    if (pick) { const yy = pick.arcSum.years.filter(y => y.v !== null && y.v !== undefined); cmpHtml = `<div class="cd" style="gap:14px"><div><h2>Yıllar Arası Karşılaştırma</h2><div class="muted" style="font-size:13px;margin-top:4px">Arşivlenmiş fabrika · yıllık verim</div></div>${fsel}${yearChart(yy.map((y, i) => ({ ...y, c: i === yy.length - 1 ? "#2A82C4" : "#9DB5AE" })), 320, 160)}<div class="muted" style="font-size:12.5px">Arşivleme anındaki yıllık verim.</div></div>`; }
+    else cmpHtml = cmpHtml.replace(/(<div class="cd"[^>]*>)/, `$1${fsel}`);
+  }
   // Denetim planı uyumu (haftalık plan · yalnızca gösterim, puanı etkilemez)
   const td = await T.yukle(st.fid, st.year), tmap = T.takvim(td), canDecide = st.role !== "guest" && !ro;
   const pl = rows.map(r => ({ r, u: T.planUyum(data._s?.[r.id], st.year, { map: tmap, karar: td.karar }) })), all = G.pw === "all", NW = 10;
@@ -200,6 +208,7 @@ export async function render(v, ctx) {
   v.querySelectorAll("[data-fp]").forEach(b => b.onclick = () => lightbox(shown[+b.dataset.fp].ph, st));
   v.querySelectorAll("[data-pw]").forEach(b => b.onclick = () => { G.pw = b.dataset.pw; render(v, ctx); });
   v.querySelectorAll("[data-tk]").forEach(b => b.onclick = async () => { const [mon, k] = b.dataset.tk.split("|"); b.disabled = true; try { await T.karar(st.fid, st.year, mon, k); } catch (e) { noticeBox("Kaydedilemedi", e.message); } render(v, ctx); });
+  const cf = document.getElementById("cmpF"); if (cf) cf.onchange = e => { G.cf = e.target.value; render(v, ctx); };
   const cy = document.getElementById("cmpY"); if (cy) cy.onchange = e => { G.cmp = e.target.value; render(v, ctx); };
 }
 

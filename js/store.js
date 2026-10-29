@@ -1,7 +1,7 @@
 // Veri katmanı: users/{uid}/factories/{fid}/years/{yıl}/setup/main
-import { auth, db, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, updateDoc, query, orderBy, serverTimestamp, onSnapshot, FS } from "./firebase.js?v=20261027a";
-import { shrinkDataUrl } from "./ui.js?v=20261027a";
-import { setSurec } from "./scoring.js?v=20261027a";
+import { auth, db, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, updateDoc, query, orderBy, serverTimestamp, onSnapshot, FS } from "./firebase.js?v=20261029a";
+import { shrinkDataUrl } from "./ui.js?v=20261029a";
+import { setSurec } from "./scoring.js?v=20261029a";
 
 const uid = () => auth.currentUser.uid;
 // Veri sahibi: misafir kullanıcıda davet eden hesabın uid'si; kendi oturum/profil kayıtları ise her zaman kendi hesabında
@@ -30,10 +30,39 @@ export async function deleteFactoryDeep(id) {
   for (const y of await listYears(id)) {
     for (const coll of ["isg", "isgg", "kaza", "konusma", "isbasi", "konusmag", "isbasig", "kazag", "ramak", "foto"]) for (const d of await listMonthDocs(id, y, coll)) await deleteDoc(monthRef(id, y, coll, d.id));
     await deleteDoc(setupRef(id, y)).catch(() => {});
+    await deleteDoc(tatilRef(id, y)).catch(() => {});
     await deleteDoc(doc(db, `${base()}/factories/${id}/years/${y}`));
   }
+  try { for (const d of (await getDocs(shareCol())).docs) if (d.data().fid === id) await deleteDoc(d.ref); } catch { }
   await deleteDoc(doc(db, `${base()}/factories/${id}`));
 }
+// Fabrika arşivi: tek belge ve ham yazma yardımcıları (paket indirme / yükleme)
+export async function getFactory(id) { const d = await getDoc(doc(db, `${base()}/factories/${id}`)); return d.exists() ? { id, ...d.data() } : null; }
+// Firestore Timestamp alanlarını {__ts: ms} yapar (JSON'a yazılabilsin); reviveTs tersini yapar
+export function plainTs(v) {
+  if (v && typeof v === "object") {
+    if (typeof v.toMillis === "function") return { __ts: v.toMillis() };
+    if (Array.isArray(v)) return v.map(plainTs);
+    const o = {}; for (const k of Object.keys(v)) o[k] = plainTs(v[k]); return o;
+  }
+  return v;
+}
+export function reviveTs(v) {
+  if (v && typeof v === "object") {
+    if (Array.isArray(v)) return v.map(reviveTs);
+    if (Object.keys(v).length === 1 && typeof v.__ts === "number") return FS.Timestamp.fromMillis(v.__ts);
+    const o = {}; for (const k of Object.keys(v)) o[k] = reviveTs(v[k]); return o;
+  }
+  return v;
+}
+// rel: fabrika altındaki yol (örn. "years/2026/isg/03_d1", "years/2026"). skip: belge varsa dokunma. Yazıldıysa true döner
+export async function putRaw(fid, rel, data, skip = false) {
+  const ref = doc(db, `${base()}/factories/${fid}${rel ? "/" + rel : ""}`);
+  if (skip && (await getDoc(ref)).exists()) return false;
+  await setDoc(ref, data); return true;
+}
+export const newFactoryId = () => doc(collection(db, `${base()}/factories`)).id;
+
 export async function setArchived(id, archived) { await updateDoc(doc(db, `${base()}/factories/${id}`), { archived }); }
 export async function removeFactory(id) { await deleteDoc(doc(db, `${base()}/factories/${id}`)); }
 
@@ -266,3 +295,5 @@ export async function listMembers() { const s = await getDocs(collection(db, `${
 export const watchMyShares = cb => onSnapshot(query(collection(db, `${base()}/shares`), FS.where("guests", "array-contains", uid())), s => cb(s.docs.map(d => d.data())), () => {});
 export async function myAllShares() { const s = await getDocs(query(collection(db, `${base()}/shares`), FS.where("guests", "array-contains", uid()))); return s.docs.map(d => d.data()); }
 export async function myShares(fid, year) { const s = await getDocs(query(collection(db, `${base()}/shares`), FS.where("guests", "array-contains", uid()))); return s.docs.map(d => d.data()).filter(x => x.fid === fid && String(x.year) === String(year)).sort((a, b) => b.at - a.at); }
+// Bir fabrikayla ilgili tüm paylaşımlar (arşivden çıkarma ekranında misafirin bölümlerini göstermek için)
+export async function factoryShares(fid) { const s = await getDocs(shareCol()); return s.docs.map(d => d.data()).filter(x => x.fid === fid); }
