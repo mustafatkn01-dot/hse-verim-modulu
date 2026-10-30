@@ -28,9 +28,11 @@ export const CATS = [
     "Yangın söndürücülerin kontrol etiketi güncel, basınç göstergesi yeşil bölgede",
     "İlk yardım dolabı eksiksiz ve erişilebilir",
     "Forklift trafiği ile yaya yolu ayrılmış; yönlendirme ve hız kuralına uyuluyor"] },
-  { name: "5S Kurallarına Uymama", ex: "Örn. Montaj hattı çevresinde takımlar yerinde değil, zeminde atık parçalar var.", sub: "Düzen ve temizlik", w: 1, items: [
+  { name: "5S Kurallarına Uymama", ex: "Örn. Montaj hattı çevresinde takımlar yerinde değil, zeminde atık parçalar var.", sub: "Düzen, temizlik, depolama, istifleme, zemin güvenliği", w: 2, items: [
     "Alan düzenli, malzemeler yerlerinde ve etiketli",
-    "Zemin ve çalışma alanları temiz"] },
+    "Zemin ve çalışma alanları temiz",
+    "Depolama ve istifleme güvenli: ağır, uzun veya devrilebilir malzemeler (merdane, boru, kalıp vb.) devrilmeyecek şekilde sehpada, rafta veya sabitlenmiş duruyor",
+    "Zeminde takılma ve düşme riski yok: şerit, hortum, kablo gibi malzemeler yerde dağınık değil, sarım arabasında veya düzenli alanda duruyor"] },
   { name: "Çevre ve Atık Yönetimine Uymama", ex: "Örn. Atık yağ kovası etiketsiz ve kapağı açık; atıklar karışık atılmış.", sub: "Atık ayrıştırma ve geçici atık alanı", w: 1, items: [
     "Atıklar ayrıştırılarak ilgili kaplara atılıyor",
     "Atık kapları etiketli, geçici atık alanı düzenli"] },
