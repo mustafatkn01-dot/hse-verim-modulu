@@ -1,11 +1,11 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261030b";
-import { esc } from "./ui.js?v=20261030b";
-import { bandOf, DEFAULT_PARAMS, num, isgMonth, makTier, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261030b";
-import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261030b";
-import { CATS } from "./isgcats.js?v=20261030b";
-import * as Gorev from "./gorev.js?v=20261030b";
-import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261030b";
+import * as S from "./store.js?v=20261030c";
+import { esc } from "./ui.js?v=20261030c";
+import { bandOf, DEFAULT_PARAMS, num, isgMonth, makTier, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261030c";
+import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261030c";
+import { CATS } from "./isgcats.js?v=20261030c";
+import * as Gorev from "./gorev.js?v=20261030c";
+import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261030c";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -50,7 +50,7 @@ export async function load(st, setup) {
     d.sessions.forEach(se => Object.entries(se.fails || {}).forEach(([key, arr]) => { const o = (items[key] ||= { list: new Map(), c: 0 }); o.c++;
       const L = (arr || []).length ? arr : [""];
       L.forEach((t, j) => { const k = String(t || "").trim(), e = o.list.get(k) || { c: 0, pics: [], at: j, by: {} }; e.c++;
-        const ph0 = (se.photos || {})[key + "|" + j] || [], bs = e.by[se.no] || (e.by[se.no] = { no: se.no, m: mOf(d), rs: (d.resp || []).map(r => r.name).join(", "), du: d.due || "", date: se.date || "", pics: [], gk: k ? Gorev.noteKey("d", st.fid, st.year, mOf(d) + 1, id, `${key}_${se.no}`, k, L.slice(0, j).filter(x => String(x || "").trim() === k).length) : "" });
+        const ph0 = (se.photos || {})[key + "|" + j] || [], bs = e.by[se.no] || (e.by[se.no] = { no: se.no, m: mOf(d), rs: (se.resp || d.resp || []).map(r => r.name).join(", "), du: se.due || d.due || "", date: se.date || "", pics: [], gk: k ? Gorev.noteKey("d", st.fid, st.year, mOf(d) + 1, id, `${key}_${se.no}`, k, L.slice(0, j).filter(x => String(x || "").trim() === k).length) : "" });
         ph0.forEach(ph => { if (!e.pics.some(x => x.id === ph.id)) e.pics.push(ph); if (!bs.pics.some(x => x.id === ph.id)) bs.pics.push(ph); });
         const fxo = (se.fixed || {})[key + "|" + j]; if (fxo && fxo.st === "ok" && fxo.t === k && (fxo.tx || "").trim()) bs.fx = { tx: fxo.tx.trim(), ph: (fxo.ph || []).map(ph => ({ ...ph })), at: fxo.at || 0 };
         o.list.set(k, e); }); }));
