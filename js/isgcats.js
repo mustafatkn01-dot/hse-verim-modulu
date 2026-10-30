@@ -9,7 +9,8 @@ export const CATS = [
     "Acil durdurma butonları çalışır ve erişilebilir (makine yoksa Y.D.)",
     "Forklift ve vinç yalnızca yetkili operatör tarafından kullanılıyor",
     "Kaldırma araçlarının (caraskal, vinç, forklift, transpalet vb.) ve bağlı aparatların (sapan, zincir, kanca) fiziksel durumu uygun (hasar, aşınma, deformasyon yok; kullanılmıyorsa Y.D.)",
-    "Konveyör ve silindir sıkışma noktaları korunmuş (konveyör yoksa Y.D.)"] },
+    "Konveyör ve silindir sıkışma noktaları korunmuş (konveyör yoksa Y.D.)",
+    "Kumanda panelindeki butonların işlevi operatörün anlayacağı şekilde Türkçe yazı veya sembolle işaretli, renk kodları karışıklık yaratmıyor (makine yoksa Y.D.)"] },
   { name: "Arıza, Bakım ve İzinli İşler", ex: "Örn. Bakım yapılan makinede kilitleme-etiketleme (LOTO) uygulanmamış.", sub: "LOTO, iş izni, yüksekte / sıcak / kapalı alan çalışma", w: 3, items: [
     "Bakım ve arıza müdahalesinde LOTO (kilitleme-etiketleme) uygulanıyor",
     "Sıcak iş, kapalı alan ve yüksekte çalışma için iş izni alınmış",

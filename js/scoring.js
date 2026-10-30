@@ -84,7 +84,7 @@ export const openIn = (s, id) => { const a = s.fails?.[id]; if (!a) return 0; if
 export function calcIsg({ cats, sessions, draft, freqOv, bonusIdx, F, p, yog = false, mak = "4", perAudit = false, only = null }) {
   const azami = Math.max(1, num(p.isg.azami) || 3);
   const bonusVals = [0, num(p.isg.r1), num(p.isg.r2), num(p.isg.r3)];
-  const thrM = { "1": 1, "23": 2 }[mak] ?? 3, MACH = [0, 1, 4]; // makine maddeleri (kategori 2: 1, 2, 5)
+  const thrM = { "1": 1, "23": 2 }[mak] ?? 3, MACH = [0, 1, 4, 5]; // makine maddeleri (kategori 2: 1, 2, 5, 6)
   let numer = 0, den = 0, total = 0, nCount = 0, totalItems = 0, unmarked = 0, missing = 0, ydMissing = 0, curFails = 0, curMarked = false;
   const catInfo = cats.map((c, ci) => {
     total += c.w; totalItems += c.items.length;
