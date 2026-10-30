@@ -4,7 +4,7 @@ export const CATS = [
     "Çalışmaya uygun KKD (baret, gözlük, eldiven, kulaklık, ayakkabı) kullanılıyor",
     "Zorunlu KKD işaretleri ve uyarı levhaları yerinde",
     "Hasarlı veya süresi geçmiş KKD kullanılmıyor"] },
-  { name: "Makine, Ekipman ve Kaldırma-Taşıma Emniyeti", ex: "Örn. Pres-2 koruyucu kapağı açık bırakılmış; operatör müdahale ediyor.", sub: "Koruyucular, acil durdurma, forklift, vinç, konveyör", w: 3, items: [
+  { name: "Makine, Ekipman ve Kaldırma-Taşıma Emniyeti", ex: "Örn. Pres-2 koruyucu kapağı açık bırakılmış; operatör müdahale ediyor.", sub: "Koruyucular, acil durdurma, forklift, vinç, konveyör", w: 3, ord: [0, 1, 5, 2, 3, 4], items: [
     "Makine koruyucuları ve emniyet donanımı yerinde, devre dışı bırakılmamış (makine yoksa Y.D.)",
     "Acil durdurma butonları çalışır ve erişilebilir (makine yoksa Y.D.)",
     "Forklift ve vinç yalnızca yetkili operatör tarafından kullanılıyor",
