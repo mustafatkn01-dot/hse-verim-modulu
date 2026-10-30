@@ -22,7 +22,7 @@ export const CATS = [
     "Topraklama ve kaçak akım koruması sağlıklı",
     "Pano ve elektrik ekipmanı önünde yalıtım paspası bulunuyor",
     "Yalıtım paspasının fiziksel durumu uygun (yırtık, çatlak, delik, aşınma yok; paspas yoksa Y.D.)"] },
-  { name: "Yaya Yolu ve Acil Durum Ekipman/Çıkış Erişimi", ex: "Örn. Yaya yolu paletlerle kapatılmış; yangın söndürücünün önü kapalı.", sub: "Yaya yolları, acil çıkışlar, söndürücü, ilk yardım, forklift trafiği", w: 2, items: [
+  { name: "Yaya Yolu ve Acil Durum Ekipman/Çıkış Erişimi", ex: "Örn. Yaya yolu paletlerle kapatılmış; yangın söndürücünün önü kapalı.", sub: "Yaya yolları, acil çıkışlar, söndürücü, ilk yardım, forklift trafiği", w: 2, ord: [0, 5, 1, 2, 3, 4], items: [
     "Yaya yolları malzemeden arındırılmış",
     "Acil çıkış kapıları ve çıkış yolları açık",
     "Yangın dolabı ve söndürücü önü açık, erişilebilir",
