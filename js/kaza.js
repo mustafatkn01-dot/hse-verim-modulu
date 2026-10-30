@@ -1,10 +1,10 @@
 // İş Kazası · Aylık Giriş
-import * as S from "./store.js?v=20261030f";
-import * as Gorev from "./gorev.js?v=20261030f";
-import { esc, ic, toast, guestLock, roText, GUEST } from "./ui.js?v=20261030f";
-import * as Guest from "./guest.js?v=20261030f";
-import * as K from "./kayit.js?v=20261030f";
-import { katsayi, bandOf, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261030f";
+import * as S from "./store.js?v=20261030g";
+import * as Gorev from "./gorev.js?v=20261030g";
+import { esc, ic, toast, guestLock, roText, GUEST } from "./ui.js?v=20261030g";
+import * as Guest from "./guest.js?v=20261030g";
+import * as K from "./kayit.js?v=20261030g";
+import { katsayi, bandOf, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261030g";
 
 const COLL = "kaza";
 export const T = [["Gün kayıpsız", 2], ["1-5 gün kayıplı", 5], ["5-20 gün kayıplı", 10], ["20+ gün kayıplı", 20], ["Uzuv kaybı", 50], ["Ölüm", 100]];

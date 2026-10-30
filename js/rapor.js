@@ -1,12 +1,12 @@
 // Aylık HSE Raporu · kayıtlı verilerden otomatik grafik + açıklama
-import * as S from "./store.js?v=20261030f";
-import { esc } from "./ui.js?v=20261030f";
-import * as Gorev from "./gorev.js?v=20261030f";
-import * as T from "./tatil.js?v=20261030f";
-import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261030f";
-import { CATS } from "./isgcats.js?v=20261030f";
-import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261030f";
-import { bandOf, isgMonth, makTier, katsayi, surecVar, DEFAULT_PARAMS, MONTHS, num, konusmaPct, konusmaSifir } from "./scoring.js?v=20261030f";
+import * as S from "./store.js?v=20261030g";
+import { esc } from "./ui.js?v=20261030g";
+import * as Gorev from "./gorev.js?v=20261030g";
+import * as T from "./tatil.js?v=20261030g";
+import { askFormat, printCurrent, saveReportPdf, fileTitle } from "./pdf.js?v=20261030g";
+import { CATS } from "./isgcats.js?v=20261030g";
+import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261030g";
+import { bandOf, isgMonth, makTier, katsayi, surecVar, DEFAULT_PARAMS, MONTHS, num, konusmaPct, konusmaSifir } from "./scoring.js?v=20261030g";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },

@@ -85,12 +85,18 @@ export async function shrinkDataUrl(src, px) {
   c.getContext("2d").drawImage(im, 0, 0, c.width, c.height);
   return c.toDataURL("image/jpeg", px <= 1000 ? 0.65 : 0.7);
 }
-// Tam ekran fotoğraf görüntüleyici
+// Tam ekran fotoğraf görüntüleyici: İndir / Paylaş / Kapat (görüntü sonradan tam çözünürlüğe geçebilir; işlem anındaki görüntü kullanılır)
+const photoName = () => { const n = new Date(), p = x => String(x).padStart(2, "0"); return `HSE-foto-${n.getFullYear()}${p(n.getMonth() + 1)}${p(n.getDate())}-${p(n.getHours())}${p(n.getMinutes())}${p(n.getSeconds())}.jpg`; };
+const photoBlob = async src => (await fetch(src)).blob();
 export function showPhoto(src) {
-  const m = document.createElement("div"); m.className = "mod";
-  m.innerHTML = `<div class="mbox" style="gap:12px;align-items:center;max-width:min(calc(100vw - 32px),900px)"><img src="${src}" alt="Fotoğraf" style="max-width:100%;max-height:75vh;border-radius:10px"><button data-x>Kapat</button></div>`;
-  document.body.appendChild(m); const close = () => m.remove();
+  const m = document.createElement("div"), canShare = typeof navigator.canShare === "function" && typeof navigator.share === "function";
+  m.innerHTML = `<div class="mbox" style="gap:12px;align-items:center;max-width:min(calc(100vw - 32px),900px)"><img src="${src}" alt="Fotoğraf" style="max-width:100%;max-height:75vh;border-radius:10px"><div style="display:grid;grid-template-columns:repeat(${canShare ? 3 : 2},1fr);gap:8px;width:100%;max-width:420px"><button class="sec" data-dl>İndir</button>${canShare ? '<button class="sec" data-sh>Paylaş</button>' : ""}<button data-x>Kapat</button></div></div>`;
+  document.body.appendChild(m); m.className = "mod"; const close = () => m.remove(), im = m.querySelector("img"), name = photoName();
   m.querySelector("[data-x]").onclick = close; m.addEventListener("mousedown", e => { if (e.target === m) close(); });
+  m.querySelector("[data-dl]").onclick = async () => { try { const b = await photoBlob(im.src), a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 60000); toast("Fotoğraf indirildi."); } catch { toast("İndirilemedi."); } };
+  const sh = m.querySelector("[data-sh]"); if (sh) sh.onclick = async () => { try { const f = new File([await photoBlob(im.src)], name, { type: "image/jpeg" }); if (!navigator.canShare({ files: [f] })) return toast("Bu cihaz paylaşımı desteklemiyor."); await navigator.share({ files: [f], title: "HSE denetim fotoğrafı" }); } catch (e) { if (e?.name !== "AbortError") toast("Paylaşılamadı."); } };
+  // Bilgisayar: fotoğrafı klasöre sürükleyerek indirme
+  im.addEventListener("dragstart", e => { try { if (im.src.startsWith("data:") || im.src.startsWith("blob:")) e.dataTransfer.setData("DownloadURL", `image/jpeg:${name}:${im.src}`); } catch {} });
 }
 
 // Misafir kuralı: yalnızca bu ay ve önceki ay için veri girişi
