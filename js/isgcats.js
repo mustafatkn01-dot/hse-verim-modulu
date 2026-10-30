@@ -16,7 +16,7 @@ export const CATS = [
     "Yüksekte çalışmada; merdiven, korkuluk, yaşam hattı veya emniyet kemeri kullanılıyor",
     "Sıcak işte yangın önlemi (söndürücü, yangın battaniyesi) alınmış"] },
   { name: "Elektrik Güvenliği", ex: "Örn. Elektrik panosunun kapağı açık, önünde malzeme var; kablolar çıplak.", sub: "Kablo, pano, topraklama, yalıtım paspası", w: 2, items: [
-    "Ekli veya yamalı kablo kullanılmıyor",
+    "Ekli veya yamalı kablo kullanılmıyor; kablolar dağınık değil, yerde değil, kablo kanalı veya askı ile korunuyor (su / zemin teması riski yok)",
     "Pano kapakları kapalı, uyarı etiketleri yerinde",
     "Topraklama ve kaçak akım koruması sağlıklı",
     "Pano ve elektrik ekipmanı önünde yalıtım paspası bulunuyor",
