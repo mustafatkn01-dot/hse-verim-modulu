@@ -88,16 +88,31 @@ export async function shrinkDataUrl(src, px) {
 // Tam ekran fotoğraf görüntüleyici: İndir / Paylaş / Kapat (görüntü sonradan tam çözünürlüğe geçebilir; işlem anındaki görüntü kullanılır)
 const photoName = () => { const n = new Date(), p = x => String(x).padStart(2, "0"); return `HSE-foto-${n.getFullYear()}${p(n.getMonth() + 1)}${p(n.getDate())}-${p(n.getHours())}${p(n.getMinutes())}${p(n.getSeconds())}.jpg`; };
 const photoBlob = async src => (await fetch(src)).blob();
-export function showPhoto(src) {
-  const m = document.createElement("div"), canShare = typeof navigator.canShare === "function" && typeof navigator.share === "function";
-  m.innerHTML = `<div class="mbox" style="gap:12px;align-items:center;max-width:min(calc(100vw - 32px),900px)"><img src="${src}" alt="Fotoğraf" style="max-width:100%;max-height:75vh;border-radius:10px"><div style="display:grid;grid-template-columns:repeat(${canShare ? 3 : 2},1fr);gap:8px;width:100%;max-width:420px"><button class="sec" data-dl>İndir</button>${canShare ? '<button class="sec" data-sh>Paylaş</button>' : ""}<button data-x>Kapat</button></div></div>`;
-  document.body.appendChild(m); m.className = "mod"; const close = () => m.remove(), im = m.querySelector("img"), name = photoName();
-  m.querySelector("[data-x]").onclick = close; m.addEventListener("mousedown", e => { if (e.target === m) close(); });
-  m.querySelector("[data-dl]").onclick = async () => { try { const b = await photoBlob(im.src), a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 60000); toast("Fotoğraf indirildi."); } catch { toast("İndirilemedi."); } };
-  const sh = m.querySelector("[data-sh]"); if (sh) sh.onclick = async () => { try { const f = new File([await photoBlob(im.src)], name, { type: "image/jpeg" }); if (!navigator.canShare({ files: [f] })) return toast("Bu cihaz paylaşımı desteklemiyor."); await navigator.share({ files: [f], title: "HSE denetim fotoğrafı" }); } catch (e) { if (e?.name !== "AbortError") toast("Paylaşılamadı."); } };
+// items: [{ t: küçük görüntü (data URL), id }]; load(id) → tam görüntü (isteğe bağlı). Birden fazla fotoğrafta ‹ n / m › ile gezilir.
+export function showPhotos(items, start = 0, load = null) {
+  const m = document.createElement("div"), canShare = typeof navigator.canShare === "function" && typeof navigator.share === "function", multi = items.length > 1;
+  let at = Math.min(Math.max(0, start), items.length - 1), tok = 0;
+  m.innerHTML = `<div class="mbox" style="gap:12px;align-items:center;max-width:min(calc(100vw - 32px),900px)"><img alt="Fotoğraf" style="max-width:100%;max-height:70vh;border-radius:10px">${multi ? '<div style="display:grid;grid-template-columns:48px 1fr 48px;gap:8px;align-items:center;width:100%;max-width:420px"><button class="sec" data-pv-p aria-label="Önceki fotoğraf" style="padding:0;font-size:22px">‹</button><span data-pv-c class="muted" style="text-align:center;font-weight:700;font-size:13.5px"></span><button class="sec" data-pv-n aria-label="Sonraki fotoğraf" style="padding:0;font-size:22px">›</button></div>' : ""}<div style="display:grid;grid-template-columns:repeat(${canShare ? 3 : 2},1fr);gap:8px;width:100%;max-width:420px"><button class="sec" data-dl>İndir</button>${canShare ? '<button class="sec" data-sh>Paylaş</button>' : ""}<button data-x>Kapat</button></div></div>`;
+  m.className = "mod"; document.body.appendChild(m);
+  const im = m.querySelector("img"), name = photoName(), q = s => m.querySelector(s);
+  const close = () => { document.removeEventListener("keydown", key); m.remove(); };
+  const show = () => {
+    const my = ++tok, it = items[at]; im.src = it.t;
+    if (multi) { q("[data-pv-c]").textContent = `${at + 1} / ${items.length}`; q("[data-pv-p]").disabled = at === 0; q("[data-pv-n]").disabled = at === items.length - 1; }
+    if (load && it.id) load(it.id).then(full => { if (full && my === tok) im.src = full; }).catch(() => {});
+  };
+  const go = d => { const n = at + d; if (n >= 0 && n < items.length) { at = n; show(); } };
+  const key = e => { if (e.key === "ArrowLeft") go(-1); else if (e.key === "ArrowRight") go(1); else if (e.key === "Escape") close(); };
+  document.addEventListener("keydown", key);
+  q("[data-x]").onclick = close; m.addEventListener("mousedown", e => { if (e.target === m) close(); });
+  if (multi) { q("[data-pv-p]").onclick = () => go(-1); q("[data-pv-n]").onclick = () => go(1); }
+  q("[data-dl]").onclick = async () => { try { const b = await photoBlob(im.src), a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = `${name.slice(0, -4)}-${at + 1}.jpg`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 60000); toast("Fotoğraf indirildi."); } catch { toast("İndirilemedi."); } };
+  const sh = q("[data-sh]"); if (sh) sh.onclick = async () => { try { const f = new File([await photoBlob(im.src)], `${name.slice(0, -4)}-${at + 1}.jpg`, { type: "image/jpeg" }); if (!navigator.canShare({ files: [f] })) return toast("Bu cihaz paylaşımı desteklemiyor."); await navigator.share({ files: [f], title: "HSE denetim fotoğrafı" }); } catch (e) { if (e?.name !== "AbortError") toast("Paylaşılamadı."); } };
   // Bilgisayar: fotoğrafı klasöre sürükleyerek indirme
   im.addEventListener("dragstart", e => { try { if (im.src.startsWith("data:") || im.src.startsWith("blob:")) e.dataTransfer.setData("DownloadURL", `image/jpeg:${name}:${im.src}`); } catch {} });
+  show();
 }
+export const showPhoto = src => showPhotos([{ t: src }], 0);
 
 // Misafir kuralı: yalnızca bu ay ve önceki ay için veri girişi
 export const GUEST = { on: false, name: "", uid: "", hist: true };
