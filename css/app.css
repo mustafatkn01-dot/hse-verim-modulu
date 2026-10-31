@@ -456,7 +456,7 @@ button.it.ar-frow,button.it#arcUp{height:auto;background:var(--card);color:var(-
 button.av{padding:0;border:0;overflow:hidden;cursor:pointer}
 .av img{width:100%;height:100%;object-fit:cover;display:block}
 button.outred{background:var(--card);color:var(--red);border:1px solid var(--red)}
-.pill button.pd{background:transparent;color:inherit;border:0;border-bottom:1.5px dashed currentColor;border-radius:0;font:inherit;height:auto;min-height:0;padding:2px 1px;margin:0;cursor:pointer}
+button.pd{background:transparent;color:inherit;border:0;border-bottom:1.5px dashed currentColor;border-radius:0;font:inherit;height:auto;min-height:0;padding:2px 1px;margin:0;cursor:pointer}
 .gbf{display:flex;gap:8px;align-items:flex-start}
 .gbf>b{flex:0 0 18px;color:#8E1B16;font-weight:800;padding-top:11px}
 .gbc{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
