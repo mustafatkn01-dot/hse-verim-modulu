@@ -1,12 +1,12 @@
 // Ramak Kala bildirimleri: ay bazında kayıt, bildiren bölümün bonus kademesi, misafir kaydı için yetkili onayı
 // Koleksiyon "ramak": her bildirim ayrı kayıt. status: approved (yetkili kaydı / onaylı) | pending (misafir, onay bekliyor) | rejected
-import * as S from "./store.js?v=20261031b";
-import * as Guest from "./guest.js?v=20261031b";
-import * as Gorev from "./gorev.js?v=20261031b";
-import { esc, toast, pickDate, fmtTarih, compressImage, showPhoto, confirmBox, GUEST, guestLock, roText } from "./ui.js?v=20261031b";
-import { CATS } from "./isgcats.js?v=20261031b";
-import { isgMonth, makTier, katsayi, bandOf, surecVar, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261031b";
-import { askFormat, savePdf } from "./pdf.js?v=20261031b";
+import * as S from "./store.js?v=20261102a";
+import * as Guest from "./guest.js?v=20261102a";
+import * as Gorev from "./gorev.js?v=20261102a";
+import { esc, toast, pickDate, fmtTarih, compressImage, showPhoto, openPhotos, confirmBox, GUEST, guestLock, roText } from "./ui.js?v=20261102a";
+import { CATS } from "./isgcats.js?v=20261102a";
+import { isgMonth, makTier, katsayi, bandOf, surecVar, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261102a";
+import { askFormat, savePdf } from "./pdf.js?v=20261102a";
 
 export const COLL = "ramak";
 export const TIER = ["Yok", "Ayda 1", "2 Haftada 1", "Haftalık"];
@@ -270,7 +270,7 @@ function draw() {
     if (!GUEST.on) await syncBonus(st.fid, st.year, R.month, R.setup, R.recs);
     draw(); toast(GUEST.on ? "Kayıt gönderildi, yetkili onayından sonra puana sayılır." : "Kayıt eklendi.");
   };
-  v.querySelectorAll("[data-pv]").forEach(im => im.onclick = async () => { showPhoto(im.getAttribute("src")); const full = await S.getPhoto(st.fid, st.year, im.dataset.pv).catch(() => null); if (full) document.querySelector(".mod img")?.setAttribute("src", full); });
+  v.querySelectorAll("[data-pv]").forEach(im => im.onclick = () => openPhotos(im, id => S.getPhoto(st.fid, st.year, id)));
   v.querySelectorAll("[data-ra]").forEach(b => b.onclick = async () => {
     const [act, id] = b.dataset.ra.split("|"), r = R.recs.find(x => x.id === id); if (!r) return;
     if (act === "edit") {

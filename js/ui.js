@@ -113,6 +113,12 @@ export function showPhotos(items, start = 0, load = null) {
   show();
 }
 export const showPhoto = src => showPhotos([{ t: src }], 0);
+// Küçük resme dokunulunca aynı gruptaki (aynı .phs / satır) tüm fotoğrafları ileri-geri gezilebilir açar; tüm fotoğraf eklenen süreçler bunu kullanır
+export function openPhotos(el, load = null) {
+  const box = el.closest(".phs") || el.closest(".pth")?.parentElement || el.parentElement, imgs = [...box.querySelectorAll(".pth img")];
+  if (!imgs.includes(el)) imgs.push(el);
+  showPhotos(imgs.map(i => ({ t: i.getAttribute("src"), id: load ? (i.dataset.pv || i.dataset.gp || null) : null })), imgs.indexOf(el), load);
+}
 
 // Misafir kuralı: yalnızca bu ay ve önceki ay için veri girişi
 export const GUEST = { on: false, name: "", uid: "", hist: true };

@@ -1,13 +1,13 @@
 // İSG Denetim Listesi sayfası
-import * as Guest from "./guest.js?v=20261031b";
-import * as Gorev from "./gorev.js?v=20261031b";
-import * as S from "./store.js?v=20261031b";
-import * as Ramak from "./ramak.js?v=20261031b";
-import * as Paylas from "./paylas.js?v=20261031b";
-import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, showPhotos, GUEST, guestLock, roText } from "./ui.js?v=20261031b";
-import { CATS } from "./isgcats.js?v=20261031b";
-import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261031b";
-import { calcIsg, isgMonth, isgAudits, fxInTime, makTier, katsayi, bandOf, num, surecVar, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261031b";
+import * as Guest from "./guest.js?v=20261102a";
+import * as Gorev from "./gorev.js?v=20261102a";
+import * as S from "./store.js?v=20261102a";
+import * as Ramak from "./ramak.js?v=20261102a";
+import * as Paylas from "./paylas.js?v=20261102a";
+import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, showPhotos, openPhotos, GUEST, guestLock, roText } from "./ui.js?v=20261102a";
+import { CATS } from "./isgcats.js?v=20261102a";
+import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261102a";
+import { calcIsg, isgMonth, isgAudits, fxInTime, makTier, katsayi, bandOf, num, surecVar, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261102a";
 
 const COLL = "isg";
 const D = { pk: { open: false, view: 0, cnt: {} }, fxEditing: new Set(), fxDraft: {}, fxOpen: new Set(), fxList: [], gfxOpen: false, key: "", setup: null, doc: null, dept: null, month: null, open: {}, ro: false, timer: null, saved: true, msg: "" };
@@ -312,11 +312,7 @@ function fxPending() {
   });
   return out.sort((a, b) => a.req.at - b.req.at);
 }
-const pvOpen = async el => {
-  const { st } = D.ctx; showPhoto(el.getAttribute("src"));
-  const full = await S.getPhoto(st.fid, st.year, el.dataset.pv).catch(() => null);
-  if (full) [...document.querySelectorAll(".mod")].pop()?.querySelector("img")?.setAttribute("src", full);
-};
+const pvOpen = el => openPhotos(el, id => D.ctx.st && S.getPhoto(D.ctx.st.fid, D.ctx.st.year, id));
 // Yetkili: sahada düzeltme yapıldığında aksiyonu kendisi girer (onay beklemeden kabul edilmiş sayılır)
 function fxForm(key, edit = false) {
   const dr = D.fxDraft[key] ||= { tx: "", ph: [] };
@@ -496,7 +492,7 @@ function gfxForm(r) {
       <button data-send style="height:46px;background:#0B6E4F;border-color:#0B6E4F;color:#fff;font-weight:700">Aksiyonu yetkiliye gönder</button></div>`;
     m.querySelector("#gfxNb").onclick = async () => { const r = await noteEditor({ title: "Alınan aksiyon", item: r0.t, text: txt, question: "Ne yapıldı? Alınan aksiyonu yazın.", example: "Örn. Koruyucu kapak yerine takıldı, devre dışı bırakma bağlantısı kaldırıldı." }); if (r !== null) { txt = r; draw2(); } };
     m.querySelector("[data-x]").onclick = () => m.remove();
-    m.querySelectorAll("img[src]").forEach(im => { if (im.closest(".pth") && !im.dataset.pv) im.onclick = () => showPhoto(im.getAttribute("src")); });
+    m.querySelectorAll("img[src]").forEach(im => { if (im.closest(".pth") && !im.dataset.pv) im.onclick = () => openPhotos(im); });
     m.querySelectorAll("[data-rm]").forEach(b => b.onclick = e => { e.stopPropagation(); const pid = b.dataset.rm; ph = ph.filter(p => p.id !== pid); S.deletePhoto(st.fid, st.year, pid).catch(() => {}); draw2(); });
     m.querySelectorAll("input[type=file]").forEach(inp => inp.onchange = async () => {
       const files = [...inp.files]; inp.value = ""; if (!files.length) return; let n = 0;
@@ -729,7 +725,7 @@ function bind(v, c) {
     const [id, k, pid] = el.dataset.prm.split("|"), key = id + "|" + k;
     d.photos[key] = (d.photos[key] || []).filter(p => p.id !== pid); S.deletePhoto(st.fid, st.year, pid).catch(() => {}); again();
   });
-  on("[data-pv]", async el => { showPhoto(el.getAttribute("src")); const full = await S.getPhoto(st.fid, st.year, el.dataset.pv).catch(() => null); if (full) { document.querySelector(".mod img")?.setAttribute("src", full); } });
+  on("[data-pv]", el => openPhotos(el, id => S.getPhoto(st.fid, st.year, id)));
   on("[data-note]", async el => {
     const [id, k] = el.dataset.note.split("|"), m = /^c(\d+)i(\d+)$/.exec(id), cat = CATS[+m[1]];
     const r = await noteEditor({ title: `Açıklama ${cat.name} · ${+k + 1}.`, item: cat.items[+m[2]], text: (d.notes[id] || [""])[+k] || "", example: cat.ex });
@@ -752,7 +748,7 @@ function bind(v, c) {
   on("[data-reopen]", async el => {
     const no = +el.dataset.reopen, t = doc.sessions.find(x => x.no === no); if (!t) return;
     if (doc.draft.on !== false && Object.keys(doc.draft.marks || {}).length && doc.draft.edit !== no) {
-      const { confirmBox } = await import("./ui.js?v=20261031b");
+      const { confirmBox } = await import("./ui.js?v=20261102a");
       if (!(await confirmBox(`${no}. denetim açılsın mı?`, "Şu an açık olan denetimde kaydedilmemiş değişiklikler varsa kaybolur. Önce “Kaydet”e basmanız önerilir.", "Yine de aç"))) return;
     }
     if (t.no === doc.sessions.length) t.closed = false;
@@ -770,7 +766,7 @@ function bind(v, c) {
   });
   const gAll = async () => (await S.listMonthDocs(st.fid, st.year, "isgg").catch(() => [])).filter(g => g.id.startsWith(`${pad(D.month)}_${D.dept}_`));
   on("[data-delsess]", async el => {
-    const { confirmBox } = await import("./ui.js?v=20261031b");
+    const { confirmBox } = await import("./ui.js?v=20261102a");
     const no = +el.dataset.delsess, ix = doc.sessions.findIndex(x => x.no === no); if (ix < 0) return;
     const gone = doc.sessions[ix], later = ix < doc.sessions.length - 1, all = await gAll(), gAp = all.filter(g => g.status === "approved" && g.no === gone.no);
     let mode = "all";
@@ -795,7 +791,7 @@ function bind(v, c) {
   });
   // Sahip: misafir taslağını tamamen sil (denetime ve rapora hiç girmez)
   const delG = async g => {
-    const { confirmBox } = await import("./ui.js?v=20261031b");
+    const { confirmBox } = await import("./ui.js?v=20261102a");
     if (!(await confirmBox("Misafir taslağı silinsin mi?", `${g.guestName} taslağı ve fotoğrafları kalıcı olarak silinir; denetime ve rapora hiç girmez. Misafir isterse yeniden yazabilir.`, "Evet, tamamen sil", true))) return false;
     Object.values(g.draft?.photos || {}).flat().forEach(p => S.deletePhoto(st.fid, st.year, p.id).catch(() => {}));
     await S.deleteMonthDoc(st.fid, st.year, "isgg", g.id); await Guest.inboxDelete(`${g.guestUid}_${st.fid}_${st.year}_${+g.month}_${g.dept}`);
@@ -806,7 +802,7 @@ function bind(v, c) {
   const holOK = async date => {
     if (!date || GUEST.on || D.okHol?.has(date)) return true;
     const h = tatilMap(await tatilYukle(st.fid, st.year).catch(() => null)).get(date); if (!h || h.yarim) return true;
-    const { confirmBox } = await import("./ui.js?v=20261031b");
+    const { confirmBox } = await import("./ui.js?v=20261102a");
     if (!(await confirmBox("İzin / tatil günü", `${fmtTarih(date)} tarihi "${h.ad}" olarak izinli/tatil işaretli. Yine de bu tarihle denetim yapılsın mı?`, "Evet, kabul et"))) return false;
     (D.okHol ||= new Set()).add(date); return true;
   };
@@ -964,7 +960,7 @@ function bind(v, c) {
   });
   on("[data-fxdel]", async el => {
     const { s, id, j, fk } = fxSess(el.dataset.fxdel); if (!s?.fixed?.[fk]) return;
-    const { confirmBox } = await import("./ui.js?v=20261031b");
+    const { confirmBox } = await import("./ui.js?v=20261102a");
     if (!(await confirmBox("Aksiyon kaldırılsın mı?", "Aksiyon bilgisi silinir; bulgu yeniden cezaya sayılır.", "Evet, kaldır", true))) return;
     const old = s.fixed[fk], oldOff = s.fixedOff?.[fk]; delete s.fixed[fk];
     // Otomatik (görev takip) aksiyon elle kaldırıldıysa, aynı kapanış için yeniden otomatik eklenmesin
