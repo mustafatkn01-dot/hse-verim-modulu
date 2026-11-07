@@ -1,11 +1,11 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261107a";
-import { esc } from "./ui.js?v=20261107a";
-import { bandOf, DEFAULT_PARAMS, num, isgMonth, makTier, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261107a";
-import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261107a";
-import { CATS } from "./isgcats.js?v=20261107a";
-import * as Gorev from "./gorev.js?v=20261107a";
-import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261107a";
+import * as S from "./store.js?v=20261107b";
+import { esc } from "./ui.js?v=20261107b";
+import { bandOf, DEFAULT_PARAMS, num, isgMonth, makTier, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261107b";
+import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261107b";
+import { CATS } from "./isgcats.js?v=20261107b";
+import * as Gorev from "./gorev.js?v=20261107b";
+import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261107b";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -311,7 +311,7 @@ async function printSheet(info, { size, orient, pics = false, file = false, scop
   const takipTable = (list, cont = false) => { const rows = list || takipAll();
     if (!rows.length) return ""; const all = takipAll(), bd = "1px solid #B9C9C3", th = `padding:6px 6px;text-align:left;font-size:10.5px;font-weight:800;color:#10201C;background:#EAF1EE;border:${bd}`, td = `padding:5px 6px;border:${bd};vertical-align:top;font-size:11px;line-height:1.4;word-break:break-word`;
     return `<div style="border-top:1px solid #D5E0DC;padding-top:10px;display:flex;flex-direction:column;gap:5px"><div style="font-weight:800;font-size:12px;letter-spacing:.8px;color:#10201C;-webkit-text-stroke:.3px #10201C">BULGU TERMİN TAKİP TABLOSU${cont ? " (devam)" : ""}</div>
-      <table style="border-collapse:collapse;width:100%;table-layout:fixed"><colgroup><col style="width:38px"><col style="width:72px"><col><col style="width:84px"><col style="width:66px"><col style="width:112px"></colgroup><tr><th style="${th};text-align:center">S.No</th><th style="${th}">Bölüm</th><th style="${th}">Bulgu</th><th style="${th}">Sorumlu</th><th style="${th}">Termin</th><th style="${th}">Durum</th></tr>${rows.map(a => { const sh = shOf(a), dn = !!a.fx, tm = dueOf(sh, a), lt = !dn && tm && tm < todayIso, cl = dn ? "#0B6E4F" : "#B3261E";
+      <table style="border-collapse:collapse;width:100%;table-layout:fixed"><colgroup><col style="width:38px"><col style="width:70px"><col><col style="width:100px"><col style="width:66px"><col style="width:104px"></colgroup><tr><th style="${th};text-align:center">S.No</th><th style="${th}">Bölüm</th><th style="${th}">Bulgu</th><th style="${th}">Sorumlu</th><th style="${th}">Termin</th><th style="${th}">Durum</th></tr>${rows.map(a => { const sh = shOf(a), dn = !!a.fx, tm = dueOf(sh, a), lt = !dn && tm && tm < todayIso, cl = dn ? "#0B6E4F" : "#B3261E";
       return `<tr style="break-inside:avoid"><td style="${td};text-align:center;font-weight:800;color:#0B6E4F">${all.indexOf(a) + 1}</td><td style="${td}">${esc(a.dept)}</td><td style="${td}">${esc(a.cat && a.text.startsWith(a.cat + ": ") ? a.text.slice(a.cat.length + 2) : a.text)}</td><td style="${td}">${esc(whoOf(sh, a) || "-")}</td><td style="${td};white-space:nowrap">${tm ? fdm(tm) : "-"}</td><td style="${td};white-space:nowrap;font-weight:700;color:${cl}"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${cl};margin-right:6px"></span>${dn ? "Aksiyon alındı" : lt ? "Gecikti" : "Açık"}</td></tr>`; }).join("")}</table></div>`; };
   const usePics = pics && DET.some(g => g.items.some(i => i.pics?.length || i.fx?.ph?.length)), PH = {};
   if (usePics) await Promise.all(DET.flatMap(g => g.items.flatMap(i => [...(i.pics || []), ...(i.fx?.ph || [])])).map(async p => { try { PH[p.id] = await S.getPhoto(info.fid, info.year, p.id); } catch { } }));
