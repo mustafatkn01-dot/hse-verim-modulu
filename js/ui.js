@@ -183,3 +183,11 @@ export function pickDate({ title = "Tarih seçin", min = "", max = "", a = "", z
     draw();
   });
 }
+
+// Küçük resmi klasöre sürükleme: dosya, indir düğmesindeki gibi tam çözünürlüklü olur (fare üzerine gelince tam görüntü önceden yüklenir)
+const FULL = new Map(); let LOADER = null;
+export const setPhotoLoader = f => { LOADER = f; };
+const pidOf = i => i.dataset.pv || i.dataset.gp;
+const warm = i => { const id = pidOf(i); if (!id || !LOADER || FULL.has(id)) return; if (FULL.size > 24) FULL.clear(); FULL.set(id, null); Promise.resolve(LOADER(id)).then(f => { if (f) FULL.set(id, f); else FULL.delete(id); }).catch(() => FULL.delete(id)); };
+document.addEventListener("mouseover", e => { const i = e.target?.closest?.(".pth img"); if (i) warm(i); });
+document.addEventListener("dragstart", e => { const i = e.target; if (!(i instanceof HTMLImageElement) || !i.closest(".pth")) return; const f = FULL.get(pidOf(i)) || i.src; try { if (f.startsWith("data:") || f.startsWith("blob:")) e.dataTransfer.setData("DownloadURL", `image/jpeg:${photoName()}:${f}`); } catch {} });
