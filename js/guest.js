@@ -3,8 +3,8 @@
 //   users/{sahip}/invites/{kod}        davet (e-posta ayarı kopyası)
 //   users/{sahip}/guestReqs/{misafirUid}  onay isteği {gid, code, name, unit, status, at}
 //   users/{sahip}/members/{misafirUid}    onaylı üye {name, unit, factories[], mode, expires|null}
-import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously, signInWithEmailAndPassword, createAuxUser, changeAuxPassword, serverTimestamp } from "./firebase.js?v=20261110a";
-import { esc, toast, confirmBox } from "./ui.js?v=20261110a";
+import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously, signInWithEmailAndPassword, createAuxUser, changeAuxPassword, serverTimestamp } from "./firebase.js?v=20261110b";
+import { esc, toast, confirmBox } from "./ui.js?v=20261110b";
 
 const Q = new URLSearchParams(location.search);
 export const linkInfo = () => {
@@ -225,7 +225,7 @@ const newPid = taken => { // 6 hane, serbest dizilim; en az 2 harf ve en az 2 ra
 };
 // Önceki kayıtları bul: kişi kaydı (ID) + adı eşleşen, sahibi artık üye olmayan (sahipsiz) taslaklar
 async function findPrev(o, name, gid) {
-  const S = await import("./store.js?v=20261110a"), n = normName(name);
+  const S = await import("./store.js?v=20261110b"), n = normName(name);
   const people = (await loadPeople(o)).filter(p => p.norm === n);
   const mems = await getDocs(collection(db, `users/${o}/members`)).then(s => new Set(s.docs.map(d => d.id))).catch(() => new Set());
   const uids = new Set(); people.forEach(p => (p.uids || []).forEach(u => { if (u !== gid && !mems.has(u)) uids.add(u); }));
@@ -239,7 +239,7 @@ async function findPrev(o, name, gid) {
   return { person: people[0] || null, pid: people[0]?.id || null, uids, count };
 }
 async function migrateGuest(oldUids, newUid, name) {
-  const S = await import("./store.js?v=20261110a"); let n = 0;
+  const S = await import("./store.js?v=20261110b"); let n = 0;
   for (const f of await S.listFactories()) for (const y of await S.listYears(f.id)) for (const c of GCOLLS) {
     const all = await S.listMonthDocs(f.id, y, c), ids = new Set(all.map(d => d.id));
     for (const d of all) {
@@ -540,8 +540,9 @@ export function inviteDialog(ownerUid, factories, done) {
     e.target.disabled = true; e.target.textContent = "Oluşturuluyor…";
     try {
       const token = tokGen(), uid = await createAuxUser(pEmail(token), token), expires = days ? new Date(Date.now() + days * 864e5) : null;
-      const cg = await getDoc(doc(db, `users/${ownerUid}/meta/guestcfg`)).catch(() => null), ppl = await loadPeople(ownerUid), pid = newPid(new Set(ppl.map(p => p.id)));
-      await setDoc(PPL(ownerUid, pid), { name, norm: normName(name), unit: "", createdAt: Date.now(), uids: [uid] });
+      const cg = await getDoc(doc(db, `users/${ownerUid}/meta/guestcfg`)).catch(() => null), ppl = await loadPeople(ownerUid), ex = ppl.find(p => p.norm === normName(name)), pid = ex?.id || newPid(new Set(ppl.map(p => p.id)));
+      // Aynı ad soyad kayıtlıysa yeni ID üretilmez; mevcut kişi kaydı (ID) devam eder
+      await setDoc(PPL(ownerUid, pid), { name: ex?.name || name, norm: normName(name), unit: ex?.unit || "", createdAt: ex?.createdAt || Date.now(), uids: [...new Set([...(ex?.uids || []), uid])] });
       await setDoc(MEM(ownerUid, uid), { ntfy: cg?.exists() ? cg.data().ntfy || null : null, name, unit: "", pid, inv: true, hist: false, factories: fs, mode: expires ? "24h" : "perm", expires, linkUntil: Date.now() + lh * 36e5, createdAt: Date.now() });
       const p = { name, phone, uid, token, ek: token, pid, factories: fs, expires, closed: false, linkH: lh, linkUntil: Date.now() + lh * 36e5, createdAt: Date.now() };
       await setDoc(PIN(ownerUid, uid), p);
