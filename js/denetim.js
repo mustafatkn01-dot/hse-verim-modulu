@@ -1,14 +1,14 @@
 // İSG Denetim Listesi sayfası
-import * as Guest from "./guest.js?v=20261110h";
-import * as Gorev from "./gorev.js?v=20261110h";
-import * as S from "./store.js?v=20261110h";
-import * as Ramak from "./ramak.js?v=20261110h";
-import * as Z from "./zincir.js?v=20261110h";
-import * as Paylas from "./paylas.js?v=20261110h";
-import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, showPhotos, openPhotos, setPhotoLoader, GUEST, guestLock, roText } from "./ui.js?v=20261110h";
-import { CATS } from "./isgcats.js?v=20261110h";
-import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261110h";
-import { calcIsg, isgMonth, isgAudits, fxInTime, makTier, katsayi, bandOf, num, surecVar, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261110h";
+import * as Guest from "./guest.js?v=20261110i";
+import * as Gorev from "./gorev.js?v=20261110i";
+import * as S from "./store.js?v=20261110i";
+import * as Ramak from "./ramak.js?v=20261110i";
+import * as Z from "./zincir.js?v=20261110i";
+import * as Paylas from "./paylas.js?v=20261110i";
+import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, showPhotos, openPhotos, setPhotoLoader, GUEST, guestLock, roText } from "./ui.js?v=20261110i";
+import { CATS } from "./isgcats.js?v=20261110i";
+import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261110i";
+import { calcIsg, isgMonth, isgAudits, fxInTime, makTier, katsayi, bandOf, num, surecVar, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261110i";
 
 const COLL = "isg";
 const D = { pk: { open: false, view: 0, cnt: {} }, fxEditing: new Set(), fxDraft: {}, fxOpen: new Set(), fxList: [], gfxOpen: false, key: "", setup: null, doc: null, dept: null, month: null, open: {}, ro: false, timer: null, saved: true, msg: "" };
@@ -166,7 +166,7 @@ async function rkLoad() {
 }
 
 // "Bu hafta" şeridi: bugünün haftasında her bölümün denetim durumu (yalnızca gösterim; bölüme dokununca o bölüme geçilir)
-export const reset = () => { WK.open = false; D.open = {}; D.fxOpen = new Set(); D.fxEditing = new Set(); D.gfxOpen = false; D.shrOpen = false; D.shrB = ""; D.shF = "ac"; D.shDd = ""; D.shMo = null; D.unwatchSh?.(); D.unwatchSh = null; };
+export const reset = () => { WK.open = false; D.open = {}; D.fxOpen = new Set(); D.fxEditing = new Set(); D.gfxOpen = false; D.shrOpen = false; D.shrB = ""; D.shF = "ac"; D.shDd = ""; D.shMo = null; D.zOpen = ""; D.unwatchSh?.(); D.unwatchSh = null; };
 const WK = { open: false, rows: null, mon: "", t: 0, days: {} };
 async function loadWk(force = false) {
   const { st } = D.ctx || {}; if (!st || !D.setup) return;
@@ -382,6 +382,113 @@ function fxCard(s, id, j, t) {
       ${!pd && f?.st === "ok" && !editing && !D.ro && !GUEST.on ? `<div style="display:flex;gap:8px;flex-wrap:nowrap"><button class="sec" data-fxedit="${key}" style="flex:1 1 0;min-width:0;height:34px;min-height:0;padding:0 8px;font-size:13px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap">${ic('<path d="M4 20h4L19 9l-4-4L4 16v4z"/>', 15)}Düzenle</button><button class="sec" data-fxdel="${key}" style="flex:1 1 0;min-width:0;height:34px;min-height:0;padding:0 8px;font-size:13px;color:#B3261E;border-color:#B3261E;white-space:nowrap">Aksiyonu kaldır</button></div>` : ""}
       ${!pd && f?.st === "ok" ? (fxInTime(f, s.date) ? `<span style="font-size:12px;color:#0B6E4F">Bu bulgu cezada Uygun gibi sayılır; sıklık takibi sürer.</span>` : `<span style="font-size:12px;color:#7A5200">Hafta kapandıktan sonra girildi: yalnızca açıklamada görünür, ceza puanı değişmez.</span>`) : ""}</div></details>`;
 }
+// ---------------- Bulgu zinciri (önceki haftalarla eşleşme) ----------------
+// Bölümün son 12 aylık denetim geçmişi yüklenir (yıl sınırı dahil); bu ayın kaydı bellekteki güncel hâliyle kullanılır
+function zEnsure() {
+  const { st } = D.ctx, key = [st.fid, st.year, D.month, D.dept].join("/");
+  if (GUEST.on || D.zh?.key === key || D.zBusy === key) return;
+  D.zBusy = key;
+  Z.loadHistory(S.getMonthDoc, st.fid, st.year, D.month, D.dept, 12)
+    .then(docs => { if (D.zBusy !== key) return; D.zh = { key, docs }; })
+    .catch(() => { if (D.zBusy === key) D.zh = { key, docs: [], fail: true }; })
+    .finally(() => { if (D.zBusy === key) D.zBusy = ""; if (D.v?.isConnected && D.key === key && !document.querySelector(".mod")) draw(); });
+}
+function zChains(skipNo = null) {
+  if (!D.zh || D.zh.key !== D.key) return null;
+  const { st } = D.ctx, docs = D.zh.docs.filter(x => !(+x.year === +st.year && +x.month === +D.month));
+  docs.push({ year: +st.year, month: +D.month, doc: { sessions: (D.doc.sessions || []).filter(s => s.no !== skipNo) } });
+  docs.sort((a, b) => a.year - b.year || a.month - b.month);
+  return Z.chainsOf(Z.linksOf(docs));
+}
+const ZLV = { guclu: ["Güçlü", "g"], orta: ["Orta", "o"], zayif: ["Zayıf", "z"], farkli: ["Farklı", "f"] };
+const zDates = c => [...new Set(c.links.filter(l => !l.ok).map(l => dm(l.date)))].slice(-4).join(" · ");
+// Bir maddedeki bulgular için öneriler ve seçimler (sel: kullanıcı seçimleri "madde|sıra" → zk | "yeni" | "farkli" | "tekrar:zk")
+// pre: düzenlenen kayıttaki mevcut zincir bağlantıları ("madde|sıra" → zk), date: denetim tarihi
+function zItem(ch, id, notes, sel = {}, date = "", pre = {}) {
+  const out = [], used = [];
+  const explicit = k => { const v = sel[id + "|" + k]; return v && !/^(yeni|farkli|tekrar:)/.test(v) ? v : null; };
+  notes.forEach((t0, k) => {
+    const t = String(t0 || "").trim(); if (!t) { out.push(undefined); return; } if (!ch) { out.push(null); return; }
+    const others = notes.map((_, kk) => kk !== k ? explicit(kk) : null).filter(Boolean);
+    const sg = Z.suggest(ch, { id, text: t, date, exclude: [] });
+    if (!sg.open.length && !sg.tekrar.length) { out.push(null); return; }
+    const blocked = new Set([...used, ...others]);
+    const avail = sg.open.filter(o => !blocked.has(o.chain.zk)), top = avail[0];
+    let def = "";
+    if (sg.open.length) def = !top ? "yeni" : top.sim.level === "guclu" ? top.chain.zk : top.sim.level === "orta" ? "" : "yeni";
+    else def = "tekrar:" + sg.tekrar[0].chain.zk;
+    const key = id + "|" + k, p = pre[key] && sg.open.some(o => o.chain.zk === pre[key]) ? pre[key] : null;
+    let eff = sel[key] ?? p ?? def;
+    if (eff && !/^(yeni|farkli|tekrar:)/.test(eff) && blocked.has(eff)) eff = def && !blocked.has(def) ? def : "";
+    if (eff && !/^(yeni|farkli|tekrar:)/.test(eff)) used.push(eff);
+    out.push({ key, sg, eff, blocked });
+  });
+  return out;
+}
+// Kart: varsayılan kapalı; başlık seçimi tek satırda özetler. pf: data öneki ("z" yetkili denetimi, "gz" misafir onayı)
+function zCard(z, open, pf = "z", idx = null) {
+  const { sg, eff, key, blocked } = z, cv = `<span class="cv">${ic('<path d="M6 9l6 6 6-6"/>', 18)}</span>`;
+  const chosen = eff && !/^(yeni|farkli|tekrar:)/.test(eff) ? sg.open.find(o => o.chain.zk === eff) : null;
+  const tk = eff.startsWith("tekrar:") ? sg.tekrar.find(o => "tekrar:" + o.chain.zk === eff) || sg.tekrar[0] : null;
+  const [cls, ttl, sub, pl] = chosen ? ["", `Devamı · ${chosen.chain.nOpen} haftadır açık`, chosen.chain.last.t, ZLV[chosen.sim.level]]
+    : eff === "" ? [" zo", "Seçim gerekli", `${sg.open.length} önceki açık bulgu · dokunup seçin`, ["Karar bekliyor", "o"]]
+    : tk ? [" zr", "Tekrarlayan bulgu", `${dm(tk.closed)} kapatılmıştı · yeni açılır`, ["Tekrar", "f"]]
+    : eff === "farkli" ? ["", "Farklı sorun", "Kapanmış bulguyla ilgisi yok", ["Yeni", "z"]]
+    : ["", "Yeni bulgu", sg.open.length ? "Önceki açık bulgulara bağlanmadı" : "Önceki bulgularla ilgisi yok", ["Yeni", "z"]];
+  const op = (v, a, m, p, dis = false) => `<button type="button" class="zop${eff === v ? " on" : ""}" data-${pf}s="${key}|${v}" ${dis ? "disabled" : ""}><span class="rd"></span><span class="ot"><span class="a">${esc(a)}</span><span class="m">${esc(m)}</span></span>${p ? `<span class="zpl p-${p[1]}">${p[0]}</span>` : ""}</button>`;
+  const list = sg.open.length
+    ? sg.open.map(o => blocked.has(o.chain.zk) ? op(o.chain.zk, o.chain.last.t, "Bu denetimde başka bulguya bağlandı", ZLV[o.sim.level], true)
+      : op(o.chain.zk, o.chain.last.t, `${zDates(o.chain)} · ${o.chain.nOpen} haftadır açık${o.sim.level === "farkli" ? " · numaralar farklı" : o.sim.common.length ? " · ortak: " + [...o.sim.nums, ...o.sim.common].slice(0, 3).join(", ") : ""}`, ZLV[o.sim.level])).join("") + op("yeni", "Yeni bulgu", "Önceki bulgularla ilgisi yok")
+    : op("tekrar:" + sg.tekrar[0].chain.zk, "Tekrarlayan bulgu", `Yeni açılır · raporda önceki kapanış (${dm(sg.tekrar[0].closed)}) yazar`) + op("farkli", "Farklı sorun", "Etiketsiz yeni bulgu olarak açılır");
+  return `<div class="zw${cls}"><button type="button" class="zhd" data-${pf}o="${key}" aria-expanded="${open}"><span class="t"><b>${esc(ttl)}</b><span>${esc(sub)}</span></span><span class="zpl p-${pl[1]}">${pl[0]}</span>${cv}</button>
+    ${open ? `<div class="zbd"><div class="zls">${list}</div><span class="zht">${sg.open.length ? "Seçilen bulguya bu hafta eklenir; ayrı açık bulgu oluşmaz. Sıklık yine artar." : "Kapanmış bulguya geri bağlanmaz; kabul edilmiş aksiyon ve puanı korunur."}</span></div>` : ""}</div>`;
+}
+// Uygun işaretlenen maddede açık kalan zincirler (denetim tarihinden önce tespit edilmiş)
+const zOpenFor = (ch, id, date) => (ch || []).filter(c => c.id === id && c.open && c.links.some(l => !l.ok && (!date || l.date < date)));
+// Zincirle kapatma: aynı aydaki kayıtlar bellekte, diğer ay/yıllar ayrıca okunup yazılır. Kapanış puanı değiştirmez (via)
+async function zCloseApply(links, src) {
+  const { st } = D.ctx, other = new Map(), now = Date.now();
+  for (const l of links) {
+    const fx = { t: l.t, st: "ok", via: { k: src.k, d: src.d, no: src.no || 0 }, tx: src.tx, ph: src.ph || [], gn: src.by || "", at: now, ap: now };
+    if (+l.y === +st.year && +l.m === +D.month) { const s = D.doc.sessions.find(x => x.no === l.no); if (s && (s.fails?.[l.id] || [])[l.j] === l.t) (s.fixed ||= {})[l.id + "|" + l.j] = fx; }
+    else { const k = l.y + "|" + l.m; if (!other.has(k)) other.set(k, []); other.get(k).push([l, fx]); }
+  }
+  for (const [k, arr] of other) {
+    const [y, m] = k.split("|"), did = `${pad(+m)}_${D.dept}`;
+    try {
+      const d2 = await S.getMonthDoc(st.fid, y, COLL, did); if (!d2?.sessions) continue;
+      for (const [l, fx] of arr) { const s = d2.sessions.find(x => x.no === l.no); if (s && (s.fails?.[l.id] || [])[l.j] === l.t) (s.fixed ||= {})[l.id + "|" + l.j] = fx; }
+      await S.saveMonthDoc(st.fid, y, COLL, did, d2);
+    } catch (e) { toast("Önceki ay kaydı güncellenemedi: " + (e.message || e)); }
+  }
+}
+// Kaydedilen denetime (rec) zincir seçimlerini işler: notes sırası → kayıttaki bulgu sırası (boş açıklamalar atlanır)
+function zApplyRec(rec, zs) {
+  rec.zk ||= {}; const rk = {};
+  for (const [id, list] of Object.entries(zs)) {
+    let fi = 0;
+    list.forEach(z => { if (z === undefined) return; if (z === null) { fi++; return; } const k = id + "|" + fi++;
+      if (/^(yeni|farkli)$/.test(z.eff)) delete rec.zk[k];
+      else if (z.eff.startsWith("tekrar:")) { delete rec.zk[k]; rk[k] = z.eff.slice(7); }
+      else if (z.eff) rec.zk[k] = z.eff; });
+  }
+  if (Object.keys(rk).length) rec.rk = rk; else delete rec.rk;
+  return rec;
+}
+// "Uygun" işaretlenen maddede açık bulgular: kapatma kararı (varsayılan kapalı kart). u: { ok, off: [zk], ph: [] }
+function zUcard(id, chs, u = {}, open = false, pf = "zu", guest = false) {
+  if (!chs.length) return "";
+  const n = chs.filter(c => !(u.off || []).includes(c.zk)).length, cv = `<span class="cv">${ic('<path d="M6 9l6 6 6-6"/>', 18)}</span>`;
+  const [ttl, sub, pl] = guest ? [`Misafir "Uygun" buldu · ${chs.length} açık bulgu`, n ? `${n} bulgu kapatılacak` : "İşaretlerseniz kapanır", n ? ["Kapatılacak", "g"] : ["Açık kalır", "z"]]
+    : u.ok === true ? [`${n} açık bulgu kapatılacak`, "Kayıtla birlikte işlenir", ["Kapatılacak", "g"]] : u.ok === false ? [`${chs.length} açık bulgu açık kalacak`, "Karar değiştirilebilir", ["Açık kalır", "z"]]
+    : [`${chs.length} açık bulgu · kapatılsın mı?`, "Sahada düzelmiş görünüyor", ["Karar bekliyor", "o"]];
+  return `<div class="zw zg" style="margin-top:10px"><button type="button" class="zhd" data-${pf}o="${id}" aria-expanded="${open}"><span class="t"><b>${esc(ttl)}</b><span>${esc(sub)}</span></span><span class="zpl p-${pl[1]}">${pl[0]}</span>${cv}</button>
+    ${open ? `<div class="zbd">${chs.map(c => `<label class="zck"><input type="checkbox" data-${pf}c="${id}|${c.zk}" ${(u.off || []).includes(c.zk) ? "" : "checked"}><span>${esc(c.last.t)} · ${c.nOpen} hafta</span></label>`).join("")}
+      ${guest ? `<span class="zht">İşaretlerseniz kapanış notu: "misafir denetiminde uygun bulundu". Puan değişmez.</span>` : `<span class="hd" style="font-size:11px;color:#0B4D38;margin-top:4px">KANIT FOTOĞRAFI (İSTEĞE BAĞLI)</span>
+      <div class="phs" style="padding:0">${(u.ph || []).map(p => `<span class="pth"><img src="${p.t}" data-pv="${p.id}" alt="Fotoğraf"><button class="px" data-zupr="${id}|${p.id}" aria-label="Fotoğrafı sil">×</button></span>`).join("")}${D.ro ? "" : `<label class="pbtn" style="border-color:#6FB79A;color:#0B4D38">${ic('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>', 20)}<i>Fotoğraf çek</i><input type="file" accept="image/*" capture="environment" data-zuph="${id}" hidden></label><label class="pbtn" style="border-color:#6FB79A;color:#0B4D38">${ic('<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.5"/><path d="M21 16l-5-5-8 9"/>', 20)}<i>Resim ekle</i><input type="file" accept="image/*" multiple data-zuph="${id}" hidden></label>`}</div>
+      <span class="zht">Kapanış notu: "denetimde uygun bulundu" · kapatan: denetimi yapan. Fotoğraf raporda "Aksiyon alındı · Sonrası" olarak görünür. İşaretini kaldırdığınız bulgu açık kalır. Puan değişmez.</span>
+      <div class="z2"><button type="button" data-zuok="${id}" style="height:42px;background:#0B6E4F;border-color:#0B6E4F;color:#fff">Seçilenleri kapat</button><button type="button" class="sec" data-zuno="${id}" style="height:42px">Açık kalsın</button></div>`}</div>` : ""}</div>`;
+}
 // Yetkili: bekleyen aksiyon bildirimleri paneli
 function fxPanel(list) {
   if (GUEST.on || !list.length) return "";
@@ -543,8 +650,11 @@ function draw() {
   if (on && yogM && mak === "0" && !doc.draft.mk0 && !D.ro && !GUEST.on) { doc.draft.mk0 = true; ["c1i0", "c1i1"].forEach(id => { if (!doc.draft.marks[id]) doc.draft.marks[id] = "n"; }); }
   // Süreç başlangıcından sonra: her denetim 100'den başlar, yalnız bu denetimde bulgu çıkan kategoriler ceza alır (sıklık aydaki önceki denetimlerden gelir); ay skoru = denetim skorlarının ortalaması + ramak kala bonusu
   D.fxPend = fxPending();
+  if (!GUEST.on) zEnsure();
   const edS = on && !GUEST.on && editNo != null ? doc.sessions.find(x => x.no === editNo) : null;
   const fxc = (id, notes, k) => { const t = String(notes[k] || "").trim(); if (!edS || !t) return ""; const fi = notes.slice(0, k).filter(x => String(x || "").trim()).length; const h = fxCard(edS, id, fi, t); return h ? `<div style="padding-left:22px">${h}</div>` : ""; };
+  const zch = !GUEST.on && on && !D.ro ? zChains(editNo) : null, zsel = doc.draft.zsel || {};
+  const zPre = (id, notes) => { const o = {}; if (!edS?.zk) return o; let fi = 0; notes.forEach((t, k) => { if (!String(t || "").trim()) return; const v = edS.zk[id + "|" + fi++]; if (v) o[id + "|" + k] = v; }); return o; };
   const fxN = doc.sessions.reduce((a, x) => a + Object.values(x.fixed || {}).filter(f => f.st === "ok").length, 0);
   const c = calcIsg({ cats: CATS, sessions: on ? calcSessions : doc.sessions, draft: on ? (edS?.fixed ? { ...doc.draft, fixed: edS.fixed } : doc.draft) : { marks: {}, notes: {}, ydNotes: {} }, freqOv: doc.freq, bonusIdx: yogM ? 0 : doc.bonus, F, p, yog: yogM, mak, perAudit: yogM });
   const bon = yogM ? (c.bonusVals[doc.bonus] || 0) : c.bonus;
@@ -566,18 +676,19 @@ function draw() {
       const txt = cat.items[ii], it = info.items[ii], id = it.id, mk = it.mk, notes = doc.draft.notes[id] && doc.draft.notes[id].length ? doc.draft.notes[id] : [""];
       const prevS = it.prev.filter(s => !on || !editNo || s.no < editNo), prevDates = prevS.map(s => dm(s.date)), canPrev = !GUEST.on || GUEST.hist;
       const fq = Math.min(c.azami, it.cnt === 0 ? 0 : it.cnt === 1 ? 1 : it.cnt <= 3 ? 2 : 3);
+      const zs = it.isX && zch ? zItem(zch, id, notes, zsel, date, zPre(id, notes)) : null;
       const sb = k => { const [bg, col] = TONE[k]; return seg(mk === k, bg, col); };
       return `<div class="ci"><div class="cir"><div class="grow"><span>${esc(txt)}</span>
         ${prevDates.length && !it.isX ? `<span class="pill" style="background:#FBE9C6;color:#6B3F00">Önceki denetimde uygunsuzdu: ${prevS.map(s => canPrev ? `<button type="button" class="pd" data-pf="${id}|${s.no}" aria-label="${dm(s.date)} tarihli geçmiş bulguyu aç">${dm(s.date)}</button>` : dm(s.date)).join(", ")}</span>` : ""}</div>
         <div class="row" style="gap:6px;flex-wrap:nowrap">${[["u", "Uygun"], ["x", "Uygunsuz"], ["n", "Y.D."]].map(([k, t]) => `<button class="mk" data-mk="${id}|${k}" style="${sb(k)}" aria-pressed="${mk === k}">${t}</button>`).join("")}</div></div>
-        ${it.isX ? `<div class="xbox"><div class="row"><span class="pill" style="background:${FT[fq][0]};color:${FT[fq][1]}">Sıklık ${fq} · otomatik</span>
+        ${mk === "u" && zch ? zUcard(id, zOpenFor(zch, id, date), doc.draft.zu?.[id] || {}, D.zOpen === "u|" + id) : ""}${it.isX ? `<div class="xbox"><div class="row"><span class="pill" style="background:${FT[fq][0]};color:${FT[fq][1]}">Sıklık ${fq} · otomatik</span>
           <span style="font-size:12.5px;color:#5A1A16">${it.cnt === 1 ? "Bu ay ilk kez tespit edildi" : `Bu ay ${it.cnt} farklı günde uygunsuz (${prevS.map(s => canPrev ? `<button type="button" class="pd" data-pf="${id}|${s.no}" aria-label="${dm(s.date)} tarihli geçmiş bulguyu aç">${dm(s.date)}</button>` : dm(s.date)).concat([dm(date || "0000-00-00")]).join(", ")})`}</span></div>
           <div class="hd">AÇIKLAMA · Hangi makine veya alanda, ne gibi bir uygunsuzluk var?</div>
           ${notes.map((t, k) => `<div class="row" style="flex-wrap:nowrap;align-items:flex-start;gap:6px"><span style="flex:0 0 16px;padding-top:10px;font-weight:800;color:#8E1B16">${k + 1}.</span>
             <button class="nb" data-note="${id}|${k}" aria-label="Açıklamayı yaz veya düzenle"><span class="nt" style="color:${t.trim() ? "var(--text)" : "#8A6A66"}">${esc(t.trim() ? t : "Dokunun ve yazın: hangi makine veya alanda, ne gibi uygunsuzluk var?")}</span>${ic('<path d="M4 20h4L19 9l-4-4L4 16v4z"/>', 18)}</button>
             <button class="nx" data-nrm="${id}|${k}" aria-label="Açıklamayı sil">×</button></div>
           <div class="phs">${(doc.draft.photos?.[id + "|" + k] || []).map(p => `<span class="pth"><img src="${p.t}" data-pv="${p.id}" alt="Fotoğraf"><button class="px" data-prm="${id}|${k}|${p.id}" aria-label="Fotoğrafı sil">×</button></span>`).join("")}
-            ${D.ro ? "" : `<label class="pbtn">${ic('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>', 20)}<i>Fotoğraf çek</i><input type="file" accept="image/*" capture="environment" data-ph="${id}|${k}" hidden></label><label class="pbtn">${ic('<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.5"/><path d="M21 16l-5-5-8 9"/>', 20)}<i>Resim ekle</i><input type="file" accept="image/*" multiple data-ph="${id}|${k}" hidden></label>`}${gchip(cat, ii, id, notes, k, curNo, row, st)}</div>${fxc(id, notes, k)}`).join("")}
+            ${D.ro ? "" : `<label class="pbtn">${ic('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>', 20)}<i>Fotoğraf çek</i><input type="file" accept="image/*" capture="environment" data-ph="${id}|${k}" hidden></label><label class="pbtn">${ic('<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.5"/><path d="M21 16l-5-5-8 9"/>', 20)}<i>Resim ekle</i><input type="file" accept="image/*" multiple data-ph="${id}|${k}" hidden></label>`}${gchip(cat, ii, id, notes, k, curNo, row, st)}</div>${fxc(id, notes, k)}${zs?.[k] ? zCard(zs[k], D.zOpen === zs[k].key) : ""}`).join("")}
           <button class="sec" style="align-self:flex-start;height:38px;color:#8E1B16;border-color:#B3261E" data-nadd="${id}">+ Benzer uygunsuzluk ekle</button></div>` : ""}</div>`;
     }).join("");
     const ydBox = info.allYD ? `<div class="ydbox"><span class="hd">BU KATEGORİDE TÜM MADDELER Y.D. · KISA GEREKÇE</span>
@@ -692,6 +803,8 @@ function bind(v, c) {
     if (sig !== D.gsig && D.saved !== false) { D.gsig = sig; draw(); }
   });
   const again = () => { draw(); persist(); };
+  const zEd = D.doc.draft?.edit != null ? D.doc.sessions.find(x => x.no === D.doc.draft.edit) : null, zch = !GUEST.on && !D.ro && D.doc.draft?.on !== false ? zChains(zEd?.no ?? null) : null;
+  const zPre = (id, notes) => { const o = {}; if (!zEd?.zk) return o; let fi = 0; notes.forEach((t, k) => { if (!String(t || "").trim()) return; const x = zEd.zk[id + "|" + fi++]; if (x) o[id + "|" + k] = x; }); return o; };
   const on = (sel, fn) => v.querySelectorAll(sel).forEach(el => el.onclick = () => fn(el));
   $("bolum").onchange = e => { D.dept = e.target.value; render(D.v, D.ctx); };
   $("ay").onclick = async e => {
@@ -710,12 +823,25 @@ function bind(v, c) {
     if (k === "x" && !(d.notes[id] && d.notes[id].length)) d.notes[id] = [""];
     again();
   });
+  on("[data-zo]", el => { const k = el.dataset.zo; D.zOpen = D.zOpen === k ? "" : k; draw(); });
+  on("[data-zs]", el => { const [id, k, ...r] = el.dataset.zs.split("|"); (d.zsel ||= {})[id + "|" + k] = r.join("|"); D.zOpen = ""; again(); });
+  on("[data-zuo]", el => { const k = "u|" + el.dataset.zuo; D.zOpen = D.zOpen === k ? "" : k; draw(); });
+  v.querySelectorAll("[data-zuc]").forEach(cb => cb.onchange = () => { const [id, zk] = cb.dataset.zuc.split("|"), u = ((d.zu ||= {})[id] ||= {}); u.off = (u.off || []).filter(x => x !== zk); if (!cb.checked) u.off.push(zk); again(); });
+  on("[data-zuok]", el => { ((d.zu ||= {})[el.dataset.zuok] ||= {}).ok = true; D.zOpen = ""; again(); });
+  on("[data-zuno]", el => { ((d.zu ||= {})[el.dataset.zuno] ||= {}).ok = false; D.zOpen = ""; again(); });
+  v.querySelectorAll("input[data-zuph]").forEach(inp => inp.onchange = async () => {
+    const id = inp.dataset.zuph, files = [...inp.files]; inp.value = ""; if (!files.length) return; let n = 0;
+    for (const f of files) { try { const { full, thumb } = await compressImage(f), pid = "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); await S.savePhoto(st.fid, st.year, pid, full); (((d.zu ||= {})[id] ||= {}).ph ||= []).push({ id: pid, t: thumb }); n++; } catch (e) { toast("Fotoğraf eklenemedi: " + (e.message || e)); } }
+    if (n) toast(n + " fotoğraf eklendi"); again();
+  });
+  on("[data-zupr]", el => { const [id, pid] = el.dataset.zupr.split("|"), u = d.zu?.[id]; if (u) u.ph = (u.ph || []).filter(p => p.id !== pid); S.deletePhoto(st.fid, st.year, pid).catch(() => {}); again(); });
   on("[data-nadd]", el => { (d.notes[el.dataset.nadd] ||= [""]).push(""); again(); });
   on("[data-nrm]", el => {
     const [id, k] = el.dataset.nrm.split("|"), kk = +k; const a = d.notes[id] || [""]; d.photos ||= {};
     (d.photos[id + "|" + kk] || []).forEach(p => S.deletePhoto(st.fid, st.year, p.id).catch(() => {}));
     if (a.length <= 1) { d.notes[id] = [""]; delete d.photos[id + "|0"]; }
     else { a.splice(kk, 1); for (let j = kk; j <= a.length; j++) { const nx = d.photos[id + "|" + (j + 1)]; if (nx) d.photos[id + "|" + j] = nx; else delete d.photos[id + "|" + j]; } }
+    if (d.zsel) { const z = d.zsel, n = Object.keys(z).filter(x => x.startsWith(id + "|")).map(x => +x.split("|")[1]); delete z[id + "|" + kk]; n.filter(j => j > kk).sort((a, b) => a - b).forEach(j => { z[id + "|" + (j - 1)] = z[id + "|" + j]; delete z[id + "|" + j]; }); }
     again();
   });
   v.querySelectorAll("input[data-ph]").forEach(inp => inp.onchange = async () => {
@@ -756,7 +882,7 @@ function bind(v, c) {
   on("[data-reopen]", async el => {
     const no = +el.dataset.reopen, t = doc.sessions.find(x => x.no === no); if (!t) return;
     if (doc.draft.on !== false && Object.keys(doc.draft.marks || {}).length && doc.draft.edit !== no) {
-      const { confirmBox } = await import("./ui.js?v=20261110h");
+      const { confirmBox } = await import("./ui.js?v=20261110i");
       if (!(await confirmBox(`${no}. denetim açılsın mı?`, "Şu an açık olan denetimde kaydedilmemiş değişiklikler varsa kaybolur. Önce “Kaydet”e basmanız önerilir.", "Yine de aç"))) return;
     }
     if (t.no === doc.sessions.length) t.closed = false;
@@ -774,7 +900,7 @@ function bind(v, c) {
   });
   const gAll = async () => (await S.listMonthDocs(st.fid, st.year, "isgg").catch(() => [])).filter(g => g.id.startsWith(`${pad(D.month)}_${D.dept}_`));
   on("[data-delsess]", async el => {
-    const { confirmBox } = await import("./ui.js?v=20261110h");
+    const { confirmBox } = await import("./ui.js?v=20261110i");
     const no = +el.dataset.delsess, ix = doc.sessions.findIndex(x => x.no === no); if (ix < 0) return;
     const gone = doc.sessions[ix], later = ix < doc.sessions.length - 1, all = await gAll(), gAp = all.filter(g => g.status === "approved" && g.no === gone.no);
     let mode = "all";
@@ -799,7 +925,7 @@ function bind(v, c) {
   });
   // Sahip: misafir taslağını tamamen sil (denetime ve rapora hiç girmez)
   const delG = async g => {
-    const { confirmBox } = await import("./ui.js?v=20261110h");
+    const { confirmBox } = await import("./ui.js?v=20261110i");
     if (!(await confirmBox("Misafir taslağı silinsin mi?", `${g.guestName} taslağı ve fotoğrafları kalıcı olarak silinir; denetime ve rapora hiç girmez. Misafir isterse yeniden yazabilir.`, "Evet, tamamen sil", true))) return false;
     Object.values(g.draft?.photos || {}).flat().forEach(p => S.deletePhoto(st.fid, st.year, p.id).catch(() => {}));
     await S.deleteMonthDoc(st.fid, st.year, "isgg", g.id); await Guest.inboxDelete(`${g.guestUid}_${st.fid}_${st.year}_${+g.month}_${g.dept}`);
@@ -810,7 +936,7 @@ function bind(v, c) {
   const holOK = async date => {
     if (!date || GUEST.on || D.okHol?.has(date)) return true;
     const h = tatilMap(await tatilYukle(st.fid, st.year).catch(() => null)).get(date); if (!h || h.yarim) return true;
-    const { confirmBox } = await import("./ui.js?v=20261110h");
+    const { confirmBox } = await import("./ui.js?v=20261110i");
     if (!(await confirmBox("İzin / tatil günü", `${fmtTarih(date)} tarihi "${h.ad}" olarak izinli/tatil işaretli. Yine de bu tarihle denetim yapılsın mı?`, "Evet, kabul et"))) return false;
     (D.okHol ||= new Set()).add(date); return true;
   };
@@ -819,14 +945,27 @@ function bind(v, c) {
     if (D.ro) return;
     const why = !dOk ? "Denetim tarihi geçersiz (dönem dışı veya ileri tarih)." : !c.curMarked ? "Önce en az bir madde işaretleyin." : c.missing ? `${c.missing} uygunsuz maddenin açıklaması eksik.` : c.ydMissing ? `${c.ydMissing} Y.D. kategorinin gerekçesi eksik.` : close && !c.canSave ? `Tamamlamak için ${c.unmarked} madde daha işaretlenmeli.` : "";
     if (why) { toast(why); return; }
+    // Bulgu zinciri: önceki haftalardaki açık bulgularla eşleşme seçimi
+    if (!zch) { toast(D.zh?.fail ? "Önceki bulgular yüklenemedi; bağlantıyı kontrol edip tekrar deneyin." : "Önceki bulgular yükleniyor, birkaç saniye sonra tekrar deneyin."); if (D.zh?.fail) { D.zh = null; zEnsure(); } return; }
+    const zAll = {}; CATS.forEach((cat, ci) => cat.items.forEach((_, ii) => { const id = `c${ci}i${ii}`; if (d.marks[id] === "x") zAll[id] = zItem(zch, id, d.notes[id] || [""], d.zsel || {}, d.date, zPre(id, d.notes[id] || [""])); }));
+    const zMiss = Object.values(zAll).flat().filter(z => z && z.eff === "").length;
+    if (zMiss) { toast(`${zMiss} bulgunun önceki bulgularla eşleşme seçimi eksik.`); const f = Object.values(zAll).flat().find(z => z && z.eff === ""); if (f) { D.zOpen = f.key; draw(); } return; }
+    const zU = Object.entries(d.zu || {}).filter(([id, u]) => u.ok === true && d.marks[id] === "u").flatMap(([id, u]) => zOpenFor(zch, id, d.date).filter(c => !(u.off || []).includes(c.zk)).map(c => ({ c, ph: u.ph || [] })));
     if (!(await holOK(d.date))) return;
     const btn = document.getElementById(close ? "doneSess" : "saveSess"); if (btn) { btn.disabled = true; btn.textContent = "Kaydediliyor…"; }
     const rec = makeRec(c, d);
-    Z.assignIds(rec, d.edit != null ? doc.sessions.find(x => x.no === d.edit) : null);
+    Z.assignIds(rec, d.edit != null ? doc.sessions.find(x => x.no === d.edit) : null, k => `${st.year}_${D.month}_${d.edit}_${k}`);
+    zApplyRec(rec, zAll);
     let no;
     if (d.edit != null) { const ix = doc.sessions.findIndex(x => x.no === d.edit); no = d.edit; doc.sessions[ix] = { ...doc.sessions[ix], ...rec }; }
     else { no = doc.sessions.length + 1; doc.sessions.push({ no, ...rec, closed: false }); d.edit = no; }
     { const se = doc.sessions.find(x => x.no === no); se.due = doc.due || se.due || defDue(doc); se.resp = (doc.resp || []).map(r => ({ ...r })); }
+    if (zU.length) {
+      const by = doc.auditor || st.profile?.name || "Yetkili";
+      for (const { c: zc, ph } of zU) await zCloseApply(Z.closeTargets(zc, d.date), { k: "uygun", d: d.date, no, by, ph, tx: `${dmy(d.date)} denetiminde uygun bulundu` });
+      Object.keys(d.zu || {}).forEach(id => { if (d.zu[id].ok === true) delete d.zu[id]; });
+      if (zU.some(x => x.c.links.some(l => !(+l.y === +st.year && +l.m === +D.month)))) D.zh = null;
+    }
     if (close) { doc.sessions.find(x => x.no === no).closed = true; doc.draft = emptyDraft(defaultDate(st.year, D.month), false); delete doc.due; }
     const okSave = await persist(true); draw();
     if (okSave === false) { toast("Kaydedilemedi, bağlantıyı kontrol edip tekrar deneyin."); return; }
@@ -853,42 +992,57 @@ function bind(v, c) {
   // ---- Detaylı kontrol penceresi (ekranın ~%85'i) ----
   // Misafir taslağının tarihi hangi haftaya düşüyorsa, o haftanın kaydı varsa taslak ona eklenir (tek haftalık kayıt)
   const wkTarget = date => { if (!date) return null; const ss = doc.sessions.filter(x => x.date && monOf(x.date) === monOf(date)); return ss.length ? ss[ss.length - 1] : null; };
-  const approveG = async (g, w, choice = {}) => {
+  const approveG = async (g, w, choice = {}, zc = {}) => {
     const F2 = katsayi(D.setup.rows.find(r => r.id === D.dept), D.month), p2 = D.setup.params || DEFAULT_PARAMS, tgt = wkTarget(w.date);
+    // Zincir seçimlerini kayıttaki bulgu sırasına işler (misafirin açıklama metniyle eşleşerek)
+    const zMap = (fails, set) => { for (const [id, list] of Object.entries(zc.zs || {})) { const used = new Set(); (list || []).forEach((z, k) => { if (!z) return; const t = String(w.notes?.[id]?.[k] || "").trim(), j = (fails[id] || []).findIndex((x, jj) => !used.has(jj) && String(x || "").trim() === t); if (j < 0) return; used.add(j); set(id, j, z.eff); }); } };
+    const zSess = se => zMap(se.fails || {}, (id, j, e) => { const kk = id + "|" + j; se.zk ||= {}; if (/^(yeni|farkli)$/.test(e)) delete se.zk[kk]; else if (e.startsWith("tekrar:")) { delete se.zk[kk]; (se.rk ||= {})[kk] = e.slice(7); } else if (e) se.zk[kk] = e; });
+    const zClose = async no => { const chs = (zc.ch || []).filter(c => (zc.gu || []).includes(c.zk)); for (const c of chs) await zCloseApply(Z.closeTargets(c, w.date), { k: "misafir", d: w.date, no, by: g.guestName, tx: `${dmy(w.date)} misafir denetiminde (${g.guestName}) uygun bulundu` }); if (chs.some(c => c.links.some(l => !(+l.y === +D.ctx.st.year && +l.m === +D.month)))) D.zh = null; };
     if (tgt) {
       if (!Object.keys(w.marks || {}).length) { toast("Taslakta işaretlenmiş madde yok."); return false; }
-      if (doc.draft.on !== false && doc.draft.edit === tgt.no) mergeGuest(doc.draft, w, choice);
+      if (doc.draft.on !== false && doc.draft.edit === tgt.no) { mergeGuest(doc.draft, w, choice); zMap(Object.fromEntries(Object.entries(doc.draft.notes || {}).map(([id, a]) => [id, a])), (id, k, e) => { (doc.draft.zsel ||= {})[id + "|" + k] = e; }); }
       else {
         const dr = draftFromSession(tgt); mergeGuest(dr, w, choice);
         const cc = calcIsg({ cats: CATS, sessions: doc.sessions.filter(x => x.no !== tgt.no), draft: dr, freqOv: doc.freq, bonusIdx: doc.bonus, F: F2, p: p2, yog: surecVar(D.ctx.st.year, D.month) });
-        doc.sessions[doc.sessions.findIndex(x => x.no === tgt.no)] = { ...tgt, ...Z.assignIds(makeRec(cc, dr), tgt) };
+        const ns = { ...tgt, ...Z.assignIds(makeRec(cc, dr), tgt, k => `${D.ctx.st.year}_${D.month}_${tgt.no}_${k}`) }; zSess(ns);
+        doc.sessions[doc.sessions.findIndex(x => x.no === tgt.no)] = ns;
       }
+      await zClose(tgt.no);
       await persist(true); await gDone({ ...g, draft: w }, "approved", "", tgt.no);
       toast(`${g.guestName} taslağı ${tgt.no}. denetime (${wkNo(tgt.date)}. hafta) eklendi.`); return true;
     }
     const dr = { ...emptyDraft(w.date, true), ...w };
     const cc = calcIsg({ cats: CATS, sessions: doc.sessions, draft: dr, freqOv: doc.freq, bonusIdx: doc.bonus, F: F2, p: p2, yog: surecVar(D.ctx.st.year, D.month) });
     if (!cc.curMarked) { toast("Taslakta işaretlenmiş madde yok."); return false; }
-    doc.sessions.push({ no: doc.sessions.length + 1, ...Z.assignIds(makeRec(cc, dr)), closed: true });
+    const ns = { no: doc.sessions.length + 1, ...Z.assignIds(makeRec(cc, dr)), closed: true }; zSess(ns);
+    doc.sessions.push(ns); await zClose(ns.no);
     await persist(true); await gDone({ ...g, draft: w }, "approved");
     toast(`${g.guestName} taslağı onaylandı ve ${doc.sessions.length}. denetim olarak eklendi.`); return true;
   };
-  const openReview = g => {
+  const openReview = async g => {
+    if (!zChains()) { const { st } = D.ctx; try { D.zh = { key: D.key, docs: await Z.loadHistory(S.getMonthDoc, st.fid, st.year, D.month, D.dept, 12) }; } catch { } }
     const w = JSON.parse(JSON.stringify(g.draft || {})); w.marks ||= {}; w.notes ||= {}; w.photos ||= {};
     const m = document.createElement("div"); m.className = "mod"; m.style.padding = "2.5vh 2vw";
     const tgt = wkTarget(w.date), editing = !!tgt && doc.draft.on !== false && doc.draft.edit === tgt.no, mc = {};
+    // Bulgu zinciri: misafir eşleştirme yapmaz; kararlar burada yetkiliye sorulur
+    const zch2 = zChains(tgt?.no ?? null), gz = {}, gu = []; let gzOpen = "";
+    const gzFor = (id, ns) => zch2 && (!exTexts(id).length || mc[id] === "sep") ? zItem(zch2, id, ns, gz, w.date, {}) : null;
+    const gzAll = () => { const o = {}; Object.keys(w.marks).filter(id => w.marks[id] === "x").forEach(id => { const r = gzFor(id, w.notes[id]?.length ? w.notes[id] : [""]); if (r) o[id] = r; }); return o; };
+    const gzMiss = () => Object.values(gzAll()).flat().filter(z => z && z.eff === "").length;
+    const guList = () => Object.keys(w.marks).filter(id => w.marks[id] === "u").map(id => [id, zOpenFor(zch2, id, w.date)]).filter(([, c]) => c.length);
     const exTexts = id => !tgt ? [] : editing ? (doc.draft.marks[id] === "x" ? (doc.draft.notes[id] || []).filter(t => String(t || "").trim()) : []) : (tgt.fails?.[id] || []);
     const nUnf = () => Object.values(w.marks).filter(x => x === "x").length, nPh = () => Object.values(w.photos).reduce((a, l) => a + l.length, 0);
     const body = () => {
-      let h = "";
+      let h = !zch2 ? '<div class="muted" style="font-size:12.5px">Önceki bulgular yüklenemedi; eşleşme önerisi gösterilemiyor.</div>' : "";
+      const gl = guList(); if (gl.length) h += `<div style="display:flex;flex-direction:column;gap:8px">${gl.map(([id, chs]) => { const m2 = /^c(\d+)i(\d+)$/.exec(id); return `<div style="display:flex;flex-direction:column;gap:4px"><span class="muted" style="font-size:12.5px">${esc(CATS[+m2[1]].name)} · ${esc(CATS[+m2[1]].items[+m2[2]])}</span>${zUcard(id, chs, { off: chs.filter(c => !gu.includes(c.zk)).map(c => c.zk) }, gzOpen === "u|" + id, "gu", true)}</div>`; }).join("")}</div>`;
       CATS.forEach((cat, ci) => {
         const its = cat.items.map((txt, ii) => ({ txt, id: `c${ci}i${ii}` })).filter(x => w.marks[x.id] === "x"); if (!its.length) return;
         const wt = W[cat.w];
         h += `<div style="border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:12px"><div class="row" style="gap:8px"><b style="font-size:15px">${esc(cat.name)}</b><span class="pill" style="background:${wt[1]};color:${wt[2]}">${wt[0]}</span></div>
-          ${its.map(x => { const ns = w.notes[x.id]?.length ? w.notes[x.id] : [""]; return `<div style="display:flex;flex-direction:column;gap:8px;padding-top:10px;border-top:1px dashed var(--line)"><span class="muted" style="font-size:13px">${esc(x.txt)}</span>
-            ${(() => { const ex = exTexts(x.id); return ex.length ? `<div style="border:1px solid var(--hbd);border-radius:12px;padding:10px 12px;background:var(--hbg);display:flex;flex-direction:column;gap:8px"><div style="font-size:12.5px;line-height:1.45"><span class="pill" style="background:#D9F1E6;color:#0B6E4F">Aynı madde</span> ${tgt.no}. denetimde bu haftaki kayıt: <b>${esc(ex[0])}</b>${ex.length > 1 ? ` <span class="muted">(+${ex.length - 1})</span>` : ""}</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">${[["merge", "Birleştir"], ["sep", "Ayrı bulgu"]].map(([v, l]) => `<button type="button" data-mc="${x.id}|${v}" class="${(mc[x.id] || "merge") === v ? "" : "sec"}" style="min-height:38px;height:auto;font-size:13px">${l}</button>`).join("")}</div><div class="muted" style="font-size:12px;line-height:1.4">${(mc[x.id] || "merge") === "merge" ? "Aynı bulgu: açıklama tekrar yazılmaz, misafirin fotoğrafları mevcut bulguya eklenir." : "Farklı bir bulgu: açıklaması aynı maddeye ayrıca eklenir."}</div></div>` : ""; })()}
+          ${its.map(x => { const ns = w.notes[x.id]?.length ? w.notes[x.id] : [""], zs = gzFor(x.id, ns); return `<div style="display:flex;flex-direction:column;gap:8px;padding-top:10px;border-top:1px dashed var(--line)"><span class="muted" style="font-size:13px">${esc(x.txt)}</span>
+            ${(() => { const ex = exTexts(x.id); return ex.length ? `<div style="border:1px solid var(--hbd);border-radius:12px;padding:10px 12px;background:var(--hbg);display:flex;flex-direction:column;gap:8px"><div style="font-size:12.5px;line-height:1.45"><span class="pill" style="background:#D9F1E6;color:#0B6E4F">Aynı madde</span> ${tgt.no}. denetimde bu haftaki kayıt: <b>${esc(ex[0])}</b>${ex.length > 1 ? ` <span class="muted">(+${ex.length - 1})</span>` : ""}</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">${[["merge", "Birleştir"], ["sep", "Ayrı bulgu"]].map(([v, l]) => `<button type="button" data-mc="${x.id}|${v}" class="${(mc[x.id] || "merge") === v ? "" : "sec"}" style="min-height:38px;height:auto;font-size:13px">${l}</button>`).join("")}</div><div class="muted" style="font-size:12px;line-height:1.4">${(mc[x.id] || "merge") === "merge" ? "Aynı bulgu: açıklama tekrar yazılmaz, misafirin fotoğrafları mevcut bulguya eklenir." + (() => { const zk = tgt?.zk?.[x.id + "|0"], c = zk && (zch2 || []).find(y => y.zk === zk); return c ? ` Bu haftaki bulgunuz zaten önceki haftaların devamı (${[...new Set(c.links.map(l => dm(l.date)))].join(" · ")}); fotoğraf zincire de işlenir.` : ""; })() : "Farklı bir bulgu: açıklaması aynı maddeye ayrıca eklenir."}</div></div>` : ""; })()}
             ${ns.map((t, k) => `<div style="display:flex;flex-direction:column;gap:6px"><textarea class="inp" rows="2" data-gn="${x.id}|${k}" style="min-height:64px;height:auto;padding:10px;resize:vertical" placeholder="(açıklama yok)">${esc(t)}</textarea>
-              <div style="display:flex;flex-wrap:wrap;gap:10px">${(w.photos[x.id + "|" + k] || []).map(p => `<span class="pth" style="width:120px;height:120px"><img src="${p.t}" data-gp="${p.id}" alt="Fotoğraf" style="width:120px;height:120px"><button class="px" data-gpx="${x.id}|${k}|${p.id}" aria-label="Fotoğrafı çıkar" title="Bu fotoğrafı denetimden çıkar">×</button></span>`).join("")}</div></div>`).join("")}</div>`; }).join("")}</div>`;
+              <div style="display:flex;flex-wrap:wrap;gap:10px">${(w.photos[x.id + "|" + k] || []).map(p => `<span class="pth" style="width:120px;height:120px"><img src="${p.t}" data-gp="${p.id}" alt="Fotoğraf" style="width:120px;height:120px"><button class="px" data-gpx="${x.id}|${k}|${p.id}" aria-label="Fotoğrafı çıkar" title="Bu fotoğrafı denetimden çıkar">×</button></span>`).join("")}</div>${zs?.[k] ? zCard(zs[k], gzOpen === zs[k].key, "gz") : ""}</div>`).join("")}</div>`; }).join("")}</div>`;
       });
       return h || '<div class="muted">Uygunsuz madde yok.</div>';
     };
@@ -898,14 +1052,19 @@ function bind(v, c) {
           <div class="muted" style="font-size:12.5px">${w.date ? dmy(w.date) : "—"} · ${Object.keys(w.marks).length} madde işaretli · ${nUnf()} uygunsuz · ${nPh()} fotoğraf · ${esc(D.setup.rows.find(r => r.id === D.dept)?.name || "")}</div>${tgt ? `<div style="font-size:12.5px;margin-top:2px;color:var(--gd);font-weight:600">Onaylanınca ${tgt.no}. denetime (${wkNo(tgt.date)}. hafta) eklenir.</div>` : ""}</div>
           <button data-x aria-label="Kapat" style="flex:0 0 32px;width:32px;height:32px;min-width:0;padding:0;background:#B3261E;border-color:#B3261E;color:#fff;font-size:26px;line-height:1;display:grid;place-items:center;border-radius:8px">×</button></div>
         <div style="flex:1;overflow:auto;padding:16px 20px;display:flex;flex-direction:column;gap:14px">${body()}</div>
-        <div style="padding:14px 20px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:10px;align-items:center"><input class="inp" id="gNote" placeholder="Geri gönderirken misafire not (isteğe bağlı)" style="flex:1 1 240px"><button class="sec" data-ret>Geri gönder</button><button class="sec" data-del style="color:#B3261E;border-color:#B3261E">Tamamen sil</button><button data-ok>${tgt ? "Onayla ve bu haftanın denetimine ekle" : "Onayla ve denetime ekle"}</button></div></div>`;
+        <div style="padding:14px 20px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:10px;align-items:center"><input class="inp" id="gNote" placeholder="Geri gönderirken misafire not (isteğe bağlı)" style="flex:1 1 240px"><button class="sec" data-ret>Geri gönder</button><button class="sec" data-del style="color:#B3261E;border-color:#B3261E">Tamamen sil</button>${gzMiss() ? `<span style="flex-basis:100%;font-size:12.5px;color:#7A1C14;background:#FDECEA;border:1px solid #F3B8B2;border-radius:10px;padding:7px 10px">${gzMiss()} bulgu için önceki haftalarla eşleşme seçimi gerekli.</span>` : ""}<button data-ok ${gzMiss() ? 'disabled style="opacity:.5"' : ""}>${tgt ? "Onayla ve bu haftanın denetimine ekle" : "Onayla ve denetime ekle"}</button></div></div>`;
       m.querySelector("[data-x]").onclick = () => m.remove();
+      const rr = () => { const el = m.querySelector(".mbox > div:nth-child(2)"), keep = el.scrollTop; draw2(); m.querySelector(".mbox > div:nth-child(2)").scrollTop = keep; };
+      m.querySelectorAll("[data-gzo]").forEach(b => b.onclick = () => { gzOpen = gzOpen === b.dataset.gzo ? "" : b.dataset.gzo; rr(); });
+      m.querySelectorAll("[data-gzs]").forEach(b => b.onclick = () => { const [id, k, ...r] = b.dataset.gzs.split("|"); gz[id + "|" + k] = r.join("|"); gzOpen = ""; rr(); });
+      m.querySelectorAll("[data-guo]").forEach(b => b.onclick = () => { const k = "u|" + b.dataset.guo; gzOpen = gzOpen === k ? "" : k; rr(); });
+      m.querySelectorAll("[data-guc]").forEach(cb => cb.onchange = () => { const zk = cb.dataset.guc.split("|")[1], i = gu.indexOf(zk); if (cb.checked && i < 0) gu.push(zk); if (!cb.checked && i >= 0) gu.splice(i, 1); rr(); });
       m.querySelectorAll("[data-mc]").forEach(b => b.onclick = () => { const [id, v] = b.dataset.mc.split("|"); mc[id] = v; const el = m.querySelector(".mbox > div:nth-child(2)"), keep = el.scrollTop; draw2(); m.querySelector(".mbox > div:nth-child(2)").scrollTop = keep; });
       m.querySelectorAll("[data-gn]").forEach(t => t.oninput = () => { const [id, k] = t.dataset.gn.split("|"); (w.notes[id] ||= [""])[+k] = t.value; });
       m.querySelectorAll("[data-gpx]").forEach(b => b.onclick = e => { e.stopPropagation(); const [id, k, pid] = b.dataset.gpx.split("|"), key = id + "|" + k; w.photos[key] = (w.photos[key] || []).filter(p => p.id !== pid); const keep = m.querySelector(".mbox > div:nth-child(2)").scrollTop; draw2(); m.querySelector(".mbox > div:nth-child(2)").scrollTop = keep; });
       const all = [...m.querySelectorAll("[data-gp]")];
       all.forEach((im, ix) => im.onclick = () => lightbox(all.map(x => ({ id: x.dataset.gp, t: x.getAttribute("src") })), ix));
-      m.querySelector("[data-ok]").onclick = async e => { e.target.disabled = true; try { if (await approveG(g, w, mc)) { m.remove(); D.key = ""; render(D.v, D.ctx); } else e.target.disabled = false; } catch (er) { toast("Onaylanamadı: " + (er.message || er)); e.target.disabled = false; } };
+      m.querySelector("[data-ok]").onclick = async e => { e.target.disabled = true; try { if (gzMiss()) { e.target.disabled = false; return toast("Önceki haftalarla eşleşme seçimi eksik."); } if (await approveG(g, w, mc, { zs: gzAll(), gu, ch: zch2 || [] })) { m.remove(); D.key = ""; render(D.v, D.ctx); } else e.target.disabled = false; } catch (er) { toast("Onaylanamadı: " + (er.message || er)); e.target.disabled = false; } };
       m.querySelector("[data-del]").onclick = async () => { if (await delG(g)) { m.remove(); D.key = ""; render(D.v, D.ctx); } };
       m.querySelector("[data-ret]").onclick = async e => { e.target.disabled = true; try { await gDone({ ...g, draft: w }, "returned", m.querySelector("#gNote").value.trim()); toast("Taslak düzeltme için geri gönderildi."); m.remove(); D.key = ""; render(D.v, D.ctx); } catch (er) { toast("Gönderilemedi: " + (er.message || er)); e.target.disabled = false; } };
     };
@@ -969,7 +1128,7 @@ function bind(v, c) {
   });
   on("[data-fxdel]", async el => {
     const { s, id, j, fk } = fxSess(el.dataset.fxdel); if (!s?.fixed?.[fk]) return;
-    const { confirmBox } = await import("./ui.js?v=20261110h");
+    const { confirmBox } = await import("./ui.js?v=20261110i");
     if (!(await confirmBox("Aksiyon kaldırılsın mı?", "Aksiyon bilgisi silinir; bulgu yeniden cezaya sayılır.", "Evet, kaldır", true))) return;
     const old = s.fixed[fk], oldOff = s.fixedOff?.[fk]; delete s.fixed[fk];
     // Otomatik (görev takip) aksiyon elle kaldırıldıysa, aynı kapanış için yeniden otomatik eklenmesin
