@@ -63,7 +63,7 @@ service cloud.firestore {
     match /users/{owner}/inbox/{id} {
       allow create, update: if request.auth != null
         && id.matches(request.auth.uid + '_.*')
-        && request.resource.data.keys().hasOnly(['fid', 'year', 'month', 'dept', 'deptName', 'factoryName', 'no', 'by', 'byName', 'kind', 'status', 'at'])
+        && request.resource.data.keys().hasOnly(['fid', 'year', 'month', 'dept', 'deptName', 'factoryName', 'wk', 'no', 'by', 'byName', 'kind', 'status', 'at'])
         && request.resource.data.by == request.auth.uid
         && request.resource.data.status == 'open'
         && request.resource.data.kind in ['saved', 'review']
