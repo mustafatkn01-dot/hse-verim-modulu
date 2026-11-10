@@ -1,10 +1,10 @@
 // Bulgu paylaşımı: yetkili, seçtiği bölümlerin açık bulgularını seçtiği misafirlerle paylaşır; misafir kendi ekranında görür ve
 // mevcut "Aksiyon bildir" akışıyla aksiyon alır (yetkili onayı mevcut Aksiyon bildirimleri panelinde).
 // Puan kuralı mevcut sistemdeki gibi: aksiyonun gönderim zamanı denetim haftası içindeyse (en geç cumartesi) ve yetkili kabul ederse puana işlenir.
-import * as S from "./store.js?v=20261110i";
-import { esc, ic, toast, confirmBox, compressImage, showPhoto, GUEST, pickDate, fmtTarih } from "./ui.js?v=20261110i";
-import * as Guest from "./guest.js?v=20261110i";
-import { CATS } from "./isgcats.js?v=20261110i";
+import * as S from "./store.js?v=20261110j";
+import { esc, ic, toast, confirmBox, compressImage, showPhoto, GUEST, pickDate, fmtTarih } from "./ui.js?v=20261110j";
+import * as Guest from "./guest.js?v=20261110j";
+import { CATS } from "./isgcats.js?v=20261110j";
 
 const pad = n => String(n).padStart(2, "0"), iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const addDays = (s, n) => { const d = new Date(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10)); d.setDate(d.getDate() + n); return iso(d); };
@@ -136,7 +136,7 @@ export function buildItems(isg, fixDocs, since = "", uid = "", fixMap = {}) {
     if (!t) return; const k = id + "|" + j, f = s.fixed?.[k], r = reqs[`${s.no}|${k}`], ok = !!(f && f.t === t && f.st === "ok"), pend = !ok && !!r && r.t === t && !(f && (f.rat || 0) >= r.at), rej0 = !ok && !pend && !!(f && f.st === "rej" && f.t === t),
       // Ret yalnızca reddedilen aksiyonu bildiren misafire görünür; diğer misafirler için bulgu normal açık bulgu gibi kalır
       rej = rej0 && (!uid || (f.gu ? f.gu === uid : f.rat != null ? fixMap[uid]?.draft?.fixReqs?.[`${s.no}|${k}`]?.at === f.rat : !!f.gn && f.gn === GUEST.name));
-    items.push({ no: s.no, date: s.date || "", id, j, t, st: ok ? "ok" : pend ? "on" : rej ? "rej" : "ac", why: rej ? (f.rej || "") : "", by: ok ? (f.gn || "") : "", tx: ok ? (f.tx || "") : "", before: s.photos?.[k] || [], after: ok ? (f.ph || []) : pend ? (r.ph || []) : [] });
+    items.push({ no: s.no, date: s.date || "", zk: s.zk?.[k] || s.bk?.[k] || "", id, j, t, st: ok ? "ok" : pend ? "on" : rej ? "rej" : "ac", why: rej ? (f.rej || "") : "", by: ok ? (f.gn || "") : "", tx: ok ? (f.tx || "") : "", before: s.photos?.[k] || [], after: ok ? (f.ph || []) : pend ? (r.ph || []) : [] });
   });
   return items;
 }
@@ -149,13 +149,13 @@ export async function watchGuest(fid, year, uid, cb, allRows = []) {
     else { e.at = Math.max(e.at, sh.at || 0); { const w = monOf(iso(new Date(sh.at || 0))); if (w < e.since) e.since = w; } if (role === "aks") e.role = "aks"; (sh.guests || []).forEach(g => e.gs.add(g)); }
   }
   const rows = [...map.values()], st = {}, offs = [], today = iso(new Date());
-  const emit = () => cb(rows.map(r => {
+  const emit = () => cb(zGroup(rows.map(r => {
     const x = st[r.key] || {}, items = buildItems(x.isg, Object.values(x.fix || {}), r.since, uid, x.fix || {}), ds = (x.isg?.sessions || []).map(s => s.date).filter(Boolean).sort(), own = x.own;
     const mine = own && own.status === "review" ? Object.entries(own.draft?.marks || {}).filter(([, v]) => v === "x").flatMap(([id]) => (own.draft.notes?.[id] || []).map(t => String(t || "").trim()).filter(Boolean)) : [];
     return { at: r.at, key: r.key, month: r.month, id: r.id, name: r.name, termin: r.termin, note: r.note, role: r.role, items, mine, done: !!(x.isg?.sessions?.length), no: (x.isg?.sessions?.length || 0) + 1,
       n: items.length, ok: items.filter(i => i.st === "ok").length, on: items.filter(i => i.st === "on").length, ac: items.filter(i => i.st === "ac" || i.st === "rej").length,
       lt: items.filter(i => (i.st === "ac" || i.st === "rej") && r.termin < today).length, cut: ds.length ? addDays(monOf(ds[ds.length - 1]), 5) : "" };
-  }));
+  }), today));
   for (const r of rows) {
     st[r.key] = { fix: {} }; const base = keyOf(r.month, r.id);
     offs.push(S.watchMonthDoc(fid, year, "isg", base, d => { st[r.key].isg = d; emit(); }));
@@ -164,6 +164,22 @@ export async function watchGuest(fid, year, uid, cb, allRows = []) {
   }
   emit();
   return () => offs.forEach(f => { try { f && f(); } catch { } });
+}
+// Bulgu zinciri: aynı bölümde aynı zincirdeki bulgular tek kartta (en son tespit) gösterilir; önceki tespitler kartta tarih listesi olur
+function zGroup(rows, today) {
+  const by = new Map();
+  rows.forEach(r => r.items.forEach(i => { if (!i.zk) return; const k = r.id + "|" + i.zk; if (!by.has(k)) by.set(k, []); by.get(k).push({ r, i }); }));
+  const hide = new Set();
+  for (const list of by.values()) {
+    if (list.length < 2) continue;
+    list.sort((a, b) => (a.i.date || "").localeCompare(b.i.date || "") || +a.r.month - +b.r.month || a.i.no - b.i.no);
+    const rep = list[list.length - 1], prev = list.slice(0, -1).filter(x => rep.i.st !== "ok" || x.i.st === "ok");
+    if (!prev.length) continue;
+    rep.i.chain = prev.map(x => ({ no: x.i.no, date: x.i.date })).concat([{ no: rep.i.no, date: rep.i.date }]);
+    prev.forEach(x => hide.add(x.i));
+  }
+  if (!hide.size) return rows;
+  return rows.map(r => { const items = r.items.filter(i => !hide.has(i)); return { ...r, items, zHid: r.items.length - items.length, n: items.length, ok: items.filter(i => i.st === "ok").length, on: items.filter(i => i.st === "on").length, ac: items.filter(i => i.st === "ac" || i.st === "rej").length, lt: items.filter(i => (i.st === "ac" || i.st === "rej") && r.termin < today).length }; });
 }
 const stack = c => `<div style="display:flex;height:10px;border-radius:99px;overflow:hidden;background:#EEF3F1">${[[c.ok, "#17A06F"], [c.on, "#F5B700"], [c.ac, "#C3D1CC"]].map(([v, bg]) => c.n ? `<i style="display:block;height:100%;width:${v / c.n * 100}%;background:${bg}"></i>` : "").join("")}</div>`;
 const PILL = { ok: ["#D9F1E6", "#0B6E4F", "Aksiyon alındı"], on: ["#FFF3D6", "#6B3F00", "Onay bekliyor"], ac: ["#EEF3F1", "#3E534E", "Açık"], rej: ["#FDECEA", "#7A1C14", "Reddedildi"] };
@@ -191,7 +207,8 @@ export async function yearsInfo(fid, uid, years = []) {
 }
 // ui: { open, month, year, years:[{y,n,open,month}], dd:"y"|"m"|"", openB (hafta anahtarı), flt }
 export function guestCard(rows, ui = {}) {
-  if (!rows?.length) return "";
+  rows = (rows || []).filter(r => !(r.n === 0 && r.zHid)); // tüm bulguları sonraki haftanın kartında gösterilen ay listelenmez
+  if (!rows.length) return "";
   const T = rows.reduce((a, r) => ({ n: a.n + r.n, ok: a.ok + r.ok, on: a.on + r.on, ac: a.ac + r.ac, lt: a.lt + r.lt }), { n: 0, ok: 0, on: 0, ac: 0, lt: 0 }), open = !!ui.open;
   const today = iso(new Date()), onlyWatch = rows.every(r => r.role === "izle"), cut = rows.map(r => r.cut).filter(Boolean).sort().pop() || "";
   const pct = T.n ? Math.round(T.ok / T.n * 100) : 0, flt = ui.flt || "ac";
@@ -205,8 +222,8 @@ export function guestCard(rows, ui = {}) {
   const li = (attr, v, t, s, on) => `<button type="button" ${attr}="${v}" style="display:flex;flex-direction:column;align-items:flex-start;gap:0;width:100%;min-height:44px;height:auto;padding:8px 10px;border:0;border-radius:10px;background:${on ? "#EAF7F1" : "transparent"};color:var(--text);text-align:left;font-weight:400;cursor:pointer"><span style="font-weight:700;font-size:14.5px">${t}</span><span class="muted" style="font-size:11.5px;white-space:nowrap">${s}</span></button>`;
   const yList = yrs.map(x => li("data-shyv", x.y, x.y, x.n ? sub(x.n, x.open) : "paylaşım var", String(x.y) === cur)).join("");
   const mList = ms.map(m => li("data-shmv", m, AYLAR[m - 1], mInfo(m), m === mo)).join("");
-  const pills = (g) => { const a = g.items.filter(i => i.st === "ac" || i.st === "rej").length, w = g.items.filter(i => i.st === "on").length, lt = g.items.filter(i => (i.st === "ac" || i.st === "rej") && g.termin < today).length; return lt ? ["#FDECEA", "#B3261E", `${lt} gecikti`] : w ? ["#FFF3D6", "#6B3F00", `${w} onay`] : a ? ["#EEF3F1", "#3E534E", `${a} açık`] : ["#D9F1E6", "#0B6E4F", `${g.items.length}/${g.items.length}`]; };
-  const card = (i, r) => { const [bg, fg, tx] = PILL[i.st], late = (i.st === "ac" || i.st === "rej") && r.termin < today; return `<div style="border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:6px;background:var(--card)"><div style="font-size:14px;line-height:1.45">${esc(i.t)}</div>${i.st === "rej" ? `<div style="background:#FDECEA;border:1px solid #F3B8B2;color:#7A1C14;border-radius:10px;padding:8px 10px;font-size:12.5px;line-height:1.45"><b>Gerekçe:</b> ${esc(i.why || "Belirtilmedi")}</div>` : ""}${i.before.length || i.after.length ? `<div style="display:grid;grid-template-columns:${i.before.length && i.after.length ? "1fr 1fr" : "1fr"};gap:6px">${i.before.length ? `<div><span class="hd" style="font-size:11px">${i.after.length ? "ÖNCE" : "TESPİT FOTOĞRAFI"}</span><div class="phs" style="padding:0">${th(i.before)}</div></div>` : ""}${i.after.length ? `<div><span class="hd" style="font-size:11px">SONRA</span><div class="phs" style="padding:0">${th(i.after)}</div></div>` : ""}</div>` : ""}${i.st === "ok" ? `<div style="font-size:12.5px;line-height:1.45;color:var(--muted)"><b>Aksiyon kapatan:</b> ${esc(i.by === "Görev takip" || !i.by ? "Yetkili" : i.by)}${i.tx ? " · " + esc(i.tx) : ""}</div>` : ""}<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:var(--muted)"><span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:99px;background:${bg};color:${fg}">${tx}</span>${late ? '<span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:99px;background:#D6382E;color:#fff">Gecikti</span>' : ""}<span>Termin: ${fd(r.termin)}</span></div>${r.role === "aks" && (i.st === "ac" || i.st === "rej") ? `<button class="sec" data-gfxk="${r.month}|${r.id}|${i.no}|${i.id}|${i.j}" style="height:42px">${i.st === "rej" ? "Düzeltip yeniden gönder" : "Aksiyon bildir"}</button>` : ""}</div>`; };
+  const pills = (g) => { const zc = Math.max(0, ...g.items.filter(i => i.chain && i.st !== "ok").map(i => i.chain.length)); if (zc > 1) return ["#FDECEA", "#B3261E", `${zc} haftadır açık`]; const a = g.items.filter(i => i.st === "ac" || i.st === "rej").length, w = g.items.filter(i => i.st === "on").length, lt = g.items.filter(i => (i.st === "ac" || i.st === "rej") && g.termin < today).length; return lt ? ["#FDECEA", "#B3261E", `${lt} gecikti`] : w ? ["#FFF3D6", "#6B3F00", `${w} onay`] : a ? ["#EEF3F1", "#3E534E", `${a} açık`] : ["#D9F1E6", "#0B6E4F", `${g.items.length}/${g.items.length}`]; };
+  const card = (i, r) => { const [bg, fg, tx] = PILL[i.st], late = (i.st === "ac" || i.st === "rej") && r.termin < today; return `<div style="border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:6px;background:var(--card)"><div style="font-size:14px;line-height:1.45">${esc(i.t)}</div>${i.chain ? `<div style="display:flex;flex-direction:column;gap:2px;border-left:2px solid #C9D6D2;margin-left:5px;padding-left:12px">${i.chain.map(c => `<span style="font-size:12.5px;position:relative;white-space:nowrap"><b style="position:absolute;left:-18px;top:6px;width:10px;height:10px;border-radius:50%;background:${i.st === "ok" ? "#17A06F" : "#B3261E"}"></b>${c.no}. Denetim${c.date ? " · " + fd(c.date) : ""}</span>`).join("")}</div>` : ""}${i.st === "rej" ? `<div style="background:#FDECEA;border:1px solid #F3B8B2;color:#7A1C14;border-radius:10px;padding:8px 10px;font-size:12.5px;line-height:1.45"><b>Gerekçe:</b> ${esc(i.why || "Belirtilmedi")}</div>` : ""}${i.before.length || i.after.length ? `<div style="display:grid;grid-template-columns:${i.before.length && i.after.length ? "1fr 1fr" : "1fr"};gap:6px">${i.before.length ? `<div><span class="hd" style="font-size:11px">${i.after.length ? "ÖNCE" : "TESPİT FOTOĞRAFI"}</span><div class="phs" style="padding:0">${th(i.before)}</div></div>` : ""}${i.after.length ? `<div><span class="hd" style="font-size:11px">SONRA</span><div class="phs" style="padding:0">${th(i.after)}</div></div>` : ""}</div>` : ""}${i.st === "ok" ? `<div style="font-size:12.5px;line-height:1.45;color:var(--muted)"><b>Aksiyon kapatan:</b> ${esc(i.by === "Görev takip" || !i.by ? "Yetkili" : i.by)}${i.tx ? " · " + esc(i.tx) : ""}</div>` : ""}<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:var(--muted)"><span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:99px;background:${bg};color:${fg}">${tx}</span>${late ? '<span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:99px;background:#D6382E;color:#fff">Gecikti</span>' : ""}<span>Termin: ${fd(r.termin)}</span></div>${r.role === "aks" && (i.st === "ac" || i.st === "rej") ? `<button class="sec" data-gfxk="${r.month}|${r.id}|${i.no}|${i.id}|${i.j}" style="height:42px">${i.st === "rej" ? "Düzeltip yeniden gönder" : "Aksiyon bildir"}</button>` : ""}</div>`; };
   const group = r => {
     const by = new Map(); for (const i of r.items) { if (!by.has(i.no)) by.set(i.no, { no: i.no, date: i.date || "", items: [], termin: r.termin }); by.get(i.no).items.push(i); }
     const gs = [...by.values()].sort((a, b) => b.no - a.no);

@@ -1,14 +1,14 @@
 // İSG Denetim Listesi sayfası
-import * as Guest from "./guest.js?v=20261110i";
-import * as Gorev from "./gorev.js?v=20261110i";
-import * as S from "./store.js?v=20261110i";
-import * as Ramak from "./ramak.js?v=20261110i";
-import * as Z from "./zincir.js?v=20261110i";
-import * as Paylas from "./paylas.js?v=20261110i";
-import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, showPhotos, openPhotos, setPhotoLoader, GUEST, guestLock, roText } from "./ui.js?v=20261110i";
-import { CATS } from "./isgcats.js?v=20261110i";
-import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261110i";
-import { calcIsg, isgMonth, isgAudits, fxInTime, makTier, katsayi, bandOf, num, surecVar, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261110i";
+import * as Guest from "./guest.js?v=20261110j";
+import * as Gorev from "./gorev.js?v=20261110j";
+import * as S from "./store.js?v=20261110j";
+import * as Ramak from "./ramak.js?v=20261110j";
+import * as Z from "./zincir.js?v=20261110j";
+import * as Paylas from "./paylas.js?v=20261110j";
+import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, showPhotos, openPhotos, setPhotoLoader, GUEST, guestLock, roText } from "./ui.js?v=20261110j";
+import { CATS } from "./isgcats.js?v=20261110j";
+import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261110j";
+import { calcIsg, isgMonth, isgAudits, fxInTime, makTier, katsayi, bandOf, num, surecVar, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261110j";
 
 const COLL = "isg";
 const D = { pk: { open: false, view: 0, cnt: {} }, fxEditing: new Set(), fxDraft: {}, fxOpen: new Set(), fxList: [], gfxOpen: false, key: "", setup: null, doc: null, dept: null, month: null, open: {}, ro: false, timer: null, saved: true, msg: "" };
@@ -443,6 +443,13 @@ function zCard(z, open, pf = "z", idx = null) {
   return `<div class="zw${cls}"><button type="button" class="zhd" data-${pf}o="${key}" aria-expanded="${open}"><span class="t"><b>${esc(ttl)}</b><span>${esc(sub)}</span></span><span class="zpl p-${pl[1]}">${pl[0]}</span>${cv}</button>
     ${open ? `<div class="zbd"><div class="zls">${list}</div><span class="zht">${sg.open.length ? "Seçilen bulguya bu hafta eklenir; ayrı açık bulgu oluşmaz. Sıklık yine artar." : "Kapanmış bulguya geri bağlanmaz; kabul edilmiş aksiyon ve puanı korunur."}</span></div>` : ""}</div>`;
 }
+// Bir bulgunun zincirinde, verilen tarihe kadar tespit edilmiş diğer açık halkalar (aksiyonla birlikte kapanır)
+function zOlder(s, id, j, date) {
+  const { st } = D.ctx, ch = zChains(null); if (!ch) return [];
+  for (const c of ch) { const me = c.links.find(l => +l.y === +st.year && +l.m === +D.month && l.no === s.no && l.id === id && l.j === j); if (me) return Z.closeTargets(c, date).filter(l => l !== me); }
+  return [];
+}
+const zOldLbl = l => `${l.no}. Denetim · ${dm(l.date)}${+l.m !== +D.month ? " (" + (MONTHS[l.m - 1] || "") + ")" : ""}`;
 // Uygun işaretlenen maddede açık kalan zincirler (denetim tarihinden önce tespit edilmiş)
 const zOpenFor = (ch, id, date) => (ch || []).filter(c => c.id === id && c.open && c.links.some(l => !l.ok && (!date || l.date < date)));
 // Zincirle kapatma: aynı aydaki kayıtlar bellekte, diğer ay/yıllar ayrıca okunup yazılır. Kapanış puanı değiştirmez (via)
@@ -498,12 +505,14 @@ function fxPanel(list) {
       <div style="font-size:13px"><span class="muted">Tespit:</span> ${esc(x.req.t)}</div><div style="font-size:13px"><span class="muted">Aksiyon:</span> ${esc(x.req.tx)}</div></div>`; }).join("")}</div>`;
 }
 // Yetkili: kabul / ret penceresi
-function fxReview(pd, single = false) {
+async function fxReview(pd, single = false) {
+  if (!zChains()) { const { st } = D.ctx; try { D.zh = { key: D.key, docs: await Z.loadHistory(S.getMonthDoc, st.fid, st.year, D.month, D.dept, 12) }; } catch { } }
   const { st } = D.ctx, doc = D.doc, s = pd.s, req = pd.req, { cat } = catOf(pd.id), fk = `${pd.id}|${pd.j}`;
   const row = D.setup.rows.find(r => r.id === D.dept), yg = surecVar(st.year, D.month);
   const aud = fx => isgAudits({ cats: CATS, sessions: doc.sessions.map(x => x === s ? { ...x, fixed: { ...(x.fixed || {}), ...fx } } : x), freqOv: doc.freq, F: katsayi(row, D.month), p: D.setup.params || DEFAULT_PARAMS, yog: yg, mak: makTier(row) }).find(a => a.date === s.date)?.score;
   // Aynı bulgu için birden fazla misafir aksiyon bildirdiyse hepsi birlikte incelenir
   const grp = single ? [pd] : fxPending().filter(x => x.key === pd.key), multi = grp.length > 1, selPh = new Set(grp.flatMap(x => (x.req.ph || []).map(p => p.id))), ratMax = Math.max(...grp.map(x => x.req.at));
+  const zOld = zOlder(s, pd.id, pd.j, iso(new Date(ratMax))), zOff = new Set();
   const late = !fxInTime({ rat: req.at }, s.date), b0 = yg ? aud({}) : null, b1 = yg ? aud({ [fk]: { t: req.t, st: "ok", rat: req.at } }) : null, f1 = n => n.toFixed(1).replace(".", ",");
   const m = document.createElement("div"); m.className = "mod";
   m.innerHTML = `<div class="mbox" role="dialog" aria-modal="true" style="gap:14px;max-height:92vh;overflow:auto"><div class="row sp" style="flex-wrap:nowrap"><div><h2 style="font-size:19px">Aksiyon incelemesi</h2><div class="muted" style="font-size:13px">${esc(row.name)} · ${esc(cat.name)} · ${s.no}. denetim</div></div>
@@ -515,8 +524,12 @@ function fxReview(pd, single = false) {
       <span class="muted" style="font-size:12px">Birlikte kabul edilir. Fotoğraflardan işaretini kaldırdıklarınız rapora girmez. Tek misafiri ayrı reddetmek için <a href="#" id="fxSingle" style="color:var(--gd);font-weight:700">yalnızca bunu incele</a>.</span></div>` : `    <div style="background:#FFF8E6;border:1px solid #F1D48A;border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:8px"><span class="hd" style="color:#7A5200">ALINAN AKSİYON · ${fxWhen(req.at)}</span><span class="muted" style="font-size:12.5px">${esc(pd.guestName)}</span>
       <button type="button" class="nb" id="fxNb" aria-label="Aksiyon açıklamasını düzenle"><span class="nt">${esc(req.tx)}</span>${ic('<path d="M4 20h4L19 9l-4-4L4 16v4z"/>', 18)}</button>${fxImgs(req.ph)}
       <span class="muted" style="font-size:12px">Gerekirse açıklamayı düzeltebilirsiniz.</span></div>`}
+    ${zOld.length ? `<div style="background:#EAF7F1;border:1px solid #A9DCC4;border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:2px"><b style="color:#0B4D38;font-size:13.5px">Bu aksiyonla kapanacak bulgular</b>
+      <label class="zck"><input type="checkbox" checked disabled><span>${s.no}. Denetim · ${dm(s.date)} · ${late ? "hafta kapandı, yalnızca kayıt" : "puana yansır"}</span></label>
+      ${zOld.map((l, i) => `<label class="zck"><input type="checkbox" data-zold="${i}" checked><span>${zOldLbl(l)} · yalnızca kayıt</span></label>`).join("")}
+      <span class="zht">Aynı bulgunun önceki haftaları. İşaretini kaldırdığınız açık kalır; eski haftaların puanı değişmez.</span></div>` : ""}
     <div style="background:#EAF7F1;border:1px solid #A9DCC4;border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.5"><b style="color:#0B6E4F">Kabul ederseniz</b><br>${late ? "Bu denetimin haftası kapandı (en geç cumartesi): aksiyon yalnızca açıklamada görünür, ceza puanı değişmez. " : ""}${!late && b0 !== null && b1 !== null ? (Math.abs(b1 - b0) < 0.05 ? "Bu denetimin skoru değişmez; kategoride başka açık bulgu var, ceza o bulgular kapanınca kalkar. " : `Bu denetimin skoru <b>${f1(b0)} → ${f1(b1)}</b>. `) : "Bulgu cezada Uygun gibi sayılır. "}Sıklık takibi sürer.</div>
-    <button data-ok style="flex:0 0 auto;min-height:46px;height:46px;background:#0B6E4F;border-color:#0B6E4F;color:#fff;font-weight:700">Kabul et</button>
+    <button data-ok style="flex:0 0 auto;min-height:46px;height:46px;background:#0B6E4F;border-color:#0B6E4F;color:#fff;font-weight:700">${zOld.length ? `Kabul et (${zOld.length + 1} bulgu kapanır)` : "Kabul et"}</button>
     ${multi ? "" : `    <div style="border-top:1px solid var(--line);padding-top:12px;display:flex;flex-direction:column;gap:8px"><span class="hd">RET GEREKÇESİ (ZORUNLU)</span><textarea class="inp" id="fxRj" rows="3" style="min-height:76px;height:auto;padding:10px;resize:vertical" aria-label="Ret gerekçesi" placeholder="Neden kabul edilmedi? Misafire iletilir."></textarea>
       <button class="sec" data-no style="flex:0 0 auto;min-height:46px;height:46px;color:#D6382E;border-color:#D6382E;font-weight:700">Reddet ve gerekçeyi gönder</button></div>`}</div>`;
   document.body.appendChild(m);
@@ -525,11 +538,14 @@ function fxReview(pd, single = false) {
   m.querySelector("[data-x]").onclick = () => m.remove();
   m.addEventListener("mousedown", e => { if (e.target === m) m.remove(); });
   m.querySelectorAll("[data-pv]").forEach(im => im.onclick = e => { e.preventDefault(); pvOpen(im); });
+  m.querySelectorAll("[data-zold]").forEach(c => c.onchange = () => { c.checked ? zOff.delete(+c.dataset.zold) : zOff.add(+c.dataset.zold); m.querySelector("[data-ok]").textContent = `Kabul et (${zOld.length - zOff.size + 1} bulgu kapanır)`; });
   m.querySelectorAll("[data-sp]").forEach(c => c.onchange = () => { c.checked ? selPh.add(c.dataset.sp) : selPh.delete(c.dataset.sp); });
   m.querySelector("#fxSingle")?.addEventListener("click", e => { e.preventDefault(); m.remove(); fxReview(pd, true); });
   const done = async (obj, msg) => {
     m.querySelectorAll("button").forEach(b => b.disabled = true);
+    const zSel = obj.st === "ok" ? zOld.filter((_, i) => !zOff.has(i)) : [];
     (s.fixed ||= {})[fk] = { t: req.t, tx: txr.trim(), ph: multi && obj.st === "ok" ? grp.flatMap(x => x.req.ph || []).filter(p => selPh.has(p.id)) : req.ph || [], at: Date.now(), rat: multi ? ratMax : req.at, gn: multi ? [...new Set(grp.map(x => x.guestName))].join(", ") : pd.guestName, gu: pd.guestUid, ...obj };
+    if (zSel.length) { await zCloseApply(zSel, { k: "aks", d: iso(new Date(ratMax)), no: s.no, by: s.fixed[fk].gn, tx: s.fixed[fk].tx, ph: s.fixed[fk].ph }); if (zSel.some(l => +l.m !== +D.month || +l.y !== +st.year)) D.zh = null; }
     const ok = await persist(true);
     if (ok === false) { delete s.fixed[fk]; toast("Kaydedilemedi, bağlantıyı kontrol edip tekrar deneyin."); m.querySelectorAll("button").forEach(b => b.disabled = false); return; }
     m.remove();
@@ -882,7 +898,7 @@ function bind(v, c) {
   on("[data-reopen]", async el => {
     const no = +el.dataset.reopen, t = doc.sessions.find(x => x.no === no); if (!t) return;
     if (doc.draft.on !== false && Object.keys(doc.draft.marks || {}).length && doc.draft.edit !== no) {
-      const { confirmBox } = await import("./ui.js?v=20261110i");
+      const { confirmBox } = await import("./ui.js?v=20261110j");
       if (!(await confirmBox(`${no}. denetim açılsın mı?`, "Şu an açık olan denetimde kaydedilmemiş değişiklikler varsa kaybolur. Önce “Kaydet”e basmanız önerilir.", "Yine de aç"))) return;
     }
     if (t.no === doc.sessions.length) t.closed = false;
@@ -900,7 +916,7 @@ function bind(v, c) {
   });
   const gAll = async () => (await S.listMonthDocs(st.fid, st.year, "isgg").catch(() => [])).filter(g => g.id.startsWith(`${pad(D.month)}_${D.dept}_`));
   on("[data-delsess]", async el => {
-    const { confirmBox } = await import("./ui.js?v=20261110i");
+    const { confirmBox } = await import("./ui.js?v=20261110j");
     const no = +el.dataset.delsess, ix = doc.sessions.findIndex(x => x.no === no); if (ix < 0) return;
     const gone = doc.sessions[ix], later = ix < doc.sessions.length - 1, all = await gAll(), gAp = all.filter(g => g.status === "approved" && g.no === gone.no);
     let mode = "all";
@@ -925,7 +941,7 @@ function bind(v, c) {
   });
   // Sahip: misafir taslağını tamamen sil (denetime ve rapora hiç girmez)
   const delG = async g => {
-    const { confirmBox } = await import("./ui.js?v=20261110i");
+    const { confirmBox } = await import("./ui.js?v=20261110j");
     if (!(await confirmBox("Misafir taslağı silinsin mi?", `${g.guestName} taslağı ve fotoğrafları kalıcı olarak silinir; denetime ve rapora hiç girmez. Misafir isterse yeniden yazabilir.`, "Evet, tamamen sil", true))) return false;
     Object.values(g.draft?.photos || {}).flat().forEach(p => S.deletePhoto(st.fid, st.year, p.id).catch(() => {}));
     await S.deleteMonthDoc(st.fid, st.year, "isgg", g.id); await Guest.inboxDelete(`${g.guestUid}_${st.fid}_${st.year}_${+g.month}_${g.dept}`);
@@ -936,7 +952,7 @@ function bind(v, c) {
   const holOK = async date => {
     if (!date || GUEST.on || D.okHol?.has(date)) return true;
     const h = tatilMap(await tatilYukle(st.fid, st.year).catch(() => null)).get(date); if (!h || h.yarim) return true;
-    const { confirmBox } = await import("./ui.js?v=20261110i");
+    const { confirmBox } = await import("./ui.js?v=20261110j");
     if (!(await confirmBox("İzin / tatil günü", `${fmtTarih(date)} tarihi "${h.ad}" olarak izinli/tatil işaretli. Yine de bu tarihle denetim yapılsın mı?`, "Evet, kabul et"))) return false;
     (D.okHol ||= new Set()).add(date); return true;
   };
@@ -1115,7 +1131,11 @@ function bind(v, c) {
       (prev.ph || []).filter(p => !(dr.ph || []).some(x => x.id === p.id)).forEach(p => S.deletePhoto(st.fid, st.year, p.id).catch(() => {}));
       D.fxEditing.delete(key); delete D.fxDraft[key]; D.fxOpen.add(key); draw(); return toast("Aksiyon güncellendi.");
     }
+    const zO = zOlder(s, id, j, iso(new Date(now)));
+    let zS = [];
+    if (zO.length) { const { confirmBox } = await import("./ui.js?v=20261110j"); if (await confirmBox("Önceki haftalar da kapatılsın mı?", `Bu bulgu önceki haftalarda da açık: ${zO.map(zOldLbl).join(", ")}. Aynı aksiyonla kapatılsın mı? Eski haftaların puanı değişmez.`, "Evet, kapat")) zS = zO; }
     (s.fixed ||= {})[fk] = { t, tx, ph: dr.ph || [], at: now, rat: now, ap: now, st: "ok", gn: "Yetkili" };
+    if (zS.length) { await zCloseApply(zS, { k: "aks", d: iso(new Date(now)), no: s.no, by: "Yetkili", tx, ph: dr.ph || [] }); if (zS.some(l => +l.m !== +D.month || +l.y !== +st.year)) D.zh = null; }
     const ok = await persist(true); if (ok === false) { delete s.fixed[fk]; el.disabled = false; return toast("Kaydedilemedi, bağlantıyı kontrol edip tekrar deneyin."); }
     delete D.fxDraft[key]; D.fxOpen.add(key); draw();
     toast(fxInTime({ rat: now }, s.date) ? "Aksiyon kaydedildi; bulgu cezada Uygun gibi sayılır." : "Aksiyon kaydedildi. Denetimin haftası kapandığı için ceza puanı değişmez.");
@@ -1128,7 +1148,7 @@ function bind(v, c) {
   });
   on("[data-fxdel]", async el => {
     const { s, id, j, fk } = fxSess(el.dataset.fxdel); if (!s?.fixed?.[fk]) return;
-    const { confirmBox } = await import("./ui.js?v=20261110i");
+    const { confirmBox } = await import("./ui.js?v=20261110j");
     if (!(await confirmBox("Aksiyon kaldırılsın mı?", "Aksiyon bilgisi silinir; bulgu yeniden cezaya sayılır.", "Evet, kaldır", true))) return;
     const old = s.fixed[fk], oldOff = s.fixedOff?.[fk]; delete s.fixed[fk];
     // Otomatik (görev takip) aksiyon elle kaldırıldıysa, aynı kapanış için yeniden otomatik eklenmesin
