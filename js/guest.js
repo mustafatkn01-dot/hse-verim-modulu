@@ -3,8 +3,8 @@
 //   users/{sahip}/invites/{kod}        davet (e-posta ayarı kopyası)
 //   users/{sahip}/guestReqs/{misafirUid}  onay isteği {gid, code, name, unit, status, at}
 //   users/{sahip}/members/{misafirUid}    onaylı üye {name, unit, factories[], mode, expires|null}
-import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously, signInWithEmailAndPassword, createAuxUser, changeAuxPassword, serverTimestamp } from "./firebase.js?v=20261110e";
-import { esc, toast, confirmBox } from "./ui.js?v=20261110e";
+import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously, signInWithEmailAndPassword, createAuxUser, changeAuxPassword, serverTimestamp } from "./firebase.js?v=20261110f";
+import { esc, toast, confirmBox } from "./ui.js?v=20261110f";
 
 const Q = new URLSearchParams(location.search);
 export const linkInfo = () => {
@@ -168,6 +168,7 @@ export async function reportFix(info, catName) {
   // Telefon bildirimi gelen kutusu yazımından bağımsız gönderilir
   pushRaw(GC.ntfy, { title: "HSE Verim · Aksiyon bildirimi", message: `${GC.name} · ${info.deptName}${wk}: ${catName} için aksiyon bildirdi. İncelemek için dokunun.`, click: `${location.origin}${location.pathname}?denetim=${[info.fid, info.year, info.month, info.dept].join(".")}`, priority: 4, tags: ["white_check_mark"] });
 }
+export const inboxWrite = (id, data) => setDoc(doc(db, `users/${auth.currentUser.uid}/inbox/${id}`), data);
 export const inboxDelete = id => deleteDoc(doc(db, `users/${auth.currentUser.uid}/inbox/${id}`)).catch(() => {});
 export async function inboxClear(ownerUid, { fid, year, month, dept }) {
   try {
@@ -228,7 +229,7 @@ const newPid = taken => { // 6 hane, serbest dizilim; en az 2 harf ve en az 2 ra
 };
 // Önceki kayıtları bul: kişi kaydı (ID) + adı eşleşen, sahibi artık üye olmayan (sahipsiz) taslaklar
 async function findPrev(o, name, gid) {
-  const S = await import("./store.js?v=20261110e"), n = normName(name);
+  const S = await import("./store.js?v=20261110f"), n = normName(name);
   const people = (await loadPeople(o)).filter(p => p.norm === n);
   const mems = await getDocs(collection(db, `users/${o}/members`)).then(s => new Set(s.docs.map(d => d.id))).catch(() => new Set());
   const uids = new Set(); people.forEach(p => (p.uids || []).forEach(u => { if (u !== gid && !mems.has(u)) uids.add(u); }));
@@ -242,7 +243,7 @@ async function findPrev(o, name, gid) {
   return { person: people[0] || null, pid: people[0]?.id || null, uids, count };
 }
 async function migrateGuest(oldUids, newUid, name) {
-  const S = await import("./store.js?v=20261110e"); let n = 0;
+  const S = await import("./store.js?v=20261110f"); let n = 0;
   for (const f of await S.listFactories()) for (const y of await S.listYears(f.id)) for (const c of GCOLLS) {
     const all = await S.listMonthDocs(f.id, y, c), ids = new Set(all.map(d => d.id));
     for (const d of all) {

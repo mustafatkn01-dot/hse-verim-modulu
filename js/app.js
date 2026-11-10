@@ -1,23 +1,23 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261110e";
-import * as S from "./store.js?v=20261110e";
-import * as Prim from "./primary.js?v=20261110e";
-import * as Denetim from "./denetim.js?v=20261110e";
-import * as Kaza from "./kaza.js?v=20261110e";
-import * as Konusma from "./konusma.js?v=20261110e";
-import * as Ramak from "./ramak.js?v=20261110e";
-import * as Genel from "./genel.js?v=20261110e";
-import * as Rapor from "./rapor.js?v=20261110e";
-import * as Verim from "./verim.js?v=20261110e";
-import * as Isbasi from "./isbasi.js?v=20261110e";
-import * as Guest from "./guest.js?v=20261110e";
-import * as Yontem from "./yontem.js?v=20261110e";
-import * as Tatil from "./tatil.js?v=20261110e";
-import * as Gorev from "./gorev.js?v=20261110e";
-import { banner, bannerInit, guestWatch, stop as bnStop, linkRenewed } from "./bildirim.js?v=20261110e";
-import * as Arsiv from "./arsiv.js?v=20261110e";
-import * as FabArsiv from "./fabarsiv.js?v=20261110e";
-import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261110e";
-import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261110e";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "./firebase.js?v=20261110f";
+import * as S from "./store.js?v=20261110f";
+import * as Prim from "./primary.js?v=20261110f";
+import * as Denetim from "./denetim.js?v=20261110f";
+import * as Kaza from "./kaza.js?v=20261110f";
+import * as Konusma from "./konusma.js?v=20261110f";
+import * as Ramak from "./ramak.js?v=20261110f";
+import * as Genel from "./genel.js?v=20261110f";
+import * as Rapor from "./rapor.js?v=20261110f";
+import * as Verim from "./verim.js?v=20261110f";
+import * as Isbasi from "./isbasi.js?v=20261110f";
+import * as Guest from "./guest.js?v=20261110f";
+import * as Yontem from "./yontem.js?v=20261110f";
+import * as Tatil from "./tatil.js?v=20261110f";
+import * as Gorev from "./gorev.js?v=20261110f";
+import { banner, bannerInit, guestWatch, stop as bnStop, linkRenewed } from "./bildirim.js?v=20261110f";
+import * as Arsiv from "./arsiv.js?v=20261110f";
+import * as FabArsiv from "./fabarsiv.js?v=20261110f";
+import { $, esc, ic, toast, modal, confirmBox, formBox, noticeBox, GUEST } from "./ui.js?v=20261110f";
+import { num, c2, katsayi, nAt, ztfRamp, RISK, DEFAULT_PARAMS, newRow, rid } from "./scoring.js?v=20261110f";
 const PEND_META = { isbasig: ["isbasi", "İşbaşı Eğitim"], konusmag: ["konusma", "Eğitim Konuşması"], kazag: ["kaza", "İş Kazası"], ramak: ["ramak", "Ramak Kala"] };
 
 const VERSION = "1.8.5";
@@ -196,6 +196,23 @@ onAuthStateChanged(auth, async user => {
   }
 });
 
+// Gelen kutusu kuralı yüzünden ulaşmamış misafir aksiyon bildirimlerini bir kez gelen kutusuna işler (fabrika+yıl başına)
+async function backfillFixInbox() {
+  if (!st.fid || !st.year) return;
+  const fk = `hse_fxbf_${st.fid}_${st.year}`; try { if (localStorage.getItem(fk)) return; } catch { }
+  const [fix, isg, setup] = await Promise.all([S.listMonthDocs(st.fid, st.year, "isgg"), S.listMonthDocs(st.fid, st.year, "isg"), S.getSetup(st.fid, st.year).catch(() => null)]);
+  const fname = st.factories.find(f => f.id === st.fid)?.name || "", seen = new Set();
+  for (const g of fix.filter(x => x.id.includes("_fix_") && x.draft?.fixReqs)) {
+    const doc0 = isg.find(x => x.id === g.id.split("_fix_")[0]); if (!doc0) continue;
+    const pend = Object.entries(g.draft.fixReqs).filter(([k, req]) => { const [no, id, j] = k.split("|"), se = (doc0.sessions || []).find(y => y.no === +no), f = se?.fixed?.[id + "|" + j]; return se && (se.fails?.[id] || [])[+j] === req.t && !(f && (f.rat || 0) >= req.at); });
+    if (!pend.length) continue;
+    const gu = g.guestUid || g.id.split("_fix_")[1], month = +g.month || +g.id.slice(0, 2), dept = g.dept || g.id.slice(3).split("_fix_")[0], key = `${gu}_fx_${st.fid}_${st.year}_${month}_${dept}`;
+    if (seen.has(key)) continue; seen.add(key);
+    await Guest.inboxWrite(key, { fid: st.fid, year: +st.year, month, dept, deptName: setup?.rows?.find(r => r.id === dept)?.name || dept, factoryName: fname, no: 0, by: gu, byName: g.guestName || "Misafir", kind: "saved", status: "open", at: Math.max(...pend.map(([, r]) => r.at || 0)) || Date.now() });
+  }
+  try { localStorage.setItem(fk, "1"); } catch { }
+}
+
 // ---------- Bağlam: fabrika + yıl ----------
 async function loadContext() {
   st.all = await S.listFactories();
@@ -300,6 +317,8 @@ async function render() {
   if (st.role === "guest") Guest.installCard(v, { standalone: standalone(), hasPrompt: () => !!DEFER, install: installApp });
   if (st.role === "owner") {
     v.querySelectorAll("#inboxBox,#pendBox").forEach(x => x.remove());
+    await backfillFixInbox().catch(() => {});
+    if (tok !== renderTok) return;
     const b = document.createElement("div"); b.id = "inboxBox"; v.prepend(b); Guest.renderInbox(b, { ownerUid: auth.currentUser.uid, onOpen: openAudit });
     const h = await pendBoxHTML();
     if (tok !== renderTok) return;
