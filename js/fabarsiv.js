@@ -1,13 +1,13 @@
 // Fabrika arşivi: arşivle (isteğe bağlı ZIP paket), arşivlenmiş fabrika özeti, arşivden çıkar, kalıcı silme ve paket yükleme.
 // Veri bulutta olduğu gibi kalır; paket ek bir kopyadır. Paket: manifest.json + veri/{yıl}.json (sıkıştırılmış) + foto/{yıl}/{id}.jpg, parçalar yaklaşık 150 MB.
-import * as S from "./store.js?v=20261110k";
-import * as Guest from "./guest.js?v=20261110k";
-import { FS } from "./firebase.js?v=20261110k";
-import { esc, toast, shrinkDataUrl } from "./ui.js?v=20261110k";
-import { shell, prog, fmtSize, nf, wakeLock, saveBlob, dataToBytes, PART, badges } from "./arsiv.js?v=20261110k";
-import { zipBuild, zipOpen, toBytes, fromBytes } from "./zip.js?v=20261110k";
-import { load } from "./verim.js?v=20261110k";
-import { num, DEFAULT_PARAMS } from "./scoring.js?v=20261110k";
+import * as S from "./store.js?v=20261110l";
+import * as Guest from "./guest.js?v=20261110l";
+import { FS } from "./firebase.js?v=20261110l";
+import { esc, toast, shrinkDataUrl } from "./ui.js?v=20261110l";
+import { shell, prog, fmtSize, nf, wakeLock, saveBlob, dataToBytes, PART, badges } from "./arsiv.js?v=20261110l";
+import { zipBuild, zipOpen, toBytes, fromBytes } from "./zip.js?v=20261110l";
+import { load } from "./verim.js?v=20261110l";
+import { num, DEFAULT_PARAMS } from "./scoring.js?v=20261110l";
 
 const COLLS = ["isg", "isgg", "kaza", "konusma", "isbasi", "ramak", "kazag", "konusmag", "isbasig"];
 const PKG_VER = 1;
@@ -149,7 +149,7 @@ export async function openArsivle(f, { onDone } = {}) {
   };
   render();
 }
-const uidNow = async () => { const { auth } = await import("./firebase.js?v=20261110k"); return auth.currentUser.uid; };
+const uidNow = async () => { const { auth } = await import("./firebase.js?v=20261110l"); return auth.currentUser.uid; };
 
 // ---------- Paket indir (arşivlenmiş fabrika için) ----------
 async function openPaket(f, { onDone } = {}) {
