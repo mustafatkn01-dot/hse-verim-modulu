@@ -1,14 +1,14 @@
 // İSG Denetim Listesi sayfası
-import * as Guest from "./guest.js?v=20261110j";
-import * as Gorev from "./gorev.js?v=20261110j";
-import * as S from "./store.js?v=20261110j";
-import * as Ramak from "./ramak.js?v=20261110j";
-import * as Z from "./zincir.js?v=20261110j";
-import * as Paylas from "./paylas.js?v=20261110j";
-import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, showPhotos, openPhotos, setPhotoLoader, GUEST, guestLock, roText } from "./ui.js?v=20261110j";
-import { CATS } from "./isgcats.js?v=20261110j";
-import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261110j";
-import { calcIsg, isgMonth, isgAudits, fxInTime, makTier, katsayi, bandOf, num, surecVar, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261110j";
+import * as Guest from "./guest.js?v=20261110k";
+import * as Gorev from "./gorev.js?v=20261110k";
+import * as S from "./store.js?v=20261110k";
+import * as Ramak from "./ramak.js?v=20261110k";
+import * as Z from "./zincir.js?v=20261110k";
+import * as Paylas from "./paylas.js?v=20261110k";
+import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, showPhotos, openPhotos, setPhotoLoader, GUEST, guestLock, roText } from "./ui.js?v=20261110k";
+import { CATS } from "./isgcats.js?v=20261110k";
+import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261110k";
+import { calcIsg, isgMonth, isgAudits, fxInTime, makTier, katsayi, bandOf, num, surecVar, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261110k";
 
 const COLL = "isg";
 const D = { pk: { open: false, view: 0, cnt: {} }, fxEditing: new Set(), fxDraft: {}, fxOpen: new Set(), fxList: [], gfxOpen: false, key: "", setup: null, doc: null, dept: null, month: null, open: {}, ro: false, timer: null, saved: true, msg: "" };
@@ -402,46 +402,56 @@ function zChains(skipNo = null) {
 }
 const ZLV = { guclu: ["Güçlü", "g"], orta: ["Orta", "o"], zayif: ["Zayıf", "z"], farkli: ["Farklı", "f"] };
 const zDates = c => [...new Set(c.links.filter(l => !l.ok).map(l => dm(l.date)))].slice(-4).join(" · ");
-// Bir maddedeki bulgular için öneriler ve seçimler (sel: kullanıcı seçimleri "madde|sıra" → zk | "yeni" | "farkli" | "tekrar:zk")
+// Bir maddedeki bulgular için öneriler ve seçimler (sel: "madde|sıra" → "zk1+zk2" (birleşen önceki kayıtlar) | "yeni" | "farkli" | "tekrar:zk")
 // pre: düzenlenen kayıttaki mevcut zincir bağlantıları ("madde|sıra" → zk), date: denetim tarihi
+const zIsC = v => !!v && !/^(yeni|farkli|tekrar:)/.test(v), zParts = v => zIsC(v) ? v.split("+").filter(Boolean) : [];
 function zItem(ch, id, notes, sel = {}, date = "", pre = {}) {
   const out = [], used = [];
-  const explicit = k => { const v = sel[id + "|" + k]; return v && !/^(yeni|farkli|tekrar:)/.test(v) ? v : null; };
   notes.forEach((t0, k) => {
     const t = String(t0 || "").trim(); if (!t) { out.push(undefined); return; } if (!ch) { out.push(null); return; }
-    const others = notes.map((_, kk) => kk !== k ? explicit(kk) : null).filter(Boolean);
+    const others = notes.flatMap((_, kk) => kk !== k ? zParts(sel[id + "|" + kk]) : []);
     const sg = Z.suggest(ch, { id, text: t, date, exclude: [] });
     if (!sg.open.length && !sg.tekrar.length) { out.push(null); return; }
-    const blocked = new Set([...used, ...others]);
-    const avail = sg.open.filter(o => !blocked.has(o.chain.zk)), top = avail[0];
+    const blocked = new Set([...used, ...others]), ok = v => sg.open.some(o => o.chain.zk === v) && !blocked.has(v);
+    const avail = sg.open.filter(o => !blocked.has(o.chain.zk)), strong = avail.filter(o => o.sim.level === "guclu");
+    // Varsayılan: tüm güçlü adaylar seçili (aynı bulgunun bağlanmamış eski kayıtları birleşir); yalnız orta varsa seçim boş; aksi hâlde yeni bulgu
     let def = "";
-    if (sg.open.length) def = !top ? "yeni" : top.sim.level === "guclu" ? top.chain.zk : top.sim.level === "orta" ? "" : "yeni";
+    if (sg.open.length) def = strong.length ? strong.map(o => o.chain.zk).join("+") : avail[0]?.sim.level === "orta" ? "" : "yeni";
     else def = "tekrar:" + sg.tekrar[0].chain.zk;
     const key = id + "|" + k, p = pre[key] && sg.open.some(o => o.chain.zk === pre[key]) ? pre[key] : null;
     let eff = sel[key] ?? p ?? def;
-    if (eff && !/^(yeni|farkli|tekrar:)/.test(eff) && blocked.has(eff)) eff = def && !blocked.has(def) ? def : "";
-    if (eff && !/^(yeni|farkli|tekrar:)/.test(eff)) used.push(eff);
+    if (zIsC(eff)) { const keep = zParts(eff).filter(ok); eff = keep.length ? keep.join("+") : zParts(def).filter(ok).join("+") || (zIsC(def) ? "" : def); }
+    used.push(...zParts(eff));
     out.push({ key, sg, eff, blocked });
   });
   return out;
 }
+// Kart seçeneğine dokunma: önceki kayıtlar çoklu seçilir (aç/kapa); "Yeni bulgu" / tekrar seçenekleri tek seçimdir ve kartı kapatır
+function zToggle(el, attr) {
+  const [id, k, ...r] = el.dataset[attr].split("|"), v = r.join("|"), key = id + "|" + k;
+  if (!zIsC(v)) return { key, val: v, close: true };
+  const cur = [...el.closest(".zls").querySelectorAll(".zop.on")].map(b => b.dataset[attr].split("|").slice(2).join("|")).filter(zIsC);
+  return { key, val: (cur.includes(v) ? cur.filter(x => x !== v) : [...cur, v]).join("+"), close: false };
+}
+// Seçilen önceki kayıtlar: en eski zincir ana zincir olur, diğerleri ona bağlanır
+const zResolve = z => { const chs = zParts(z.eff).map(v => z.sg.open.find(o => o.chain.zk === v)?.chain).filter(Boolean).sort((a, b) => (a.first.date || "").localeCompare(b.first.date || "")); return chs.length ? { primary: chs[0].zk, merge: chs.slice(1) } : null; };
 // Kart: varsayılan kapalı; başlık seçimi tek satırda özetler. pf: data öneki ("z" yetkili denetimi, "gz" misafir onayı)
-function zCard(z, open, pf = "z", idx = null) {
-  const { sg, eff, key, blocked } = z, cv = `<span class="cv">${ic('<path d="M6 9l6 6 6-6"/>', 18)}</span>`;
-  const chosen = eff && !/^(yeni|farkli|tekrar:)/.test(eff) ? sg.open.find(o => o.chain.zk === eff) : null;
+function zCard(z, open, pf = "z") {
+  const { sg, eff, key, blocked } = z, cv = `<span class="cv">${ic('<path d="M6 9l6 6 6-6"/>', 18)}</span>`, sel = zParts(eff);
+  const chosen = sel.map(v => sg.open.find(o => o.chain.zk === v)).filter(Boolean);
   const tk = eff.startsWith("tekrar:") ? sg.tekrar.find(o => "tekrar:" + o.chain.zk === eff) || sg.tekrar[0] : null;
-  const [cls, ttl, sub, pl] = chosen ? ["", `Devamı · ${chosen.chain.nOpen} haftadır açık`, chosen.chain.last.t, ZLV[chosen.sim.level]]
+  const [cls, ttl, sub, pl] = chosen.length ? ["", chosen.length > 1 ? `Devamı · ${chosen.length} önceki kayıt birleşiyor` : `Devamı · ${chosen[0].chain.nOpen} haftadır açık`, chosen[0].chain.last.t, ZLV[chosen[0].sim.level]]
     : eff === "" ? [" zo", "Seçim gerekli", `${sg.open.length} önceki açık bulgu · dokunup seçin`, ["Karar bekliyor", "o"]]
     : tk ? [" zr", "Tekrarlayan bulgu", `${dm(tk.closed)} kapatılmıştı · yeni açılır`, ["Tekrar", "f"]]
     : eff === "farkli" ? ["", "Farklı sorun", "Kapanmış bulguyla ilgisi yok", ["Yeni", "z"]]
     : ["", "Yeni bulgu", sg.open.length ? "Önceki açık bulgulara bağlanmadı" : "Önceki bulgularla ilgisi yok", ["Yeni", "z"]];
-  const op = (v, a, m, p, dis = false) => `<button type="button" class="zop${eff === v ? " on" : ""}" data-${pf}s="${key}|${v}" ${dis ? "disabled" : ""}><span class="rd"></span><span class="ot"><span class="a">${esc(a)}</span><span class="m">${esc(m)}</span></span>${p ? `<span class="zpl p-${p[1]}">${p[0]}</span>` : ""}</button>`;
+  const op = (v, a, m, p, dis = false) => `<button type="button" class="zop${(zIsC(v) ? sel.includes(v) : eff === v) ? " on" : ""}" data-${pf}s="${key}|${v}" ${dis ? "disabled" : ""}><span class="rd"></span><span class="ot"><span class="a">${esc(a)}</span><span class="m">${esc(m)}</span></span>${p ? `<span class="zpl p-${p[1]}">${p[0]}</span>` : ""}</button>`;
   const list = sg.open.length
     ? sg.open.map(o => blocked.has(o.chain.zk) ? op(o.chain.zk, o.chain.last.t, "Bu denetimde başka bulguya bağlandı", ZLV[o.sim.level], true)
       : op(o.chain.zk, o.chain.last.t, `${zDates(o.chain)} · ${o.chain.nOpen} haftadır açık${o.sim.level === "farkli" ? " · numaralar farklı" : o.sim.common.length ? " · ortak: " + [...o.sim.nums, ...o.sim.common].slice(0, 3).join(", ") : ""}`, ZLV[o.sim.level])).join("") + op("yeni", "Yeni bulgu", "Önceki bulgularla ilgisi yok")
     : op("tekrar:" + sg.tekrar[0].chain.zk, "Tekrarlayan bulgu", `Yeni açılır · raporda önceki kapanış (${dm(sg.tekrar[0].closed)}) yazar`) + op("farkli", "Farklı sorun", "Etiketsiz yeni bulgu olarak açılır");
   return `<div class="zw${cls}"><button type="button" class="zhd" data-${pf}o="${key}" aria-expanded="${open}"><span class="t"><b>${esc(ttl)}</b><span>${esc(sub)}</span></span><span class="zpl p-${pl[1]}">${pl[0]}</span>${cv}</button>
-    ${open ? `<div class="zbd"><div class="zls">${list}</div><span class="zht">${sg.open.length ? "Seçilen bulguya bu hafta eklenir; ayrı açık bulgu oluşmaz. Sıklık yine artar." : "Kapanmış bulguya geri bağlanmaz; kabul edilmiş aksiyon ve puanı korunur."}</span></div>` : ""}</div>`;
+    ${open ? `<div class="zbd"><div class="zls">${list}</div><span class="zht">${sg.open.length ? "Birden fazla önceki kayıt seçebilirsiniz; seçilenler bu haftayla tek bulguda birleşir. Sıklık yine artar." : "Kapanmış bulguya geri bağlanmaz; kabul edilmiş aksiyon ve puanı korunur."}</span></div>` : ""}</div>`;
 }
 // Bir bulgunun zincirinde, verilen tarihe kadar tespit edilmiş diğer açık halkalar (aksiyonla birlikte kapanır)
 function zOlder(s, id, j, date) {
@@ -469,6 +479,19 @@ async function zCloseApply(links, src) {
     } catch (e) { toast("Önceki ay kaydı güncellenemedi: " + (e.message || e)); }
   }
 }
+// Birleştirme: seçilen diğer zincirlerin tüm kayıtları ana zincire bağlanır (aynı ay bellekte, diğer aylar ayrıca yazılır)
+async function zRelink(list) {
+  const { st } = D.ctx, other = new Map();
+  for (const { primary, merge } of list || []) for (const c of merge) for (const l of c.links) {
+    if (+l.y === +st.year && +l.m === +D.month) { const s = D.doc.sessions.find(x => x.no === l.no); if (s && (s.fails?.[l.id] || [])[l.j] === l.t) (s.zk ||= {})[l.id + "|" + l.j] = primary; }
+    else { const k = l.y + "|" + l.m; if (!other.has(k)) other.set(k, []); other.get(k).push([l, primary]); }
+  }
+  for (const [k, arr] of other) {
+    const [y, m] = k.split("|"), did = `${pad(+m)}_${D.dept}`;
+    try { const d2 = await S.getMonthDoc(st.fid, y, COLL, did); if (!d2?.sessions) continue; for (const [l, pr] of arr) { const s = d2.sessions.find(x => x.no === l.no); if (s && (s.fails?.[l.id] || [])[l.j] === l.t) (s.zk ||= {})[l.id + "|" + l.j] = pr; } await S.saveMonthDoc(st.fid, y, COLL, did, d2); } catch (e) { toast("Önceki ay kaydı güncellenemedi: " + (e.message || e)); }
+  }
+  if (other.size) D.zh = null;
+}
 // Kaydedilen denetime (rec) zincir seçimlerini işler: notes sırası → kayıttaki bulgu sırası (boş açıklamalar atlanır)
 function zApplyRec(rec, zs) {
   rec.zk ||= {}; const rk = {};
@@ -477,7 +500,7 @@ function zApplyRec(rec, zs) {
     list.forEach(z => { if (z === undefined) return; if (z === null) { fi++; return; } const k = id + "|" + fi++;
       if (/^(yeni|farkli)$/.test(z.eff)) delete rec.zk[k];
       else if (z.eff.startsWith("tekrar:")) { delete rec.zk[k]; rk[k] = z.eff.slice(7); }
-      else if (z.eff) rec.zk[k] = z.eff; });
+      else if (z.eff) { const r = zResolve(z); if (r) { rec.zk[k] = r.primary; if (r.merge.length) (rec.__zm ||= []).push(r); } } });
   }
   if (Object.keys(rk).length) rec.rk = rk; else delete rec.rk;
   return rec;
@@ -840,7 +863,7 @@ function bind(v, c) {
     again();
   });
   on("[data-zo]", el => { const k = el.dataset.zo; D.zOpen = D.zOpen === k ? "" : k; draw(); });
-  on("[data-zs]", el => { const [id, k, ...r] = el.dataset.zs.split("|"); (d.zsel ||= {})[id + "|" + k] = r.join("|"); D.zOpen = ""; again(); });
+  on("[data-zs]", el => { const t = zToggle(el, "zs"); (d.zsel ||= {})[t.key] = t.val; if (t.close) D.zOpen = ""; again(); });
   on("[data-zuo]", el => { const k = "u|" + el.dataset.zuo; D.zOpen = D.zOpen === k ? "" : k; draw(); });
   v.querySelectorAll("[data-zuc]").forEach(cb => cb.onchange = () => { const [id, zk] = cb.dataset.zuc.split("|"), u = ((d.zu ||= {})[id] ||= {}); u.off = (u.off || []).filter(x => x !== zk); if (!cb.checked) u.off.push(zk); again(); });
   on("[data-zuok]", el => { ((d.zu ||= {})[el.dataset.zuok] ||= {}).ok = true; D.zOpen = ""; again(); });
@@ -898,7 +921,7 @@ function bind(v, c) {
   on("[data-reopen]", async el => {
     const no = +el.dataset.reopen, t = doc.sessions.find(x => x.no === no); if (!t) return;
     if (doc.draft.on !== false && Object.keys(doc.draft.marks || {}).length && doc.draft.edit !== no) {
-      const { confirmBox } = await import("./ui.js?v=20261110j");
+      const { confirmBox } = await import("./ui.js?v=20261110k");
       if (!(await confirmBox(`${no}. denetim açılsın mı?`, "Şu an açık olan denetimde kaydedilmemiş değişiklikler varsa kaybolur. Önce “Kaydet”e basmanız önerilir.", "Yine de aç"))) return;
     }
     if (t.no === doc.sessions.length) t.closed = false;
@@ -916,7 +939,7 @@ function bind(v, c) {
   });
   const gAll = async () => (await S.listMonthDocs(st.fid, st.year, "isgg").catch(() => [])).filter(g => g.id.startsWith(`${pad(D.month)}_${D.dept}_`));
   on("[data-delsess]", async el => {
-    const { confirmBox } = await import("./ui.js?v=20261110j");
+    const { confirmBox } = await import("./ui.js?v=20261110k");
     const no = +el.dataset.delsess, ix = doc.sessions.findIndex(x => x.no === no); if (ix < 0) return;
     const gone = doc.sessions[ix], later = ix < doc.sessions.length - 1, all = await gAll(), gAp = all.filter(g => g.status === "approved" && g.no === gone.no);
     let mode = "all";
@@ -941,7 +964,7 @@ function bind(v, c) {
   });
   // Sahip: misafir taslağını tamamen sil (denetime ve rapora hiç girmez)
   const delG = async g => {
-    const { confirmBox } = await import("./ui.js?v=20261110j");
+    const { confirmBox } = await import("./ui.js?v=20261110k");
     if (!(await confirmBox("Misafir taslağı silinsin mi?", `${g.guestName} taslağı ve fotoğrafları kalıcı olarak silinir; denetime ve rapora hiç girmez. Misafir isterse yeniden yazabilir.`, "Evet, tamamen sil", true))) return false;
     Object.values(g.draft?.photos || {}).flat().forEach(p => S.deletePhoto(st.fid, st.year, p.id).catch(() => {}));
     await S.deleteMonthDoc(st.fid, st.year, "isgg", g.id); await Guest.inboxDelete(`${g.guestUid}_${st.fid}_${st.year}_${+g.month}_${g.dept}`);
@@ -952,7 +975,7 @@ function bind(v, c) {
   const holOK = async date => {
     if (!date || GUEST.on || D.okHol?.has(date)) return true;
     const h = tatilMap(await tatilYukle(st.fid, st.year).catch(() => null)).get(date); if (!h || h.yarim) return true;
-    const { confirmBox } = await import("./ui.js?v=20261110j");
+    const { confirmBox } = await import("./ui.js?v=20261110k");
     if (!(await confirmBox("İzin / tatil günü", `${fmtTarih(date)} tarihi "${h.ad}" olarak izinli/tatil işaretli. Yine de bu tarihle denetim yapılsın mı?`, "Evet, kabul et"))) return false;
     (D.okHol ||= new Set()).add(date); return true;
   };
@@ -971,11 +994,12 @@ function bind(v, c) {
     const btn = document.getElementById(close ? "doneSess" : "saveSess"); if (btn) { btn.disabled = true; btn.textContent = "Kaydediliyor…"; }
     const rec = makeRec(c, d);
     Z.assignIds(rec, d.edit != null ? doc.sessions.find(x => x.no === d.edit) : null, k => `${st.year}_${D.month}_${d.edit}_${k}`);
-    zApplyRec(rec, zAll);
+    zApplyRec(rec, zAll); const zM = rec.__zm || []; delete rec.__zm;
     let no;
     if (d.edit != null) { const ix = doc.sessions.findIndex(x => x.no === d.edit); no = d.edit; doc.sessions[ix] = { ...doc.sessions[ix], ...rec }; }
     else { no = doc.sessions.length + 1; doc.sessions.push({ no, ...rec, closed: false }); d.edit = no; }
     { const se = doc.sessions.find(x => x.no === no); se.due = doc.due || se.due || defDue(doc); se.resp = (doc.resp || []).map(r => ({ ...r })); }
+    if (zM.length) await zRelink(zM);
     if (zU.length) {
       const by = doc.auditor || st.profile?.name || "Yetkili";
       for (const { c: zc, ph } of zU) await zCloseApply(Z.closeTargets(zc, d.date), { k: "uygun", d: d.date, no, by, ph, tx: `${dmy(d.date)} denetiminde uygun bulundu` });
@@ -1012,7 +1036,8 @@ function bind(v, c) {
     const F2 = katsayi(D.setup.rows.find(r => r.id === D.dept), D.month), p2 = D.setup.params || DEFAULT_PARAMS, tgt = wkTarget(w.date);
     // Zincir seçimlerini kayıttaki bulgu sırasına işler (misafirin açıklama metniyle eşleşerek)
     const zMap = (fails, set) => { for (const [id, list] of Object.entries(zc.zs || {})) { const used = new Set(); (list || []).forEach((z, k) => { if (!z) return; const t = String(w.notes?.[id]?.[k] || "").trim(), j = (fails[id] || []).findIndex((x, jj) => !used.has(jj) && String(x || "").trim() === t); if (j < 0) return; used.add(j); set(id, j, z.eff); }); } };
-    const zSess = se => zMap(se.fails || {}, (id, j, e) => { const kk = id + "|" + j; se.zk ||= {}; if (/^(yeni|farkli)$/.test(e)) delete se.zk[kk]; else if (e.startsWith("tekrar:")) { delete se.zk[kk]; (se.rk ||= {})[kk] = e.slice(7); } else if (e) se.zk[kk] = e; });
+    const zMs = [], zObj = (id, e) => Object.values(zc.zs || {}).flat().find(z => z && z.eff === e && z.key.startsWith(id + "|")) || { eff: e, sg: { open: [] } };
+    const zSess = se => zMap(se.fails || {}, (id, j, e) => { const kk = id + "|" + j; se.zk ||= {}; if (/^(yeni|farkli)$/.test(e)) delete se.zk[kk]; else if (e.startsWith("tekrar:")) { delete se.zk[kk]; (se.rk ||= {})[kk] = e.slice(7); } else if (e) { const r = zResolve(zObj(id, e)); if (r) { se.zk[kk] = r.primary; if (r.merge.length) zMs.push(r); } } });
     const zClose = async no => { const chs = (zc.ch || []).filter(c => (zc.gu || []).includes(c.zk)); for (const c of chs) await zCloseApply(Z.closeTargets(c, w.date), { k: "misafir", d: w.date, no, by: g.guestName, tx: `${dmy(w.date)} misafir denetiminde (${g.guestName}) uygun bulundu` }); if (chs.some(c => c.links.some(l => !(+l.y === +D.ctx.st.year && +l.m === +D.month)))) D.zh = null; };
     if (tgt) {
       if (!Object.keys(w.marks || {}).length) { toast("Taslakta işaretlenmiş madde yok."); return false; }
@@ -1023,7 +1048,7 @@ function bind(v, c) {
         const ns = { ...tgt, ...Z.assignIds(makeRec(cc, dr), tgt, k => `${D.ctx.st.year}_${D.month}_${tgt.no}_${k}`) }; zSess(ns);
         doc.sessions[doc.sessions.findIndex(x => x.no === tgt.no)] = ns;
       }
-      await zClose(tgt.no);
+      await zRelink(zMs); await zClose(tgt.no);
       await persist(true); await gDone({ ...g, draft: w }, "approved", "", tgt.no);
       toast(`${g.guestName} taslağı ${tgt.no}. denetime (${wkNo(tgt.date)}. hafta) eklendi.`); return true;
     }
@@ -1031,7 +1056,7 @@ function bind(v, c) {
     const cc = calcIsg({ cats: CATS, sessions: doc.sessions, draft: dr, freqOv: doc.freq, bonusIdx: doc.bonus, F: F2, p: p2, yog: surecVar(D.ctx.st.year, D.month) });
     if (!cc.curMarked) { toast("Taslakta işaretlenmiş madde yok."); return false; }
     const ns = { no: doc.sessions.length + 1, ...Z.assignIds(makeRec(cc, dr)), closed: true }; zSess(ns);
-    doc.sessions.push(ns); await zClose(ns.no);
+    doc.sessions.push(ns); await zRelink(zMs); await zClose(ns.no);
     await persist(true); await gDone({ ...g, draft: w }, "approved");
     toast(`${g.guestName} taslağı onaylandı ve ${doc.sessions.length}. denetim olarak eklendi.`); return true;
   };
@@ -1072,7 +1097,7 @@ function bind(v, c) {
       m.querySelector("[data-x]").onclick = () => m.remove();
       const rr = () => { const el = m.querySelector(".mbox > div:nth-child(2)"), keep = el.scrollTop; draw2(); m.querySelector(".mbox > div:nth-child(2)").scrollTop = keep; };
       m.querySelectorAll("[data-gzo]").forEach(b => b.onclick = () => { gzOpen = gzOpen === b.dataset.gzo ? "" : b.dataset.gzo; rr(); });
-      m.querySelectorAll("[data-gzs]").forEach(b => b.onclick = () => { const [id, k, ...r] = b.dataset.gzs.split("|"); gz[id + "|" + k] = r.join("|"); gzOpen = ""; rr(); });
+      m.querySelectorAll("[data-gzs]").forEach(b => b.onclick = () => { const t = zToggle(b, "gzs"); gz[t.key] = t.val; if (t.close) gzOpen = ""; rr(); });
       m.querySelectorAll("[data-guo]").forEach(b => b.onclick = () => { const k = "u|" + b.dataset.guo; gzOpen = gzOpen === k ? "" : k; rr(); });
       m.querySelectorAll("[data-guc]").forEach(cb => cb.onchange = () => { const zk = cb.dataset.guc.split("|")[1], i = gu.indexOf(zk); if (cb.checked && i < 0) gu.push(zk); if (!cb.checked && i >= 0) gu.splice(i, 1); rr(); });
       m.querySelectorAll("[data-mc]").forEach(b => b.onclick = () => { const [id, v] = b.dataset.mc.split("|"); mc[id] = v; const el = m.querySelector(".mbox > div:nth-child(2)"), keep = el.scrollTop; draw2(); m.querySelector(".mbox > div:nth-child(2)").scrollTop = keep; });
@@ -1133,7 +1158,7 @@ function bind(v, c) {
     }
     const zO = zOlder(s, id, j, iso(new Date(now)));
     let zS = [];
-    if (zO.length) { const { confirmBox } = await import("./ui.js?v=20261110j"); if (await confirmBox("Önceki haftalar da kapatılsın mı?", `Bu bulgu önceki haftalarda da açık: ${zO.map(zOldLbl).join(", ")}. Aynı aksiyonla kapatılsın mı? Eski haftaların puanı değişmez.`, "Evet, kapat")) zS = zO; }
+    if (zO.length) { const { confirmBox } = await import("./ui.js?v=20261110k"); if (await confirmBox("Önceki haftalar da kapatılsın mı?", `Bu bulgu önceki haftalarda da açık: ${zO.map(zOldLbl).join(", ")}. Aynı aksiyonla kapatılsın mı? Eski haftaların puanı değişmez.`, "Evet, kapat")) zS = zO; }
     (s.fixed ||= {})[fk] = { t, tx, ph: dr.ph || [], at: now, rat: now, ap: now, st: "ok", gn: "Yetkili" };
     if (zS.length) { await zCloseApply(zS, { k: "aks", d: iso(new Date(now)), no: s.no, by: "Yetkili", tx, ph: dr.ph || [] }); if (zS.some(l => +l.m !== +D.month || +l.y !== +st.year)) D.zh = null; }
     const ok = await persist(true); if (ok === false) { delete s.fixed[fk]; el.disabled = false; return toast("Kaydedilemedi, bağlantıyı kontrol edip tekrar deneyin."); }
@@ -1148,7 +1173,7 @@ function bind(v, c) {
   });
   on("[data-fxdel]", async el => {
     const { s, id, j, fk } = fxSess(el.dataset.fxdel); if (!s?.fixed?.[fk]) return;
-    const { confirmBox } = await import("./ui.js?v=20261110j");
+    const { confirmBox } = await import("./ui.js?v=20261110k");
     if (!(await confirmBox("Aksiyon kaldırılsın mı?", "Aksiyon bilgisi silinir; bulgu yeniden cezaya sayılır.", "Evet, kaldır", true))) return;
     const old = s.fixed[fk], oldOff = s.fixedOff?.[fk]; delete s.fixed[fk];
     // Otomatik (görev takip) aksiyon elle kaldırıldıysa, aynı kapanış için yeniden otomatik eklenmesin
