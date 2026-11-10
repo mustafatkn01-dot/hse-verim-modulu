@@ -1,13 +1,14 @@
 // İSG Denetim Listesi sayfası
-import * as Guest from "./guest.js?v=20261110g";
-import * as Gorev from "./gorev.js?v=20261110g";
-import * as S from "./store.js?v=20261110g";
-import * as Ramak from "./ramak.js?v=20261110g";
-import * as Paylas from "./paylas.js?v=20261110g";
-import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, showPhotos, openPhotos, setPhotoLoader, GUEST, guestLock, roText } from "./ui.js?v=20261110g";
-import { CATS } from "./isgcats.js?v=20261110g";
-import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261110g";
-import { calcIsg, isgMonth, isgAudits, fxInTime, makTier, katsayi, bandOf, num, surecVar, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261110g";
+import * as Guest from "./guest.js?v=20261110h";
+import * as Gorev from "./gorev.js?v=20261110h";
+import * as S from "./store.js?v=20261110h";
+import * as Ramak from "./ramak.js?v=20261110h";
+import * as Z from "./zincir.js?v=20261110h";
+import * as Paylas from "./paylas.js?v=20261110h";
+import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, showPhotos, openPhotos, setPhotoLoader, GUEST, guestLock, roText } from "./ui.js?v=20261110h";
+import { CATS } from "./isgcats.js?v=20261110h";
+import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261110h";
+import { calcIsg, isgMonth, isgAudits, fxInTime, makTier, katsayi, bandOf, num, surecVar, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261110h";
 
 const COLL = "isg";
 const D = { pk: { open: false, view: 0, cnt: {} }, fxEditing: new Set(), fxDraft: {}, fxOpen: new Set(), fxList: [], gfxOpen: false, key: "", setup: null, doc: null, dept: null, month: null, open: {}, ro: false, timer: null, saved: true, msg: "" };
@@ -755,7 +756,7 @@ function bind(v, c) {
   on("[data-reopen]", async el => {
     const no = +el.dataset.reopen, t = doc.sessions.find(x => x.no === no); if (!t) return;
     if (doc.draft.on !== false && Object.keys(doc.draft.marks || {}).length && doc.draft.edit !== no) {
-      const { confirmBox } = await import("./ui.js?v=20261110g");
+      const { confirmBox } = await import("./ui.js?v=20261110h");
       if (!(await confirmBox(`${no}. denetim açılsın mı?`, "Şu an açık olan denetimde kaydedilmemiş değişiklikler varsa kaybolur. Önce “Kaydet”e basmanız önerilir.", "Yine de aç"))) return;
     }
     if (t.no === doc.sessions.length) t.closed = false;
@@ -773,7 +774,7 @@ function bind(v, c) {
   });
   const gAll = async () => (await S.listMonthDocs(st.fid, st.year, "isgg").catch(() => [])).filter(g => g.id.startsWith(`${pad(D.month)}_${D.dept}_`));
   on("[data-delsess]", async el => {
-    const { confirmBox } = await import("./ui.js?v=20261110g");
+    const { confirmBox } = await import("./ui.js?v=20261110h");
     const no = +el.dataset.delsess, ix = doc.sessions.findIndex(x => x.no === no); if (ix < 0) return;
     const gone = doc.sessions[ix], later = ix < doc.sessions.length - 1, all = await gAll(), gAp = all.filter(g => g.status === "approved" && g.no === gone.no);
     let mode = "all";
@@ -798,7 +799,7 @@ function bind(v, c) {
   });
   // Sahip: misafir taslağını tamamen sil (denetime ve rapora hiç girmez)
   const delG = async g => {
-    const { confirmBox } = await import("./ui.js?v=20261110g");
+    const { confirmBox } = await import("./ui.js?v=20261110h");
     if (!(await confirmBox("Misafir taslağı silinsin mi?", `${g.guestName} taslağı ve fotoğrafları kalıcı olarak silinir; denetime ve rapora hiç girmez. Misafir isterse yeniden yazabilir.`, "Evet, tamamen sil", true))) return false;
     Object.values(g.draft?.photos || {}).flat().forEach(p => S.deletePhoto(st.fid, st.year, p.id).catch(() => {}));
     await S.deleteMonthDoc(st.fid, st.year, "isgg", g.id); await Guest.inboxDelete(`${g.guestUid}_${st.fid}_${st.year}_${+g.month}_${g.dept}`);
@@ -809,7 +810,7 @@ function bind(v, c) {
   const holOK = async date => {
     if (!date || GUEST.on || D.okHol?.has(date)) return true;
     const h = tatilMap(await tatilYukle(st.fid, st.year).catch(() => null)).get(date); if (!h || h.yarim) return true;
-    const { confirmBox } = await import("./ui.js?v=20261110g");
+    const { confirmBox } = await import("./ui.js?v=20261110h");
     if (!(await confirmBox("İzin / tatil günü", `${fmtTarih(date)} tarihi "${h.ad}" olarak izinli/tatil işaretli. Yine de bu tarihle denetim yapılsın mı?`, "Evet, kabul et"))) return false;
     (D.okHol ||= new Set()).add(date); return true;
   };
@@ -821,6 +822,7 @@ function bind(v, c) {
     if (!(await holOK(d.date))) return;
     const btn = document.getElementById(close ? "doneSess" : "saveSess"); if (btn) { btn.disabled = true; btn.textContent = "Kaydediliyor…"; }
     const rec = makeRec(c, d);
+    Z.assignIds(rec, d.edit != null ? doc.sessions.find(x => x.no === d.edit) : null);
     let no;
     if (d.edit != null) { const ix = doc.sessions.findIndex(x => x.no === d.edit); no = d.edit; doc.sessions[ix] = { ...doc.sessions[ix], ...rec }; }
     else { no = doc.sessions.length + 1; doc.sessions.push({ no, ...rec, closed: false }); d.edit = no; }
@@ -859,7 +861,7 @@ function bind(v, c) {
       else {
         const dr = draftFromSession(tgt); mergeGuest(dr, w, choice);
         const cc = calcIsg({ cats: CATS, sessions: doc.sessions.filter(x => x.no !== tgt.no), draft: dr, freqOv: doc.freq, bonusIdx: doc.bonus, F: F2, p: p2, yog: surecVar(D.ctx.st.year, D.month) });
-        doc.sessions[doc.sessions.findIndex(x => x.no === tgt.no)] = { ...tgt, ...makeRec(cc, dr) };
+        doc.sessions[doc.sessions.findIndex(x => x.no === tgt.no)] = { ...tgt, ...Z.assignIds(makeRec(cc, dr), tgt) };
       }
       await persist(true); await gDone({ ...g, draft: w }, "approved", "", tgt.no);
       toast(`${g.guestName} taslağı ${tgt.no}. denetime (${wkNo(tgt.date)}. hafta) eklendi.`); return true;
@@ -867,7 +869,7 @@ function bind(v, c) {
     const dr = { ...emptyDraft(w.date, true), ...w };
     const cc = calcIsg({ cats: CATS, sessions: doc.sessions, draft: dr, freqOv: doc.freq, bonusIdx: doc.bonus, F: F2, p: p2, yog: surecVar(D.ctx.st.year, D.month) });
     if (!cc.curMarked) { toast("Taslakta işaretlenmiş madde yok."); return false; }
-    doc.sessions.push({ no: doc.sessions.length + 1, ...makeRec(cc, dr), closed: true });
+    doc.sessions.push({ no: doc.sessions.length + 1, ...Z.assignIds(makeRec(cc, dr)), closed: true });
     await persist(true); await gDone({ ...g, draft: w }, "approved");
     toast(`${g.guestName} taslağı onaylandı ve ${doc.sessions.length}. denetim olarak eklendi.`); return true;
   };
@@ -967,7 +969,7 @@ function bind(v, c) {
   });
   on("[data-fxdel]", async el => {
     const { s, id, j, fk } = fxSess(el.dataset.fxdel); if (!s?.fixed?.[fk]) return;
-    const { confirmBox } = await import("./ui.js?v=20261110g");
+    const { confirmBox } = await import("./ui.js?v=20261110h");
     if (!(await confirmBox("Aksiyon kaldırılsın mı?", "Aksiyon bilgisi silinir; bulgu yeniden cezaya sayılır.", "Evet, kaldır", true))) return;
     const old = s.fixed[fk], oldOff = s.fixedOff?.[fk]; delete s.fixed[fk];
     // Otomatik (görev takip) aksiyon elle kaldırıldıysa, aynı kapanış için yeniden otomatik eklenmesin

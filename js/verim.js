@@ -1,11 +1,11 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261110g";
-import { esc } from "./ui.js?v=20261110g";
-import { bandOf, DEFAULT_PARAMS, num, isgMonth, makTier, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261110g";
-import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261110g";
-import { CATS } from "./isgcats.js?v=20261110g";
-import * as Gorev from "./gorev.js?v=20261110g";
-import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261110g";
+import * as S from "./store.js?v=20261110h";
+import { esc } from "./ui.js?v=20261110h";
+import { bandOf, DEFAULT_PARAMS, num, isgMonth, makTier, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261110h";
+import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261110h";
+import { CATS } from "./isgcats.js?v=20261110h";
+import * as Gorev from "./gorev.js?v=20261110h";
+import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261110h";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
