@@ -1,10 +1,10 @@
 // Bulgu paylaşımı: yetkili, seçtiği bölümlerin açık bulgularını seçtiği misafirlerle paylaşır; misafir kendi ekranında görür ve
 // mevcut "Aksiyon bildir" akışıyla aksiyon alır (yetkili onayı mevcut Aksiyon bildirimleri panelinde).
 // Puan kuralı mevcut sistemdeki gibi: aksiyonun gönderim zamanı denetim haftası içindeyse (en geç cumartesi) ve yetkili kabul ederse puana işlenir.
-import * as S from "./store.js?v=20261110l";
-import { esc, ic, toast, confirmBox, compressImage, showPhoto, GUEST, pickDate, fmtTarih } from "./ui.js?v=20261110l";
-import * as Guest from "./guest.js?v=20261110l";
-import { CATS } from "./isgcats.js?v=20261110l";
+import * as S from "./store.js?v=20261110n";
+import { esc, ic, toast, confirmBox, compressImage, showPhoto, GUEST, pickDate, fmtTarih } from "./ui.js?v=20261110n";
+import * as Guest from "./guest.js?v=20261110n";
+import { CATS } from "./isgcats.js?v=20261110n";
 
 const pad = n => String(n).padStart(2, "0"), iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const addDays = (s, n) => { const d = new Date(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10)); d.setDate(d.getDate() + n); return iso(d); };
@@ -17,10 +17,10 @@ const IB = "flex:0 0 40px;width:40px;height:40px;padding:0;display:grid;place-it
 
 // Bir bölüm kaydındaki açık (aksiyonu kabul edilmemiş) bulgu sayısı ve son denetim haftasının cumartesisi
 export function openInfo(doc) {
-  let n = 0, last = "";
+  let n = 0, last = ""; const zs = new Set(); // aynı zincirdeki açık bulgular tek sayılır
   for (const s of doc?.sessions || []) {
     if (s.date && s.date > last) last = s.date;
-    for (const [id, arr] of Object.entries(s.fails || {})) (arr || []).forEach((t, j) => { if (!t) return; const f = s.fixed?.[id + "|" + j]; if (!(f && f.t === t && f.st === "ok")) n++; });
+    for (const [id, arr] of Object.entries(s.fails || {})) (arr || []).forEach((t, j) => { if (!t) return; const k = id + "|" + j, f = s.fixed?.[k]; if (!(f && f.t === t && f.st === "ok")) { const z = s.zk?.[k] || s.bk?.[k]; if (z) { if (zs.has(z)) return; zs.add(z); } n++; } });
   }
   return { n, cut: last ? addDays(monOf(last), 5) : "" };
 }

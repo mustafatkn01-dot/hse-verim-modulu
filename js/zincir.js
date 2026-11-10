@@ -12,19 +12,19 @@ const KEY = (id, j) => id + "|" + j;
 // Yeni kaydedilen denetimin (rec) bulgularına kimlik verir. Aynı denetim düzenleniyorsa (old) mevcut kimlikler korunur:
 // madde başına bulgu sayısı değişmediyse sırayla, değiştiyse birebir aynı metinle eşleşenler eski kimliğini alır.
 export function assignIds(rec, old = null, syn = null) {
-  const bk = {}, zk = {};
+  const bk = {}, zk = {}, rk = {};
   for (const [id, arr0] of Object.entries(rec.fails || {})) {
     const arr = arr0 || [], prev = old?.fails?.[id] || [], used = new Set();
     arr.forEach((t, j) => {
       let k = -1;
       if (prev.length === arr.length) k = j;
       else k = prev.findIndex((p, i) => !used.has(i) && String(p).trim() === String(t).trim());
-      if (k >= 0 && old?.bk?.[KEY(id, k)]) { used.add(k); bk[KEY(id, j)] = old.bk[KEY(id, k)]; if (old.zk?.[KEY(id, k)]) zk[KEY(id, j)] = old.zk[KEY(id, k)]; }
+      if (k >= 0 && old?.bk?.[KEY(id, k)]) { used.add(k); bk[KEY(id, j)] = old.bk[KEY(id, k)]; if (old.zk?.[KEY(id, k)]) zk[KEY(id, j)] = old.zk[KEY(id, k)]; if (old.rk?.[KEY(id, k)]) rk[KEY(id, j)] = old.rk[KEY(id, k)]; }
       else if (k >= 0 && old && syn) bk[KEY(id, j)] = syn(KEY(id, k)); // kimliksiz eski kayıt: zincirde kullanılan geçici anahtar korunur
       else bk[KEY(id, j)] = newId("b");
     });
   }
-  rec.bk = bk; rec.zk = zk;
+  rec.bk = bk; rec.zk = zk; if (Object.keys(rk).length) rec.rk = rk; else delete rec.rk;
   return rec;
 }
 // Eski kayıtlarda kimliği olmayan bulgulara kimlik verir (kayıt değiştiyse true döner)

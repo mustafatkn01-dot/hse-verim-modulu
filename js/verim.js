@@ -1,11 +1,12 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261110l";
-import { esc } from "./ui.js?v=20261110l";
-import { bandOf, DEFAULT_PARAMS, num, isgMonth, makTier, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261110l";
-import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261110l";
-import { CATS } from "./isgcats.js?v=20261110l";
-import * as Gorev from "./gorev.js?v=20261110l";
-import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261110l";
+import * as S from "./store.js?v=20261110n";
+import { esc } from "./ui.js?v=20261110n";
+import { bandOf, DEFAULT_PARAMS, num, isgMonth, makTier, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261110n";
+import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261110n";
+import { CATS } from "./isgcats.js?v=20261110n";
+import * as Gorev from "./gorev.js?v=20261110n";
+import * as Z from "./zincir.js?v=20261110n";
+import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261110n";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -26,6 +27,7 @@ export async function load(st, setup) {
   const rows = setup.rows, out = {};
   rows.forEach(r => { out[r.id] = Array.from({ length: 12 }, () => [null, null, null, null]); });
   const [kz, kn, ib, ig] = await Promise.all(["kaza", "konusma", "isbasi", "isg"].map(c => S.listMonthDocs(st.fid, st.year, c)));
+  const igPrev = await S.listMonthDocs(st.fid, +st.year - 1, "isg").catch(() => []); // yıl sınırını geçen bulgu zincirleri için
   const num0 = x => (typeof x === "number" && isFinite(x) ? x : null);
   const put = (docs, k, pick) => docs.forEach(d => {
     const m = parseInt(String(d.id).slice(0, 2), 10) - 1; if (!(m >= 0 && m < 12) || !d.result) return;
@@ -39,6 +41,22 @@ export async function load(st, setup) {
     rows.forEach(r => { const x = d.result.per?.[r.id]; if (x) out[r.id][m][k] = num0(pick(x, m)); });
   });
   put(kz, 0, x => x.verim); put(kn, 1, (x, m) => konusmaPct(x, st.year, m + 1)); put(ib, 2, x => (x.state === "ok" ? x.verim : null)); put(ig, 3);
+  // Bulgu zincirleri (bölüm bazlı; önceki yıl dahil): rapor ve tablo zinciri tek bulgu olarak gösterir
+  const ZI = new Map(), ZL = new Map(), zdocs = new Map();
+  [[+st.year - 1, igPrev], [+st.year, ig]].forEach(([y, docs]) => docs.forEach(d => { const id = String(d.id).slice(3), m = parseInt(String(d.id).slice(0, 2), 10); if (!d.sessions?.length || !(m >= 1 && m <= 12)) return; if (!zdocs.has(id)) zdocs.set(id, []); zdocs.get(id).push({ year: y, month: m, doc: d }); }));
+  for (const [dept, docs] of zdocs) { try {
+    const links = Z.linksOf(docs), chains = Z.chainsOf(links), cm = new Map(chains.map(c => [c.zk, c]));
+    const sessOf = l => docs.find(x => x.year === l.y && x.month === l.m)?.doc.sessions.find(x => x.no === l.no), docOf = l => docs.find(x => x.year === l.y && x.month === l.m)?.doc;
+    for (const c of chains) {
+      const key = dept + "|" + c.zk; c.links.forEach(l => ZL.set(`${l.y}|${l.m}|${l.no}|${l.id}|${l.j}`, key));
+      const dates = [...new Set(c.links.map(l => l.date).filter(Boolean))].sort(), fs = sessOf(c.first), fd = docOf(c.first);
+      const pics = [], seen = new Set(); c.links.forEach(l => ((sessOf(l)?.photos || {})[l.id + "|" + l.j] || []).forEach(ph => { if (!seen.has(ph.id)) { seen.add(ph.id); pics.push({ ...ph, d: l.date }); } }));
+      const cl = c.links.filter(l => l.f && l.f.st === "ok" && (l.f.tx || "").trim() && (l.f.via || l.f.t === l.t)).sort((a, b) => (b.f.ap || b.f.rat || b.f.at || 0) - (a.f.ap || a.f.rat || a.f.at || 0))[0];
+      let rep = null; for (const l of c.links) { const rz = sessOf(l)?.rk?.[l.id + "|" + l.j], old = rz && cm.get(rz); if (old && old.closedAt) { const dd = new Date(old.closedAt); rep = { closed: `${dd.getFullYear()}-${pad(dd.getMonth() + 1)}-${pad(dd.getDate())}`, again: l.date }; break; } }
+      ZI.set(key, { n: c.links.length, dates, firstDate: c.first.date || "", first: c.first, open: c.open, due: fs?.due || fd?.due || "", pics, rep,
+        fx: !c.open && cl ? { tx: cl.f.tx.trim(), ph: (cl.f.ph || []).map(ph => ({ ...ph })), at: cl.f.ap || cl.f.rat || cl.f.at || 0 } : null, closedAt: c.closedAt || 0 });
+    }
+  } catch { } }
   // Kullanıcının girdiği açıklamalar (bölüm · ay · modül)
   const p = setup.params || DEFAULT_PARAMS, notes = [], mOf = d => parseInt(String(d.id).slice(0, 2), 10) - 1, low = x => x !== null && ["Orta", "Kritik"].includes(bandOf(x, p));
   const nt = (d, id) => String(d.rows?.[id]?.note || "").trim();
@@ -53,10 +71,11 @@ export async function load(st, setup) {
         const ph0 = (se.photos || {})[key + "|" + j] || [], bs = e.by[se.no] || (e.by[se.no] = { no: se.no, m: mOf(d), rs: (se.resp || d.resp || []).map(r => r.name).join(", "), du: se.due || d.due || "", date: se.date || "", pics: [], gk: k ? Gorev.noteKey("d", st.fid, st.year, mOf(d) + 1, id, `${key}_${se.no}`, k, L.slice(0, j).filter(x => String(x || "").trim() === k).length) : "" });
         ph0.forEach(ph => { if (!e.pics.some(x => x.id === ph.id)) e.pics.push(ph); if (!bs.pics.some(x => x.id === ph.id)) bs.pics.push(ph); });
         const fxo = (se.fixed || {})[key + "|" + j]; if (fxo && fxo.st === "ok" && fxo.t === k && (fxo.tx || "").trim()) bs.fx = { tx: fxo.tx.trim(), ph: (fxo.ph || []).map(ph => ({ ...ph })), at: fxo.at || 0 };
+        const zkey = ZL.get(`${st.year}|${mOf(d) + 1}|${se.no}|${key}|${j}`); if (zkey) bs.z = zkey;
         o.list.set(k, e); }); }));
     Object.entries(items).forEach(([key, o]) => { const mm = /^c(\d+)i(\d+)$/.exec(key); if (!mm) return; const c = CATS[+mm[1]]; if (!c) return;
       [...o.list.entries()].forEach(([t, e]) => notes.push({ m: mOf(d), k: 3, id, cat: c.name, t: `${c.name}: ${t || c.items[+mm[2]]}`, x: `${e.c} denetimde uygunsuz`, pics: e.pics, by: e.by })); }); });
-  out._n = notes;
+  out._n = notes; out._z = ZI;
   out._i = ig.map(d => ({ m: parseInt(String(d.id).slice(0, 2), 10), id: String(d.id).slice(3), sessions: d.sessions || [], freq: d.freq, bonus: d.bonus }));
   out._s = {}; ig.forEach(d => { const id = String(d.id).slice(3); (d.sessions || []).forEach(se => { if (se?.date) (out._s[id] ||= []).push(se.date); }); });
   return out;
@@ -191,7 +210,7 @@ function draw() {
   const details = [0, 1, 2, 3].map(k => ({ mod: MODN[k], items: sel.filter(n => n.k === k).map(n => ({ dept: rows[rowIx[n.id]].name, text: n.t, cat: n.cat || "", extra: n.x, pics: n.pics || [], by: n.by || null, mon: cur.idx.length > 1 ? MS[n.m] : "" })) })).filter(g => g.items.length);
   const detHtml = `<div style="border-top:1px solid var(--line);padding-top:16px;display:flex;flex-direction:column;gap:12px"><div style="font-weight:800;font-size:13px;letter-spacing:.8px;color:var(--muted)">BÖLÜM AÇIKLAMALARI <span style="font-weight:600;letter-spacing:0">· denetim ve eğitim kayıtlarında yazılanlar</span></div>
     ${details.length ? details.map(g => `<div class="col1" style="gap:6px">${mk === 4 ? `<div style="font-weight:800;color:#145F96">${g.mod}</div>` : ""}${g.items.map((a, i) => `<div style="display:flex;gap:10px;line-height:1.55"><span style="flex:0 0 22px;font-weight:800;color:#0B6E4F">${i + 1}.</span><span>${a.mon ? `<span class="muted">${a.mon} · </span>` : ""}<b>${esc(a.dept)}</b> — ${a.cat && a.text.startsWith(a.cat + ": ") ? `<i style="color:#C4453A;font-weight:600">${esc(a.cat)}:</i> ${esc(a.text.slice(a.cat.length + 2))}` : esc(a.text)} <span class="muted" style="white-space:nowrap">· ${esc(a.extra)}</span></span></div>`).join("")}</div>`).join("") : `<div class="muted">Bu dönem için girilmiş açıklama yok.</div>`}</div>`;
-  const info = { fid: st.fid, year: st.year, details, mk4: mk === 4, fname: st.factories.find(f => f.id === st.fid)?.name || "", title: `${MET[mk][0]} · Bölüm Karşılaştırması`, plabel: plab, av, abn: bname(av), ab, names: crows.map(r => r.name), vals, weekFor: wk ? weekFor : null, nullLabel: mk === 3 ? (wmode ? "Denetlenmedi" : "Denetim yok") : "", wkKey: wmode ? wk : null, bandOf: x => (x === null ? NONE : band(x)), notes, partial: partial && !wmode ? `Kısmi dönem: ${cur.idx.length} aydan ${have} tanesi için veri var. Değerler mevcut aylar üzerinden hesaplandı.` : "", esik: p.esik };
+  const info = { fid: st.fid, year: st.year, zi: V.data._z || new Map(), details, mk4: mk === 4, fname: st.factories.find(f => f.id === st.fid)?.name || "", title: `${MET[mk][0]} · Bölüm Karşılaştırması`, plabel: plab, av, abn: bname(av), ab, names: crows.map(r => r.name), vals, weekFor: wk ? weekFor : null, nullLabel: mk === 3 ? (wmode ? "Denetlenmedi" : "Denetim yok") : "", wkKey: wmode ? wk : null, bandOf: x => (x === null ? NONE : band(x)), notes, partial: partial && !wmode ? `Kısmi dönem: ${cur.idx.length} aydan ${have} tanesi için veri var. Değerler mevcut aylar üzerinden hesaplandı.` : "", esik: p.esik };
   // ---- Açılır kartlar (varsayılan kapalı) ----
   const OP = V.op || (V.op = {});
   const fold = (box, head, key, clickEl) => {
@@ -292,27 +311,41 @@ async function printSheet(info, { size, orient, pics = false, file = false, scop
   await Gorev.whenReady().catch(() => { });
   const done = gk => !!gk && Gorev.linked() && Gorev.durumOf(gk)?.durum === "kapali";
   // İSG açıklamaları: seçilen kapsama göre denetim bazlı bloklar (her blok kendi numarasıyla başlar)
+  // Bulgu zinciri: aynı zincir seçilen kapsamda ilk göründüğü haftada tam, sonraki haftalarda kısa gönderme satırı olarak yer alır
+  const ZI = info.zi || new Map(), seenZ = new Map();
+  const zItem = (it, b, w) => { const base = { ...it, pics: b.pics, fx: b.fx, extra: "", done: done(b.gk), mon: "", bm: b.m, rs: b.rs, du: b.du }, c = b.z && ZI.get(b.z);
+    if (!c) return base;
+    if (seenZ.has(b.z)) return { ...base, ref: { wk: seenZ.get(b.z), open: c.open, at: c.fx?.at || c.closedAt || 0 } };
+    seenZ.set(b.z, String(w.label).split(" · ")[0]);
+    if (c.n < 2) return c.rep ? { ...base, z: c } : base;
+    return { ...base, z: c, pics: c.pics.length ? c.pics : base.pics, fx: c.open ? null : (c.fx || base.fx), du: c.due || base.du, bm: c.first.y === +info.year ? c.first.m - 1 : base.bm }; };
   let DET = info.details;
   const sl = info.sess || [], sc = scope || "all";
   if (sl.length) {
     const want = sc === "all" ? sl : sl.filter(x => sc === "s:" + x.k || sc === "last:" + x.k);
-    DET = info.details.flatMap(g => g.mod !== "İSG Denetim" ? [g] : want.map(w => ({ mod: g.mod, sub: w.label, items: g.items.flatMap(it => Object.values(it.by || {}).filter(b => info.wkOf(b) === w.k).map(b => ({ ...it, pics: b.pics, fx: b.fx, extra: "", done: done(b.gk), mon: "", bm: b.m, rs: b.rs, du: b.du }))) })).filter(x => x.items.length));
+    DET = info.details.flatMap(g => g.mod !== "İSG Denetim" ? [g] : want.map(w => ({ mod: g.mod, sub: w.label, items: g.items.flatMap(it => Object.values(it.by || {}).filter(b => info.wkOf(b) === w.k).map(b => zItem(it, b, w))) })).filter(x => x.items.length));
   }
   // Paylaşım bilgisi (sorumlu · termin): bölüm adı + ay ile eşleşen en yeni paylaşım
   const SH = trow || ttab ? await S.listShares(info.fid, info.year).catch(() => []) : [];
   const shOf = a => SH.find(x => +x.month === +a.bm + 1 && (x.depts || []).some(d => d.name === a.dept));
   const fdm = t => new Date(t + "T00:00:00").toLocaleDateString("tr-TR", { day: "numeric", month: "long" }), todayIso = new Date().toISOString().slice(0, 10);
+  const isoMs = ms => { const d = new Date(ms); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+  const zd = (t, yr) => `${t.slice(8, 10)}.${t.slice(5, 7)}${yr ? "." + t.slice(0, 4) : ""}`;
+  const zYr = c => new Set(c.dates.map(x => x.slice(0, 4))).size > 1;
+  const zLine = a => { const c = a.z; if (!c) return ""; const yr = zYr(c);
+    return (c.n > 1 ? `<div style="margin-top:3px;font-size:11px;color:#145F96;font-weight:700">Tespit: ${c.dates.map(x => zd(x, yr)).join(" · ")} (${c.n} denetim)</div>` : "")
+      + (c.rep ? `<div style="margin-top:3px;font-size:11px;color:#B3261E;font-weight:700">Tekrarlayan · ${zd(c.rep.closed, true)} tarihinde kapanmıştı, ${zd(c.rep.again, true)} tarihinde yeniden yazıldı</div>` : ""); };
   // Sorumlu yalnızca denetim kaydında seçilen kişidir; paylaşılan kişiler otomatik sorumlu sayılmaz
   const whoOf = (sh, a) => a?.rs || "";
   const dueOf = (sh, a) => sh?.termin || a?.du || "";
-  const takipRow = a => { if (!trow) return ""; const sh = shOf(a); return `<div style="margin-top:3px;font-size:11px;color:#546964;font-style:italic">Sorumlu: <b style="font-style:normal;color:#3E534E">${esc(whoOf(sh, a) || "-")}</b> · Termin: <b style="font-style:normal;color:#3E534E">${dueOf(sh, a) ? fdm(dueOf(sh, a)) : "-"}</b></div>`; };
-  const takipAll = () => ttab ? DET.filter(g => g.mod === "İSG Denetim").flatMap(g => g.items) : [];
+  const takipRow = a => { if (!trow) return ""; const sh = shOf(a); return `<div style="margin-top:3px;font-size:11px;color:#546964;font-style:italic">Sorumlu: <b style="font-style:normal;color:#3E534E">${esc(whoOf(sh, a) || "-")}</b> · Termin: <b style="font-style:normal;color:#3E534E">${dueOf(sh, a) ? fdm(dueOf(sh, a)) : "-"}</b>${a.z && a.z.n > 1 && a.z.firstDate ? ` (ilk tespit ${fdm(a.z.firstDate)})` : ""}</div>`; };
+  const takipAll = () => ttab ? DET.filter(g => g.mod === "İSG Denetim").flatMap(g => g.items).filter(a => !a.ref) : [];
   // Takip tablosu: satır listesi verilirse yalnızca o satırlar (sayfalara bölünebilir); devam sayfasında başlık "(devam)"
   const takipTable = (list, cont = false) => { const rows = list || takipAll();
     if (!rows.length) return ""; const all = takipAll(), bd = "1px solid #B9C9C3", th = `padding:6px 6px;text-align:left;font-size:10.5px;font-weight:800;color:#10201C;background:#EAF1EE;border:${bd}`, td = `padding:5px 6px;border:${bd};vertical-align:top;font-size:11px;line-height:1.4;word-break:break-word`;
     return `<div style="border-top:1px solid #D5E0DC;padding-top:10px;display:flex;flex-direction:column;gap:5px"><div style="font-weight:800;font-size:12px;letter-spacing:.8px;color:#10201C;-webkit-text-stroke:.3px #10201C">BULGU TERMİN TAKİP TABLOSU${cont ? " (devam)" : ""}</div>
       <table style="border-collapse:collapse;width:100%;table-layout:fixed"><colgroup><col style="width:38px"><col style="width:70px"><col><col style="width:100px"><col style="width:66px"><col style="width:104px"></colgroup><tr><th style="${th};text-align:center">S.No</th><th style="${th}">Bölüm</th><th style="${th}">Bulgu</th><th style="${th}">Sorumlu</th><th style="${th}">Termin</th><th style="${th}">Durum</th></tr>${rows.map(a => { const sh = shOf(a), dn = !!a.fx, tm = dueOf(sh, a), lt = !dn && tm && tm < todayIso, cl = dn ? "#0B6E4F" : "#B3261E";
-      return `<tr style="break-inside:avoid"><td style="${td};text-align:center;font-weight:800;color:#0B6E4F">${all.indexOf(a) + 1}</td><td style="${td}">${esc(a.dept)}</td><td style="${td}">${esc(a.cat && a.text.startsWith(a.cat + ": ") ? a.text.slice(a.cat.length + 2) : a.text)}</td><td style="${td}">${esc(whoOf(sh, a) || "-")}</td><td style="${td};white-space:nowrap">${tm ? fdm(tm) : "-"}</td><td style="${td};white-space:nowrap;font-weight:700;color:${cl}"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${cl};margin-right:6px"></span>${dn ? "Aksiyon alındı" : lt ? "Gecikti" : "Açık"}</td></tr>`; }).join("")}</table></div>`; };
+      return `<tr style="break-inside:avoid"><td style="${td};text-align:center;font-weight:800;color:#0B6E4F">${all.indexOf(a) + 1}</td><td style="${td}">${esc(a.dept)}</td><td style="${td}">${esc(a.cat && a.text.startsWith(a.cat + ": ") ? a.text.slice(a.cat.length + 2) : a.text)}${a.z && a.z.n > 1 ? `<div style="font-size:10px;color:#145F96;font-weight:700">İlk tespit ${zd(a.z.firstDate, zYr(a.z))} · ${a.z.n} denetim</div>` : ""}${a.z?.rep ? `<div style="font-size:10px;color:#B3261E;font-weight:700">Tekrarlayan</div>` : ""}</td><td style="${td}">${esc(whoOf(sh, a) || "-")}</td><td style="${td};white-space:nowrap">${tm ? fdm(tm) : "-"}</td><td style="${td};white-space:nowrap;font-weight:700;color:${cl}"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${cl};margin-right:6px"></span>${dn ? "Aksiyon alındı" : lt ? "Gecikti" : "Açık"}</td></tr>`; }).join("")}</table></div>`; };
   const usePics = pics && DET.some(g => g.items.some(i => i.pics?.length || i.fx?.ph?.length)), PH = {};
   if (usePics) await Promise.all(DET.flatMap(g => g.items.flatMap(i => [...(i.pics || []), ...(i.fx?.ph || [])])).map(async p => { try { PH[p.id] = await S.getPhoto(info.fid, info.year, p.id); } catch { } }));
   const psz = file ? 227 : Math.round(227 / z); // 6 cm yükseklik
@@ -321,11 +354,12 @@ async function printSheet(info, { size, orient, pics = false, file = false, scop
   const col = (l, list, c) => `<div style="display:flex;flex-direction:column;gap:3px"><span style="font-size:10.5px;font-weight:800;letter-spacing:.6px;color:${c}">${l}</span><div style="display:flex;flex-wrap:wrap;gap:8px">${list.map(im).join("")}</div></div>`;
   // Aksiyon alındı: kişi adı yazılmaz; açıklama altında yeşil satır, resimlerde "aksiyon öncesi" ve yanında "aksiyon sonrası"
   const fxHtml = a => a.fx ? `<div style="display:flex;gap:8px;align-items:flex-start;margin-top:4px;padding:6px 10px;border-radius:6px;border-left:4px solid #0B6E4F;background:#EAF7F1"><span style="flex:0 0 16px;width:16px;height:16px;border-radius:4px;background:#0B6E4F;display:inline-flex;align-items:center;justify-content:center;margin-top:1px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12l5 5L20 6"/></svg></span><span><b style="color:#0B6E4F">Aksiyon alındı</b>${a.fx.at ? ` <span style="color:#546964;white-space:nowrap">· ${fxD(a.fx.at)}</span>` : ""}<br>${esc(a.fx.tx)}</span></div>` : "";
-  const picsHtml = a => takipRow(a) + fxHtml(a) + (usePics && a.fx && (a.pics?.length || a.fx.ph.length) ? `<div style="display:flex;flex-wrap:wrap;gap:14px;margin-top:6px">${a.pics?.length ? col("AKSİYON ÖNCESİ", a.pics, "#B3261E") : ""}${a.fx.ph.length ? col("AKSİYON SONRASI", a.fx.ph, "#0B6E4F") : ""}</div>` : usePics && a.pics?.length ? `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">${a.pics.map(im).join("")}</div>` : "");
+  const zLab = (a, ds) => { if (!(a.z && a.z.n > 1)) return ""; const d = [...new Set(ds.filter(Boolean))].sort(); return !d.length ? "" : d.length === 1 ? ` (${zd(d[0], zYr(a.z))})` : ` (${zd(d[0], zYr(a.z))}–${zd(d[d.length - 1], zYr(a.z))})`; };
+  const picsHtml = a => takipRow(a) + fxHtml(a) + (usePics && a.fx && (a.pics?.length || a.fx.ph.length) ? `<div style="display:flex;flex-wrap:wrap;gap:14px;margin-top:6px">${a.pics?.length ? col("AKSİYON ÖNCESİ" + zLab(a, a.pics.map(p => p.d)), a.pics, "#B3261E") : ""}${a.fx.ph.length ? col("AKSİYON SONRASI" + zLab(a, a.fx.at ? [isoMs(a.fx.at)] : []), a.fx.ph, "#0B6E4F") : ""}</div>` : usePics && a.pics?.length ? `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">${a.pics.map(im).join("")}</div>` : "");
   const sh = document.createElement("div"); sh.id = "psheet";
   const FONT = "font-family:Manrope,system-ui,sans-serif;color:#10201C;display:flex;flex-direction:column;gap:14px;font-size:13px";
   const items = [];
-  DET.forEach((g, gi) => g.items.forEach((a, i) => items.push({ gi, mod: g.mod, sub: g.sub, html: `<div data-brk style="display:flex;gap:8px;line-height:1.45;font-size:12px;break-inside:avoid"><span style="flex:0 0 20px;font-weight:800;color:#0B6E4F">${i + 1}.</span><span>${a.mon ? `<span style="color:#546964">${a.mon} · </span>` : ""}<b>${esc(a.dept)}</b> — ${a.cat && a.text.startsWith(a.cat + ": ") ? `<i style="color:#C4453A;font-weight:600">${esc(a.cat)}:</i> ${esc(a.text.slice(a.cat.length + 2))}` : esc(a.text)}${a.done ? ` <span style="color:#8A9A95;font-style:italic">(görev tamamlandı)</span>` : ""}${a.extra ? ` <span style="color:#546964">· ${esc(a.extra)}</span>` : ""}${picsHtml(a)}</span></div>` })));
+  DET.forEach((g, gi) => g.items.forEach((a, i) => items.push({ gi, mod: g.mod, sub: g.sub, html: a.ref ? `<div data-brk style="display:flex;gap:8px;line-height:1.45;font-size:12px;break-inside:avoid"><span style="flex:0 0 20px;font-weight:800;color:#0B6E4F">${i + 1}.</span><span style="color:#8A9A95;font-style:italic">${esc(a.cat && a.text.startsWith(a.cat + ": ") ? a.text.slice(a.cat.length + 2) : a.text)} · ${esc(a.ref.wk)} bulgusunun devamı, ${a.ref.open || !a.ref.at ? "hâlâ açık" : zd(isoMs(a.ref.at), false) + " tarihinde aksiyonla kapandı"}</span></div>` : `<div data-brk style="display:flex;gap:8px;line-height:1.45;font-size:12px;break-inside:avoid"><span style="flex:0 0 20px;font-weight:800;color:#0B6E4F">${i + 1}.</span><span>${a.mon ? `<span style="color:#546964">${a.mon} · </span>` : ""}<b>${esc(a.dept)}</b> — ${a.cat && a.text.startsWith(a.cat + ": ") ? `<i style="color:#C4453A;font-weight:600">${esc(a.cat)}:</i> ${esc(a.text.slice(a.cat.length + 2))}` : esc(a.text)}${a.done ? ` <span style="color:#8A9A95;font-style:italic">(görev tamamlandı)</span>` : ""}${a.extra ? ` <span style="color:#546964">· ${esc(a.extra)}</span>` : ""}${a.ref ? "" : zLine(a) + picsHtml(a)}</span></div>` })));
   const group = list => { let out = "", cur = -1; list.forEach(e => { if (e.gi !== cur) { if (cur !== -1) out += "</div>"; cur = e.gi; out += `<div style="display:flex;flex-direction:column;gap:4px">${e.sub ? `<div style="font-weight:800;color:#145F96">${info.mk4 ? esc(e.mod) : "Açıklamalar"} <span style="font-weight:400;font-style:italic;color:#8A9A95">(${esc(e.sub)})</span></div>` : info.mk4 ? `<div style="font-weight:800;color:#145F96">${esc(e.mod)}</div>` : ""}`; } out += e.html; }); return out + (cur !== -1 ? "</div>" : ""); };
   const descBox = inner => `<div style="border-top:1px solid #D5E0DC;padding-top:10px;display:flex;flex-direction:column;gap:5px">${DET.some(g => g.sub) && !info.mk4 ? "" : `<div style="font-weight:800;font-size:12px;letter-spacing:.8px;color:#3E534E">AÇIKLAMA</div>`}${inner}</div>`;
   const NONE = `<div style="color:#546964">Bu dönem için girilmiş açıklama yok.</div>`;
