@@ -3,8 +3,8 @@
 //   users/{sahip}/invites/{kod}        davet (e-posta ayarı kopyası)
 //   users/{sahip}/guestReqs/{misafirUid}  onay isteği {gid, code, name, unit, status, at}
 //   users/{sahip}/members/{misafirUid}    onaylı üye {name, unit, factories[], mode, expires|null}
-import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously, signInWithEmailAndPassword, createAuxUser, changeAuxPassword, serverTimestamp } from "./firebase.js?v=20261110b";
-import { esc, toast, confirmBox } from "./ui.js?v=20261110b";
+import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously, signInWithEmailAndPassword, createAuxUser, changeAuxPassword, serverTimestamp } from "./firebase.js?v=20261110c";
+import { esc, toast, confirmBox } from "./ui.js?v=20261110c";
 
 const Q = new URLSearchParams(location.search);
 export const linkInfo = () => {
@@ -225,7 +225,7 @@ const newPid = taken => { // 6 hane, serbest dizilim; en az 2 harf ve en az 2 ra
 };
 // Önceki kayıtları bul: kişi kaydı (ID) + adı eşleşen, sahibi artık üye olmayan (sahipsiz) taslaklar
 async function findPrev(o, name, gid) {
-  const S = await import("./store.js?v=20261110b"), n = normName(name);
+  const S = await import("./store.js?v=20261110c"), n = normName(name);
   const people = (await loadPeople(o)).filter(p => p.norm === n);
   const mems = await getDocs(collection(db, `users/${o}/members`)).then(s => new Set(s.docs.map(d => d.id))).catch(() => new Set());
   const uids = new Set(); people.forEach(p => (p.uids || []).forEach(u => { if (u !== gid && !mems.has(u)) uids.add(u); }));
@@ -239,7 +239,7 @@ async function findPrev(o, name, gid) {
   return { person: people[0] || null, pid: people[0]?.id || null, uids, count };
 }
 async function migrateGuest(oldUids, newUid, name) {
-  const S = await import("./store.js?v=20261110b"); let n = 0;
+  const S = await import("./store.js?v=20261110c"); let n = 0;
   for (const f of await S.listFactories()) for (const y of await S.listYears(f.id)) for (const c of GCOLLS) {
     const all = await S.listMonthDocs(f.id, y, c), ids = new Set(all.map(d => d.id));
     for (const d of all) {
@@ -326,7 +326,15 @@ export async function renderSettings(box, { ownerUid, factories, onChange, scope
       const np = newPid(taken); taken.add(np); const { id, ...rest } = p;
       try { await setDoc(PPL(ownerUid, np), rest); await deleteDoc(PPL(ownerUid, id)); for (const m of mems) if (m.pid === id) { await updateDoc(MEM(ownerUid, m.id), { pid: np }); m.pid = np; } p.id = np; } catch {} }
     for (const m of mems) if (!m.pid) { const n = normName(m.name), ex = ppl.find(p => p.norm === n); const pid = ex?.id || newPid(taken); taken.add(pid);
-      try { await setDoc(PPL(ownerUid, pid), { name: m.name, norm: n, unit: m.unit || "", createdAt: ex?.createdAt || Date.now(), uids: [...new Set([...(ex?.uids || []), m.id])] }); await updateDoc(MEM(ownerUid, m.id), { pid }); m.pid = pid; } catch {} } }
+      try { await setDoc(PPL(ownerUid, pid), { name: m.name, norm: n, unit: m.unit || "", createdAt: ex?.createdAt || Date.now(), uids: [...new Set([...(ex?.uids || []), m.id])] }); await updateDoc(MEM(ownerUid, m.id), { pid }); m.pid = pid; } catch {} } 
+    // Aynı ad soyadlı birden fazla kişi kaydı varsa (ör. ortak bağlantı + kişiye özel davet) en eski ID'de birleştir
+    const grp = new Map(); for (const p of (await loadPeople(ownerUid))) { if (!p.norm) continue; (grp.get(p.norm) || grp.set(p.norm, []).get(p.norm)).push(p); }
+    const pins0 = await getDocs(collection(db, `users/${ownerUid}/pinvites`)).then(s => s.docs.map(d => ({ id: d.id, ...d.data() }))).catch(() => []);
+    for (const g of grp.values()) { if (g.length < 2) continue; g.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)); const [keep, ...dups] = g;
+      try { const uids = new Set(keep.uids || []);
+        for (const d of dups) { (d.uids || []).forEach(u => uids.add(u)); for (const m of mems) if (m.pid === d.id) { await updateDoc(MEM(ownerUid, m.id), { pid: keep.id }); m.pid = keep.id; uids.add(m.id); } for (const p of pins0) if (p.pid === d.id) await updateDoc(PIN(ownerUid, p.id), { pid: keep.id }); }
+        await setDoc(PPL(ownerUid, keep.id), { name: keep.name, norm: keep.norm, unit: keep.unit || "", createdAt: keep.createdAt || Date.now(), uids: [...uids] });
+        for (const d of dups) await deleteDoc(PPL(ownerUid, d.id)); } catch {} } }
   const inv0 = invs[0];
   if (inv0 && (cfg.ntfy || null) !== (inv0.ntfy || null)) { await updateDoc(doc(db, `users/${ownerUid}/invites/${inv0.id}`), { ntfy: cfg.ntfy || null }).catch(() => {}); inv0.ntfy = cfg.ntfy || null; }
   const inv = invs[0], link = inv ? `${location.origin}${location.pathname}?misafir=${ownerUid}.${inv.id}` : "";
