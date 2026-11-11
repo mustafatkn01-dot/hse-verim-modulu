@@ -1,7 +1,7 @@
 // Veri katmanı: users/{uid}/factories/{fid}/years/{yıl}/setup/main
-import { auth, db, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, updateDoc, query, orderBy, serverTimestamp, onSnapshot, FS } from "./firebase.js?v=20261111d";
-import { shrinkDataUrl } from "./ui.js?v=20261111d";
-import { setSurec } from "./scoring.js?v=20261111d";
+import { auth, db, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, updateDoc, query, orderBy, serverTimestamp, onSnapshot, FS } from "./firebase.js?v=20261111e";
+import { shrinkDataUrl } from "./ui.js?v=20261111e";
+import { setSurec } from "./scoring.js?v=20261111e";
 
 const uid = () => auth.currentUser.uid;
 // Veri sahibi: misafir kullanıcıda davet eden hesabın uid'si; kendi oturum/profil kayıtları ise her zaman kendi hesabında

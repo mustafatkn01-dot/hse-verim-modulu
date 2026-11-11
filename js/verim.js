@@ -1,12 +1,12 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261111d";
-import { esc } from "./ui.js?v=20261111d";
-import { bandOf, DEFAULT_PARAMS, num, isgMonth, makTier, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261111d";
-import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261111d";
-import { CATS } from "./isgcats.js?v=20261111d";
-import * as Gorev from "./gorev.js?v=20261111d";
-import * as Z from "./zincir.js?v=20261111d";
-import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261111d";
+import * as S from "./store.js?v=20261111e";
+import { esc } from "./ui.js?v=20261111e";
+import { bandOf, DEFAULT_PARAMS, num, isgMonth, makTier, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261111e";
+import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261111e";
+import { CATS } from "./isgcats.js?v=20261111e";
+import * as Gorev from "./gorev.js?v=20261111e";
+import * as Z from "./zincir.js?v=20261111e";
+import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261111e";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },

@@ -58,6 +58,20 @@ const same = (a, b) => { const m = Math.min(a.w.length, b.w.length); return a.st
 // Seviye: "guclu" (numara ortak + metin benzer) · "orta" · "zayif" · "farkli" (numaralar çelişiyor: önerilmez)
 // ctx (isteğe bağlı): bölüm geçmişindeki sözcük/numara sıklığı { n, df: Map }. Çok bulguda geçen numara (ör. hattın çapı "230")
 // ve sözcükler ayırt edici sayılmaz; benzerliği makine/yer adı gibi seyrek sözcükler belirler.
+// Sorun türü: bulgunun "ne eksik/yanlış" kısmı. Makine adı aynı olsa da sorun türü farklıysa bulgu farklıdır.
+const KIND = {
+  koruma: ["muhaf", "korum", "koruy", "kapak", "kapag", "sivic", "switc", "emniy", "perde", "kafes", "sokul", "sokum", "cikar", "cikart", "acikli", "bariy", "siper", "iptal", "bypas"],
+  tanim: ["tanim", "etike", "turkc", "yazi", "isaret", "levha", "uyari", "aciklama", "bilgi", "talima", "piktog"],
+  elektrik: ["kablo", "priz", "topra", "sigor", "elekt", "kacak", "izola", "fis"],
+  zemin: ["paspa", "tava", "dokul", "dokun", "sizin", "sizdi", "yag", "talas", "absor", "kiti", "kaygan", "kirli", "temiz", "cop", "atik"],
+  istif: ["palet", "istif", "malze", "balya", "urun", "yigil", "depol"],
+  yol: ["yaya", "forkl", "yol", "serit", "gecis", "cikis", "kacis", "engel"],
+  yangin: ["yangi", "tup", "dolab", "hidra", "sprin"],
+  kkd: ["kkd", "kulak", "gozlu", "eldiv", "baret", "maske", "ayakk", "yelek"],
+  kimya: ["kimya", "varil", "solve", "tiner", "boya", "msds"],
+};
+const KIND_E = Object.entries(KIND);
+function kinds(s) { const ws = fold(s).split(/[^a-z0-9]+/).filter(w => w.length >= 2), out = new Set(); for (const w of ws) for (const [k, list] of KIND_E) if (list.some(p => w.startsWith(p))) out.add(k); return out; }
 export function context(texts) {
   const df = new Map(); let n = 0;
   for (const t of texts) { if (!String(t || "").trim()) continue; n++; new Set([...nums(t).map(x => "#" + x), ...words(t).map(x => x.st)]).forEach(k => df.set(k, (df.get(k) || 0) + 1)); }
@@ -70,8 +84,10 @@ export function similarity(a, b, ctx = null) {
   const common = wa.filter(x => wb.some(y => same(x, y)));
   const den = Math.min(sum(wa), sum(wb)), ov = den ? sum(common) / den : 0;
   const cn = na.filter(n => nb.includes(n)), da = na.filter(n => !common_(ctx, "#" + n)), db = nb.filter(n => !common_(ctx, "#" + n)), cd = da.filter(n => db.includes(n));
+  const ka = kinds(a), kb = kinds(b);
   let level;
   if ((na.length && nb.length && !cn.length) || (da.length && db.length && !cd.length)) level = "farkli";
+  else if (ka.size && kb.size && ![...ka].some(x => kb.has(x))) level = "farkli"; // aynı makine olsa da sorun türü farklı (muhafaza ↔ buton tanımlama gibi)
   else if (cd.length) level = ov >= 0.34 ? "guclu" : "orta";
   else level = ov >= 0.65 ? "guclu" : ov >= 0.4 ? "orta" : "zayif";
   const score = level === "farkli" ? 0 : Math.min(1, ov * 0.7 + (cd.length ? 0.3 : 0));
