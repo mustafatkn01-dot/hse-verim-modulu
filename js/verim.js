@@ -1,12 +1,12 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261110n";
-import { esc } from "./ui.js?v=20261110n";
-import { bandOf, DEFAULT_PARAMS, num, isgMonth, makTier, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261110n";
-import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261110n";
-import { CATS } from "./isgcats.js?v=20261110n";
-import * as Gorev from "./gorev.js?v=20261110n";
-import * as Z from "./zincir.js?v=20261110n";
-import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261110n";
+import * as S from "./store.js?v=20261111b";
+import { esc } from "./ui.js?v=20261111b";
+import { bandOf, DEFAULT_PARAMS, num, isgMonth, makTier, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261111b";
+import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261111b";
+import { CATS } from "./isgcats.js?v=20261111b";
+import * as Gorev from "./gorev.js?v=20261111b";
+import * as Z from "./zincir.js?v=20261111b";
+import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261111b";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -48,7 +48,7 @@ export async function load(st, setup) {
     const links = Z.linksOf(docs), chains = Z.chainsOf(links), cm = new Map(chains.map(c => [c.zk, c]));
     const sessOf = l => docs.find(x => x.year === l.y && x.month === l.m)?.doc.sessions.find(x => x.no === l.no), docOf = l => docs.find(x => x.year === l.y && x.month === l.m)?.doc;
     for (const c of chains) {
-      const key = dept + "|" + c.zk; c.links.forEach(l => ZL.set(`${l.y}|${l.m}|${l.no}|${l.id}|${l.j}`, key));
+      const key = dept + "|" + c.zk; c.links.forEach(l => ZL.set(`${dept}|${l.y}|${l.m}|${l.no}|${l.id}|${l.j}`, key));
       const dates = [...new Set(c.links.map(l => l.date).filter(Boolean))].sort(), fs = sessOf(c.first), fd = docOf(c.first);
       const pics = [], seen = new Set(); c.links.forEach(l => ((sessOf(l)?.photos || {})[l.id + "|" + l.j] || []).forEach(ph => { if (!seen.has(ph.id)) { seen.add(ph.id); pics.push({ ...ph, d: l.date }); } }));
       const cl = c.links.filter(l => l.f && l.f.st === "ok" && (l.f.tx || "").trim() && (l.f.via || l.f.t === l.t)).sort((a, b) => (b.f.ap || b.f.rat || b.f.at || 0) - (a.f.ap || a.f.rat || a.f.at || 0))[0];
@@ -70,8 +70,8 @@ export async function load(st, setup) {
       L.forEach((t, j) => { const k = String(t || "").trim(), e = o.list.get(k) || { c: 0, pics: [], at: j, by: {} }; e.c++;
         const ph0 = (se.photos || {})[key + "|" + j] || [], bs = e.by[se.no] || (e.by[se.no] = { no: se.no, m: mOf(d), rs: (se.resp || d.resp || []).map(r => r.name).join(", "), du: se.due || d.due || "", date: se.date || "", pics: [], gk: k ? Gorev.noteKey("d", st.fid, st.year, mOf(d) + 1, id, `${key}_${se.no}`, k, L.slice(0, j).filter(x => String(x || "").trim() === k).length) : "" });
         ph0.forEach(ph => { if (!e.pics.some(x => x.id === ph.id)) e.pics.push(ph); if (!bs.pics.some(x => x.id === ph.id)) bs.pics.push(ph); });
-        const fxo = (se.fixed || {})[key + "|" + j]; if (fxo && fxo.st === "ok" && fxo.t === k && (fxo.tx || "").trim()) bs.fx = { tx: fxo.tx.trim(), ph: (fxo.ph || []).map(ph => ({ ...ph })), at: fxo.at || 0 };
-        const zkey = ZL.get(`${st.year}|${mOf(d) + 1}|${se.no}|${key}|${j}`); if (zkey) bs.z = zkey;
+        const fxo = (se.fixed || {})[key + "|" + j]; if (fxo && fxo.st === "ok" && String(fxo.t || "").trim() === k && (fxo.tx || "").trim()) bs.fx = { tx: fxo.tx.trim(), ph: (fxo.ph || []).map(ph => ({ ...ph })), at: fxo.at || 0 };
+        const zkey = ZL.get(`${id}|${st.year}|${mOf(d) + 1}|${se.no}|${key}|${j}`); if (zkey) bs.z = zkey;
         o.list.set(k, e); }); }));
     Object.entries(items).forEach(([key, o]) => { const mm = /^c(\d+)i(\d+)$/.exec(key); if (!mm) return; const c = CATS[+mm[1]]; if (!c) return;
       [...o.list.entries()].forEach(([t, e]) => notes.push({ m: mOf(d), k: 3, id, cat: c.name, t: `${c.name}: ${t || c.items[+mm[2]]}`, x: `${e.c} denetimde uygunsuz`, pics: e.pics, by: e.by })); }); });
@@ -311,19 +311,30 @@ async function printSheet(info, { size, orient, pics = false, file = false, scop
   await Gorev.whenReady().catch(() => { });
   const done = gk => !!gk && Gorev.linked() && Gorev.durumOf(gk)?.durum === "kapali";
   // İSG açıklamaları: seçilen kapsama göre denetim bazlı bloklar (her blok kendi numarasıyla başlar)
-  // Bulgu zinciri: aynı zincir seçilen kapsamda ilk göründüğü haftada tam, sonraki haftalarda kısa gönderme satırı olarak yer alır
-  const ZI = info.zi || new Map(), seenZ = new Map();
-  const zItem = (it, b, w) => { const base = { ...it, pics: b.pics, fx: b.fx, extra: "", done: done(b.gk), mon: "", bm: b.m, rs: b.rs, du: b.du }, c = b.z && ZI.get(b.z);
+  // Bulgu zinciri: her hafta bloğunda zincir bir kez, tam olarak yazılır (o haftaya kadarki tespit tarihleri, o haftanın resimleri,
+  // o halkanın kendi kapanışı). Aynı haftada iki denetimde yazıldıysa tek satırda birleşir. Termin ilk tespitten sayılır.
+  const ZI = info.zi || new Map();
+  const zWeek = (items, w) => { const out = [], byZ = new Map();
+    items.forEach(it => Object.values(it.by || {}).filter(b => info.wkOf(b) === w.k).forEach(b => { const c = b.z ? ZI.get(b.z) : null;
+      if (c && byZ.has(b.z)) { byZ.get(b.z).bs.push({ it, b }); return; }
+      const x = { c, bs: [{ it, b }] }; if (c) byZ.set(b.z, x); out.push(x); }));
+    return out.map(zItem); };
+  const zItem = ({ c, bs }) => {
+    const r = bs.reduce((a, y) => (y.b.date || "") >= (a.b.date || "") ? y : a), pics = [];
+    bs.forEach(y => (y.b.pics || []).forEach(p => { if (!pics.some(q => q.id === p.id)) pics.push({ ...p, d: y.b.date }); }));
+    const base = { ...r.it, pics, fx: r.b.fx, extra: "", done: done(r.b.gk), mon: "", bm: r.b.m, rs: r.b.rs, du: r.b.du };
     if (!c) return base;
-    if (seenZ.has(b.z)) return { ...base, ref: { wk: seenZ.get(b.z), open: c.open, at: c.fx?.at || c.closedAt || 0 } };
-    seenZ.set(b.z, String(w.label).split(" · ")[0]);
-    if (c.n < 2) return c.rep ? { ...base, z: c } : base;
-    return { ...base, z: c, pics: c.pics.length ? c.pics : base.pics, fx: c.open ? null : (c.fx || base.fx), du: c.due || base.du, bm: c.first.y === +info.year ? c.first.m - 1 : base.bm }; };
+    base.zkey = r.b.z;
+    const upto = r.b.date || "9999-12-31", dates = c.dates.filter(d => d <= upto);
+    // Bu haftada resim yoksa zincirin en son önceki resimleri "aksiyon öncesi" olarak gösterilir
+    if (!pics.length) { const prev = c.pics.filter(p => p.d && p.d < upto), last = prev.reduce((m, p) => p.d > m ? p.d : m, ""); if (last) base.pics = prev.filter(p => p.d === last); }
+    if (dates.length < 2 && !c.rep) return base;
+    return { ...base, z: { ...c, dates, n: dates.length }, du: c.due || base.du, bm: c.first.y === +info.year ? c.first.m - 1 : base.bm }; };
   let DET = info.details;
   const sl = info.sess || [], sc = scope || "all";
   if (sl.length) {
     const want = sc === "all" ? sl : sl.filter(x => sc === "s:" + x.k || sc === "last:" + x.k);
-    DET = info.details.flatMap(g => g.mod !== "İSG Denetim" ? [g] : want.map(w => ({ mod: g.mod, sub: w.label, items: g.items.flatMap(it => Object.values(it.by || {}).filter(b => info.wkOf(b) === w.k).map(b => zItem(it, b, w))) })).filter(x => x.items.length));
+    DET = info.details.flatMap(g => g.mod !== "İSG Denetim" ? [g] : want.map(w => ({ mod: g.mod, sub: w.label, items: zWeek(g.items, w) })).filter(x => x.items.length));
   }
   // Paylaşım bilgisi (sorumlu · termin): bölüm adı + ay ile eşleşen en yeni paylaşım
   const SH = trow || ttab ? await S.listShares(info.fid, info.year).catch(() => []) : [];
@@ -339,7 +350,7 @@ async function printSheet(info, { size, orient, pics = false, file = false, scop
   const whoOf = (sh, a) => a?.rs || "";
   const dueOf = (sh, a) => sh?.termin || a?.du || "";
   const takipRow = a => { if (!trow) return ""; const sh = shOf(a); return `<div style="margin-top:3px;font-size:11px;color:#546964;font-style:italic">Sorumlu: <b style="font-style:normal;color:#3E534E">${esc(whoOf(sh, a) || "-")}</b> · Termin: <b style="font-style:normal;color:#3E534E">${dueOf(sh, a) ? fdm(dueOf(sh, a)) : "-"}</b>${a.z && a.z.n > 1 && a.z.firstDate ? ` (ilk tespit ${fdm(a.z.firstDate)})` : ""}</div>`; };
-  const takipAll = () => ttab ? DET.filter(g => g.mod === "İSG Denetim").flatMap(g => g.items).filter(a => !a.ref) : [];
+  const takipAll = () => { if (!ttab) return []; const all = DET.filter(g => g.mod === "İSG Denetim").flatMap(g => g.items), last = new Map(); all.forEach((a, i) => { if (a.zkey) last.set(a.zkey, i); }); return all.filter((a, i) => !a.zkey || last.get(a.zkey) === i); };
   // Takip tablosu: satır listesi verilirse yalnızca o satırlar (sayfalara bölünebilir); devam sayfasında başlık "(devam)"
   const takipTable = (list, cont = false) => { const rows = list || takipAll();
     if (!rows.length) return ""; const all = takipAll(), bd = "1px solid #B9C9C3", th = `padding:6px 6px;text-align:left;font-size:10.5px;font-weight:800;color:#10201C;background:#EAF1EE;border:${bd}`, td = `padding:5px 6px;border:${bd};vertical-align:top;font-size:11px;line-height:1.4;word-break:break-word`;
@@ -359,7 +370,7 @@ async function printSheet(info, { size, orient, pics = false, file = false, scop
   const sh = document.createElement("div"); sh.id = "psheet";
   const FONT = "font-family:Manrope,system-ui,sans-serif;color:#10201C;display:flex;flex-direction:column;gap:14px;font-size:13px";
   const items = [];
-  DET.forEach((g, gi) => g.items.forEach((a, i) => items.push({ gi, mod: g.mod, sub: g.sub, html: a.ref ? `<div data-brk style="display:flex;gap:8px;line-height:1.45;font-size:12px;break-inside:avoid"><span style="flex:0 0 20px;font-weight:800;color:#0B6E4F">${i + 1}.</span><span style="color:#8A9A95;font-style:italic">${esc(a.cat && a.text.startsWith(a.cat + ": ") ? a.text.slice(a.cat.length + 2) : a.text)} · ${esc(a.ref.wk)} bulgusunun devamı, ${a.ref.open || !a.ref.at ? "hâlâ açık" : zd(isoMs(a.ref.at), false) + " tarihinde aksiyonla kapandı"}</span></div>` : `<div data-brk style="display:flex;gap:8px;line-height:1.45;font-size:12px;break-inside:avoid"><span style="flex:0 0 20px;font-weight:800;color:#0B6E4F">${i + 1}.</span><span>${a.mon ? `<span style="color:#546964">${a.mon} · </span>` : ""}<b>${esc(a.dept)}</b> — ${a.cat && a.text.startsWith(a.cat + ": ") ? `<i style="color:#C4453A;font-weight:600">${esc(a.cat)}:</i> ${esc(a.text.slice(a.cat.length + 2))}` : esc(a.text)}${a.done ? ` <span style="color:#8A9A95;font-style:italic">(görev tamamlandı)</span>` : ""}${a.extra ? ` <span style="color:#546964">· ${esc(a.extra)}</span>` : ""}${a.ref ? "" : zLine(a) + picsHtml(a)}</span></div>` })));
+  DET.forEach((g, gi) => g.items.forEach((a, i) => items.push({ gi, mod: g.mod, sub: g.sub, html: `<div data-brk style="display:flex;gap:8px;line-height:1.45;font-size:12px;break-inside:avoid"><span style="flex:0 0 20px;font-weight:800;color:#0B6E4F">${i + 1}.</span><span>${a.mon ? `<span style="color:#546964">${a.mon} · </span>` : ""}<b>${esc(a.dept)}</b> — ${a.cat && a.text.startsWith(a.cat + ": ") ? `<i style="color:#C4453A;font-weight:600">${esc(a.cat)}:</i> ${esc(a.text.slice(a.cat.length + 2))}` : esc(a.text)}${a.done ? ` <span style="color:#8A9A95;font-style:italic">(görev tamamlandı)</span>` : ""}${a.extra ? ` <span style="color:#546964">· ${esc(a.extra)}</span>` : ""}${zLine(a) + picsHtml(a)}</span></div>` })));
   const group = list => { let out = "", cur = -1; list.forEach(e => { if (e.gi !== cur) { if (cur !== -1) out += "</div>"; cur = e.gi; out += `<div style="display:flex;flex-direction:column;gap:4px">${e.sub ? `<div style="font-weight:800;color:#145F96">${info.mk4 ? esc(e.mod) : "Açıklamalar"} <span style="font-weight:400;font-style:italic;color:#8A9A95">(${esc(e.sub)})</span></div>` : info.mk4 ? `<div style="font-weight:800;color:#145F96">${esc(e.mod)}</div>` : ""}`; } out += e.html; }); return out + (cur !== -1 ? "</div>" : ""); };
   const descBox = inner => `<div style="border-top:1px solid #D5E0DC;padding-top:10px;display:flex;flex-direction:column;gap:5px">${DET.some(g => g.sub) && !info.mk4 ? "" : `<div style="font-weight:800;font-size:12px;letter-spacing:.8px;color:#3E534E">AÇIKLAMA</div>`}${inner}</div>`;
   const NONE = `<div style="color:#546964">Bu dönem için girilmiş açıklama yok.</div>`;
@@ -379,13 +390,14 @@ async function printSheet(info, { size, orient, pics = false, file = false, scop
     <div style="position:relative;height:${ch}px"><div style="position:absolute;inset:0">${GL.map(v => line(v, v)).join("")}</div><div style="position:absolute;left:30px;right:0;top:0;bottom:0;display:flex;gap:${gap}px">${bars}</div></div>
     <div style="display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:#546964">${[["Mükemmel", `≥ ${num(info.esik.m)}`], ["İyi", `${num(info.esik.i)}-${num(info.esik.m) - 1}`], ["Orta", `${num(info.esik.o)}-${num(info.esik.i) - 1}`], ["Kritik", `< ${num(info.esik.o)}`]].map(([k, r]) => `<span style="display:flex;align-items:center;gap:6px"><span style="width:11px;height:11px;border-radius:3px;background:${BAND[k].fill}"></span>${k} ${r}</span>`).join("")}</div>`,
       foot: takipTable() }; };
-  const wrap = (inner, z, extra = "", pg = "") => `<div class="ppg" style="width:${cw}px;zoom:${z};${extra}${FONT}">${inner}${pg ? `<div style="position:absolute;left:0;right:0;bottom:0;text-align:center;font-size:11px;color:#6A7E79">${pg}</div>` : ""}</div>`;
+  const wrap = (inner, z, extra = "", pg = "") => `<div class="ppg" style="width:${cw}px;zoom:${z};${extra}${FONT}">${inner}${pg ? `<div style="margin-top:auto;flex:0 0 22px;line-height:22px;text-align:center;font-size:11px;color:#6A7E79">${pg}</div>` : ""}</div>`;
   // Tek sayfa düzeni
-  const PGH = Hh - 2 * M - 6, avail = PGH - 24; // alttaki 24 px sayfa numarasına ayrılır
+  const PGH = Hh - 2 * M - 6, avail = PGH - 56; // alttaki şerit sayfa numarasına ayrılır (yazıyla asla çakışmaz) + yazdırmada ölçü farkı payı
   const FIX = `height:${PGH}px;overflow:hidden;box-sizing:border-box;position:relative;`;
   const build = (ch, z, fin) => { const p = parts(ch); return wrap(p.head + p.first + descBox(items.length ? group(items) : NONE) + p.foot, z, fin ? FIX : "", fin ? "Sayfa 1/1" : ""); };
   // Çok sayfalı düzen: her sayfada üst bilgi; devam sayfalarında "AÇIKLAMA" başlığı, madde numaraları kesintisiz
   const paginate = async () => {
+    await (document.fonts?.ready || Promise.resolve()).catch(() => {});
     const pc = land ? 260 : 420, p = parts(pc);
     sh.style.cssText = `display:block;position:fixed;left:-99999px;top:0;visibility:hidden;width:${cw}px`;
     sh.innerHTML = `<div style="${FONT.replace("display:flex;flex-direction:column;gap:14px;", "")};width:${cw}px">${items.map(e => e.html).join("")}</div>`;
@@ -410,7 +422,7 @@ async function printSheet(info, { size, orient, pics = false, file = false, scop
     const total = pages.length + chunks.length;
     return (z, fixed) => pages.map((idx, n) => { const list = idx.map(i => items[i]), first = n === 0, last = n === pages.length - 1;
       return wrap(p.head + (first ? p.first : "") + (list.length ? descBox(group(list)) : first && !items.length ? descBox(NONE) : "") + (last ? lastFoot : ""), z, FIX + (fixed && (n < total - 1) ? "break-after:page;" : ""), `Sayfa ${n + 1}/${total}`); }).join("")
-      + chunks.map((rs, n) => wrap(p.head + takipTable(rs, true), z, FIX + (fixed && n < chunks.length - 1 ? "break-after:page;" : ""), `Sayfa ${pages.length + n + 1}/${total}`)).join("");
+      + chunks.map((rs, n) => wrap(p.head + takipTable(rs, !!lastFoot || n > 0), z, FIX + (fixed && n < chunks.length - 1 ? "break-after:page;" : ""), `Sayfa ${pages.length + n + 1}/${total}`)).join("");
   };
   const stl = document.createElement("style"); stl.id = "pstyle";
   stl.textContent = `#psheet{display:none}@media print{@page{size:${size} ${orient};margin:${M * 0.2646}mm}html,body{background:#fff!important;margin:0!important;padding:0!important}body>*:not(#psheet){display:none!important}#psheet{display:block!important;width:${cw * z}px;-webkit-print-color-adjust:exact;print-color-adjust:exact}}`;
