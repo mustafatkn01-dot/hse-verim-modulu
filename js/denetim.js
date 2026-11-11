@@ -1,14 +1,14 @@
 // İSG Denetim Listesi sayfası
-import * as Guest from "./guest.js?v=20261111e";
-import * as Gorev from "./gorev.js?v=20261111e";
-import * as S from "./store.js?v=20261111e";
-import * as Ramak from "./ramak.js?v=20261111e";
-import * as Z from "./zincir.js?v=20261111e";
-import * as Paylas from "./paylas.js?v=20261111e";
-import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, showPhotos, openPhotos, setPhotoLoader, GUEST, guestLock, roText } from "./ui.js?v=20261111e";
-import { CATS } from "./isgcats.js?v=20261111e";
-import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261111e";
-import { calcIsg, isgMonth, isgAudits, fxInTime, makTier, katsayi, bandOf, num, surecVar, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261111e";
+import * as Guest from "./guest.js?v=20261111f";
+import * as Gorev from "./gorev.js?v=20261111f";
+import * as S from "./store.js?v=20261111f";
+import * as Ramak from "./ramak.js?v=20261111f";
+import * as Z from "./zincir.js?v=20261111f";
+import * as Paylas from "./paylas.js?v=20261111f";
+import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, showPhotos, openPhotos, setPhotoLoader, GUEST, guestLock, roText } from "./ui.js?v=20261111f";
+import { CATS } from "./isgcats.js?v=20261111f";
+import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261111f";
+import { calcIsg, isgMonth, isgAudits, fxInTime, makTier, katsayi, bandOf, num, surecVar, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261111f";
 
 const COLL = "isg";
 const D = { pk: { open: false, view: 0, cnt: {} }, fxEditing: new Set(), fxDraft: {}, fxOpen: new Set(), fxList: [], gfxOpen: false, key: "", setup: null, doc: null, dept: null, month: null, open: {}, ro: false, timer: null, saved: true, msg: "" };
@@ -458,6 +458,11 @@ function zItem(ch, id, notes, sel = {}, date = "", pre = {}) {
 }
 // Başka bulguda seçili bir önceki kaydı bu bulguya taşır: diğer bulgunun seçiminden çıkarılır (boş kalırsa orada seçim istenir)
 function zTake(list, key, v, set) { (list || []).forEach(z => { if (z && z.key !== key && zParts(z.eff).includes(v)) set(z.key, zParts(z.eff).filter(x => x !== v).join("+")); }); }
+// İlk eksik eşleşme kartına git: kategorisini aç, karta kaydır, kısa süre vurgula
+function zGo(key) {
+  const ci = parseInt(String(key).slice(1), 10); D.open = { [ci]: true }; D.zOpen = key; draw();
+  setTimeout(() => { const b = document.querySelector(`[data-zo="${CSS.escape(key)}"]`)?.closest(".zw"); if (!b) return; b.scrollIntoView({ block: "center", behavior: "smooth" }); b.classList.add("zfl"); setTimeout(() => b.classList.remove("zfl"), 2400); }, 60);
+}
 // Kart seçeneğine dokunma: önceki kayıtlar çoklu seçilir (aç/kapa); "Yeni bulgu" / tekrar seçenekleri tek seçimdir ve kartı kapatır
 function zToggle(el, attr) {
   const [id, k, ...r] = el.dataset[attr].split("|"), v = r.join("|"), key = id + "|" + k;
@@ -742,14 +747,17 @@ function draw() {
   const canSave = c.canSave && dateOk && !D.ro;
   const canPart = c.missing === 0 && c.ydMissing === 0 && c.curMarked && dateOk && !D.ro;
   const f1 = n => n.toFixed(1).replace(".", ",");
+  // Eşleşme seçimi eksik bulgular: kategori başına sayı (rozet) ve toplam (kaydetmeden önce listesi)
+  const zD = {}, zMissC = CATS.map((cat, ci) => { let n = 0; if (zch) cat.items.forEach((_, ii) => { const it = c.catInfo[ci].items[ii]; if (!it?.isX) return; const ns = doc.draft.notes[it.id]?.length ? doc.draft.notes[it.id] : [""]; zD[it.id] = zItem(zch, it.id, ns, zsel, date, zPre(it.id, ns)); n += zD[it.id].filter(z => z && z.eff === "").length; }); return n; });
+  const zMissT = zMissC.reduce((a, x) => a + x, 0);
   const catHtml = CATS.map((cat, ci) => {
-    const info = c.catInfo[ci], w = W[cat.w], open = !!D.open[ci];
+    const info = c.catInfo[ci], w = W[cat.w], open = !!D.open[ci], zm = zMissC[ci];
     const [fb, fc] = info.hasFreq ? FT[info.freq] : ["#E4ECE9", "#4A5C57"];
     const items = (cat.ord || cat.items.map((_, i) => i)).map(ii => {
       const txt = cat.items[ii], it = info.items[ii], id = it.id, mk = it.mk, notes = doc.draft.notes[id] && doc.draft.notes[id].length ? doc.draft.notes[id] : [""];
       const prevS = it.prev.filter(s => !on || !editNo || s.no < editNo), prevDates = prevS.map(s => dm(s.date)), canPrev = !GUEST.on || GUEST.hist;
       const fq = Math.min(c.azami, it.cnt === 0 ? 0 : it.cnt === 1 ? 1 : it.cnt <= 3 ? 2 : 3);
-      const zs = it.isX && zch ? zItem(zch, id, notes, zsel, date, zPre(id, notes)) : null;
+      const zs = it.isX && zch ? (zD[id] || zItem(zch, id, notes, zsel, date, zPre(id, notes))) : null;
       const sb = k => { const [bg, col] = TONE[k]; return seg(mk === k, bg, col); };
       return `<div class="ci"><div class="cir"><div class="grow"><span>${esc(txt)}</span>
         ${prevDates.length && !it.isX ? `<span class="pill" style="background:#FBE9C6;color:#6B3F00">Önceki denetimde uygunsuzdu: ${prevS.map(s => canPrev ? `<button type="button" class="pd" data-pf="${id}|${s.no}" aria-label="${dm(s.date)} tarihli geçmiş bulguyu aç">${dm(s.date)}</button>` : dm(s.date)).join(", ")}</span>` : ""}</div>
@@ -771,13 +779,13 @@ function draw() {
       <div class="row">${[0, 1, 2, 3].filter(k => k <= c.azami).map(k => `<button class="fq" data-freq="${ci}|${k}" style="${seg(info.freq === k, FT[k][0], FT[k][1])}">${k}</button>`).join("")}
       ${info.hasOverride ? `<button class="sec" style="height:40px;color:#0F3F63;border-color:var(--inl)" data-freqreset="${ci}">Otomatiğe dön</button>` : ""}</div>
       <div class="muted" style="flex-basis:100%;font-size:12px">0 Uygun · 1 Nadiren (ayda 1) · 2 Sık (ayda 2-3) · 3 Haftalık</div></div>` : "";
-    return `<div class="cat"><div class="cath"><button class="cht" data-tog="${ci}" aria-expanded="${open}"><span class="cno">${ci + 1}</span>
+    return `<div class="cat"><div class="cath"><button class="cht" data-tog="${ci}" aria-expanded="${open}"><span class="cno" style="position:relative">${ci + 1}${zm ? `<span class="zbdg" title="${zm} bulgunun eşleşme seçimi bekliyor">!${zm}</span>` : ""}</span>
       <span class="grow"><b style="font-size:15px;line-height:1.35">${esc(cat.name)}</b><span class="muted" style="display:block;font-size:12.5px">${!info.hasFreq ? "Tüm maddeler Y.D. · bu dönem değerlendirme dışı" : `${esc(cat.sub)} · bu ay ${info.catCount} farklı günde bulgu`}</span></span>
       <span style="transform:rotate(${open ? 180 : 0}deg);display:flex">${ic('<path d="M6 9l6 6 6-6"/>')}</span></button>
       <span class="pill" style="background:${w[1]};color:${w[2]}">${w[0]}</span>
       ${on ? `<span class="pill" style="min-width:74px;text-align:center;background:${info.marked === info.nItems ? "#D9F1E6" : "#FBE9C6"};color:${info.marked === info.nItems ? "#0B6E4F" : "#5A3300"}" title="İşaretlenen madde sayısı">Kontrol ${info.marked}/${info.nItems}</span>` : ""}
       <span class="pill" style="min-width:74px;text-align:center;background:${fb};color:${fc}">${info.hasFreq ? "Sıklık " + info.freq : "Dışı"}</span></div>
-      ${open ? `<div class="catb">${items}${ydBox}${freqBox}</div>` : ""}</div>`;
+      ${open ? `<div class="catb">${zm ? `<div class="zwarn"><span class="ex">!</span>${zm} bulgunun önceki kayıtlarla eşleşme seçimi bekliyor</div>` : ""}${items}${ydBox}${freqBox}</div>` : ""}</div>`;
   }).join("");
 
   v.innerHTML = `
@@ -829,6 +837,7 @@ function draw() {
         ${GUEST.on || D.ro ? "" : `<div style="border-top:1px solid var(--line);padding-top:10px;display:flex;flex-direction:column;gap:6px"><span class="hd">SORUMLU VE TERMİN</span><div style="display:grid;grid-template-columns:minmax(0,1fr) 138px;gap:8px;align-items:center"><button type="button" class="sec" id="rsBtn" style="height:40px;min-width:0;padding:0 10px;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;text-align:left">${esc((doc.resp || []).map(r => r.name).join(", ") || "Sorumlu seç")}</button><button type="button" class="inp fld" id="rdBtn" aria-label="Termin" style="padding:0 8px;font-size:13px"><span>${esc(fmtTarih(doc.due || defDue(doc)))}</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0B6E4F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></button></div></div>`}</div>
       <div class="cd" style="padding:20px;gap:12px"><b style="font:600 16px Sora,sans-serif">${curNo}. Denetim · Kaydetmeden Önce</b>
         ${[["İşaretlenmeyen madde", c.unmarked], ["Açıklaması eksik uygunsuz madde", c.missing], ["Gerekçesi eksik Y.D. kategori", c.ydMissing], ["Tarih geçersiz (dönem dışı veya ileri tarih)", dateOk ? 0 : 1]].map(([t, n]) => `<div class="row sp"><span>${t}</span><span class="pill" style="min-width:34px;text-align:center;background:${n === 0 ? "#D9F1E6" : "#FADAD7"};color:${n === 0 ? "#0B6E4F" : "#B3261E"}">${n}</span></div>`).join("")}
+        ${zch ? `<div class="row sp"><span style="${zMissT ? "color:#6B3F00;font-weight:700" : ""}">Eşleşme seçimi eksik bulgu${zMissT ? ` · <button type="button" class="lnk" data-zgo style="font-size:12.5px;font-weight:800">Göster</button>` : ""}</span><span class="pill" style="min-width:34px;text-align:center;background:${zMissT ? "#E8901F" : "#D9F1E6"};color:${zMissT ? "#fff" : "#0B6E4F"}">${zMissT}</span></div>` : ""}
         <button class="go2" id="saveSess" ${D.ro ? "disabled" : ""} style="${canPart ? "" : "opacity:.55"}">${GUEST.on ? "Taslağı Kaydet" : curNo + ". Denetimi Kaydet"}</button>
         ${GUEST.on ? `<button class="sec" id="askDone" style="height:44px;font-weight:700" ${canSave ? "" : "disabled"}>Tamamlanmasını İste</button>` : ""}
         ${GUEST.on ? "" : `<button class="sec" id="doneSess" style="height:44px;font-weight:700;${canSave ? "" : "opacity:.55"}" ${D.ro ? "disabled" : ""}>Kaydet ve Denetimi Tamamla</button>`}
@@ -897,6 +906,7 @@ function bind(v, c) {
     again();
   });
   on("[data-zo]", el => { const k = el.dataset.zo; D.zOpen = D.zOpen === k ? "" : k; draw(); });
+  on("[data-zgo]", () => { if (!zch) return; let f = null; CATS.forEach((cat, ci) => cat.items.forEach((_, ii) => { const id = `c${ci}i${ii}`; if (f || d.marks[id] !== "x") return; const ns = d.notes[id]?.length ? d.notes[id] : [""]; f = zItem(zch, id, ns, d.zsel || {}, d.date, zPre(id, ns)).find(z => z && z.eff === "") || null; })); if (f) zGo(f.key); });
   on("[data-zs]", el => { const t = zToggle(el, "zs"), v = el.dataset.zs.split("|").slice(2).join("|"), id = t.key.split("|")[0];
     if (zIsC(v) && zParts(t.val).includes(v)) zTake(zItem(zch, id, d.notes[id] || [""], d.zsel || {}, d.date, zPre(id, d.notes[id] || [""])), t.key, v, (k, x) => { (d.zsel ||= {})[k] = x; });
     (d.zsel ||= {})[t.key] = t.val; if (t.close) D.zOpen = ""; again(); });
@@ -957,7 +967,7 @@ function bind(v, c) {
   on("[data-reopen]", async el => {
     const no = +el.dataset.reopen, t = doc.sessions.find(x => x.no === no); if (!t) return;
     if (doc.draft.on !== false && Object.keys(doc.draft.marks || {}).length && doc.draft.edit !== no) {
-      const { confirmBox } = await import("./ui.js?v=20261111e");
+      const { confirmBox } = await import("./ui.js?v=20261111f");
       if (!(await confirmBox(`${no}. denetim açılsın mı?`, "Şu an açık olan denetimde kaydedilmemiş değişiklikler varsa kaybolur. Önce “Kaydet”e basmanız önerilir.", "Yine de aç"))) return;
     }
     if (t.no === doc.sessions.length) t.closed = false;
@@ -975,7 +985,7 @@ function bind(v, c) {
   });
   const gAll = async () => (await S.listMonthDocs(st.fid, st.year, "isgg").catch(() => [])).filter(g => g.id.startsWith(`${pad(D.month)}_${D.dept}_`));
   on("[data-delsess]", async el => {
-    const { confirmBox } = await import("./ui.js?v=20261111e");
+    const { confirmBox } = await import("./ui.js?v=20261111f");
     const no = +el.dataset.delsess, ix = doc.sessions.findIndex(x => x.no === no); if (ix < 0) return;
     const gone = doc.sessions[ix], later = ix < doc.sessions.length - 1, all = await gAll(), gAp = all.filter(g => g.status === "approved" && g.no === gone.no);
     let mode = "all";
@@ -1000,7 +1010,7 @@ function bind(v, c) {
   });
   // Sahip: misafir taslağını tamamen sil (denetime ve rapora hiç girmez)
   const delG = async g => {
-    const { confirmBox } = await import("./ui.js?v=20261111e");
+    const { confirmBox } = await import("./ui.js?v=20261111f");
     if (!(await confirmBox("Misafir taslağı silinsin mi?", `${g.guestName} taslağı ve fotoğrafları kalıcı olarak silinir; denetime ve rapora hiç girmez. Misafir isterse yeniden yazabilir.`, "Evet, tamamen sil", true))) return false;
     Object.values(g.draft?.photos || {}).flat().forEach(p => S.deletePhoto(st.fid, st.year, p.id).catch(() => {}));
     await S.deleteMonthDoc(st.fid, st.year, "isgg", g.id); await Guest.inboxDelete(`${g.guestUid}_${st.fid}_${st.year}_${+g.month}_${g.dept}`);
@@ -1011,7 +1021,7 @@ function bind(v, c) {
   const holOK = async date => {
     if (!date || GUEST.on || D.okHol?.has(date)) return true;
     const h = tatilMap(await tatilYukle(st.fid, st.year).catch(() => null)).get(date); if (!h || h.yarim) return true;
-    const { confirmBox } = await import("./ui.js?v=20261111e");
+    const { confirmBox } = await import("./ui.js?v=20261111f");
     if (!(await confirmBox("İzin / tatil günü", `${fmtTarih(date)} tarihi "${h.ad}" olarak izinli/tatil işaretli. Yine de bu tarihle denetim yapılsın mı?`, "Evet, kabul et"))) return false;
     (D.okHol ||= new Set()).add(date); return true;
   };
@@ -1024,7 +1034,7 @@ function bind(v, c) {
     if (!zch) { toast(D.zh?.fail ? "Önceki bulgular yüklenemedi; bağlantıyı kontrol edip tekrar deneyin." : "Önceki bulgular yükleniyor, birkaç saniye sonra tekrar deneyin."); if (D.zh?.fail) { D.zh = null; zEnsure(); } return; }
     const zAll = {}; CATS.forEach((cat, ci) => cat.items.forEach((_, ii) => { const id = `c${ci}i${ii}`; if (d.marks[id] === "x") zAll[id] = zItem(zch, id, d.notes[id] || [""], d.zsel || {}, d.date, zPre(id, d.notes[id] || [""])); }));
     const zMiss = Object.values(zAll).flat().filter(z => z && z.eff === "").length;
-    if (zMiss) { toast(`${zMiss} bulgunun önceki bulgularla eşleşme seçimi eksik.`); const f = Object.values(zAll).flat().find(z => z && z.eff === ""); if (f) { D.zOpen = f.key; draw(); } return; }
+    if (zMiss) { toast(`${zMiss} bulgunun önceki bulgularla eşleşme seçimi eksik.`); const f = Object.values(zAll).flat().find(z => z && z.eff === ""); if (f) zGo(f.key); return; }
     const zU = Object.entries(d.zu || {}).filter(([id, u]) => u.ok === true && d.marks[id] === "u").flatMap(([id, u]) => zOpenFor(zch, id, d.date).filter(c => !(u.off || []).includes(c.zk)).map(c => ({ c, ph: u.ph || [] })));
     if (!(await holOK(d.date))) return;
     const btn = document.getElementById(close ? "doneSess" : "saveSess"); if (btn) { btn.disabled = true; btn.textContent = "Kaydediliyor…"; }
@@ -1195,7 +1205,7 @@ function bind(v, c) {
     }
     const zO = zOlder(s, id, j, iso(new Date(now)));
     let zS = [];
-    if (zO.length) { const { confirmBox } = await import("./ui.js?v=20261111e"); if (await confirmBox("Önceki haftalar da kapatılsın mı?", `Bu bulgu önceki haftalarda da açık: ${zO.map(zOldLbl).join(", ")}. Aynı aksiyonla kapatılsın mı? Eski haftaların puanı değişmez.`, "Evet, kapat")) zS = zO; }
+    if (zO.length) { const { confirmBox } = await import("./ui.js?v=20261111f"); if (await confirmBox("Önceki haftalar da kapatılsın mı?", `Bu bulgu önceki haftalarda da açık: ${zO.map(zOldLbl).join(", ")}. Aynı aksiyonla kapatılsın mı? Eski haftaların puanı değişmez.`, "Evet, kapat")) zS = zO; }
     (s.fixed ||= {})[fk] = { t, tx, ph: dr.ph || [], at: now, rat: now, ap: now, st: "ok", gn: "Yetkili" };
     if (zO.length && !zS.length) s.fixed[fk].zoff = zO.map(l => l.bk);
     if (zS.length) { await zCloseApply(zS, { k: "aks", d: iso(new Date(now)), no: s.no, by: "Yetkili", tx, ph: dr.ph || [] }); if (zS.some(l => +l.m !== +D.month || +l.y !== +st.year)) D.zh = null; }
@@ -1211,7 +1221,7 @@ function bind(v, c) {
   });
   on("[data-fxdel]", async el => {
     const { s, id, j, fk } = fxSess(el.dataset.fxdel); if (!s?.fixed?.[fk]) return;
-    const { confirmBox } = await import("./ui.js?v=20261111e");
+    const { confirmBox } = await import("./ui.js?v=20261111f");
     if (!(await confirmBox("Aksiyon kaldırılsın mı?", "Aksiyon bilgisi silinir; bulgu yeniden cezaya sayılır.", "Evet, kaldır", true))) return;
     const old = s.fixed[fk], oldOff = s.fixedOff?.[fk]; delete s.fixed[fk];
     // Otomatik (görev takip) aksiyon elle kaldırıldıysa, aynı kapanış için yeniden otomatik eklenmesin

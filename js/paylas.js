@@ -1,11 +1,11 @@
 // Bulgu paylaşımı: yetkili, seçtiği bölümlerin açık bulgularını seçtiği misafirlerle paylaşır; misafir kendi ekranında görür ve
 // mevcut "Aksiyon bildir" akışıyla aksiyon alır (yetkili onayı mevcut Aksiyon bildirimleri panelinde).
 // Puan kuralı mevcut sistemdeki gibi: aksiyonun gönderim zamanı denetim haftası içindeyse (en geç cumartesi) ve yetkili kabul ederse puana işlenir.
-import * as S from "./store.js?v=20261111e";
-import { esc, ic, toast, confirmBox, compressImage, showPhoto, GUEST, pickDate, fmtTarih } from "./ui.js?v=20261111e";
-import * as Guest from "./guest.js?v=20261111e";
-import { CATS } from "./isgcats.js?v=20261111e";
-import * as Z from "./zincir.js?v=20261111e";
+import * as S from "./store.js?v=20261111f";
+import { esc, ic, toast, confirmBox, compressImage, showPhoto, GUEST, pickDate, fmtTarih } from "./ui.js?v=20261111f";
+import * as Guest from "./guest.js?v=20261111f";
+import { CATS } from "./isgcats.js?v=20261111f";
+import * as Z from "./zincir.js?v=20261111f";
 
 const pad = n => String(n).padStart(2, "0"), iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const addDays = (s, n) => { const d = new Date(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10)); d.setDate(d.getDate() + n); return iso(d); };
