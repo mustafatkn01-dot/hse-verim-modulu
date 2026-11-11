@@ -1,14 +1,14 @@
 // İSG Denetim Listesi sayfası
-import * as Guest from "./guest.js?v=20261111b";
-import * as Gorev from "./gorev.js?v=20261111b";
-import * as S from "./store.js?v=20261111b";
-import * as Ramak from "./ramak.js?v=20261111b";
-import * as Z from "./zincir.js?v=20261111b";
-import * as Paylas from "./paylas.js?v=20261111b";
-import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, showPhotos, openPhotos, setPhotoLoader, GUEST, guestLock, roText } from "./ui.js?v=20261111b";
-import { CATS } from "./isgcats.js?v=20261111b";
-import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261111b";
-import { calcIsg, isgMonth, isgAudits, fxInTime, makTier, katsayi, bandOf, num, surecVar, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261111b";
+import * as Guest from "./guest.js?v=20261111c";
+import * as Gorev from "./gorev.js?v=20261111c";
+import * as S from "./store.js?v=20261111c";
+import * as Ramak from "./ramak.js?v=20261111c";
+import * as Z from "./zincir.js?v=20261111c";
+import * as Paylas from "./paylas.js?v=20261111c";
+import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, showPhotos, openPhotos, setPhotoLoader, GUEST, guestLock, roText } from "./ui.js?v=20261111c";
+import { CATS } from "./isgcats.js?v=20261111c";
+import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261111c";
+import { calcIsg, isgMonth, isgAudits, fxInTime, makTier, katsayi, bandOf, num, surecVar, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261111c";
 
 const COLL = "isg";
 const D = { pk: { open: false, view: 0, cnt: {} }, fxEditing: new Set(), fxDraft: {}, fxOpen: new Set(), fxList: [], gfxOpen: false, key: "", setup: null, doc: null, dept: null, month: null, open: {}, ro: false, timer: null, saved: true, msg: "" };
@@ -389,13 +389,32 @@ function zEnsure() {
   if (GUEST.on || D.zh?.key === key || D.zBusy === key) return;
   D.zBusy = key;
   Z.loadHistory(S.getMonthDoc, st.fid, st.year, D.month, D.dept, 12)
-    .then(docs => { if (D.zBusy !== key) return; D.zh = { key, docs }; })
+    .then(async docs => { if (D.zBusy !== key) return; D.zh = { key, docs }; await zHealSave(); })
     .catch(() => { if (D.zBusy === key) D.zh = { key, docs: [], fail: true }; })
     .finally(() => { if (D.zBusy === key) D.zBusy = ""; if (D.v?.isConnected && D.key === key && !document.querySelector(".mod")) draw(); });
+}
+// Zincir kapanışlarını kayıtlı kararlardan tamamlar; eksik kalan (ör. bağlantı aksiyondan sonra kurulmuş) kapanışları kalıcı yazar
+async function zHealSave() {
+  if (GUEST.on || D.ro || !D.zh || D.zh.fail) return;
+  const { st } = D.ctx, cur = { year: +st.year, month: +D.month, doc: D.doc };
+  const docs = D.zh.docs.filter(x => !(+x.year === +st.year && +x.month === +D.month)).concat([cur]);
+  await zPersist(Z.heal(docs));
+}
+// Türetilen kapanışları kalıcı yazar (aynı ay: normal kayıt; diğer aylar: geçmiş kopyası)
+async function zPersist(ch) {
+  if (GUEST.on || D.ro || !ch?.length) return;
+  const { st } = D.ctx;
+  for (const k of ch) { const [y, m] = k.split("|").map(Number);
+    if (y === +st.year && m === +D.month) { persist(); continue; }
+    const x = D.zh?.docs.find(d => +d.year === y && +d.month === m); if (!x) continue;
+    try { await S.saveMonthDoc(st.fid, y, COLL, `${pad(m)}_${D.dept}`, x.doc); } catch (e) { console.warn("zincir kapanışı yazılamadı", e); } }
 }
 function zChains(skipNo = null) {
   if (!D.zh || D.zh.key !== D.key) return null;
   const { st } = D.ctx, docs = D.zh.docs.filter(x => !(+x.year === +st.year && +x.month === +D.month));
+  // Kapanışlar tüm kayıtlarla (düzenlenen denetim dahil) tamamlanır; öneri listesi düzenlenen denetimi dışarıda bırakır
+  const all = docs.concat([{ year: +st.year, month: +D.month, doc: D.doc }]).sort((a, b) => a.year - b.year || a.month - b.month);
+  const hc = Z.heal(all); if (hc.length) zPersist(hc);
   docs.push({ year: +st.year, month: +D.month, doc: { sessions: (D.doc.sessions || []).filter(s => s.no !== skipNo) } });
   docs.sort((a, b) => a.year - b.year || a.month - b.month);
   return Z.chainsOf(Z.linksOf(docs));
@@ -571,9 +590,11 @@ async function fxReview(pd, single = false) {
     m.querySelectorAll("button").forEach(b => b.disabled = true);
     const zSel = obj.st === "ok" ? zOld.filter((_, i) => !zOff.has(i)) : [];
     (s.fixed ||= {})[fk] = { t: req.t, tx: txr.trim(), ph: multi && obj.st === "ok" ? grp.flatMap(x => x.req.ph || []).filter(p => selPh.has(p.id)) : req.ph || [], at: Date.now(), rat: multi ? ratMax : req.at, gn: multi ? [...new Set(grp.map(x => x.guestName))].join(", ") : pd.guestName, gu: pd.guestUid, ...obj };
+    if (obj.st === "ok" && zOff.size) s.fixed[fk].zoff = zOld.filter((_, i) => zOff.has(i)).map(l => l.bk);
     if (zSel.length) { await zCloseApply(zSel, { k: "aks", d: iso(new Date(ratMax)), no: s.no, by: s.fixed[fk].gn, tx: s.fixed[fk].tx, ph: s.fixed[fk].ph }); if (zSel.some(l => +l.m !== +D.month || +l.y !== +st.year)) D.zh = null; }
     const ok = await persist(true);
     if (ok === false) { delete s.fixed[fk]; toast("Kaydedilemedi, bağlantıyı kontrol edip tekrar deneyin."); m.querySelectorAll("button").forEach(b => b.disabled = false); return; }
+    if (obj.st === "ok") D.zh = null;
     m.remove();
     for (const gu of new Set(grp.map(x => x.guestUid))) if (!fxPending().some(x => x.guestUid === gu)) Guest.inboxDelete(`${gu}_fx_${st.fid}_${st.year}_${D.month}_${D.dept}`);
     draw(); toast(msg);
@@ -924,7 +945,7 @@ function bind(v, c) {
   on("[data-reopen]", async el => {
     const no = +el.dataset.reopen, t = doc.sessions.find(x => x.no === no); if (!t) return;
     if (doc.draft.on !== false && Object.keys(doc.draft.marks || {}).length && doc.draft.edit !== no) {
-      const { confirmBox } = await import("./ui.js?v=20261111b");
+      const { confirmBox } = await import("./ui.js?v=20261111c");
       if (!(await confirmBox(`${no}. denetim açılsın mı?`, "Şu an açık olan denetimde kaydedilmemiş değişiklikler varsa kaybolur. Önce “Kaydet”e basmanız önerilir.", "Yine de aç"))) return;
     }
     if (t.no === doc.sessions.length) t.closed = false;
@@ -942,7 +963,7 @@ function bind(v, c) {
   });
   const gAll = async () => (await S.listMonthDocs(st.fid, st.year, "isgg").catch(() => [])).filter(g => g.id.startsWith(`${pad(D.month)}_${D.dept}_`));
   on("[data-delsess]", async el => {
-    const { confirmBox } = await import("./ui.js?v=20261111b");
+    const { confirmBox } = await import("./ui.js?v=20261111c");
     const no = +el.dataset.delsess, ix = doc.sessions.findIndex(x => x.no === no); if (ix < 0) return;
     const gone = doc.sessions[ix], later = ix < doc.sessions.length - 1, all = await gAll(), gAp = all.filter(g => g.status === "approved" && g.no === gone.no);
     let mode = "all";
@@ -967,7 +988,7 @@ function bind(v, c) {
   });
   // Sahip: misafir taslağını tamamen sil (denetime ve rapora hiç girmez)
   const delG = async g => {
-    const { confirmBox } = await import("./ui.js?v=20261111b");
+    const { confirmBox } = await import("./ui.js?v=20261111c");
     if (!(await confirmBox("Misafir taslağı silinsin mi?", `${g.guestName} taslağı ve fotoğrafları kalıcı olarak silinir; denetime ve rapora hiç girmez. Misafir isterse yeniden yazabilir.`, "Evet, tamamen sil", true))) return false;
     Object.values(g.draft?.photos || {}).flat().forEach(p => S.deletePhoto(st.fid, st.year, p.id).catch(() => {}));
     await S.deleteMonthDoc(st.fid, st.year, "isgg", g.id); await Guest.inboxDelete(`${g.guestUid}_${st.fid}_${st.year}_${+g.month}_${g.dept}`);
@@ -978,7 +999,7 @@ function bind(v, c) {
   const holOK = async date => {
     if (!date || GUEST.on || D.okHol?.has(date)) return true;
     const h = tatilMap(await tatilYukle(st.fid, st.year).catch(() => null)).get(date); if (!h || h.yarim) return true;
-    const { confirmBox } = await import("./ui.js?v=20261111b");
+    const { confirmBox } = await import("./ui.js?v=20261111c");
     if (!(await confirmBox("İzin / tatil günü", `${fmtTarih(date)} tarihi "${h.ad}" olarak izinli/tatil işaretli. Yine de bu tarihle denetim yapılsın mı?`, "Evet, kabul et"))) return false;
     (D.okHol ||= new Set()).add(date); return true;
   };
@@ -1005,12 +1026,13 @@ function bind(v, c) {
     if (zM.length) await zRelink(zM);
     if (zU.length) {
       const by = doc.auditor || st.profile?.name || "Yetkili";
-      for (const { c: zc, ph } of zU) await zCloseApply(Z.closeTargets(zc, d.date), { k: "uygun", d: d.date, no, by, ph, tx: `${dmy(d.date)} denetiminde uygun bulundu` });
+      const se0 = doc.sessions.find(x => x.no === no), at0 = Date.now();
+      for (const { c: zc, ph } of zU) { const tg = Z.closeTargets(zc, d.date); se0.zu = { ...(se0.zu || {}), [zc.zk]: { b: tg.map(l => l.bk), ph: ph || [], by, at: at0 } }; await zCloseApply(tg, { k: "uygun", d: d.date, no, by, ph, tx: `${dmy(d.date)} denetiminde uygun bulundu` }); }
       Object.keys(d.zu || {}).forEach(id => { if (d.zu[id].ok === true) delete d.zu[id]; });
       if (zU.some(x => x.c.links.some(l => !(+l.y === +st.year && +l.m === +D.month)))) D.zh = null;
     }
     if (close) { doc.sessions.find(x => x.no === no).closed = true; doc.draft = emptyDraft(defaultDate(st.year, D.month), false); delete doc.due; }
-    const okSave = await persist(true); draw();
+    const okSave = await persist(true); if (okSave !== false && (zU.length || zM.length)) D.zh = null; draw();
     if (okSave === false) { toast("Kaydedilemedi, bağlantıyı kontrol edip tekrar deneyin."); return; }
     toast(close ? `${no}. denetim tamamlandı. ${monOf(d.date) === monOf(iso(new Date())) ? "Yeni denetim, yeni hafta başlayınca açılır." : "Yeni denetim için “Denetimi Başlat”a basın."}` : `${no}. denetim kaydedildi; açık kaldı, kaldığınız yerden devam edebilirsiniz.`);
   };
@@ -1041,7 +1063,7 @@ function bind(v, c) {
     const zMap = (fails, set) => { for (const [id, list] of Object.entries(zc.zs || {})) { const used = new Set(); (list || []).forEach((z, k) => { if (!z) return; const t = String(w.notes?.[id]?.[k] || "").trim(), j = (fails[id] || []).findIndex((x, jj) => !used.has(jj) && String(x || "").trim() === t); if (j < 0) return; used.add(j); set(id, j, z.eff); }); } };
     const zMs = [], zObj = (id, e) => Object.values(zc.zs || {}).flat().find(z => z && z.eff === e && z.key.startsWith(id + "|")) || { eff: e, sg: { open: [] } };
     const zSess = se => zMap(se.fails || {}, (id, j, e) => { const kk = id + "|" + j; se.zk ||= {}; if (/^(yeni|farkli)$/.test(e)) delete se.zk[kk]; else if (e.startsWith("tekrar:")) { delete se.zk[kk]; (se.rk ||= {})[kk] = e.slice(7); } else if (e) { const r = zResolve(zObj(id, e)); if (r) { se.zk[kk] = r.primary; if (r.merge.length) zMs.push(r); } } });
-    const zClose = async no => { const chs = (zc.ch || []).filter(c => (zc.gu || []).includes(c.zk)); for (const c of chs) await zCloseApply(Z.closeTargets(c, w.date), { k: "misafir", d: w.date, no, by: g.guestName, tx: `${dmy(w.date)} misafir denetiminde (${g.guestName}) uygun bulundu` }); if (chs.some(c => c.links.some(l => !(+l.y === +D.ctx.st.year && +l.m === +D.month)))) D.zh = null; };
+    const zClose = async no => { const chs = (zc.ch || []).filter(c => (zc.gu || []).includes(c.zk)), se1 = doc.sessions.find(x => x.no === no), at1 = Date.now(); for (const c of chs) { if (se1) se1.zu = { ...(se1.zu || {}), [c.zk]: { b: Z.closeTargets(c, w.date).map(l => l.bk), by: g.guestName, at: at1, tx: `${dmy(w.date)} misafir denetiminde (${g.guestName}) uygun bulundu` } }; } for (const c of chs) await zCloseApply(Z.closeTargets(c, w.date), { k: "misafir", d: w.date, no, by: g.guestName, tx: `${dmy(w.date)} misafir denetiminde (${g.guestName}) uygun bulundu` }); if (chs.some(c => c.links.some(l => !(+l.y === +D.ctx.st.year && +l.m === +D.month)))) D.zh = null; };
     if (tgt) {
       if (!Object.keys(w.marks || {}).length) { toast("Taslakta işaretlenmiş madde yok."); return false; }
       if (doc.draft.on !== false && doc.draft.edit === tgt.no) { mergeGuest(doc.draft, w, choice); zMap(Object.fromEntries(Object.entries(doc.draft.notes || {}).map(([id, a]) => [id, a])), (id, k, e) => { (doc.draft.zsel ||= {})[id + "|" + k] = e; }); }
@@ -1161,8 +1183,9 @@ function bind(v, c) {
     }
     const zO = zOlder(s, id, j, iso(new Date(now)));
     let zS = [];
-    if (zO.length) { const { confirmBox } = await import("./ui.js?v=20261111b"); if (await confirmBox("Önceki haftalar da kapatılsın mı?", `Bu bulgu önceki haftalarda da açık: ${zO.map(zOldLbl).join(", ")}. Aynı aksiyonla kapatılsın mı? Eski haftaların puanı değişmez.`, "Evet, kapat")) zS = zO; }
+    if (zO.length) { const { confirmBox } = await import("./ui.js?v=20261111c"); if (await confirmBox("Önceki haftalar da kapatılsın mı?", `Bu bulgu önceki haftalarda da açık: ${zO.map(zOldLbl).join(", ")}. Aynı aksiyonla kapatılsın mı? Eski haftaların puanı değişmez.`, "Evet, kapat")) zS = zO; }
     (s.fixed ||= {})[fk] = { t, tx, ph: dr.ph || [], at: now, rat: now, ap: now, st: "ok", gn: "Yetkili" };
+    if (zO.length && !zS.length) s.fixed[fk].zoff = zO.map(l => l.bk);
     if (zS.length) { await zCloseApply(zS, { k: "aks", d: iso(new Date(now)), no: s.no, by: "Yetkili", tx, ph: dr.ph || [] }); if (zS.some(l => +l.m !== +D.month || +l.y !== +st.year)) D.zh = null; }
     const ok = await persist(true); if (ok === false) { delete s.fixed[fk]; el.disabled = false; return toast("Kaydedilemedi, bağlantıyı kontrol edip tekrar deneyin."); }
     delete D.fxDraft[key]; D.fxOpen.add(key); draw();
@@ -1176,7 +1199,7 @@ function bind(v, c) {
   });
   on("[data-fxdel]", async el => {
     const { s, id, j, fk } = fxSess(el.dataset.fxdel); if (!s?.fixed?.[fk]) return;
-    const { confirmBox } = await import("./ui.js?v=20261111b");
+    const { confirmBox } = await import("./ui.js?v=20261111c");
     if (!(await confirmBox("Aksiyon kaldırılsın mı?", "Aksiyon bilgisi silinir; bulgu yeniden cezaya sayılır.", "Evet, kaldır", true))) return;
     const old = s.fixed[fk], oldOff = s.fixedOff?.[fk]; delete s.fixed[fk];
     // Otomatik (görev takip) aksiyon elle kaldırıldıysa, aynı kapanış için yeniden otomatik eklenmesin

@@ -1,12 +1,12 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261111b";
-import { esc } from "./ui.js?v=20261111b";
-import { bandOf, DEFAULT_PARAMS, num, isgMonth, makTier, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261111b";
-import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261111b";
-import { CATS } from "./isgcats.js?v=20261111b";
-import * as Gorev from "./gorev.js?v=20261111b";
-import * as Z from "./zincir.js?v=20261111b";
-import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261111b";
+import * as S from "./store.js?v=20261111c";
+import { esc } from "./ui.js?v=20261111c";
+import { bandOf, DEFAULT_PARAMS, num, isgMonth, makTier, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261111c";
+import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261111c";
+import { CATS } from "./isgcats.js?v=20261111c";
+import * as Gorev from "./gorev.js?v=20261111c";
+import * as Z from "./zincir.js?v=20261111c";
+import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261111c";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -45,6 +45,7 @@ export async function load(st, setup) {
   const ZI = new Map(), ZL = new Map(), zdocs = new Map();
   [[+st.year - 1, igPrev], [+st.year, ig]].forEach(([y, docs]) => docs.forEach(d => { const id = String(d.id).slice(3), m = parseInt(String(d.id).slice(0, 2), 10); if (!d.sessions?.length || !(m >= 1 && m <= 12)) return; if (!zdocs.has(id)) zdocs.set(id, []); zdocs.get(id).push({ year: y, month: m, doc: d }); }));
   for (const [dept, docs] of zdocs) { try {
+    docs.sort((a, b) => a.year - b.year || a.month - b.month); Z.heal(docs); // kayıtlı kararlardan eksik zincir kapanışlarını tamamlar (yalnız okuma)
     const links = Z.linksOf(docs), chains = Z.chainsOf(links), cm = new Map(chains.map(c => [c.zk, c]));
     const sessOf = l => docs.find(x => x.year === l.y && x.month === l.m)?.doc.sessions.find(x => x.no === l.no), docOf = l => docs.find(x => x.year === l.y && x.month === l.m)?.doc;
     for (const c of chains) {

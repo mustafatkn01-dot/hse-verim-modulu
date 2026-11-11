@@ -1,10 +1,11 @@
 // Bulgu paylaşımı: yetkili, seçtiği bölümlerin açık bulgularını seçtiği misafirlerle paylaşır; misafir kendi ekranında görür ve
 // mevcut "Aksiyon bildir" akışıyla aksiyon alır (yetkili onayı mevcut Aksiyon bildirimleri panelinde).
 // Puan kuralı mevcut sistemdeki gibi: aksiyonun gönderim zamanı denetim haftası içindeyse (en geç cumartesi) ve yetkili kabul ederse puana işlenir.
-import * as S from "./store.js?v=20261111b";
-import { esc, ic, toast, confirmBox, compressImage, showPhoto, GUEST, pickDate, fmtTarih } from "./ui.js?v=20261111b";
-import * as Guest from "./guest.js?v=20261111b";
-import { CATS } from "./isgcats.js?v=20261111b";
+import * as S from "./store.js?v=20261111c";
+import { esc, ic, toast, confirmBox, compressImage, showPhoto, GUEST, pickDate, fmtTarih } from "./ui.js?v=20261111c";
+import * as Guest from "./guest.js?v=20261111c";
+import { CATS } from "./isgcats.js?v=20261111c";
+import * as Z from "./zincir.js?v=20261111c";
 
 const pad = n => String(n).padStart(2, "0"), iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const addDays = (s, n) => { const d = new Date(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10)); d.setDate(d.getDate() + n); return iso(d); };
@@ -17,6 +18,7 @@ const IB = "flex:0 0 40px;width:40px;height:40px;padding:0;display:grid;place-it
 
 // Bir bölüm kaydındaki açık (aksiyonu kabul edilmemiş) bulgu sayısı ve son denetim haftasının cumartesisi
 export function openInfo(doc) {
+  try { Z.heal([{ year: 0, month: 0, doc }]); } catch { }
   let n = 0, last = ""; const zs = new Set(); // aynı zincirdeki açık bulgular tek sayılır
   for (const s of doc?.sessions || []) {
     if (s.date && s.date > last) last = s.date;
@@ -149,7 +151,10 @@ export async function watchGuest(fid, year, uid, cb, allRows = []) {
     else { e.at = Math.max(e.at, sh.at || 0); { const w = monOf(iso(new Date(sh.at || 0))); if (w < e.since) e.since = w; } if (role === "aks") e.role = "aks"; (sh.guests || []).forEach(g => e.gs.add(g)); }
   }
   const rows = [...map.values()], st = {}, offs = [], today = iso(new Date());
-  const emit = () => cb(zGroup(rows.map(r => {
+  const emit = () => { const byD = new Map(); rows.forEach(r => { const x = st[r.key]; if (!x?.isg?.sessions) return; if (!byD.has(r.id)) byD.set(r.id, []); byD.get(r.id).push({ year: +year, month: +r.month, doc: x.isg }); });
+    for (const docs of byD.values()) { try { docs.sort((a, b) => a.month - b.month); Z.heal(docs); } catch { } } // zincir kapanışları (yalnız görüntü)
+    return emit0(); };
+  const emit0 = () => cb(zGroup(rows.map(r => {
     const x = st[r.key] || {}, items = buildItems(x.isg, Object.values(x.fix || {}), r.since, uid, x.fix || {}), ds = (x.isg?.sessions || []).map(s => s.date).filter(Boolean).sort(), own = x.own;
     const mine = own && own.status === "review" ? Object.entries(own.draft?.marks || {}).filter(([, v]) => v === "x").flatMap(([id]) => (own.draft.notes?.[id] || []).map(t => String(t || "").trim()).filter(Boolean)) : [];
     return { at: r.at, key: r.key, month: r.month, id: r.id, name: r.name, termin: r.termin, note: r.note, role: r.role, items, mine, done: !!(x.isg?.sessions?.length), no: (x.isg?.sessions?.length || 0) + 1,

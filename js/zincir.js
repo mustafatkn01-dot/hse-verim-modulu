@@ -125,3 +125,35 @@ export async function loadHistory(get, fid, year, month, dept, n = 12) {
   }
   return out.reverse();
 }
+
+// ---------- Zincir kapanışlarının tamamlanması (kendi kendini onaran kapanış) ----------
+// Kapanış kararları kayıtta kalıcıdır; eski haftalara yazılan "via" kapanışları bunlardan yeniden türetilebilir:
+//  1) Bir halkanın kendi kabul edilmiş aksiyonu (fixed ok, via değil): aynı zincirde o tarihe kadar tespit edilmiş açık halkaları kapatır
+//     (f.zoff: kullanıcının "kapatılmasın" dediği halkaların bulgu kimlikleri). Bağlantı aksiyondan sonra kurulsa da geçerlidir.
+//  2) "Uygun" kararı: kararın verildiği denetimde s.zu = { anahtar: { b: [hedef bulgu kimlikleri], ph, by, at } }
+//     hedeflerin zincirinde, karar tarihinden önce tespit edilmiş açık halkaları kapatır.
+// docs: tek bölümün [{ year, month, doc }] kayıtları (yerinde güncellenir). Dönüş: değişen "yıl|ay" anahtarları.
+const dmyT = t => t ? `${t.slice(8, 10)}.${t.slice(5, 7)}.${t.slice(0, 4)}` : "";
+export function heal(docs) {
+  const links = linksOf(docs), chains = chainsOf(links), changed = new Set(), sess = new Map(), chainOf = new Map();
+  for (const { year, month, doc } of docs || []) for (const s of doc?.sessions || []) sess.set(`${+year}|${+month}|${s.no}`, s);
+  chains.forEach(c => c.links.forEach(l => chainOf.set(l.bk, c)));
+  const close = (l, src) => {
+    if (l.ok) return; const s = sess.get(`${l.y}|${l.m}|${l.no}`); if (!s || (s.fails?.[l.id] || [])[l.j] !== l.t) return;
+    const ex = s.fixed?.[l.id + "|" + l.j]; if (ex && ex.st === "ok" && (ex.via || ex.t === l.t)) return;
+    const at = src.at || Date.now();
+    (s.fixed ||= {})[l.id + "|" + l.j] = { t: l.t, st: "ok", via: src.via, tx: src.tx || "", ph: (src.ph || []).map(p => ({ ...p })), gn: src.gn || "", at, ap: at, auto: 1 };
+    l.ok = true; l.f = s.fixed[l.id + "|" + l.j]; changed.add(`${l.y}|${l.m}`);
+  };
+  for (const c of chains) for (const a of c.links) {
+    const f = a.f; if (!(f && f.st === "ok" && !f.via && f.t === a.t && a.date)) continue; const off = f.zoff || [];
+    for (const l of c.links) if (l !== a && !l.ok && l.date && l.date <= a.date && !off.includes(l.bk))
+      close(l, { via: { k: "aks", d: a.date, no: a.no }, tx: f.tx, ph: f.ph, gn: f.gn, at: f.ap || f.at });
+  }
+  for (const { doc } of docs || []) for (const s of doc?.sessions || []) for (const r of Object.values(s.zu || {})) {
+    const cs = new Set((r.b || []).map(bk => chainOf.get(bk)).filter(Boolean));
+    for (const c of cs) for (const l of c.links) if (!l.ok && l.date && s.date && l.date < s.date)
+      close(l, { via: { k: "uygun", d: s.date, no: s.no }, tx: r.tx || `${dmyT(s.date)} denetiminde uygun bulundu`, ph: r.ph, gn: r.by, at: r.at });
+  }
+  return [...changed];
+}
