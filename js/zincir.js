@@ -41,7 +41,9 @@ export function ensureIds(doc) {
 const TR = { ç: "c", ğ: "g", ı: "i", i̇: "i", ö: "o", ş: "s", ü: "u", â: "a", î: "i", û: "u" };
 const fold = s => String(s || "").toLocaleLowerCase("tr").replace(/[çğıöşüâîû]/g, c => TR[c] || c);
 // Dolgu sözcükleri (kök hâlinde): bulgunun yerini/ekipmanını anlatmayan sözcükler
-const STOP = new Set(["ve", "ile", "bir", "bu", "su", "o", "da", "de", "ki", "icin", "gibi", "olara", "nolu", "no", "numa", "adet", "olan", "olmu", "var", "vardi", "mevcu", "bulun", "durum", "yapil", "edil", "edilm", "konul", "konmu", "birak", "tespi", "gorul", "gozle", "olmad", "degil", "yok", "cok", "fazla", "daha", "hala", "yine", "tekra", "uzeri", "icind", "icer", "taraf", "kisim", "alani", "bolum", "bolge", "ilgil", "sekil", "neden", "olmas", "olmak", "etmek", "edilme", "olup", "ise", "en", "her", "tum", "ayni", "onu", "onune", "onund", "onun"]);
+const STOP = new Set(["ve", "ile", "bir", "bu", "su", "o", "da", "de", "ki", "icin", "gibi", "olara", "nolu", "no", "numa", "adet", "olan", "olmu", "var", "vardi", "mevcu", "bulun", "durum", "yapil", "edil", "edilm", "konul", "konmu", "birak", "tespi", "gorul", "gozle", "olmad", "degil", "yok", "cok", "fazla", "daha", "hala", "yine", "tekra", "uzeri", "icind", "icer", "taraf", "kisim", "alani", "bolum", "bolge", "ilgil", "sekil", "neden", "olmas", "olmak", "etmek", "edilme", "olup", "ise", "en", "her", "tum", "ayni", "onu", "onune", "onund", "onun",
+  // Sorun türünü anlatan genel sözcükler (hangi makine/yer olduğunu ayırt etmez): makine, çap, boy, devam, eksik, sorun, yok…
+  "makin", "makina", "cap", "boy", "devam", "eksik", "sorun", "etmek", "etmekt", "ediyo", "yoktu", "yeter", "olmay", "halen", "mevcu", "gerek", "uygun", "uygu", "hatti", "hat"]);
 const stem = w => w.slice(0, 5);
 const nums = s => [...new Set((fold(s).match(/\d+/g) || []).map(n => String(+n)))];
 function words(s) {
@@ -50,18 +52,29 @@ function words(s) {
   for (const w of raw) { const st = stem(w); if (STOP.has(st) || STOP.has(w) || seen.has(st)) continue; seen.add(st); out.push({ w, st }); }
   return out;
 }
-const same = (a, b) => a.st === b.st || (Math.min(a.w.length, b.w.length) >= 3 && (a.w.startsWith(b.w) || b.w.startsWith(a.w)));
+const pre = (a, b) => { let i = 0; while (i < a.length && i < b.length && a[i] === b[i]) i++; return i; };
+// Aynı kök: tam kök eşleşmesi, biri diğerinin başı ya da kısa kökler için ek farkı (yolu / yolları)
+const same = (a, b) => { const m = Math.min(a.w.length, b.w.length); return a.st === b.st || (m >= 3 && (a.w.startsWith(b.w) || b.w.startsWith(a.w))) || (m <= 4 && m >= 3 && pre(a.w, b.w) >= m - 1); };
 // Seviye: "guclu" (numara ortak + metin benzer) · "orta" · "zayif" · "farkli" (numaralar çelişiyor: önerilmez)
-export function similarity(a, b) {
+// ctx (isteğe bağlı): bölüm geçmişindeki sözcük/numara sıklığı { n, df: Map }. Çok bulguda geçen numara (ör. hattın çapı "230")
+// ve sözcükler ayırt edici sayılmaz; benzerliği makine/yer adı gibi seyrek sözcükler belirler.
+export function context(texts) {
+  const df = new Map(); let n = 0;
+  for (const t of texts) { if (!String(t || "").trim()) continue; n++; new Set([...nums(t).map(x => "#" + x), ...words(t).map(x => x.st)]).forEach(k => df.set(k, (df.get(k) || 0) + 1)); }
+  return { n, df };
+}
+const common_ = (ctx, k) => !!ctx && ctx.n >= 4 && (ctx.df.get(k) || 0) / ctx.n > 0.3;
+export function similarity(a, b, ctx = null) {
   const na = nums(a), nb = nums(b), wa = words(a), wb = words(b);
+  const w = x => common_(ctx, x.st) ? 0.3 : 1, sum = l => l.reduce((t, x) => t + w(x), 0);
   const common = wa.filter(x => wb.some(y => same(x, y)));
-  const ov = Math.min(wa.length, wb.length) ? common.length / Math.min(wa.length, wb.length) : 0;
-  const cn = na.filter(n => nb.includes(n));
+  const den = Math.min(sum(wa), sum(wb)), ov = den ? sum(common) / den : 0;
+  const cn = na.filter(n => nb.includes(n)), da = na.filter(n => !common_(ctx, "#" + n)), db = nb.filter(n => !common_(ctx, "#" + n)), cd = da.filter(n => db.includes(n));
   let level;
-  if (na.length && nb.length && !cn.length) level = "farkli";
-  else if (cn.length) level = ov >= 0.34 ? "guclu" : "orta";
-  else level = ov >= 0.6 ? "orta" : "zayif";
-  const score = level === "farkli" ? 0 : Math.min(1, ov * 0.7 + (cn.length ? 0.3 : 0));
+  if ((na.length && nb.length && !cn.length) || (da.length && db.length && !cd.length)) level = "farkli";
+  else if (cd.length) level = ov >= 0.34 ? "guclu" : "orta";
+  else level = ov >= 0.65 ? "guclu" : ov >= 0.4 ? "orta" : "zayif";
+  const score = level === "farkli" ? 0 : Math.min(1, ov * 0.7 + (cd.length ? 0.3 : 0));
   return { level, score: Math.round(score * 100) / 100, nums: cn, common: common.map(x => x.w) };
 }
 
@@ -91,11 +104,12 @@ const isoOf = ms => { const d = new Date(ms); return `${d.getFullYear()}-${Strin
 const daysBetween = (a, b) => Math.round((Date.parse(b + "T00:00:00") - Date.parse(a + "T00:00:00")) / 864e5);
 // Yeni yazılan bulgu için öneri: aynı maddedeki açık zincirler (süre sınırı yok) + son 8 haftada kapanmış zincirler (tekrar uyarısı)
 // exclude: aynı denetimde zaten bağlanmış zincirler (bir eski halka yalnızca tek yeni bulguya bağlanır)
+const RK = { guclu: 3, orta: 2, zayif: 1, farkli: 0 };
 export function suggest(chains, { id, text, date, exclude = [] }) {
-  const open = [], tekrar = [];
+  const open = [], tekrar = [], ctx = context(chains.flatMap(c => c.links.map(l => l.t)).concat([text]));
   for (const c of chains) {
     if (c.id !== id || exclude.includes(c.zk) || !c.links.some(l => !date || l.date < date)) continue;
-    const sim = similarity(text, c.last.t);
+    const sim = c.links.map(l => similarity(text, l.t, ctx)).sort((x, y) => (RK[y.level] - RK[x.level]) || y.score - x.score)[0];
     if (c.open) open.push({ chain: c, sim });
     else if (c.closedAt && date && daysBetween(isoOf(c.closedAt), date) <= 56 && sim.level !== "farkli" && sim.level !== "zayif") tekrar.push({ chain: c, sim, closed: isoOf(c.closedAt) });
   }
