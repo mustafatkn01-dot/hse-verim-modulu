@@ -3,8 +3,8 @@
 //   users/{sahip}/invites/{kod}        davet (e-posta ayarı kopyası)
 //   users/{sahip}/guestReqs/{misafirUid}  onay isteği {gid, code, name, unit, status, at}
 //   users/{sahip}/members/{misafirUid}    onaylı üye {name, unit, factories[], mode, expires|null}
-import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously, signInWithEmailAndPassword, createAuxUser, changeAuxPassword, serverTimestamp } from "./firebase.js?v=20261111g";
-import { esc, toast, confirmBox } from "./ui.js?v=20261111g";
+import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously, signInWithEmailAndPassword, createAuxUser, changeAuxPassword, serverTimestamp } from "./firebase.js?v=20261112a";
+import { esc, toast, confirmBox } from "./ui.js?v=20261112a";
 
 const Q = new URLSearchParams(location.search);
 export const linkInfo = () => {
@@ -229,7 +229,7 @@ const newPid = taken => { // 6 hane, serbest dizilim; en az 2 harf ve en az 2 ra
 };
 // Önceki kayıtları bul: kişi kaydı (ID) + adı eşleşen, sahibi artık üye olmayan (sahipsiz) taslaklar
 async function findPrev(o, name, gid) {
-  const S = await import("./store.js?v=20261111g"), n = normName(name);
+  const S = await import("./store.js?v=20261112a"), n = normName(name);
   const people = (await loadPeople(o)).filter(p => p.norm === n);
   const mems = await getDocs(collection(db, `users/${o}/members`)).then(s => new Set(s.docs.map(d => d.id))).catch(() => new Set());
   const uids = new Set(); people.forEach(p => (p.uids || []).forEach(u => { if (u !== gid && !mems.has(u)) uids.add(u); }));
@@ -243,7 +243,7 @@ async function findPrev(o, name, gid) {
   return { person: people[0] || null, pid: people[0]?.id || null, uids, count };
 }
 async function migrateGuest(oldUids, newUid, name) {
-  const S = await import("./store.js?v=20261111g"); let n = 0;
+  const S = await import("./store.js?v=20261112a"); let n = 0;
   for (const f of await S.listFactories()) for (const y of await S.listYears(f.id)) for (const c of GCOLLS) {
     const all = await S.listMonthDocs(f.id, y, c), ids = new Set(all.map(d => d.id));
     for (const d of all) {
@@ -681,19 +681,69 @@ export function feedbackDialog() {
   };
 }
 export const watchFeedback = (ownerUid, cb) => onSnapshot(collection(db, `users/${ownerUid}/feedback`), snap => cb(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => b.at - a.at)), () => {});
-export async function inboxDialog(ownerUid, list, onChange) {
-  const un = list.filter(x => !x.read).length;
-  const paint = () => {
-    m.querySelector("#mbBody").innerHTML = list.map(x => `<div class="it" style="gap:10px;flex-direction:column;align-items:stretch"><div class="row" style="justify-content:space-between;flex-wrap:nowrap"><b>${esc(x.name || "Misafir")}${x.read ? "" : ' <span class="tag" style="background:#FBE9C6;color:#6B3F00">Yeni</span>'}</b><span class="muted" style="font-size:12.5px;flex:0 0 auto">${ago(x.at)}</span></div>
-      <div style="white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.55">${esc(x.text)}</div>
-      <div class="row" style="justify-content:flex-end"><button class="sm sec" data-d="${x.id}" style="color:#B3261E;border-color:#B3261E">Sil</button></div></div>`).join("") || '<span class="muted">Henüz mesaj yok.</span>';
-    m.querySelectorAll("[data-d]").forEach(b => b.onclick = async () => { await deleteDoc(doc(db, `users/${ownerUid}/feedback/${b.dataset.d}`)).catch(() => {}); list = list.filter(x => x.id !== b.dataset.d); paint(); onChange?.(); });
-  };
-  const m = modal(`<h2>Mesaj Kutusu</h2><div class="muted" style="font-size:13.5px">${un ? `<b>${un} adet</b> geri bildirim mesajınız var.` : (list.length ? "Tüm mesajlar okundu." : "Yeni mesaj yok.")}</div>
-    <div class="col1" style="gap:8px;max-height:55vh;overflow:auto" id="mbBody"></div><div class="row" style="justify-content:flex-end"><button class="sec" data-x>Kapat</button></div>`);
-  m.querySelector("[data-x]").onclick = () => m.remove();
+// Mesaj Kutusu (sahip): geri bildirimler kişiye göre gruplanır; kişi açılınca o kişinin mesajları okundu olur;
+// silme: mesajı / kişiyi sağa ya da sola kaydırınca çıkan kırmızı çöp alanı → Vazgeç / Sil onayı
+const IB_TR = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>';
+const ibAgo = t => { const m = Math.round((Date.now() - t) / 60000); if (m < 1) return "az önce"; if (m < 60) return m + " dk önce"; const h = Math.round(m / 60); if (h < 24) return h + " sa önce"; return ago(t); };
+const ibIni = n => String(n || "?").trim().split(/\s+/).map(x => x[0] || "").slice(0, 2).join("").toLocaleUpperCase("tr");
+export async function inboxDialog(ownerUid, list0, onChange) {
+  let list = [...(list0 || [])], tab = "", open = null, more = new Set(), fresh = new Set(), mems = new Map();
+  getDocs(collection(db, `users/${ownerUid}/members`)).then(sn => { sn.docs.forEach(d => mems.set(d.id, d.data())); paint(); }).catch(() => {});
+  const m = modal(`<div class="ib-top"><h2>Mesaj Kutusu</h2><button type="button" class="ib-x" data-x aria-label="Kapat">×</button></div><div id="ibBody" class="ib"></div>`);
+  m.querySelector(".mbox").classList.add("ibx");
+  const stopW = watchFeedback(ownerUid, l => { list = l; paint(); });
+  const close = () => { stopW?.(); m.remove(); onChange?.(); };
+  m.addEventListener("mousedown", e => { if (e.target === m) stopW?.(); });
+  const groups = () => { const g = new Map(); for (const x of list) { const k = x.gid || "ad:" + (x.name || ""); if (!g.has(k)) g.set(k, { k, gid: x.gid, name: x.name || "Misafir", ms: [] }); g.get(k).ms.push(x); }
+    return [...g.values()].map(x => (x.ms.sort((a, b) => b.at - a.at), x)).sort((a, b) => b.ms[0].at - a.ms[0].at); };
+  const markRead = async g => { const un = g.ms.filter(x => !x.read); if (!un.length) return; un.forEach(x => { x.read = true; fresh.add(x.id); }); onChange?.();
+    await Promise.all(un.map(x => updateDoc(doc(db, `users/${ownerUid}/feedback/${x.id}`), { read: true }).catch(() => {}))); };
+  function paint() {
+    const b = m.querySelector("#ibBody"); if (!b) return;
+    const G = groups(), un = list.filter(x => !x.read).length; if (!tab) tab = un ? "un" : "all";
+    const vis = G.filter(g => tab === "all" || open === g.k || g.ms.some(x => !x.read));
+    const mem = g => mems.get(g.gid), off = g => g.gid && mems.size && !(mem(g) && isLive(mem(g)));
+    const row = g => { const u = g.ms.filter(x => !x.read).length, op = open === g.k, ms = tab === "un" && !op ? g.ms.filter(x => !x.read) : g.ms, pid = mem(g)?.pid;
+      return `<div class="ib-snd${u ? " unr" : ""}${op ? " op" : ""}"><div class="ib-sw" data-sw><div class="ib-bk"><button type="button" data-delall="${esc(g.k)}" aria-label="${esc(g.name)} · tüm mesajları sil">${IB_TR}Tümü</button><button type="button" data-delall="${esc(g.k)}" aria-label="${esc(g.name)} · tüm mesajları sil">${IB_TR}Tümü</button></div>
+        <button type="button" class="ib-sh ib-fg" data-o="${esc(g.k)}" aria-expanded="${op}"><span class="ib-av">${esc(ibIni(g.name))}</span><span class="ib-sm"><b>${esc(g.name)}${off(g) ? ' <i class="ib-off">Erişimi yok</i>' : ""}</b><span>${esc(g.ms[0].text)}</span></span><span class="ib-rt"><span class="ib-tm">${ibAgo(g.ms[0].at)}</span><span class="ib-nb${u ? "" : " all"}">${u || g.ms.length}</span></span><span class="ib-chev" aria-hidden="true">⌄</span></button></div>
+        ${op ? `<div class="ib-sb">${ms.map(x => `<div class="ib-sw" data-sw><div class="ib-bk"><button type="button" data-del="${x.id}" aria-label="Mesajı sil">${IB_TR}Sil</button><button type="button" data-del="${x.id}" aria-label="Mesajı sil">${IB_TR}Sil</button></div>
+          <div class="ib-fg ib-msg${fresh.has(x.id) ? " nw" : ""}"><div class="ib-mh">${fresh.has(x.id) ? '<span class="ib-new">Yeni</span>' : ""}<span>${ibAgo(x.at)}</span></div><div class="ib-mt${x.text.length > 160 && !more.has(x.id) ? " cl" : ""}">${esc(x.text)}</div>${x.text.length > 160 ? `<button type="button" class="ib-more" data-more="${x.id}">${more.has(x.id) ? "Daha az göster" : "Devamını göster"}</button>` : ""}</div></div>`).join("")}
+          <div class="ib-sf"><span>${g.ms.length} mesaj${pid ? " · ID " + esc(pid) : ""}</span><span>Kişiyi kaydırarak tümünü silebilirsiniz</span></div></div>` : ""}</div>`; };
+    b.innerHTML = `<div class="ib-sum">${list.length ? `<b>${list.length}</b> mesaj · <b>${un}</b> okunmamış · <b>${G.length}</b> kişi` : "Henüz mesaj yok"}</div>
+      ${list.length ? `<div class="ib-tabs"><button type="button" class="${tab === "un" ? "on" : ""}" data-tab="un">Okunmamış (${un})</button><button type="button" class="${tab === "all" ? "on" : ""}" data-tab="all">Tümü (${list.length})</button></div>
+      <div class="ib-hint">⇆ Silmek için mesajı ya da kişiyi sağa veya sola kaydırın</div>
+      <div class="ib-list">${vis.map(row).join("") || '<div class="ib-empty">Okunmamış mesaj yok.</div>'}</div>
+      <div class="ib-foot"><button type="button" class="sec" data-allread ${un ? "" : "disabled"}>Tümünü okundu yap</button><button type="button" data-x>Kapat</button></div>`
+      : `<div class="ib-empty">Misafirleriniz "Geri Bildirim Gönder" ile mesaj yazdığında burada kişi kişi listelenir.</div><div class="ib-foot"><button type="button" data-x>Kapat</button></div>`}`;
+  }
+  // Kaydırma
+  let sw = null, swOpen = null, moved = false;
+  const fgOf = el => el.querySelector(":scope>.ib-fg");
+  const setX = (el, x) => { fgOf(el).style.transform = x ? `translateX(${x}px)` : ""; el.classList.toggle("open", !!x); el.dataset.x = x || 0; };
+  const closeSw = () => { if (swOpen) { setX(swOpen, 0); swOpen = null; } };
+  m.addEventListener("pointerdown", e => { const el = e.target.closest("[data-sw]"); if (!el || e.target.closest(".ib-bk")) return; if (swOpen && swOpen !== el) closeSw(); sw = { el, x0: e.clientX, y0: e.clientY, dx: 0, base: +(el.dataset.x || 0), on: false }; moved = false; });
+  m.addEventListener("pointermove", e => { if (!sw) return; const dx = e.clientX - sw.x0, dy = e.clientY - sw.y0;
+    if (!sw.on) { if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { sw = null; return; } if (Math.abs(dx) < 8) return; sw.on = true; sw.el.classList.add("drag"); try { sw.el.setPointerCapture(e.pointerId); } catch {} }
+    moved = true; sw.dx = Math.max(-110, Math.min(110, sw.base + dx)); fgOf(sw.el).style.transform = `translateX(${sw.dx}px)`; sw.el.classList.add("open"); });
+  const endSw = () => { if (!sw) return; const el = sw.el; el.classList.remove("drag"); if (sw.on) { const x = Math.abs(sw.dx) > 55 ? (sw.dx > 0 ? 84 : -84) : 0; setX(el, x); swOpen = x ? el : null; } sw = null; };
+  m.addEventListener("pointerup", endSw); m.addEventListener("pointercancel", endSw);
+  m.addEventListener("click", e => { if (moved) { moved = false; e.stopPropagation(); e.preventDefault(); } }, true);
+  const confirmDel = async (ids, title, txt) => { if (!(await confirmBox(title, txt + " Geri alınamaz.", "Sil", true))) return;
+    await Promise.all(ids.map(id => deleteDoc(doc(db, `users/${ownerUid}/feedback/${id}`)).catch(() => {}))); list = list.filter(x => !ids.includes(x.id)); paint(); onChange?.(); };
+  m.addEventListener("click", async e => {
+    const t = e.target.closest("button"); if (!t || !m.contains(t)) { closeSw(); return; } const d = t.dataset;
+    if (swOpen && !t.closest(".ib-bk")) { closeSw(); if (t.closest("[data-sw]")) return; }
+    if ("x" in d) return close();
+    if (d.tab) { tab = d.tab; open = null; }
+    else if (d.o !== undefined) { if (open === d.o) open = null; else { open = d.o; fresh.clear(); const g = groups().find(x => x.k === d.o); if (g) await markRead(g); } }
+    else if (d.more) { more.has(d.more) ? more.delete(d.more) : more.add(d.more); }
+    else if (d.del) { swOpen = null; return confirmDel([d.del], "Mesaj silinsin mi?", "Bu mesaj kalıcı olarak silinir."); }
+    else if (d.delall) { swOpen = null; const g = groups().find(x => x.k === d.delall); if (!g) return; if (open === g.k) open = null; return confirmDel(g.ms.map(x => x.id), `${g.name} · tüm mesajlar silinsin mi?`, `${g.ms.length} mesaj kalıcı olarak silinir.`); }
+    else if ("allread" in d) { const un = list.filter(x => !x.read); un.forEach(x => x.read = true); onChange?.(); await Promise.all(un.map(x => updateDoc(doc(db, `users/${ownerUid}/feedback/${x.id}`), { read: true }).catch(() => {}))); }
+    else return;
+    swOpen = null; paint();
+  });
   paint();
-  await Promise.all(list.filter(x => !x.read).map(x => updateDoc(doc(db, `users/${ownerUid}/feedback/${x.id}`), { read: true }).catch(() => {})));
 }
 
 // ---- Fabrika arşivi: misafir erişimini askıya alma ve geri açma ----
