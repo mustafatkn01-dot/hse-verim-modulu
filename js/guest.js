@@ -3,8 +3,8 @@
 //   users/{sahip}/invites/{kod}        davet (e-posta ayarı kopyası)
 //   users/{sahip}/guestReqs/{misafirUid}  onay isteği {gid, code, name, unit, status, at}
 //   users/{sahip}/members/{misafirUid}    onaylı üye {name, unit, factories[], mode, expires|null}
-import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously, signInWithEmailAndPassword, createAuxUser, changeAuxPassword, serverTimestamp } from "./firebase.js?v=20261112a";
-import { esc, toast, confirmBox } from "./ui.js?v=20261112a";
+import { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, signInAnonymously, signInWithEmailAndPassword, createAuxUser, changeAuxPassword, serverTimestamp } from "./firebase.js?v=20261112c";
+import { esc, toast, confirmBox } from "./ui.js?v=20261112c";
 
 const Q = new URLSearchParams(location.search);
 export const linkInfo = () => {
@@ -229,7 +229,7 @@ const newPid = taken => { // 6 hane, serbest dizilim; en az 2 harf ve en az 2 ra
 };
 // Önceki kayıtları bul: kişi kaydı (ID) + adı eşleşen, sahibi artık üye olmayan (sahipsiz) taslaklar
 async function findPrev(o, name, gid) {
-  const S = await import("./store.js?v=20261112a"), n = normName(name);
+  const S = await import("./store.js?v=20261112c"), n = normName(name);
   const people = (await loadPeople(o)).filter(p => p.norm === n);
   const mems = await getDocs(collection(db, `users/${o}/members`)).then(s => new Set(s.docs.map(d => d.id))).catch(() => new Set());
   const uids = new Set(); people.forEach(p => (p.uids || []).forEach(u => { if (u !== gid && !mems.has(u)) uids.add(u); }));
@@ -243,7 +243,7 @@ async function findPrev(o, name, gid) {
   return { person: people[0] || null, pid: people[0]?.id || null, uids, count };
 }
 async function migrateGuest(oldUids, newUid, name) {
-  const S = await import("./store.js?v=20261112a"); let n = 0;
+  const S = await import("./store.js?v=20261112c"); let n = 0;
   for (const f of await S.listFactories()) for (const y of await S.listYears(f.id)) for (const c of GCOLLS) {
     const all = await S.listMonthDocs(f.id, y, c), ids = new Set(all.map(d => d.id));
     for (const d of all) {
@@ -705,7 +705,7 @@ export async function inboxDialog(ownerUid, list0, onChange) {
     const mem = g => mems.get(g.gid), off = g => g.gid && mems.size && !(mem(g) && isLive(mem(g)));
     const row = g => { const u = g.ms.filter(x => !x.read).length, op = open === g.k, ms = tab === "un" && !op ? g.ms.filter(x => !x.read) : g.ms, pid = mem(g)?.pid;
       return `<div class="ib-snd${u ? " unr" : ""}${op ? " op" : ""}"><div class="ib-sw" data-sw><div class="ib-bk"><button type="button" data-delall="${esc(g.k)}" aria-label="${esc(g.name)} · tüm mesajları sil">${IB_TR}Tümü</button><button type="button" data-delall="${esc(g.k)}" aria-label="${esc(g.name)} · tüm mesajları sil">${IB_TR}Tümü</button></div>
-        <button type="button" class="ib-sh ib-fg" data-o="${esc(g.k)}" aria-expanded="${op}"><span class="ib-av">${esc(ibIni(g.name))}</span><span class="ib-sm"><b>${esc(g.name)}${off(g) ? ' <i class="ib-off">Erişimi yok</i>' : ""}</b><span>${esc(g.ms[0].text)}</span></span><span class="ib-rt"><span class="ib-tm">${ibAgo(g.ms[0].at)}</span><span class="ib-nb${u ? "" : " all"}">${u || g.ms.length}</span></span><span class="ib-chev" aria-hidden="true">⌄</span></button></div>
+        <button type="button" class="ib-sh ib-fg" data-o="${esc(g.k)}" aria-expanded="${op}"><span class="ib-av">${esc(ibIni(g.name))}</span><span class="ib-sm"><span class="ib-nm"><b>${esc(g.name)}</b></span><span>${off(g) ? '<i class="ib-off">Erişimi yok</i> ' : ""}${esc(g.ms[0].text)}</span></span><span class="ib-rt"><span class="ib-tm">${ibAgo(g.ms[0].at)}</span><span class="ib-nb${u ? "" : " all"}">${u || g.ms.length}</span></span><span class="ib-chev" aria-hidden="true">⌄</span></button></div>
         ${op ? `<div class="ib-sb">${ms.map(x => `<div class="ib-sw" data-sw><div class="ib-bk"><button type="button" data-del="${x.id}" aria-label="Mesajı sil">${IB_TR}Sil</button><button type="button" data-del="${x.id}" aria-label="Mesajı sil">${IB_TR}Sil</button></div>
           <div class="ib-fg ib-msg${fresh.has(x.id) ? " nw" : ""}"><div class="ib-mh">${fresh.has(x.id) ? '<span class="ib-new">Yeni</span>' : ""}<span>${ibAgo(x.at)}</span></div><div class="ib-mt${x.text.length > 160 && !more.has(x.id) ? " cl" : ""}">${esc(x.text)}</div>${x.text.length > 160 ? `<button type="button" class="ib-more" data-more="${x.id}">${more.has(x.id) ? "Daha az göster" : "Devamını göster"}</button>` : ""}</div></div>`).join("")}
           <div class="ib-sf"><span>${g.ms.length} mesaj${pid ? " · ID " + esc(pid) : ""}</span><span>Kişiyi kaydırarak tümünü silebilirsiniz</span></div></div>` : ""}</div>`; };
