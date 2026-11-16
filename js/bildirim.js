@@ -1,6 +1,6 @@
 // Bildirim şeridi: üstten kayar, 4 sn görünür, dokununca kapanır. Sarı = bilgi, yeşil = onay, kırmızı = ret.
 // Uygulama açılışında birikmiş olaylar tek şeritte toplanır (bannerInit); sonradan gelenler tek tek gösterilir.
-import * as S from "./store.js?v=20261116a";
+import * as S from "./store.js?v=20261116b";
 
 const ICO = { g: '<path d="M5 12.5l4.2 4.2L19 7"/>', y: '<path d="M12 7v6M12 17v.5"/>', r: '<path d="M7 7l10 10M17 7L7 17"/>' };
 const Q = []; let busy = false, el = null, tm = null, pool = [], poolT = null;
@@ -8,21 +8,21 @@ const Q = []; let busy = false, el = null, tm = null, pool = [], poolT = null;
 const node = () => {
   if (el) return el;
   el = document.createElement("div"); el.id = "bnr"; el.setAttribute("role", "status"); el.setAttribute("aria-live", "polite");
-  el.onclick = () => hide(); document.body.appendChild(el); return el;
+  el.onclick = () => { const f = el._tap; el._tap = null; hide(); try { f?.(); } catch { } }; document.body.appendChild(el); return el;
 };
 function hide() { clearTimeout(tm); if (!el) return; el.classList.remove("show"); setTimeout(() => { busy = false; pump(); }, 400); }
 function pump() {
   if (busy || !Q.length) return; busy = true;
-  const [c, t, m] = Q.shift(), e = node();
+  const [c, t, m, tap] = Q.shift(), e = node(); e._tap = tap || null;
   e.className = c; e.innerHTML = `<span class="dot"><svg viewBox="0 0 24 24">${ICO[c] || ICO.y}</svg></span><span><b></b><span class="m"></span></span><i class="pr"></i>`;
   e.querySelector("b").textContent = t; e.querySelector(".m").textContent = m || "";
   void e.offsetWidth; e.classList.add("show"); tm = setTimeout(hide, 4000);
 }
-export function banner(c, t, m) { Q.push([c, t, m]); pump(); }
+export function banner(c, t, m, tap) { Q.push([c, t, m, tap]); pump(); }
 // Açılışta gelen olaylar 1,5 sn toplanır: tek olay → şerit, birden çok → tek özet şerit
 export function bannerInit(ev) {
   pool.push(ev); clearTimeout(poolT);
-  poolT = setTimeout(() => { const p = pool; pool = []; if (p.length === 1) banner(...p[0]); else if (p.length) banner("y", `${p.length} yeni bildirim`, p.slice(0, 3).map(x => x[1]).join(" · ")); }, 1500);
+  poolT = setTimeout(() => { const p = pool; pool = []; if (p.length === 1) banner(...p[0]); else if (p.length) banner("y", `${p.length} yeni bildirim`, p.slice(0, 3).map(x => x[1]).join(" · "), p.find(x => x[3])?.[3]); }, 1500);
 }
 
 // ---------- Misafir: karar / paylaşım olaylarını canlı izler ----------
@@ -54,6 +54,46 @@ export function guestWatch({ fid, year, uid }) {
   }));
   gOff.push(S.watchMyShares(list => run("sh", list.filter(x => x.fid === fid && String(x.year) === String(year)).map(x => [`sh|${x.id}`, x.at,
     ["y", "Yeni bulgu paylaşıldı", x.all ? "Tüm bölümler sizinle paylaşıldı." : (x.depts || []).map(d => d.name).slice(0, 3).join(", ") + " sizinle paylaşıldı."]]))));
+  nfWatch({ fid, year, uid });
+}
+// ---------- Misafir: paylaşılan bölüme sonradan eklenen bulgular ----------
+// Paylaşılan bölüm/ayın kayıtlı bulguları cihazda tutulur; sonradan eklenenler "yeni" sayılır, şerit gösterilir ve
+// bölüm açılana kadar kartta "N yeni" kalır. Bir bölüm ilk kez görüldüğünde (özellik ilk açıldığında da) sessizce kayda alınır.
+let NF = null;
+const pad2 = n => String(n).padStart(2, "0");
+const nfKeys = d => { const out = []; (d?.sessions || []).forEach(s => Object.entries(s.fails || {}).forEach(([id, arr]) => (arr || []).forEach((t, j) => { if (String(t || "").trim()) out.push(s.bk?.[id + "|" + j] || `${s.no}|${id}|${j}`); }))); return out; };
+export const newOf = docId => (NF?.nn?.[docId] || []);
+export function clearNew(docId) { if (!NF?.nn?.[docId]?.length) return; delete NF.nn[docId]; NF.save(); }
+function nfWatch({ fid, year, uid }) {
+  const K = `hse_nf_${uid}_${fid}_${year}`; let st = {}; try { st = JSON.parse(localStorage.getItem(K) || "{}") || {}; } catch { }
+  NF = { kn: st.kn || {}, nn: st.nn || {}, save() { try { localStorage.setItem(K, JSON.stringify({ kn: this.kn, nn: this.nn })); } catch { } } };
+  let names = new Map(), all = new Set(), rows = null, first = true, setupNames = null;
+  const nameOf = docId => names.get(docId) || setupNames?.get(docId.slice(3)) || "Bölüm";
+  const run = () => {
+    if (!rows || (!names.size && !all.size)) return;
+    const add = [];
+    for (const d of rows) {
+      const id = String(d.id); if (!(names.has(id) || all.has(id.slice(0, 2)))) continue;
+      const keys = nfKeys(d), kn = NF.kn[id];
+      if (!kn) { NF.kn[id] = keys; continue; }
+      const nw = keys.filter(k => !kn.includes(k));
+      NF.kn[id] = keys; if (nw.length) { NF.nn[id] = [...new Set([...(NF.nn[id] || []), ...nw])]; add.push([id, nw.length]); }
+    }
+    NF.save();
+    if (add.length) {
+      const msg = add.map(([id, n], i) => `${nameOf(id)} · ${n}${i === add.length - 1 ? " yeni bulgu" : ""}`).join(", "), tap = () => window.dispatchEvent(new CustomEvent("hse-nf-open", { detail: add[0][0] }));
+      const ev = ["y", "Yeni bulgu eklendi", msg, tap]; if (first) bannerInit(ev); else banner(...ev);
+      window.dispatchEvent(new Event("hse-nf"));
+    }
+    first = false;
+  };
+  gOff.push(S.watchMyShares(list => {
+    names = new Map(); all = new Set();
+    list.filter(x => x.fid === fid && String(x.year) === String(year)).forEach(x => { if (x.all) all.add(pad2(x.month)); (x.depts || []).forEach(dp => names.set(`${pad2(x.month)}_${dp.id}`, dp.name)); });
+    if (all.size && !setupNames) S.getSetup(fid, year).then(su => { setupNames = new Map((su?.rows || []).map(r => [r.id, r.name])); }).catch(() => {});
+    run();
+  }));
+  gOff.push(S.watchColl(fid, year, "isg", r => { rows = r; run(); }));
 }
 // Bağlantı yenilendi: yeni bağlantıyla ilk girişte bir kez
 export function linkRenewed(uid, rot) {
