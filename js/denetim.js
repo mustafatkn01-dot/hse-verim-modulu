@@ -1,14 +1,14 @@
 // İSG Denetim Listesi sayfası
-import * as Guest from "./guest.js?v=20261112c";
-import * as Gorev from "./gorev.js?v=20261112c";
-import * as S from "./store.js?v=20261112c";
-import * as Ramak from "./ramak.js?v=20261112c";
-import * as Z from "./zincir.js?v=20261112c";
-import * as Paylas from "./paylas.js?v=20261112c";
-import { esc, ic, toast, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, showPhotos, openPhotos, setPhotoLoader, GUEST, guestLock, roText } from "./ui.js?v=20261112c";
-import { CATS } from "./isgcats.js?v=20261112c";
-import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261112c";
-import { calcIsg, isgMonth, isgAudits, fxInTime, makTier, katsayi, bandOf, num, surecVar, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261112c";
+import * as Guest from "./guest.js?v=20261116a";
+import * as Gorev from "./gorev.js?v=20261116a";
+import * as S from "./store.js?v=20261116a";
+import * as Ramak from "./ramak.js?v=20261116a";
+import * as Z from "./zincir.js?v=20261116a";
+import * as Paylas from "./paylas.js?v=20261116a";
+import { esc, ic, toast, confirmBox, pickDate, fmtTarih, noteEditor, compressImage, showPhoto, showPhotos, openPhotos, setPhotoLoader, GUEST, guestLock, roText } from "./ui.js?v=20261116a";
+import { CATS } from "./isgcats.js?v=20261116a";
+import { dotCss, yukle as tatilYukle, takvim as tatilMap } from "./tatil.js?v=20261116a";
+import { calcIsg, isgMonth, isgAudits, fxInTime, makTier, katsayi, bandOf, num, surecVar, MONTHS, DEFAULT_PARAMS } from "./scoring.js?v=20261116a";
 
 const COLL = "isg";
 const D = { pk: { open: false, view: 0, cnt: {} }, fxEditing: new Set(), fxDraft: {}, fxOpen: new Set(), fxList: [], gfxOpen: false, key: "", setup: null, doc: null, dept: null, month: null, open: {}, ro: false, timer: null, saved: true, msg: "" };
@@ -768,7 +768,7 @@ function draw() {
           ${notes.map((t, k) => `<div class="row" style="flex-wrap:nowrap;align-items:flex-start;gap:6px"><span style="flex:0 0 16px;padding-top:10px;font-weight:800;color:#8E1B16">${k + 1}.</span>
             <button class="nb" data-note="${id}|${k}" aria-label="Açıklamayı yaz veya düzenle"><span class="nt" style="color:${t.trim() ? "var(--text)" : "#8A6A66"}">${esc(t.trim() ? t : "Dokunun ve yazın: hangi makine veya alanda, ne gibi uygunsuzluk var?")}</span>${ic('<path d="M4 20h4L19 9l-4-4L4 16v4z"/>', 18)}</button>
             <button class="nx" data-nrm="${id}|${k}" aria-label="Açıklamayı sil">×</button></div>
-          <div class="phs">${(doc.draft.photos?.[id + "|" + k] || []).map(p => `<span class="pth"><img src="${p.t}" data-pv="${p.id}" alt="Fotoğraf"><button class="px" data-prm="${id}|${k}|${p.id}" aria-label="Fotoğrafı sil">×</button></span>`).join("")}
+          <div class="phs">${(doc.draft.photos?.[id + "|" + k] || []).map(p => `<span class="pth"><img src="${p.t}" data-pv="${p.id}" alt="Fotoğraf">${p.sh ? '<i class="pshl">önceki</i>' : ""}<button class="px" data-prm="${id}|${k}|${p.id}" aria-label="Fotoğrafı sil">×</button></span>`).join("")}
             ${D.ro ? "" : `<label class="pbtn">${ic('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>', 20)}<i>Fotoğraf çek</i><input type="file" accept="image/*" capture="environment" data-ph="${id}|${k}" hidden></label><label class="pbtn">${ic('<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.5"/><path d="M21 16l-5-5-8 9"/>', 20)}<i>Resim ekle</i><input type="file" accept="image/*" multiple data-ph="${id}|${k}" hidden></label>`}${gchip(cat, ii, id, notes, k, curNo, row, st)}</div>${fxc(id, notes, k)}${zs?.[k] ? zCard(zs[k], D.zOpen === zs[k].key) : ""}`).join("")}
           <button class="sec" style="align-self:flex-start;height:38px;color:#8E1B16;border-color:#B3261E" data-nadd="${id}">+ Benzer uygunsuzluk ekle</button></div>` : ""}</div>`;
     }).join("");
@@ -923,7 +923,7 @@ function bind(v, c) {
   on("[data-nadd]", el => { (d.notes[el.dataset.nadd] ||= [""]).push(""); again(); });
   on("[data-nrm]", el => {
     const [id, k] = el.dataset.nrm.split("|"), kk = +k; const a = d.notes[id] || [""]; d.photos ||= {};
-    (d.photos[id + "|" + kk] || []).forEach(p => S.deletePhoto(st.fid, st.year, p.id).catch(() => {}));
+    (d.photos[id + "|" + kk] || []).forEach(p => delPh(st, p));
     if (a.length <= 1) { d.notes[id] = [""]; delete d.photos[id + "|0"]; }
     else { a.splice(kk, 1); for (let j = kk; j <= a.length; j++) { const nx = d.photos[id + "|" + (j + 1)]; if (nx) d.photos[id + "|" + j] = nx; else delete d.photos[id + "|" + j]; } }
     if (d.zsel) { const z = d.zsel, n = Object.keys(z).filter(x => x.startsWith(id + "|")).map(x => +x.split("|")[1]); delete z[id + "|" + kk]; n.filter(j => j > kk).sort((a, b) => a - b).forEach(j => { z[id + "|" + (j - 1)] = z[id + "|" + j]; delete z[id + "|" + j]; }); }
@@ -942,7 +942,7 @@ function bind(v, c) {
   });
   on("[data-prm]", el => {
     const [id, k, pid] = el.dataset.prm.split("|"), key = id + "|" + k;
-    d.photos[key] = (d.photos[key] || []).filter(p => p.id !== pid); S.deletePhoto(st.fid, st.year, pid).catch(() => {}); again();
+    const gone = (d.photos[key] || []).find(p => p.id === pid); d.photos[key] = (d.photos[key] || []).filter(p => p.id !== pid); delPh(st, gone || { id: pid }); again();
   });
   setPhotoLoader(id => S.getPhoto(st.fid, st.year, id)); on("[data-pv]", el => openPhotos(el, id => S.getPhoto(st.fid, st.year, id)));
   on("[data-note]", async el => {
@@ -967,7 +967,7 @@ function bind(v, c) {
   on("[data-reopen]", async el => {
     const no = +el.dataset.reopen, t = doc.sessions.find(x => x.no === no); if (!t) return;
     if (doc.draft.on !== false && Object.keys(doc.draft.marks || {}).length && doc.draft.edit !== no) {
-      const { confirmBox } = await import("./ui.js?v=20261112c");
+      const { confirmBox } = await import("./ui.js?v=20261116a");
       if (!(await confirmBox(`${no}. denetim açılsın mı?`, "Şu an açık olan denetimde kaydedilmemiş değişiklikler varsa kaybolur. Önce “Kaydet”e basmanız önerilir.", "Yine de aç"))) return;
     }
     if (t.no === doc.sessions.length) t.closed = false;
@@ -985,7 +985,7 @@ function bind(v, c) {
   });
   const gAll = async () => (await S.listMonthDocs(st.fid, st.year, "isgg").catch(() => [])).filter(g => g.id.startsWith(`${pad(D.month)}_${D.dept}_`));
   on("[data-delsess]", async el => {
-    const { confirmBox } = await import("./ui.js?v=20261112c");
+    const { confirmBox } = await import("./ui.js?v=20261116a");
     const no = +el.dataset.delsess, ix = doc.sessions.findIndex(x => x.no === no); if (ix < 0) return;
     const gone = doc.sessions[ix], later = ix < doc.sessions.length - 1, all = await gAll(), gAp = all.filter(g => g.status === "approved" && g.no === gone.no);
     let mode = "all";
@@ -1001,7 +1001,7 @@ function bind(v, c) {
       if (mode === "ret") await save(g, { status: "returned", at: Date.now(), note: "Onaylanan denetim yetkili kullanıcı tarafından silindi; gerekirse düzeltip yeniden gönderebilirsiniz.", no: undefined });
       else { Object.values(g.draft?.photos || {}).flat().forEach(p => S.deletePhoto(st.fid, st.year, p.id).catch(() => {})); await S.deleteMonthDoc(st.fid, st.year, "isgg", g.id).catch(() => {}); }
     }
-    if (!gAp.length || mode === "all") Object.values(gone.photos || {}).flat().forEach(p => S.deletePhoto(st.fid, st.year, p.id).catch(() => {}));
+    if (!gAp.length || mode === "all") Object.values(gone.photos || {}).flat().forEach(p => delPh(st, p));
     if (doc.draft.edit === gone.no) doc.draft = emptyDraft(defaultDate(st.year, D.month), false);
     else if (doc.draft.edit != null && doc.draft.edit > gone.no) doc.draft.edit -= 1;
     if (!doc.sessions.length) doc.draft = emptyDraft(defaultDate(st.year, D.month), true);
@@ -1010,7 +1010,7 @@ function bind(v, c) {
   });
   // Sahip: misafir taslağını tamamen sil (denetime ve rapora hiç girmez)
   const delG = async g => {
-    const { confirmBox } = await import("./ui.js?v=20261112c");
+    const { confirmBox } = await import("./ui.js?v=20261116a");
     if (!(await confirmBox("Misafir taslağı silinsin mi?", `${g.guestName} taslağı ve fotoğrafları kalıcı olarak silinir; denetime ve rapora hiç girmez. Misafir isterse yeniden yazabilir.`, "Evet, tamamen sil", true))) return false;
     Object.values(g.draft?.photos || {}).flat().forEach(p => S.deletePhoto(st.fid, st.year, p.id).catch(() => {}));
     await S.deleteMonthDoc(st.fid, st.year, "isgg", g.id); await Guest.inboxDelete(`${g.guestUid}_${st.fid}_${st.year}_${+g.month}_${g.dept}`);
@@ -1021,7 +1021,7 @@ function bind(v, c) {
   const holOK = async date => {
     if (!date || GUEST.on || D.okHol?.has(date)) return true;
     const h = tatilMap(await tatilYukle(st.fid, st.year).catch(() => null)).get(date); if (!h || h.yarim) return true;
-    const { confirmBox } = await import("./ui.js?v=20261112c");
+    const { confirmBox } = await import("./ui.js?v=20261116a");
     if (!(await confirmBox("İzin / tatil günü", `${fmtTarih(date)} tarihi "${h.ad}" olarak izinli/tatil işaretli. Yine de bu tarihle denetim yapılsın mı?`, "Evet, kabul et"))) return false;
     (D.okHol ||= new Set()).add(date); return true;
   };
@@ -1205,7 +1205,7 @@ function bind(v, c) {
     }
     const zO = zOlder(s, id, j, iso(new Date(now)));
     let zS = [];
-    if (zO.length) { const { confirmBox } = await import("./ui.js?v=20261112c"); if (await confirmBox("Önceki haftalar da kapatılsın mı?", `Bu bulgu önceki haftalarda da açık: ${zO.map(zOldLbl).join(", ")}. Aynı aksiyonla kapatılsın mı? Eski haftaların puanı değişmez.`, "Evet, kapat")) zS = zO; }
+    if (zO.length) { const { confirmBox } = await import("./ui.js?v=20261116a"); if (await confirmBox("Önceki haftalar da kapatılsın mı?", `Bu bulgu önceki haftalarda da açık: ${zO.map(zOldLbl).join(", ")}. Aynı aksiyonla kapatılsın mı? Eski haftaların puanı değişmez.`, "Evet, kapat")) zS = zO; }
     (s.fixed ||= {})[fk] = { t, tx, ph: dr.ph || [], at: now, rat: now, ap: now, st: "ok", gn: "Yetkili" };
     if (zO.length && !zS.length) s.fixed[fk].zoff = zO.map(l => l.bk);
     if (zS.length) { await zCloseApply(zS, { k: "aks", d: iso(new Date(now)), no: s.no, by: "Yetkili", tx, ph: dr.ph || [] }); if (zS.some(l => +l.m !== +D.month || +l.y !== +st.year)) D.zh = null; }
@@ -1221,7 +1221,7 @@ function bind(v, c) {
   });
   on("[data-fxdel]", async el => {
     const { s, id, j, fk } = fxSess(el.dataset.fxdel); if (!s?.fixed?.[fk]) return;
-    const { confirmBox } = await import("./ui.js?v=20261112c");
+    const { confirmBox } = await import("./ui.js?v=20261116a");
     if (!(await confirmBox("Aksiyon kaldırılsın mı?", "Aksiyon bilgisi silinir; bulgu yeniden cezaya sayılır.", "Evet, kaldır", true))) return;
     const old = s.fixed[fk], oldOff = s.fixedOff?.[fk]; delete s.fixed[fk];
     // Otomatik (görev takip) aksiyon elle kaldırıldıysa, aynı kapanış için yeniden otomatik eklenmesin
@@ -1255,21 +1255,68 @@ function bind(v, c) {
   setPhotoLoader(id => D.ctx.st && S.getPhoto(D.ctx.st.fid, D.ctx.st.year, id)); v.querySelectorAll("[data-pv]").forEach(im => { if (!im.onclick) im.onclick = () => pvOpen(im); });
   v.querySelectorAll("[data-pf]").forEach(b => b.onclick = () => openPrev(b.dataset.pf));
 }
-// Geçmiş bulgu: turuncu karttaki tarihe dokununca o denetimde yazılan bulgu(lar) ve fotoğrafları (yalnızca okunur, kopyalanır)
+// Geçmiş bulgu: turuncu karttaki tarihe dokununca o denetimde yazılan bulgu(lar) ve fotoğrafları (yalnızca okunur).
+// Alttaki "Kopyala" tümünü panoya alır. Her bulgunun köşesindeki kopyala ikonu o bulgu için aktarma panelini açar:
+// metin ve/veya seçilen fotoğraflar bu haftaya aynı maddeye eklenir. Fotoğraf yeniden yüklenmez, aynı kayıt bağlanır (sh: paylaşılan).
+const CP_IC = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>';
+const clipCopy = async out => {
+  try { await navigator.clipboard.writeText(out); toast("Kopyalandı."); }
+  catch { try { const ta = document.createElement("textarea"); ta.value = out; ta.style.cssText = "position:fixed;opacity:0"; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); toast("Kopyalandı."); } catch { toast("Kopyalanamadı, metne basılı tutup kopyalayın."); } }
+};
 function openPrev(ref) {
   const [id, no] = ref.split("|"), s = D.doc.sessions.find(x => String(x.no) === no); if (!s || (GUEST.on && !GUEST.hist)) return;
   const { st } = D.ctx, { txt } = catOf(id), texts = (s.fails?.[id] || []).filter(t => String(t || "").trim());
-  const m = document.createElement("div"); m.className = "mod";
-  m.innerHTML = `<div class="mbox" role="dialog" aria-modal="true" style="gap:12px;max-height:88vh;overflow:auto"><h2 style="font-size:18px">${dm(s.date)} · Geçmiş bulgu</h2><div class="muted" style="font-size:12.5px;line-height:1.5;margin-top:-6px">${esc(txt)}</div>
-    ${texts.length ? texts.map((t, n) => { const ph = s.photos?.[id + "|" + n] || []; return `<div class="gbf">${texts.length > 1 ? `<b>${n + 1}.</b>` : ""}<div class="gbc"><div class="gbt">${esc(t)}</div>${ph.length ? `<div class="gbp">${ph.map((p, k) => `<button type="button" data-gp="${n}|${k}" aria-label="Fotoğrafı büyüt"><img src="${p.t}" alt="Fotoğraf"></button>`).join("")}</div>` : ""}</div></div>`; }).join("") : '<div class="muted">Bu denetimde bulgu açıklaması girilmemiş.</div>'}
-    <div class="ar-two"><button class="sec" data-gx>Kapat</button><button data-gc ${texts.length ? "" : "disabled"}>Kopyala</button></div></div>`;
-  document.body.appendChild(m);
-  m.querySelector("[data-gx]").onclick = () => m.remove(); m.addEventListener("mousedown", e => { if (e.target === m) m.remove(); });
-  m.querySelectorAll("[data-gp]").forEach(b => b.onclick = () => { const [n, k] = b.dataset.gp.split("|"); showPhotos((s.photos[id + "|" + n] || []).map(p => ({ t: p.t, id: p.id })), +k, pid => S.getPhoto(st.fid, st.year, pid)); });
-  m.querySelector("[data-gc]").onclick = async () => {
-    const out = texts.length > 1 ? texts.map((t, n) => `${n + 1}. ${t}`).join("\n") : texts[0];
-    try { await navigator.clipboard.writeText(out); toast("Kopyalandı."); }
-    catch { try { const ta = document.createElement("textarea"); ta.value = out; ta.style.cssText = "position:fixed;opacity:0"; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); toast("Kopyalandı."); } catch { toast("Kopyalanamadı, metne basılı tutup kopyalayın."); } }
+  const phOf = n => s.photos?.[id + "|" + n] || [], canAdd = !D.ro && !GUEST.on && !!D.doc?.draft;
+  let open = -1, wantT = true, sel = new Set(), lp = false;
+  const m = document.createElement("div"); m.className = "mod"; document.body.appendChild(m);
+  const paint = () => {
+    m.innerHTML = `<div class="mbox" role="dialog" aria-modal="true" style="gap:12px;max-height:88vh;overflow:auto"><h2 style="font-size:18px">${dm(s.date)} · Geçmiş bulgu</h2><div class="muted" style="font-size:12.5px;line-height:1.5;margin-top:-6px">${esc(txt)}</div>
+      ${texts.length ? texts.map((t, n) => { const ph = phOf(n), op = open === n, ns = ph.filter(p => sel.has(p.id)).length;
+        return `<div class="gbf">${texts.length > 1 ? `<b>${n + 1}.</b>` : ""}<div class="gbc${op ? " sel" : ""}"><div class="gbt cpw">${esc(t)}<button type="button" class="gcp${op ? " on" : ""}" data-gcp="${n}" aria-label="Bu bulguyu aktar">${CP_IC}</button></div>
+          ${ph.length ? `<div class="gbp">${ph.map((p, k) => `<button type="button" class="${op && sel.has(p.id) ? "on" : ""}" data-gp="${n}|${k}" aria-label="${op ? "Fotoğrafı seç" : "Fotoğrafı büyüt"}"><img src="${p.t}" alt="Fotoğraf"><i class="gck"></i></button>`).join("")}</div>` : ""}
+          ${op ? `<div class="gpan"><div class="gph">NE AKTARILSIN?</div><div class="gtg"><button type="button" class="${wantT ? "on" : ""}" data-gwt>Metin</button>${ph.length ? `<button type="button" class="${ns ? "on" : ""}" data-gwp>Fotoğraflar (${ns}/${ph.length})</button>` : ""}</div>
+            ${ph.length ? `<div class="gpn">Fotoğrafa dokunarak seçin ya da çıkarın. Fotoğraflar yeniden yüklenmez, aynı kayıt kullanılır.</div>` : ""}
+            <div class="ar-two"><button type="button" class="sec" data-gclip ${wantT ? "" : "disabled"}>Panoya kopyala</button>${canAdd ? `<button type="button" data-gpadd ${wantT || ns ? "" : "disabled"}>Bu haftaya ekle</button>` : ""}</div></div>` : ""}</div></div>`; }).join("") : '<div class="muted">Bu denetimde bulgu açıklaması girilmemiş.</div>'}
+      <div class="ar-two"><button class="sec" data-gx>Kapat</button><button data-gc ${texts.length ? "" : "disabled"}>Kopyala</button></div></div>`;
   };
+  const openF = (n, only) => { open = n; wantT = only == null; sel = new Set(only != null ? [only] : phOf(n).map(p => p.id)); };
+  const addToWeek = async () => {
+    const d = D.doc.draft, n = open, t = String(texts[n] || "").trim(), ph = phOf(n).filter(p => sel.has(p.id));
+    if (d.marks[id] !== "x") {
+      if (d.marks[id] && !(await confirmBox("Madde Uygunsuz yapılsın mı?", "Bu madde bu hafta Uygunsuz değil. Bulguyu eklemek için Uygunsuz işaretlenir.", "Uygunsuz yap"))) return;
+      d.marks[id] = "x";
+    }
+    const a = d.notes[id] && d.notes[id].length ? d.notes[id] : (d.notes[id] = [""]); d.photos ||= {};
+    // Aynı metin bu hafta zaten varsa yeni satır açılmaz; fotoğraflar o satıra eklenir
+    let k = wantT ? a.findIndex(x => String(x || "").trim() === t) : -1, made = false;
+    if (k < 0) { const e = a.findIndex(x => !String(x || "").trim()); if (e >= 0 && !(d.photos[id + "|" + e] || []).length) k = e; else { a.push(""); k = a.length - 1; } a[k] = wantT ? t : a[k]; made = true; }
+    const key = id + "|" + k, cur = d.photos[key] || [], nw = ph.filter(p => !cur.some(x => x.id === p.id));
+    // Paylaşılan fotoğraf: iki tarafta da işaretlenir; silinince yalnız bağ kalkar, dosya silinmez
+    nw.forEach(p => { p.sh = 1; }); d.photos[key] = cur.concat(nw.map(p => ({ ...p, sh: 1 })));
+    m.remove(); draw(); persist();
+    toast(made ? `Bu haftaya eklendi · ${k + 1}. bulgu${nw.length ? ` · ${nw.length} fotoğraf` : ""}` : nw.length ? `Bu metin bu hafta zaten var; ${nw.length} fotoğraf o satıra eklendi.` : "Bu metin ve fotoğraflar bu hafta zaten var.");
+  };
+  m.addEventListener("click", async e => {
+    const b = e.target.closest("button"); if (!b) return; const ds = b.dataset;
+    if ("gx" in ds) return m.remove();
+    if ("gc" in ds) return clipCopy(texts.length > 1 ? texts.map((t, n) => `${n + 1}. ${t}`).join("\n") : texts[0]);
+    if (ds.gcp !== undefined) { const n = +ds.gcp; if (open === n) { open = -1; sel = new Set(); } else openF(n); return paint(); }
+    if ("gwt" in ds) { wantT = !wantT; return paint(); }
+    if ("gwp" in ds) { const ph = phOf(open), any = ph.some(p => sel.has(p.id)); ph.forEach(p => any ? sel.delete(p.id) : sel.add(p.id)); return paint(); }
+    if ("gclip" in ds) return clipCopy(String(texts[open] || ""));
+    if ("gpadd" in ds) return addToWeek();
+    if (ds.gp) { if (lp) { lp = false; return; } const [n, k] = ds.gp.split("|").map(Number), p = phOf(n)[k];
+      if (open === n && p) { sel.has(p.id) ? sel.delete(p.id) : sel.add(p.id); return paint(); }
+      return showPhotos(phOf(n).map(x => ({ t: x.t, id: x.id })), k, pid => S.getPhoto(st.fid, st.year, pid)); }
+  });
+  // Fotoğrafa basılı tutma: o bulgunun panelini yalnız bu fotoğraf seçili açar
+  let tm = null;
+  m.addEventListener("pointerdown", e => { const b = e.target.closest("[data-gp]"); if (!b) return; tm = setTimeout(() => { const [n, k] = b.dataset.gp.split("|").map(Number), p = phOf(n)[k]; if (!p) return; openF(n, p.id); wantT = false; lp = true; paint(); }, 450); });
+  ["pointerup", "pointercancel", "pointerleave"].forEach(ev => m.addEventListener(ev, () => clearTimeout(tm)));
+  m.addEventListener("contextmenu", e => { if (e.target.closest("[data-gp]")) e.preventDefault(); });
+  m.addEventListener("mousedown", e => { if (e.target === m) m.remove(); });
+  paint();
 }
+// Fotoğraf dosyasını siler; geçmiş bulgudan bu haftaya bağlanmış (paylaşılan) fotoğrafta yalnız bağ kalkar, dosya kalır
+const delPh = (st, p) => { if (!p || p.sh) return; S.deletePhoto(st.fid, st.year, p.id).catch(() => {}); };
 const $ = id => document.getElementById(id);

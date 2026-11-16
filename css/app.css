@@ -520,3 +520,19 @@ button.pd{background:transparent;color:inherit;border:0;border-bottom:1.5px dash
 .ib-sf{display:flex;justify-content:space-between;gap:8px;font-size:11.5px;color:var(--muted)}
 .ib-foot{display:flex;gap:8px}.mbox.ibx .ib-foot button{flex:1;min-width:0;padding:0 8px;font-size:13.5px;white-space:nowrap}.ib-foot button:disabled{opacity:.5}
 .ib-empty{text-align:center;color:var(--muted);font-size:13px;padding:28px 10px}
+
+/* Geçmiş bulgu: madde madde aktarma (kopyala ikonu, seçim, panel) */
+.gbt.cpw{position:relative;padding-right:34px}
+.mbox .gcp{position:absolute;top:8px;right:8px;width:20px;height:20px;min-height:0;padding:0;border-radius:6px;border:1px solid #9FD3BC;background:#F2FAF6;color:#0B6E4F;display:flex;align-items:center;justify-content:center}
+.mbox .gcp.on{background:#0B6E4F;border-color:#0B6E4F;color:#fff}
+.gbp button{position:relative;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.gbp .gck{display:none;position:absolute;top:4px;right:4px;width:20px;height:20px;border-radius:50%;background:rgba(255,255,255,.85);border:1.5px solid #9DB1AB}
+.gbc.sel .gbp .gck{display:block}.gbc.sel .gbp button:not(.on){opacity:.55}
+.gbp button.on .gck{background:#0B6E4F;border-color:#0B6E4F}.gbp button.on .gck::after{content:"";position:absolute;left:6px;top:2px;width:5px;height:10px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.gpan{border:1.5px solid #0B6E4F;border-radius:14px;padding:10px 12px;background:#F2FAF6;color:#10201C;display:flex;flex-direction:column;gap:8px}
+.gph{font-size:12px;font-weight:800;color:#0B6E4F;letter-spacing:.4px}
+.gtg{display:flex;gap:8px}.mbox .gtg button{flex:1;height:34px;min-height:0;padding:0 6px;border-radius:10px;border:1.5px solid #9FD3BC;background:#fff;color:#3E534E;font-size:12.5px;white-space:nowrap}
+.mbox .gtg button.on{background:#0B6E4F;border-color:#0B6E4F;color:#fff}
+.gpn{font-size:11.5px;color:#546964;line-height:1.45}
+.gpan .ar-two button{white-space:nowrap}.gpan button:disabled{opacity:.45}
+.pth{position:relative}.pshl{position:absolute;left:4px;bottom:4px;background:rgba(16,32,28,.75);color:#fff;font-size:9.5px;font-weight:800;font-style:normal;border-radius:6px;padding:1px 5px;pointer-events:none}
