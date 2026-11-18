@@ -1,12 +1,12 @@
 // Verim Tablosu · gerçek verilerden dönem / gösterge bazlı özet
-import * as S from "./store.js?v=20261116b";
-import { esc } from "./ui.js?v=20261116b";
-import { bandOf, DEFAULT_PARAMS, num, isgMonth, makTier, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261116b";
-import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261116b";
-import { CATS } from "./isgcats.js?v=20261116b";
-import * as Gorev from "./gorev.js?v=20261116b";
-import * as Z from "./zincir.js?v=20261116b";
-import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261116b";
+import * as S from "./store.js?v=20261118b";
+import { esc } from "./ui.js?v=20261118b";
+import { bandOf, DEFAULT_PARAMS, num, isgMonth, makTier, katsayi, konusmaPct, surecVar } from "./scoring.js?v=20261118b";
+import { askFormat, savePdf, fileTitle, withTitle } from "./pdf.js?v=20261118b";
+import { CATS } from "./isgcats.js?v=20261118b";
+import * as Gorev from "./gorev.js?v=20261118b";
+import * as Z from "./zincir.js?v=20261118b";
+import { lastWeekKey, weekScores, weekLabel } from "./isgweek.js?v=20261118b";
 
 const BAND = {
   Mükemmel: { fill: "#17A06F", c: "#0B6E4F", bg: "#D9F1E6" }, İyi: { fill: "#2A82C4", c: "#145F96", bg: "#DCEAF7" },
@@ -261,6 +261,9 @@ function draw() {
       <div class="muted" style="font-size:12.5px;line-height:1.6">Sütunlar soldan sağa eski → yeni aydır (son ay en koyu). Bölüm adının altındaki değişim, ${MS[last]} ayının bir önceki aya farkıdır (puan). Veri girilmeyen ay "–" gösterir ve değişim hesaplanmaz. Eğitim ve iş kazası, aydan aya doğal olarak dalgalandığı için aylık kıyaslanmaz.</div>`;
     }
     V.v.appendChild(card);
+    // PDF için: ekrandaki seçimler (açık kartın ay sayısı, sıralama) ve veriler
+    info.cmp = mk === 3 || mk === 4 ? { rows: isg.map(x => ({ name: x.r.name, s: x.s })), last, nDef: C.open ? C.n : 0, drop: C.drop,
+      hedef: parseFloat(String(p.esik?.h ?? "90").replace(",", ".")) || 90, kr: parseFloat(String(p.esik?.o ?? "50").replace(",", ".")) || 50 } : null;
     card.querySelector("[data-cmpt]").onclick = () => { C.open = !C.open; draw(); };
     card.querySelectorAll("[data-cn]").forEach(b => b.onclick = () => { C.n = +b.dataset.cn; draw(); });
     card.querySelector("[data-cdrop]")?.addEventListener("click", () => { C.drop = !C.drop; draw(); });
@@ -294,11 +297,11 @@ function pdfDialog(info) {
   info.sess = sl;
   const scopes = sl.length ? [["all", sl.length > 1 ? "Tüm haftalar (hafta bazlı)" : sl[0].label], ...(sl.length > 1 ? [["last:" + sl[sl.length - 1].k, "Son hafta · " + sl[sl.length - 1].label], ...sl.map(x => ["s:" + x.k, x.label])] : [])] : null;
   if (scopes && info.wkKey) { const i = scopes.findIndex(x => x[0] === "last:" + info.wkKey); if (i > 0) scopes.unshift(scopes.splice(i, 1)[0]); }
-  askFormat({ title: "PDF indir", text: `${info.title} · ${info.plabel}. Grafik ve açıklamalar; yöneticinize göndermek için hazırlanır (resimsiz tek sayfa).`, defOrient: n > 7 ? "landscape" : "portrait", hint: n > 7 ? `${n} bölüm olduğu için yatay düzen önerilir.` : "Az sayıda bölümde dikey düzen yeterlidir.", scopes, takip: info.details.some(g => g.mod === "İSG Denetim"), pics: info.details.reduce((a, g) => a + g.items.reduce((b, it) => b + (it.pics?.length || 0), 0), 0),
+  askFormat({ title: "PDF indir", text: `${info.title} · ${info.plabel}. Grafik ve açıklamalar; yöneticinize göndermek için hazırlanır (resimsiz tek sayfa).`, defOrient: n > 7 ? "landscape" : "portrait", hint: n > 7 ? `${n} bölüm olduğu için yatay düzen önerilir.` : "Az sayıda bölümde dikey düzen yeterlidir.", scopes, takip: info.details.some(g => g.mod === "İSG Denetim"), cmp: info.cmp && info.cmp.last !== undefined ? String(info.cmp.nDef) : null, pics: info.details.reduce((a, g) => a + g.items.reduce((b, it) => b + (it.pics?.length || 0), 0), 0),
     picsFor: scope => info.details.reduce((a, g) => a + (g.mod !== "İSG Denetim" ? g.items.reduce((b, it) => b + (it.pics?.length || 0), 0) : g.items.reduce((b, it) => b + Object.values(it.by || {}).filter(x => scope === "all" || info.wkOf(x) === scope.replace(/^(s|last):/, "")).reduce((c, x) => c + (x.pics?.length || 0) + (x.fx?.ph?.length || 0), 0), 0)), 0) }).then(o => o && printSheet(info, o));
 }
 
-async function printSheet(info, { size, orient, pics = false, file = false, scope = "all", trow = false, ttab = false }) {
+async function printSheet(info, { size, orient, pics = false, file = false, scope = "all", trow = false, ttab = false, cmp = "0" }) {
   // Hafta seçildiyse grafik de o haftanın görünümüne geçer (ay başından o haftanın sonuna birikimli)
   if (info.weekFor && /^(s|last):/.test(scope)) { const w = info.weekFor(scope.replace(/^(s|last):/, "")); if (w && w.names.length) info = { ...info, ...w, partial: "" }; }
   // Tasarım A4 ölçüsünde (96 dpi) yapılır; A3 için √2 büyütülür.
@@ -391,11 +394,34 @@ async function printSheet(info, { size, orient, pics = false, file = false, scop
     <div style="position:relative;height:${ch}px"><div style="position:absolute;inset:0">${GL.map(v => line(v, v)).join("")}</div><div style="position:absolute;left:30px;right:0;top:0;bottom:0;display:flex;gap:${gap}px">${bars}</div></div>
     <div style="display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:#546964">${[["Mükemmel", `≥ ${num(info.esik.m)}`], ["İyi", `${num(info.esik.i)}-${num(info.esik.m) - 1}`], ["Orta", `${num(info.esik.o)}-${num(info.esik.i) - 1}`], ["Kritik", `< ${num(info.esik.o)}`]].map(([k, r]) => `<span style="display:flex;align-items:center;gap:6px"><span style="width:11px;height:11px;border-radius:3px;background:${BAND[k].fill}"></span>${k} ${r}</span>`).join("")}</div>`,
       foot: takipTable() }; };
+  // İSG Denetim · Aylık Kıyas (ekrandaki kartın yazdırma karşılığı): tek blok, sayfada bölünmez
+  const CMP = (() => { const C = info.cmp, n = +cmp; if (!n || !C || C.last === undefined) return "";
+    const last = C.last, ms = rng(Math.max(0, last - n + 1), last), Wd = cw - 30;
+    let L = C.rows.map(x => { const a = x.s[last], b = last > 0 ? x.s[last - 1] : null; return { ...x, d: a !== null && b !== null ? a - b : null }; });
+    if (C.drop) L = L.slice().sort((p1, p2) => (p1.d === null) - (p2.d === null) || (p1.d ?? 0) - (p2.d ?? 0));
+    const per = !land && L.length > 12 ? Math.ceil(L.length / 2) : L.length, rowsL = []; for (let i = 0; i < L.length; i += per) rowsL.push(L.slice(i, i + per));
+    const CH = 1.7, B = 64, TOP = 22, H2 = Math.round(100 * CH) + B + TOP, Y = v => B + v * CH, tx = v => f1(v).replace(/,0$/, "");
+    const op = i => (ms.length === 1 ? 1 : 0.5 + 0.5 * i / (ms.length - 1));
+    const chg = d => d === null ? `<span style="color:#6A7E79">–</span>` : Math.abs(d) < 0.05 ? `<b style="color:#6B7B76">● 0</b>` : d > 0 ? `<b style="color:#1B7F4B">▲ +${f1(d)}</b>` : `<b style="color:#B3261E">▼ −${f1(-d)}</b>`;
+    const ax = (v, c, b) => `<div style="position:absolute;left:0;bottom:${Y(v) - 6}px;width:26px;text-align:right;font-size:10px;${b ? `font-weight:800;color:${c}` : "color:#6A7E79"}">${tx(v)}</div>`;
+    const ln = (v, st2) => `<div style="position:absolute;left:30px;right:0;bottom:${Y(v)}px;border-top:${st2}"></div>`;
+    const one = R => { const G = R.length, gw = Math.min(n === 2 ? 76 : 96, Math.floor((Wd - 6 * (G - 1)) / G)), bw = Math.max(9, Math.floor((gw - 8 - (ms.length - 1) * 2) / ms.length)), fw = Math.max(7, Math.round(bw * 0.68)), fs = bw < 16 ? 8 : 9.5;
+      const grp = R.map(x => `<div style="flex:0 0 ${gw}px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:${H2}px">
+        <div style="display:flex;align-items:flex-end;gap:2px">${ms.map((m, i) => { const v = x.s[m]; return `<div style="width:${bw}px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end"><div style="font-size:${fs}px;font-weight:800;margin-bottom:2px;white-space:nowrap;position:relative;z-index:2;-webkit-text-stroke:2.5px #fff;paint-order:stroke fill">${v === null ? "–" : f1(v)}</div><div style="width:${fw}px;height:${v === null ? 3 : Math.max(3, Math.round(v * CH))}px;background:${info.bandOf(v).fill};opacity:${op(i)};border-radius:4px 4px 1px 1px"></div><div style="font-size:${fs}px;color:#6A7E79;height:14px;line-height:14px">${MS[m]}</div></div>`; }).join("")}</div>
+        <div style="margin-top:3px;font-size:10.5px;font-weight:700;text-align:center;line-height:1.2;width:100%;min-height:26px;word-break:break-word">${esc(x.name)}</div><div style="font-size:10.5px;height:15px">${chg(x.d)}</div></div>`).join("");
+      const axis = [0, 25, 75, 100].filter(a => Math.abs(a - C.hedef) >= 7 && Math.abs(a - C.kr) >= 7).map(a => ax(a)).join("") + ax(C.kr, "#D6382E", true) + ax(C.hedef, "#0B6E4F", true);
+      const lines = [25, 75, 100].map(a => ln(a, "1px dashed #B5C5BF")).join("") + ln(0, "1.5px solid #9FB4AE") + ln(C.kr, "2px solid #D6382E") + ln(C.hedef, "2px solid #0B6E4F");
+      return `<div style="position:relative;height:${H2}px">${axis}${lines}<div style="position:absolute;left:30px;right:0;bottom:0;display:flex;gap:6px;justify-content:space-around">${grp}</div></div>`; };
+    return `<div data-cmp style="border-top:1px solid #D5E0DC;padding-top:10px;display:flex;flex-direction:column;gap:6px;break-inside:avoid">
+      <div style="font-weight:800;color:#145F96">İSG Denetim · Aylık Kıyas <span style="font-weight:400;font-style:italic;color:#8A9A95">(son ${n} ay${C.drop ? " · en çok düşenler önde" : ""})</span></div>
+      <div style="display:flex;gap:14px;font-size:11px;color:#546964"><span style="display:flex;gap:6px;align-items:center"><span style="width:16px;border-top:2px solid #0B6E4F"></span>Hedef puan (${tx(C.hedef)})</span><span style="display:flex;gap:6px;align-items:center"><span style="width:16px;border-top:2px solid #D6382E"></span>Kritik puan (${tx(C.kr)})</span></div>
+      ${rowsL.map(one).join("")}
+      <div style="font-size:10.5px;color:#546964;line-height:1.5">Sütunlar soldan sağa eski → yeni aydır (son ay en koyu). Bölüm adının altındaki değişim, ${MS[last]} ayının bir önceki aya farkıdır (puan). Veri girilmeyen ay "–" gösterir ve değişim hesaplanmaz.</div></div>`; })();
   const wrap = (inner, z, extra = "", pg = "") => `<div class="ppg" style="width:${cw}px;zoom:${z};${extra}${FONT}">${inner}${pg ? `<div style="margin-top:auto;flex:0 0 22px;line-height:22px;text-align:center;font-size:11px;color:#6A7E79">${pg}</div>` : ""}</div>`;
   // Tek sayfa düzeni
   const PGH = Hh - 2 * M - 6, avail = PGH - 56; // alttaki şerit sayfa numarasına ayrılır (yazıyla asla çakışmaz) + yazdırmada ölçü farkı payı
   const FIX = `height:${PGH}px;overflow:hidden;box-sizing:border-box;position:relative;`;
-  const build = (ch, z, fin) => { const p = parts(ch); return wrap(p.head + p.first + descBox(items.length ? group(items) : NONE) + p.foot, z, fin ? FIX : "", fin ? "Sayfa 1/1" : ""); };
+  const build = (ch, z, fin) => { const p = parts(ch); return wrap(p.head + p.first + CMP + descBox(items.length ? group(items) : NONE) + p.foot, z, fin ? FIX : "", fin ? "Sayfa 1/1" : ""); };
   // Çok sayfalı düzen: her sayfada üst bilgi; devam sayfalarında "AÇIKLAMA" başlığı, madde numaraları kesintisiz
   const paginate = async () => {
     await (document.fonts?.ready || Promise.resolve()).catch(() => {});
@@ -405,24 +431,26 @@ async function printSheet(info, { size, orient, pics = false, file = false, scop
     await Promise.all([...sh.querySelectorAll("img")].map(im => im.complete ? 0 : new Promise(r => { im.onload = im.onerror = r; })));
     const hs = [...sh.firstElementChild.children].map(c => c.offsetHeight);
     const ph = items.map((e, i) => ({ gi: e.gi, mod: e.mod, html: `<div style="height:${hs[i]}px"></div>` }));
-    const fitsF = (idx, first, foot) => { const list = idx.map(i => ph[i]);
-      sh.innerHTML = wrap(p.head + (first ? p.first : "") + (list.length ? descBox(group(list)) : first && !items.length ? descBox(NONE) : "") + foot, 1);
+    sh.innerHTML = wrap(p.head + p.first + CMP, 1); const cmp1 = !CMP || sh.firstElementChild.offsetHeight <= avail;
+    const top = pi => (pi === 0 ? p.first + (cmp1 ? CMP : "") : pi === 1 && !cmp1 ? CMP : "");
+    const fitsF = (idx, first, foot, pi = first ? 0 : -1) => { const list = idx.map(i => ph[i]);
+      sh.innerHTML = wrap(p.head + top(pi) + (list.length ? descBox(group(list)) : first && !items.length ? descBox(NONE) : "") + foot, 1);
       return sh.firstElementChild.offsetHeight <= avail; };
-    const pages = []; let cur = [];
+    const pages = cmp1 ? [] : [[]]; let cur = []; // kıyas 1. sayfaya sığmazsa 1. sayfa yalnız grafik; kıyas ve açıklamalar 2. sayfadan başlar
     for (let i = 0; i < items.length; i++) {
-      if (fitsF([...cur, i], !pages.length, "")) cur.push(i);
+      if (fitsF([...cur, i], !pages.length, "", pages.length)) cur.push(i);
       else if (!cur.length && pages.length) cur.push(i);
       else { pages.push(cur); cur = [i]; }
     }
     pages.push(cur);
     // Takip tablosu: son açıklama sayfasında sığdığı kadar satır, kalanı devam sayfalarında (tablo kesilmez, boş sayfa bırakılmaz)
     let rest = takipAll(), lastFoot = "", k = rest.length; const chunks = [];
-    while (k > 0 && !fitsF(cur, pages.length === 1, takipTable(rest.slice(0, k)))) k--;
+    while (k > 0 && !fitsF(pages[pages.length - 1], pages.length === 1, takipTable(rest.slice(0, k)), pages.length - 1)) k--;
     if (k) { lastFoot = takipTable(rest.slice(0, k)); rest = rest.slice(k); }
     while (rest.length) { let n = rest.length; while (n > 1 && !fitsF([], false, takipTable(rest.slice(0, n), true))) n--; chunks.push(rest.slice(0, n)); rest = rest.slice(n); }
     const total = pages.length + chunks.length;
     return (z, fixed) => pages.map((idx, n) => { const list = idx.map(i => items[i]), first = n === 0, last = n === pages.length - 1;
-      return wrap(p.head + (first ? p.first : "") + (list.length ? descBox(group(list)) : first && !items.length ? descBox(NONE) : "") + (last ? lastFoot : ""), z, FIX + (fixed && (n < total - 1) ? "break-after:page;" : ""), `Sayfa ${n + 1}/${total}`); }).join("")
+      return wrap(p.head + top(n) + (list.length ? descBox(group(list)) : first && !items.length ? descBox(NONE) : "") + (last ? lastFoot : ""), z, FIX + (fixed && (n < total - 1) ? "break-after:page;" : ""), `Sayfa ${n + 1}/${total}`); }).join("")
       + chunks.map((rs, n) => wrap(p.head + takipTable(rs, !!lastFoot || n > 0), z, FIX + (fixed && n < chunks.length - 1 ? "break-after:page;" : ""), `Sayfa ${pages.length + n + 1}/${total}`)).join("");
   };
   const stl = document.createElement("style"); stl.id = "pstyle";

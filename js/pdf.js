@@ -1,5 +1,5 @@
 // Ortak PDF yardımcıları: kâğıt boyutu (A4/A3) + sayfa düzeni (dikey/yatay) penceresi
-import { esc } from "./ui.js?v=20261116b";
+import { esc } from "./ui.js?v=20261118b";
 
 // "Paylaş" seçildiyse savePdf dosyayı indirmek yerine paylaşma penceresi açar
 const PDF = { share: false };
@@ -16,14 +16,17 @@ function shareReady(blob, name) {
   m.querySelector("[data-dl]").onclick = () => { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 800); };
   m.querySelector("[data-sh]").onclick = async () => { try { await navigator.share({ files: [file], title: name.replace(/\.pdf$/i, "") }); m.remove(); } catch (e) { if (e?.name !== "AbortError") { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click(); } } };
 }
-export function askFormat({ title = "PDF indir", text = "", defOrient = "portrait", hint = "", pics = 0, picsFor = null, fileOnly = false, scopes = null, takip = false } = {}) {
+export function askFormat({ title = "PDF indir", text = "", defOrient = "portrait", hint = "", pics = 0, picsFor = null, fileOnly = false, scopes = null, takip = false, cmp = null } = {}) {
   return new Promise(res => {
-    const o = { size: "A4", orient: defOrient, pics: false, scope: scopes ? scopes[0][0] : "all" };
+    const o = { size: "A4", orient: defOrient, pics: false, scope: scopes ? scopes[0][0] : "all", cmp: cmp || "0" };
+    const CO = [["0", "Ekleme"], ["2", "Son 2 ay"], ["3", "Son 3 ay"]], CHV = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
     const m = document.createElement("div"); m.className = "mod";
     const seg = (k, items) => items.map(([v, t]) => `<button class="sec" data-k="${k}" data-v="${v}" style="flex:1;height:38px;border-radius:10px;font-weight:700">${t}</button>`).join("");
     m.innerHTML = `<div class="mbox pf" role="dialog" aria-modal="true" style="position:relative"><button type="button" class="mx" data-no aria-label="Kapat">${XI}</button><h2 style="padding-right:56px">${esc(title)}</h2>
       <div class="muted" style="line-height:1.5">${esc(text)}</div>
       ${scopes ? `<div class="col1" style="gap:4px"><label class="hd" for="pScope">RAPOR İÇERİĞİ (İSG AÇIKLAMALARI)</label><select id="pScope" style="font-weight:700">${scopes.map(([v, t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join("")}</select></div>` : ""}
+      ${cmp !== null ? `<div class="col1" style="gap:4px"><span class="hd">AYLIK KIYAS GRAFİĞİ (İSG DENETİM)</span><div class="dd" data-cmpdd><button type="button" class="inp dd-b" aria-haspopup="listbox" aria-expanded="false" aria-label="Aylık kıyas grafiği"><span>${CO.find(x => x[0] === o.cmp)[1]}</span>${CHV}</button>
+        <div class="dd-l" role="listbox" hidden>${CO.map(([v, t]) => `<button type="button" role="option" class="dd-o${v === o.cmp ? " on" : ""}" data-cv="${v}">${t}</button>`).join("")}</div></div></div>` : ""}
       <div class="col1" style="gap:6px"><span class="hd">KÂĞIT BOYUTU</span><div class="row" style="gap:8px;flex-wrap:nowrap">${seg("size", [["A4", "A4"], ["A3", "A3"]])}</div></div>
       <div class="col1" style="gap:6px"><span class="hd">SAYFA DÜZENİ</span><div class="row" style="gap:8px;flex-wrap:nowrap">${seg("orient", [["portrait", "Dikey"], ["landscape", "Yatay"]])}</div>
         ${hint ? `<span class="muted" style="font-size:12.5px">${esc(hint)}</span>` : ""}</div>
@@ -39,6 +42,10 @@ export function askFormat({ title = "PDF indir", text = "", defOrient = "portrai
     const done = v => { m.remove(); res(v); };
     m.querySelectorAll("[data-no]").forEach(b => b.onclick = () => done(null));
     m.addEventListener("mousedown", e => { if (e.target === m) done(null); });
+    const cd = m.querySelector("[data-cmpdd]");
+    if (cd) { const b = cd.querySelector(".dd-b"), l = cd.querySelector(".dd-l");
+      b.onclick = () => { l.hidden = !l.hidden; b.setAttribute("aria-expanded", String(!l.hidden)); };
+      l.querySelectorAll("[data-cv]").forEach(x => x.onclick = () => { o.cmp = x.dataset.cv; l.querySelectorAll("[data-cv]").forEach(y => y.classList.toggle("on", y === x)); b.firstElementChild.textContent = x.textContent; l.hidden = true; b.setAttribute("aria-expanded", "false"); }); }
     const pc = m.querySelector("[data-pics]");
     const sc = m.querySelector("#pScope"), pr = m.querySelector("[data-prow]"), pn = m.querySelector("[data-pn]");
     const upPics = () => { if (!picsFor || !pr) return; const n = picsFor(sc ? sc.value : "all"); pn.textContent = n; pr.style.display = n ? "" : "none"; if (!n && pc) pc.checked = false; };
